@@ -40,7 +40,11 @@ const fs = require('fs')
 const path = require('path')
 const { Client } = require('pg')
 const { pageCarte } = require('./carte-page.cjs')
+const { pageExplorateur } = require('./carte-explorateur.cjs')
 const { construireLibelles } = require('./carte-libelles.cjs')
+const { lireValeurs } = require('./carte-valeurs.cjs')
+const { lireUsageSql, resumer } = require('./carte-prod.cjs')
+const { lireHistoire, creePar, provenance } = require('./carte-histoire.cjs')
 
 const RACINE = path.resolve(__dirname, '..')
 const SORTIE = path.join(RACINE, 'carte-donnees')
@@ -88,14 +92,39 @@ async function lireSchema(client) {
     })
   }
 
-  // Le volume réel : une table que la production ne lit jamais mérite d'être vue à côté du code.
+  /* ══ LE VOLUME : `reltuples` D'ABORD, `n_live_tup` SEULEMENT EN SECOURS ═══════════════════════
+     Une table que la production ne lit jamais mérite d'être vue à côté du code — encore faut-il que
+     le nombre soit vrai. `n_live_tup` ne l'était pas :
+
+       contrats     n_live_tup = 1        reltuples = 1 604    réel = 1 604
+       compteurs    n_live_tup = 15       reltuples = 7 924    réel = 7 942
+       sites        n_live_tup = 9        reltuples = 6 366    réel = 6 391
+
+     `n_live_tup` est un COMPTEUR INCRÉMENTAL, remis à zéro au redémarrage de l'instance et rattrapé
+     seulement par un VACUUM ou un ANALYZE. Sur les tables peuplées par import et jamais analysées
+     depuis, il est resté à ce qui a bougé après le dernier redémarrage — trois tables sur quatre
+     annonçaient donc une poignée de lignes. « contrats : 1 ligne » se lit comme « table vide », et
+     c'est l'erreur qui fait supprimer quelque chose.
+
+     `reltuples` est l'estimation du planificateur : à 0,3 % près ici, et jamais remise à zéro.
+     Elle vaut -1 tant qu'aucune statistique n'existe — d'où le repli.
+
+     UN `count(*)` SUR 171 TABLES SERAIT EXACT ET IMPRUDENT : c'est un parcours complet par table, et
+     le 10/09/2026 un import à pleine vitesse a épuisé le CPU de l'instance et arrêté toute l'équipe.
+     Une estimation à 0,3 % ne vaut pas ce risque-là. */
   const stats = await client.query(`
-    select relname, n_live_tup, seq_scan, coalesce(idx_scan, 0) as idx_scan
-      from pg_stat_user_tables`)
+    select c.relname,
+           case when c.reltuples >= 0 then c.reltuples::bigint else s.n_live_tup end as lignes,
+           c.reltuples >= 0 as estimee,
+           coalesce(s.seq_scan, 0) as seq_scan, coalesce(s.idx_scan, 0) as idx_scan
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      left join pg_stat_user_tables s on s.relid = c.oid
+     where n.nspname = 'public' and c.relkind = 'r'`)
   for (const r of stats.rows) {
     const t = tables.get(r.relname)
     if (t) {
-      t.lignes = Number(r.n_live_tup)
+      t.lignes = Number(r.lignes)
       t.lectures = Number(r.seq_scan) + Number(r.idx_scan)
     }
   }
@@ -560,7 +589,22 @@ async function construire() {
     select p.proname as nom
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f'`)
+
+  /* ══ LE CATALOGUE DES CHAMPS — William, 14/09/2026 ═══════════════════════════════════════════
+     « pour chaque objet, la liste des champs avec le nom API, le nom affiché, le type, les valeurs
+     possibles, qui l'a créé, quand, s'il sert en prod et s'il est visible. »
+     Les quatre premières réponses étaient déjà là. Les trois dernières demandent trois lectures que
+     cette carte ne faisait pas : ce qu'une colonne a le droit de contenir (`carte-valeurs`), ce qui
+     s'en sert CÔTÉ BASE et non côté écran (`carte-prod`), et l'archéologie du dépôt (`carte-histoire`).
+     Les trois tournent ici, dans le même passage, pour la même raison que la page et les CSV : deux
+     commandes séparées finiraient par se contredire. */
+  const valeurs = await lireValeurs(client)
+  const usageSql = await lireUsageSql(client)
   await client.end()
+
+  const colonnesParTable = new Map()
+  for (const t of schema.values()) colonnesParTable.set(t.nom, new Set(t.colonnes.map((c) => c.nom)))
+  const { histoire, disparues, migrations } = lireHistoire(colonnesParTable)
 
   const liste = [...fichiers(path.join(RACINE, 'src')), ...fichiers(path.join(RACINE, 'api'))]
   const constantes = catalogueConstantes(liste)
@@ -704,7 +748,11 @@ async function construire() {
   })
 
   const nbPages = liste.filter((f) => /^src\/pages\//.test(f)).length
-  return { schema, usage, tablesVues, etoiles, angles, libelles, ambigus, nbPages, fonctions: fonctions.rows.map((r) => r.nom), liste }
+  return {
+    schema, usage, tablesVues, etoiles, angles, libelles, ambigus, nbPages,
+    fonctions: fonctions.rows.map((r) => r.nom), liste,
+    valeurs, usageSql, histoire, disparues, migrations,
+  }
 }
 
 // ── LES SORTIES ─────────────────────────────────────────────────────────────────────────────────
@@ -724,7 +772,8 @@ function main() {
   const verifier = process.argv.includes('--verifier')
 
   construire()
-    .then(({ schema, usage, tablesVues, etoiles, angles, libelles, ambigus, nbPages, fonctions }) => {
+    .then(({ schema, usage, tablesVues, etoiles, angles, libelles, ambigus, nbPages, fonctions,
+             valeurs, usageSql, histoire, disparues, migrations }) => {
       /* ══ « 42 ÉCRANS » N'EST PAS UNE RÉPONSE ═══════════════════════════════════════════════════
          La première carte attribuait `contrats.reference` à 42 écrans sur 46. Ce n'était pas faux —
          la recherche globale (⌘K) est montée dans la mise en page, donc elle est bien partout — mais
@@ -830,7 +879,7 @@ function main() {
         })
       const n2 = ecrireCsv(
         '2-par-table.csv',
-        ['Table', 'Nature', 'Lignes', 'Colonnes', 'Colonnes lues', 'Colonnes écrites',
+        ['Table', 'Nature', 'Lignes (estimation)', 'Colonnes', 'Colonnes lues', 'Colonnes écrites',
          'Colonnes jamais lues', 'Écrans qui lisent', 'Écrans qui écrivent', 'Remarque'],
         parTable,
       )
@@ -889,6 +938,88 @@ function main() {
         rangeesLibelles,
       )
 
+      /* ══ ⑥ LE CATALOGUE DES CHAMPS — une ligne par champ, toutes les réponses sur la même ligne ══
+         C'est la feuille que William a demandée le 14/09/2026, et elle se lit de gauche à droite
+         comme la question se pose : comment s'appelle ce champ pour la machine, comment il s'appelle
+         pour l'équipe, ce qu'il contient, d'où il vient, s'il sert encore, et si quelqu'un le voit.
+
+         ══ « VISIBLE EN PROD » N'EST PAS « UTILISÉ EN PROD », ET LES CONFONDRE COÛTERAIT CHER ══
+
+         Un champ peut être invisible et vital — `recommandations.date_cloture_manuelle` ne s'affiche
+         nulle part et décide qu'un dossier reste clos. Un autre peut être visible et mort — affiché
+         dans un coin, jamais rempli, contraint par rien. Les deux colonnes sont donc séparées, et
+         « non » dans les DEUX est la seule combinaison qui autorise à envisager une suppression. */
+      const catalogue = []
+      for (const t of [...schema.values()].sort((a, b) => a.nom.localeCompare(b.nom))) {
+        for (const c of t.colonnes) {
+          const cle = `${t.nom}.${c.nom}`
+          const u = usage.get(cle)
+          const etoile = etoiles.get(t.nom)
+          const v = valeurs.get(cle) ?? { valeurs: '', origine: '' }
+          const h = histoire.get(cle)
+          const prod = resumer(usageSql.get(cle))
+          const lus = new Set([...(u ? u.lue : []), ...(etoile ?? [])])
+          const libelle = [...(libelleParColonne.get(cle) ?? [])].sort().join(' · ')
+          /* LA VISIBILITÉ SE PROUVE PAR UN ÉCRAN, PAS PAR UNE ROUTE D'API. Un champ que seule une
+             route `api/…` lit n'est vu de personne : il circule. Les écrans d'API portent tous le
+             préfixe « API », c'est ce qui permet de les écarter ici sans les perdre ailleurs. */
+          const ecransVrais = [...lus].filter((e) => !/^API /.test(e))
+          const visible = libelle ? 'oui' : ecransVrais.length ? 'probable' : 'non'
+
+          catalogue.push([
+            t.nom,
+            t.vue ? 'vue' : 'table',
+            c.nom,
+            libelle,
+            c.type,
+            c.obligatoire ? 'obligatoire' : 'facultatif',
+            v.valeurs,
+            v.origine,
+            creePar(h),
+            h ? h.date : '',
+            provenance(h),
+            /* « UTILISÉ EN PROD » RÉUNIT LES DEUX CÔTÉS. La base peut s'en servir sans l'application
+               (déclencheur, policy, contrainte), et l'application sans la base (un champ libre lu et
+               écrit par un écran). Ne regarder qu'un seul côté condamnait la moitié des champs.
+
+               ET UN `select('*')` COMPTE POUR « PROBABLE », JAMAIS POUR « NON ». `comptes.email`
+               sortait « non utilisé » tout en affichant vingt-trois écrans dans la colonne d'à côté :
+               aucune requête ne le NOMME, mais sa table est lue en entier, donc il arrive bien
+               jusqu'aux écrans. Répondre « non » là où la colonne voisine dit le contraire est la
+               pire des réponses — elle discrédite les deux. */
+            u || prod.verdict === 'oui' ? 'oui' : prod.verdict === 'probable' || etoile ? 'probable' : 'non',
+            [
+              prod.detail,
+              u && u.lue.size ? 'lu par l’app' : '',
+              u && u.ecrite.size ? 'écrit par l’app' : '',
+              !u && etoile ? 'la table est lue en select(*) : le champ arrive à l’écran sans être nommé' : '',
+            ].filter(Boolean).join(' · '),
+            visible,
+            lister(new Set(ecransVrais)),
+            u ? [...u.fichiers].sort().join(', ') : '',
+          ])
+        }
+      }
+      const n6 = ecrireCsv(
+        '6-catalogue-des-champs.csv',
+        ['Objet', 'Nature', 'Nom API', 'Nom affiché sur la plateforme', 'Type', 'Obligatoire',
+         'Valeurs possibles', 'D’où viennent ces valeurs', 'Créé par', 'Créé le',
+         'Comment on le sait', 'Utilisé en prod', 'Par quoi', 'Visible en prod',
+         'Où dans l’interface', 'Fichiers'],
+        catalogue,
+      )
+
+      /* ⑦ CE QUI A DISPARU. Un champ retiré par migration ne laisse aucune trace en base — c'est le
+         propre d'une suppression — et c'est pourtant ce qu'on cherche quand un vieil écran, un
+         export ou une requête enregistrée cesse de marcher. Les migrations, elles, s'en souviennent. */
+      const n7 = ecrireCsv(
+        '7-champs-disparus.csv',
+        ['Objet', 'Nom API', 'Ce qui lui est arrivé', 'Migration'],
+        disparues
+          .sort((a, b) => a.table.localeCompare(b.table) || a.colonne.localeCompare(b.colonne))
+          .map((d) => [d.table, d.colonne, d.genre, d.migration]),
+      )
+
       // Le test porte sur le texte exact : la colonne « Remarque » porte aussi le cas `select(*)`,
       // et un `filter(l => l[9])` comptait les deux ensemble — 109 au lieu de 55.
       /* ── LA PAGE, écrite par le même passage que les CSV ──
@@ -899,7 +1030,17 @@ function main() {
       })
       fs.writeFileSync(
         path.join(SORTIE, 'carte.html'),
-        pageCarte({ colonnes: parColonne, tables: parTable, trous, genereLe }),
+        pageCarte({ colonnes: parColonne, tables: parTable, trous, genereLe, catalogue }),
+        'utf8',
+      )
+
+      /* ── L'EXPLORATEUR, écrit par le même passage que la carte et les CSV ──
+         William, 14/09/2026 : « une plateforme sur laquelle je peux naviguer ». Trois sorties
+         maintenant, et toujours un seul relevé : elles ne peuvent pas se contredire, et une seule
+         commande les remet toutes à jour. */
+      fs.writeFileSync(
+        path.join(SORTIE, 'explorateur.html'),
+        pageExplorateur({ catalogue, tables: parTable, genereLe }),
         'utf8',
       )
 
@@ -916,7 +1057,22 @@ function main() {
         '  5-libelles.csv       ' + n5 + ' liens libellé↔colonne  (' + parCertitude('sur') + ' sûrs, '
           + parCertitude('probable') + ' probables ; ' + ambigus.length + ' écartés par prudence)',
       )
-      console.log('  carte.html           page consultable, cherchable, à jour du même passage')
+      const parSource = (s) => catalogue.filter((l) => String(l[10]).startsWith(s)).length
+      const enProd = catalogue.filter((l) => l[11] === 'oui').length
+      const visibles = catalogue.filter((l) => l[13] === 'oui').length
+      console.log('  6-catalogue-des-champs.csv  ' + n6 + ' champs — la feuille demandée le 14/09')
+      console.log('      valeurs contraintes : ' + catalogue.filter((l) => !/^libre/.test(l[6])).length
+        + '  ·  utilisés en prod : ' + enProd + '  ·  visibles à l’écran : ' + visibles)
+      console.log('      origine connue      : ' + parSource('migration') + ' par migration, '
+        + parSource('au plus tard') + ' datés au plus tard, '
+        + parSource('antérieur') + ' du socle Salesforce (' + migrations + ' migrations lues)')
+      console.log('  7-champs-disparus.csv       ' + n7 + ' champs retirés ou renommés par migration')
+      if (valeurs.ecartees && valeurs.ecartees.length) {
+        console.log('      ' + valeurs.ecartees.length + ' champs laissés sans valeurs : leur contenu est'
+          + ' une donnée (nom, courriel, date), pas un vocabulaire')
+      }
+      console.log('  carte.html           page consultable : on arrive par un nom de champ')
+      console.log('  explorateur.html     on choisit un objet, on filtre ses champs, on cherche')
       console.log('')
       console.log('fonctions SQL du schéma : ' + fonctions.length + '  ·  appelées depuis le code : ' + angles.rpc.size)
       if (fantomes.length) console.log('⚠  ' + fantomes.length + ' incohérence(s) — voir 4-angles-morts.csv')

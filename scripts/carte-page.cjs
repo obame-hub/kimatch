@@ -17,6 +17,8 @@
 // Elle est produite PAR le même passage que les CSV : les deux ne peuvent donc pas divergre.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
+const { theme } = require('./carte-theme.cjs')
+
 /** Échappe ce qui part dans du HTML. Les noms de table sont sûrs, les libellés le sont moins. */
 const h = (s) =>
   String(s ?? '')
@@ -32,7 +34,13 @@ const nombre = (n) => Number(n).toLocaleString('fr-FR')
  * @param {Array} donnees.tables    lignes de 2-par-table
  * @param {Array} donnees.trous     lignes de 4-angles-morts
  */
-function pageCarte({ colonnes, tables, trous, genereLe }) {
+function pageCarte({ colonnes, tables, trous, genereLe, catalogue = [] }) {
+  /* LE CATALOGUE EST JOINT PAR CLÉ ET NON PAR RANG. Les deux tableaux sont construits par la même
+     boucle et sortent donc dans le même ordre — aujourd'hui. Se fier à cet ordre ferait glisser
+     toutes les valeurs d'une ligne le jour où l'un des deux gagne un filtre, et un décalage d'une
+     ligne est le genre d'erreur que personne ne voit : chaque champ afficherait les valeurs du
+     suivant, plausiblement. */
+  const parCle = new Map(catalogue.map((l) => [l[0] + '.' + l[2], l]))
   /* LES LISTES D'ÉCRANS SONT INTERNÉES. Sur 2 071 lignes il n'existe que 90 listes distinctes —
      « Toute l'app », « Nouveautes », « Contrat Detail, Contrats »… Les stocker une fois et n'en
      garder que l'indice fait passer la charge de 345 Ko à moins d'un tiers, sans rien perdre. */
@@ -53,16 +61,30 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
      commentaire qui affirme ce que le code ne fait pas est plus coûteux qu'un code sans commentaire :
      il détourne la relecture. */
   const DICO_VIDE = interner('')
-  // [table, colonne, type, obligatoire, lecture(0|1|2), ecriture(0|1), écrans, libellé, fichiers]
+  // [table, colonne, type, obligatoire, lecture(0|1|2), ecriture(0|1), écrans, libellé, fichiers,
+  //  valeurs, origine des valeurs, créé par, créé le, comment on le sait, prod(0|1|2), par quoi,
+  //  visible(0|1|2)]
   const LECTURE = { non: 0, oui: 1, 'oui (select *)': 2 }
-  const lignes = colonnes.map((c) => [
-    c[0], c[2], c[3], c[4] ? 1 : 0,
-    LECTURE[c[5]] ?? 0,
-    c[6] === 'oui' ? 1 : 0,
-    interner(c[7]),
-    interner(c[9]),
-    interner(c[10]),
-  ])
+  const TROIS = { non: 0, oui: 1, probable: 2 }
+  const lignes = colonnes.map((c) => {
+    const k = parCle.get(c[0] + '.' + c[2]) ?? []
+    return [
+      c[0], c[2], c[3], c[4] ? 1 : 0,
+      LECTURE[c[5]] ?? 0,
+      c[6] === 'oui' ? 1 : 0,
+      interner(c[7]),
+      interner(c[9]),
+      interner(c[10]),
+      interner(k[6]),
+      interner(k[7]),
+      interner(k[8]),
+      interner(k[9]),
+      interner(k[10]),
+      TROIS[k[11]] ?? 0,
+      interner(k[12]),
+      TROIS[k[13]] ?? 0,
+    ]
+  })
   const avecLibelle = lignes.filter((l) => l[7] !== DICO_VIDE).length
 
   const totalColonnes = lignes.length
@@ -70,53 +92,27 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
   const explicites = lignes.filter((l) => l[4] === 1).length
   const etoiles = lignes.filter((l) => l[4] === 2).length
   const tablesJamais = tables.filter((t) => t[9] === 'JAMAIS CITÉE PAR LE CODE')
+  const enProd = lignes.filter((l) => l[14] === 1).length
+  const contraintes = lignes.filter((l) => dico[l[9]] && !/^libre/.test(dico[l[9]])).length
+  /* « NI VU NI UTILISÉ » est le seul chiffre qui autorise une décision. Ni « jamais lue » — une
+     colonne peut être invisible au code et tenue par un déclencheur — ni « invisible » — elle peut
+     être vitale sans être affichée. C'est l'intersection des deux qui désigne le vrai bois mort. */
+  const mort = lignes.filter((l) => l[14] === 0 && l[16] === 0 && l[4] === 0 && l[5] === 0).length
 
   const payload = JSON.stringify({ dico, lignes })
   void DICO_VIDE
 
-  return `<title>Carte des données Kimatch</title>
+  /* ── L'ENCODAGE SE DÉCLARE, IL NE SE DEVINE PAS ──
+     Sans cette ligne, « Carte des données » s'affiche « Carte des donnÃ©es » dès que la page n'est
+     pas ouverte depuis le disque : un partage par Drive, un petit serveur local, un envoi par mail.
+     Le navigateur retombe alors sur un encodage historique, et toute la page devient illisible —
+     alors que le fichier, lui, est bien en UTF-8. Deux lignes qui évitent de croire la carte cassée. */
+  return `<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carte des données Kimatch</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
-  :root {
-    /* Le vert de Kimatch, relevé dans son propre thème : la carte parle de Kimatch, elle en porte
-       la couleur plutôt qu'une teinte de tableau de bord générique. */
-    --accent:      #0A6B57;
-    --accent-doux: #E3F0EB;
-    --accent-bord: #B7D8CD;
-
-    /* Neutres tirés vers le vert : choisis, pas hérités d'un gris de départ. */
-    --fond:        #F6F8F7;
-    --surface:     #FFFFFF;
-    --encre:       #101715;
-    --encre-douce: #48544F;
-    --encre-pale:  #7B857F;
-    --ligne:       #E0E6E2;
-    --trame:       #F1F4F2;
-
-    /* Sémantiques, distinctes de l'accent : un état n'est pas une marque. */
-    --sur:         #0A6B57;
-    --flou:        #8A5A00;
-    --flou-doux:   #FBF2DE;
-    --absent:      #A3281E;
-    --absent-doux: #FBEBE8;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --accent: #4FC4A5; --accent-doux: #12302A; --accent-bord: #21473E;
-      --fond: #0E1413; --surface: #151D1B; --encre: #E7EEEB; --encre-douce: #A6B2AD;
-      --encre-pale: #74807A; --ligne: #232E2B; --trame: #1A2422;
-      --sur: #4FC4A5; --flou: #DCB25E; --flou-doux: #2A2312;
-      --absent: #F0908A; --absent-doux: #321A18;
-    }
-  }
-  :root[data-theme="dark"] {
-    --accent: #4FC4A5; --accent-doux: #12302A; --accent-bord: #21473E;
-    --fond: #0E1413; --surface: #151D1B; --encre: #E7EEEB; --encre-douce: #A6B2AD;
-    --encre-pale: #74807A; --ligne: #232E2B; --trame: #1A2422;
-    --sur: #4FC4A5; --flou: #DCB25E; --flou-doux: #2A2312;
-    --absent: #F0908A; --absent-doux: #321A18;
-  }
-
+${theme}
   * { box-sizing: border-box; }
   body {
     background: var(--fond); color: var(--encre);
@@ -136,7 +132,8 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
 
   /* ── Les quatre nombres : ce qu'on vient chercher avant de fouiller ── */
   .tuiles { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); margin-top: 26px; }
-  @media (min-width: 720px) { .tuiles { grid-template-columns: repeat(5, 1fr); } }
+  @media (min-width: 620px) { .tuiles { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 980px) { .tuiles { grid-template-columns: repeat(6, 1fr); } }
   .tuile { background: var(--surface); border: 1px solid var(--ligne); border-radius: 5px; padding: 13px 15px; }
   .tuile { display: flex; flex-direction: column; }
   .tuile .k { font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: .07em;
@@ -209,6 +206,24 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
   .p.non  { background: var(--absent-doux); color: var(--absent); border-color: var(--absent); }
   .p.ecr  { background: transparent; color: var(--encre-douce); border-color: var(--ligne); }
 
+  /* ── Les valeurs possibles et la date : lisibles d'un coup d'œil, sans manger la largeur ── */
+  td.val { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--encre-douce);
+           max-width: 300px; }
+  td.date { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--encre-pale);
+            white-space: nowrap; }
+
+  /* ── Le détail d'un champ, déplié sous sa ligne ── */
+  tr.champ { cursor: pointer; }
+  tr.champ:hover td { background: var(--trame); }
+  tr.champ:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  tr.detail > td { background: var(--trame); padding: 12px 14px; }
+  .bd { display: grid; grid-template-columns: 1fr; gap: 1px; padding: 4px 0; }
+  @media (min-width: 760px) { .bd { grid-template-columns: 220px 1fr; gap: 14px; } }
+  .bd + .bd { border-top: 1px solid var(--ligne); }
+  .bt { font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: .05em;
+        text-transform: uppercase; color: var(--encre-pale); }
+  .bv { font-size: 13px; color: var(--encre-douce); overflow-wrap: anywhere; }
+
   .vide { margin-top: 30px; padding: 22px; text-align: center; color: var(--encre-pale);
           border: 1px dashed var(--ligne); border-radius: 5px; }
   .plus { margin-top: 18px; text-align: center; }
@@ -231,9 +246,11 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
     <p class="eyebrow">Kimatch · relevé du ${h(genereLe)}</p>
     <h1>Carte des données</h1>
     <p class="chapeau">
-      Chaque colonne de la base, et l'endroit de l'application qui la lit ou l'écrit. Dérivée du
-      schéma vivant et des ${nombre(totalColonnes)} colonnes croisées avec le code — pas tenue à la
-      main, donc pas périmée : <code>npm run carte</code> la réécrit.
+      Les ${nombre(totalColonnes)} champs de Kimatch, objet par objet : leur nom pour la machine et
+      leur nom à l'écran, ce qu'ils ont le droit de contenir, d'où ils viennent, ce qui s'en sert en
+      production et qui les voit. Cliquez une ligne pour son détail. Dérivée du schéma vivant croisé
+      avec le code et l'historique du dépôt — pas tenue à la main, donc pas périmée :
+      <code>npm run carte</code> la réécrit.
     </p>
   </header>
 
@@ -243,32 +260,37 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
       <p class="d">sur ${nombre(tables.length)} tables et vues</p>
     </div>
     <div class="tuile">
-      <p class="k">Nommées par le code</p><p class="v">${nombre(explicites)}</p>
-      <p class="d">on sait exactement qui les lit</p>
+      <p class="k">Libellé retrouvé</p><p class="v">${nombre(avecLibelle)}</p>
+      <p class="d">le nom du champ tel qu'il s'affiche</p>
+    </div>
+    <div class="tuile">
+      <p class="k">Valeurs contraintes</p><p class="v">${nombre(contraintes)}</p>
+      <p class="d">liste fermée, plutôt qu'un texte libre</p>
+    </div>
+    <div class="tuile">
+      <p class="k">Utilisés en prod</p><p class="v">${nombre(enProd)}</p>
+      <p class="d">une règle, une formule ou l'app s'en sert</p>
     </div>
     <div class="tuile flou">
       <p class="k">Lues en select(*)</p><p class="v">${nombre(etoiles)}</p>
       <p class="d">la table est lue en entier</p>
     </div>
     <div class="tuile absent">
-      <p class="k">Jamais touchées</p><p class="v">${nombre(jamais)}</p>
+      <p class="k">Ni vus ni utilisés</p><p class="v">${nombre(mort)}</p>
       <p class="d">${nombre(tablesJamais.length)} tables entières inutilisées</p>
-    </div>
-    <div class="tuile">
-      <p class="k">Libellé retrouvé</p><p class="v">${nombre(avecLibelle)}</p>
-      <p class="d">le nom du champ tel qu'il s'affiche</p>
     </div>
   </div>
 
   <div class="barre">
-    <input type="search" id="q" placeholder="date_fin, contrats, docusign, Contrat Detail…"
-           aria-label="Chercher une table, une colonne ou un écran" autocomplete="off">
+    <input type="search" id="q" placeholder="date_fin, contrats, ACTIF, Contrat Detail…"
+           aria-label="Chercher une table, une colonne, une valeur ou un écran" autocomplete="off">
     <div class="filtres" role="group" aria-label="Filtrer par état">
       <button type="button" data-f="tout" aria-pressed="true">Tout</button>
-      <button type="button" data-f="lue" aria-pressed="false">Lues</button>
+      <button type="button" data-f="prod" aria-pressed="false">En prod</button>
+      <button type="button" data-f="visible" aria-pressed="false">Visibles</button>
+      <button type="button" data-f="invisible" aria-pressed="false">Invisibles</button>
+      <button type="button" data-f="mort" aria-pressed="false">Ni vus ni utilisés</button>
       <button type="button" data-f="flou" aria-pressed="false">select(*)</button>
-      <button type="button" data-f="non" aria-pressed="false">Jamais</button>
-      <button type="button" data-f="ecrite" aria-pressed="false">Écrites</button>
     </div>
     <span class="compte" id="compte"></span>
   </div>
@@ -298,9 +320,24 @@ function pageCarte({ colonnes, tables, trous, genereLe }) {
         sélections</strong> passent par une variable calculée à l'exécution.
       </p>
       <p>
-        Enfin, « qui lit cette colonne » se lit au niveau de l'ÉCRAN et non du champ affiché : le
-        lien entre une colonne et son libellé à l'écran n'est pas déductible du code. La colonne
-        « Fichiers » est, elle, toujours exacte — c'est la réponse à retenir en cas de doute.
+        « Qui lit cette colonne » se lit au niveau de l'ÉCRAN et non du champ affiché : le lien entre
+        une colonne et son libellé n'est pas déductible partout. ${nombre(explicites)} colonnes sont
+        nommées explicitement par le code et ${nombre(jamais)} ne le sont jamais. Le champ
+        « Fichiers », dans le détail de chaque ligne, est lui toujours exact — c'est la réponse à
+        retenir en cas de doute.
+      </p>
+      <p>
+        <strong>« Créé le » n'a pas partout la même valeur</strong>, et le détail de chaque champ dit
+        laquelle. Une date issue d'une migration est certaine. Une date « au plus tard » veut dire que
+        le champ existait déjà à ce commit, sans qu'on sache depuis quand. Un champ « du socle » vient
+        de la reprise Salesforce, créé dans Supabase avant que le dépôt n'existe : il n'a pas de date,
+        et lui en inventer une serait pire que le blanc.
+      </p>
+      <p>
+        <strong>« Valeurs possibles »</strong> vient d'une contrainte de la base, d'une table de
+        référence, ou — à défaut — de ce que les données contiennent RÉELLEMENT. Le dernier cas est
+        une observation, pas une règle : rien n'empêche une valeur nouvelle d'apparaître demain. La
+        ligne « D'où viennent ces valeurs » du détail tranche le cas.
       </p>
     </div>
   </details>
@@ -323,14 +360,18 @@ const compte = document.getElementById('compte');
 const plus = document.getElementById('plus');
 
 function garde(l) {
-  if (etat.f === 'lue' && l[4] !== 1) return false;
+  if (etat.f === 'prod' && l[14] !== 1) return false;
+  if (etat.f === 'visible' && l[16] !== 1) return false;
+  if (etat.f === 'invisible' && l[16] !== 0) return false;
+  if (etat.f === 'mort' && !(l[14] === 0 && l[16] === 0 && l[4] === 0 && l[5] === 0)) return false;
   if (etat.f === 'flou' && l[4] !== 2) return false;
-  if (etat.f === 'non' && !(l[4] === 0 && l[5] === 0)) return false;
-  if (etat.f === 'ecrite' && l[5] !== 1) return false;
   if (!etat.q) return true;
   const q = etat.q;
-  // Le libellé est cherché comme le reste : « Référence fournisseur » doit trouver sa colonne.
-  return (l[0] + ' ' + l[1] + ' ' + DONNEES.dico[l[6]] + ' ' + DONNEES.dico[l[7]]).toLowerCase().includes(q);
+  /* LA RECHERCHE PORTE AUSSI SUR LES VALEURS, et c'est souvent par là qu'on arrive. On tombe sur un
+     « EN_NEGOCIATION » dans un export ou un message Slack sans savoir de quel champ il vient : taper
+     la valeur donne la colonne, ce qu'aucune recherche par nom ne pouvait faire. */
+  return (l[0] + ' ' + l[1] + ' ' + DONNEES.dico[l[6]] + ' ' + DONNEES.dico[l[7]]
+    + ' ' + DONNEES.dico[l[9]] + ' ' + DONNEES.dico[l[11]]).toLowerCase().includes(q);
 }
 
 const echapper = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -356,6 +397,35 @@ function pastille(l) {
   if (l[4] === 1) return '<span class="p lue">lue</span>';
   if (l[4] === 2) return '<span class="p flou">select(*)</span>';
   return '<span class="p non">jamais lue</span>';
+}
+
+/** « oui / probable / non » en pastille. Le « probable » garde sa couleur d'incertitude. */
+function troisEtats(v, oui, non) {
+  if (v === 1) return '<span class="p lue">' + oui + '</span>';
+  if (v === 2) return '<span class="p flou">probable</span>';
+  return '<span class="p non">' + non + '</span>';
+}
+
+/**
+ * LES VALEURS, COUPÉES À SIX comme les écrans le sont — et pour la même raison.
+ *
+ * types_documents en propose trente : les écrire toutes rend une cellule plus haute que l'écran et
+ * chasse les colonnes voisines. Les six premières suffisent à reconnaître un vocabulaire, le compte
+ * dit qu'il y en a d'autres, et le détail dépliable les donne toutes.
+ */
+function valeurs(v) {
+  if (!v) return '';
+  const parts = v.split(' | ');
+  if (parts.length <= 6) return echapper(v);
+  return echapper(parts.slice(0, 6).join(' | '))
+    + ' <span style="color:var(--encre-pale)">+ ' + (parts.length - 6) + '</span>';
+}
+
+/** Une ligne du détail. Rien n'est affiché quand la réponse est vide : un intitulé seul est du bruit. */
+function bloc(titre, valeur) {
+  if (!valeur) return '';
+  return '<div class="bd"><span class="bt">' + titre + '</span><span class="bv">'
+    + echapper(valeur) + '</span></div>';
 }
 
 function rendre() {
@@ -387,19 +457,35 @@ function rendre() {
       + '<span class="meta">' + n + ' colonne' + (n > 1 ? 's' : '')
       + (n > lignes.length ? ' \\u00b7 ' + lignes.length + ' affich\\u00e9es' : '') + '</span></h2>'
       + '<div class="cadre"><table><thead><tr>'
-      + '<th>Colonne</th><th>Libellé à l’écran</th><th>Type</th><th>Lecture</th><th>\\u00c9criture</th>'
-      + '<th>O\\u00f9 dans l\\u2019app</th><th>Fichiers</th>'
+      + '<th>Nom API</th><th>Nom \\u00e0 l\\u2019\\u00e9cran</th><th>Type</th><th>Valeurs possibles</th>'
+      + '<th>Cr\\u00e9\\u00e9 le</th><th>En prod</th><th>Visible</th><th>O\\u00f9 dans l\\u2019app</th>'
       + '</tr></thead><tbody>';
     for (const l of lignes) {
-      html += '<tr>'
+      const id = (l[0] + '.' + l[1]).replace(/[^a-zA-Z0-9_.]/g, '');
+      html += '<tr class="champ" data-id="' + id + '" tabindex="0" role="button" '
+        + 'aria-expanded="false" title="Ouvrir le d\\u00e9tail de ce champ">'
         + '<td class="col">' + echapper(l[1]) + (l[3] ? '<span class="obl">requis</span>' : '') + '</td>'
         + '<td class="lib">' + echapper(DONNEES.dico[l[7]]) + '</td>'
         + '<td class="type">' + echapper(l[2]) + '</td>'
-        + '<td>' + pastille(l) + '</td>'
-        + '<td>' + (l[5] ? '<span class="p ecr">\\u00e9crite</span>' : '') + '</td>'
+        + '<td class="val">' + valeurs(DONNEES.dico[l[9]]) + '</td>'
+        + '<td class="date">' + echapper(DONNEES.dico[l[12]] || '\\u2014') + '</td>'
+        + '<td>' + troisEtats(l[14], 'oui', 'non') + '</td>'
+        + '<td>' + troisEtats(l[16], 'oui', 'non') + '</td>'
         + '<td class="ou">' + ecrans(DONNEES.dico[l[6]]) + '</td>'
-        + '<td class="fic">' + echapper(DONNEES.dico[l[8]]) + '</td>'
-        + '</tr>';
+        + '</tr>'
+        /* LE DÉTAIL EST DANS LE TABLEAU, PAS DANS UNE FENÊTRE. Une infobulle ne se copie pas, une
+           modale perd la place qu'on avait dans la liste. Une ligne de plus garde les deux. */
+        + '<tr class="detail" id="d-' + id + '" hidden><td colspan="8">'
+        + bloc('D\\u2019o\\u00f9 viennent ces valeurs', DONNEES.dico[l[10]])
+        + bloc('Cr\\u00e9\\u00e9 par', DONNEES.dico[l[11]])
+        + bloc('Comment on le sait', DONNEES.dico[l[13]])
+        + bloc('Ce qui s\\u2019en sert en production', DONNEES.dico[l[15]])
+        + bloc('\\u00c9crit par l\\u2019app', l[5] ? 'oui' : 'non')
+        + bloc('Lecture', l[4] === 1 ? 'colonne nomm\\u00e9e par le code'
+            : l[4] === 2 ? 'la table est lue en select(*) : l\\u2019usage exact est inconnu'
+            : 'jamais nomm\\u00e9e par le code')
+        + bloc('Fichiers', DONNEES.dico[l[8]])
+        + '</td></tr>';
     }
     html += '</tbody></table></div></section>';
   }
@@ -427,6 +513,31 @@ for (const b of document.querySelectorAll('.filtres button')) {
 plus.querySelector('button').addEventListener('click', () => {
   etat.montre += PAR_PAGE;
   rendre();
+});
+
+/* UN SEUL ÉCOUTEUR POUR 2 158 LIGNES. En poser un par ligne coûterait autant de fermetures, et il
+   faudrait les reposer à chaque frappe dans la recherche puisque le tableau est réécrit. La
+   délégation survit au réaffichage sans rien reposer. */
+function basculer(ligne) {
+  const detail = document.getElementById('d-' + ligne.dataset.id);
+  if (!detail) return;
+  detail.hidden = !detail.hidden;
+  ligne.setAttribute('aria-expanded', String(!detail.hidden));
+}
+
+boite.addEventListener('click', (e) => {
+  const ligne = e.target.closest('tr.champ');
+  if (ligne) basculer(ligne);
+});
+
+// Le détail s'ouvre aussi au clavier : la ligne est annoncée comme un bouton, elle doit se comporter
+// comme un bouton.
+boite.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const ligne = e.target.closest('tr.champ');
+  if (!ligne) return;
+  e.preventDefault();
+  basculer(ligne);
 });
 
 // LA PAGE S'OUVRE PLEINE. Un écran vide en attente d'une frappe ne montrerait pas ce qu'il sait

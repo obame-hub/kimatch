@@ -1,0 +1,26 @@
+#!/bin/sh
+# ════════════════════════════════════════════════════════════════════════════════════════════════
+# À CHAQUE PUSH, DIRE CE QUI A BOUGÉ DANS LE MODÈLE DE DONNÉES
+#
+# William, 14/09/2026 : « à chaque push, il faut réévaluer pour voir si ça a bougé ».
+#
+# CE CROCHET NE BLOQUE JAMAIS RIEN. Il se termine toujours en succès, même si la base est
+# injoignable, même si un champ a disparu. Un push qu'on ne peut pas faire à 19 h parce que Supabase
+# tousse coûte plus cher que la carte ne rapporte — et le seul contrôle qui mérite un arrêt,
+# « le code lit une colonne qui n'existe plus », est dans `npm run carte:verifier`, qui existe
+# déjà pour ça et sort en échec, lui.
+#
+# Installation (une fois par machine, le dépôt ne peut pas l'imposer) :
+#   git config core.hooksPath .githooks
+# ════════════════════════════════════════════════════════════════════════════════════════════════
+
+# On se place à la racine : un push lancé depuis un sous-dossier trouve quand même les scripts.
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+if [ ! -f .env.local ]; then
+  # Pas d'accès à la base sur cette machine : rien à comparer, et surtout rien à reprocher.
+  exit 0
+fi
+
+node scripts/carte-evolution.cjs || true
+exit 0

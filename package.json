@@ -13,6 +13,8 @@
     "test:statuts": "node scripts/tester-propagation-statuts.cjs",
     "carte": "node scripts/cartographier-donnees.cjs",
     "carte:verifier": "node scripts/cartographier-donnees.cjs --verifier",
+    "carte:evolution": "node scripts/carte-evolution.cjs",
+    "carte:evolution:lire": "node scripts/carte-evolution.cjs --lire",
     "verifier:sandbox": "node scripts/verifier-liste-sandbox.cjs",
     "auditer:compteurs": "node scripts/auditer-compteurs-salesforce.cjs",
     "dev:sandbox": "vite --mode sandbox",

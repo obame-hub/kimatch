@@ -79,9 +79,60 @@ Base Postgres gérée par Michel Obame — plus de 100 tables. Grandes familles 
 - **Tables de référence** (`statuts_*`, `types_*`, `etapes_*`) : toujours peuplées en base, jamais codées en dur côté front — voir `useReferenceTable()` dans `src/lib/data/referenceTables.ts`, avec repli statique (`src/lib/referenceFallbacks.ts`) uniquement pour le mode démo.
 - **Mis de côté pour l'instant** (schéma présent mais non branché, en attente de décision produit) : le moteur d'expertise/analyses (`analyses`, `domaines_expertise`, `executions_*`, `moteurs_calcul`...), le moteur tarifaire TURPE (`formules_tarifaires_turpe`, `coefficients_turpe`...), et une table `solutions` dont le rôle par rapport à la chaîne Objectif/Stratégie/Offre reste à clarifier avec Michel.
 
-⚠️ Le schéma change souvent sans préavis (Michel travaille dessus en parallèle). **Avant de faire confiance à une requête existante après une pause, vérifier que les colonnes utilisées existent toujours** (`select column_name from information_schema.columns where table_name = '...'` dans le SQL Editor Supabase) — un renommage silencieux fait retomber l'app sur les données de démo sans erreur visible.
+⚠️ Le schéma change souvent sans préavis (Michel travaille dessus en parallèle). **Avant de faire confiance à une requête existante après une pause, vérifier que les colonnes utilisées existent toujours** (`select column_name from information_schema.columns where table_name = '...'` dans le SQL Editor Supabase) — un renommage silencieux fait retomber l'app sur les données de démo sans erreur visible. C'est exactement ce que `npm run carte:verifier` détecte, et `npm run carte:evolution` le dit à chaque push.
 
 **Toute modification de schéma (nouvelle table, colonne, policy RLS) se rédige en SQL clair et se fait valider/appliquer par Naoëlle ou Michel — jamais exécutée à l'aveugle.** Voir section 6bis pour la procédure exacte (sandbox → prod).
+
+### Le catalogue des champs — `npm run carte`
+
+L'avertissement ci-dessus (« vérifier que les colonnes existent toujours ») n'est plus à faire à la
+main. Une commande lit le schéma vivant, le croise avec le code et avec l'historique du dépôt, et
+écrit dans `carte-donnees/` (dossier ignoré par git : le dépôt est public) :
+
+| Fichier | Ce qu'il répond |
+|---|---|
+| `6-catalogue-des-champs.csv` | **Une ligne par champ** : nom API, nom affiché sur la plateforme, type, valeurs possibles, qui l'a créé, quand, s'il sert en prod et par quoi, s'il est visible à l'écran et où. |
+| `7-champs-disparus.csv` | Les champs retirés ou renommés par une migration — la base, elle, n'en garde aucune trace. |
+| `1-` à `5-` | La carte d'origine : par colonne, par table, par écran, les angles morts, les libellés. |
+| `explorateur.html` | **La page où l'on navigue** : on choisit un objet à gauche, on voit tous ses champs, on filtre (type, visible ou non, utilisé ou non, liste fermée ou saisie libre, obligatoire, origine) et on cherche. Chaque ligne se déplie sur son détail. L'objet choisi est dans l'adresse : `explorateur.html#contrats` s'envoie tel quel. |
+| `carte.html` | L'entrée inverse : on arrive par un nom de champ sans savoir de quel objet il vient. On tape `date_fin`, ou même une valeur comme `EN_NEGOCIATION`, et la réponse est là. |
+
+```bash
+npm run carte              # tout régénérer
+npm run carte:verifier     # ne rien écrire, échouer si le code lit une colonne qui n'existe plus
+npm run carte:evolution    # régénérer PUIS dire ce qui a bougé depuis le dernier relevé
+```
+
+Le raccourci **« ni vu ni utilisé »** de l'explorateur croise les deux derniers filtres : c'est le
+seul qui désigne des champs réellement supprimables — ni affichés nulle part, ni tenus par une règle,
+une formule, un déclencheur ou l'application.
+
+**Trois colonnes demandent de la prudence, et le détail de chaque champ dit laquelle :**
+
+- *Valeurs possibles* vient d'une contrainte `CHECK`, d'une table de référence, ou — à défaut — de ce
+  que les données contiennent réellement. Le dernier cas est une observation, pas une règle.
+- *Créé le* est certain quand il vient d'une migration. Sinon c'est une borne haute (« existait déjà
+  à ce commit »), ou rien du tout pour les ~800 champs du socle repris de Salesforce, créés dans
+  Supabase avant que le dépôt n'existe.
+- *Utilisé en prod* réunit les deux côtés — règles, formules, déclencheurs, policies et vues côté
+  base ; lectures et écritures côté application. « Probable » signale une présomption, jamais un fait.
+
+### À chaque push : ce qui a bougé
+
+Un crochet `pre-push` relance la carte et annonce les champs ajoutés, supprimés, retypés, les
+vocabulaires modifiés et les objets apparus ou disparus depuis le push précédent. **Il ne bloque
+jamais un push** — c'est une information, pas un contrôle ; le contrôle bloquant reste
+`npm run carte:verifier`.
+
+À faire une fois par machine (git ne peut pas l'imposer depuis le dépôt) :
+
+```bash
+git config core.hooksPath .githooks
+```
+
+L'état de référence vit dans `carte-donnees/.instantane.json`, donc local à chaque poste : le
+premier push d'une nouvelle machine enregistre l'état et l'annonce, la comparaison démarre au
+suivant.
 
 ## 6bis. Faire évoluer le schéma : sandbox → prod (migrations)
 
