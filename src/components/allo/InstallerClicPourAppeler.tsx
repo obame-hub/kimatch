@@ -39,69 +39,82 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function InstallerClicPourAppeler() {
   return (
-    <Card className="max-w-2xl">
-      <CardHeader>
+    /* ══ TOUTE LA LARGEUR, ET TROIS COLONNES PLUTÔT QU'UNE PILE ══
+     *
+     * Naoëlle, 22/09/2026 : « peux-tu agrandir ce message d'installateur pour qu'il prenne la
+     * largeur de l'écran et que ça réduise sa hauteur ».
+     *
+     * Le bloc était en `max-w-2xl` comme les autres cartes du profil, et tout s'empilait : titre,
+     * bouton, trois étapes, encadré, note. Il dépassait l'écran alors qu'il ne dit presque rien.
+     *
+     * Sur un écran large, les étapes tiennent côte à côte — elles sont indépendantes, on ne les lit
+     * pas l'une après l'autre mais on les suit. Sur mobile, la grille retombe en une colonne
+     * d'elle-même : c'est le même contenu, jamais tronqué. */
+    <Card>
+      <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2">
           <Phone className="h-4 w-4 text-km-green" />
           Appeler d’un clic depuis Kimatch
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-km-muted">
-          Une fois installé, cliquer sur le téléphone à côté d’un numéro compose directement dans
-          Allo. À faire <strong className="text-km-text">une seule fois</strong> par ordinateur.
-        </p>
+      <CardContent className="space-y-3">
+        {/* LA PHRASE ET LE BOUTON SUR UNE SEULE LIGNE quand la place le permet : ce sont les deux
+            seules choses à faire, elles n'ont pas à occuper deux étages. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-km-muted">
+            Cliquer sur le téléphone à côté d’un numéro compose directement dans Allo. À faire{' '}
+            <strong className="text-km-text">une seule fois</strong> par ordinateur.
+          </p>
+          <a
+            href="/clic-pour-appeler/Installer.bat"
+            download
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-km bg-kiwi-gradient px-4 py-2.5 text-km-sm font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            <Download className="h-4 w-4" />
+            Télécharger l’installateur
+          </a>
+        </div>
 
-        <a
-          href="/clic-pour-appeler/Installer.bat"
-          download
-          className="inline-flex items-center gap-2 rounded-km bg-kiwi-gradient px-4 py-2.5 text-km-sm font-semibold text-white transition-opacity hover:opacity-90"
-        >
-          <Download className="h-4 w-4" />
-          Télécharger l’installateur
-        </a>
-
-        {/* LES ÉTAPES SONT NUMÉROTÉES ET COURTES. Le point 3 est celui qu'on oublie d'écrire et qui
-            fait échouer une installation sur deux : Windows affiche un avertissement sur tout
-            fichier téléchargé, et sans cette ligne on referme la fenêtre en croyant bien faire. */}
-        <ol className="space-y-2 text-sm text-km-muted">
-          <li>
-            <strong className="text-km-text">1.</strong> Téléchargez le fichier ci-dessus, puis
-            <strong className="text-km-text"> double-cliquez</strong> dessus.
+        {/* LES TROIS ÉTAPES CÔTE À CÔTE. La deuxième est celle qu'on oublie d'écrire et qui fait
+            échouer une installation sur deux : Windows avertit sur tout fichier téléchargé, et sans
+            cette ligne on referme la fenêtre en croyant bien faire. */}
+        <ol className="grid gap-2 sm:grid-cols-3">
+          <li className="rounded-km border border-km-line px-3 py-2.5 text-km-xs leading-snug text-km-muted">
+            <span className="font-bold text-km-green">1.</span> Téléchargez le fichier, puis{' '}
+            <strong className="text-km-text">double-cliquez</strong> dessus.
           </li>
-          <li>
-            <strong className="text-km-text">2.</strong> Si Windows affiche «&nbsp;Windows a protégé
-            votre ordinateur&nbsp;» : cliquez sur{' '}
-            <strong className="text-km-text">Informations complémentaires</strong>, puis{' '}
+          <li className="rounded-km border border-km-line px-3 py-2.5 text-km-xs leading-snug text-km-muted">
+            <span className="font-bold text-km-green">2.</span> Si Windows dit «&nbsp;a protégé votre
+            ordinateur&nbsp;» :{' '}
+            <strong className="text-km-text">Informations complémentaires</strong> →{' '}
             <strong className="text-km-text">Exécuter quand même</strong>.
           </li>
-          <li>
-            <strong className="text-km-text">3.</strong> Une fenêtre noire s’ouvre, affiche
-            «&nbsp;Protocole kimatch:// installé&nbsp;», et attend une touche. C’est fini.
+          <li className="rounded-km border border-km-line px-3 py-2.5 text-km-xs leading-snug text-km-muted">
+            <span className="font-bold text-km-green">3.</span> Une fenêtre noire dit
+            «&nbsp;Protocole installé&nbsp;» et attend une touche. C’est fini.
           </li>
         </ol>
 
-        <div className="rounded-km bg-km-soft px-3.5 py-3 text-km-xs leading-relaxed text-km-muted">
-          <p className="font-semibold text-km-text">Pour que ça marche</p>
-          <p className="mt-1">
-            L’application <strong className="text-km-text">Allo doit être ouverte</strong> : c’est
-            elle qui passe l’appel, Kimatch lui dit seulement quel numéro composer.
+        {/* LES TROIS AVERTISSEMENTS SUR UNE LIGNE : chacun tient en une phrase, et les empiler
+            donnait trois étages pour trois informations qu'on lit d'un coup d'œil. */}
+        <div className="grid gap-2 rounded-km bg-km-soft px-3.5 py-2.5 text-km-xs leading-snug text-km-muted sm:grid-cols-3">
+          <p>
+            <strong className="text-km-text">Allo doit être ouvert</strong> — c’est lui qui passe
+            l’appel.
           </p>
           {/* LA LIMITE EST DITE ICI, PAS DÉCOUVERTE. Quelqu'un qui essaie depuis son téléphone et
               ne comprend pas pourquoi ça ne marche pas écrira à Naoëlle — autant l'écrire. */}
-          <p className="mt-1.5">
-            Sur <strong className="text-km-text">mobile</strong>, rien à installer : le clic ouvre
-            le téléphone comme d’habitude.
+          <p>
+            Sur <strong className="text-km-text">mobile</strong>, rien à installer : le clic ouvre le
+            téléphone comme d’habitude.
+          </p>
+          <p>
+            Si un appel ne part pas, envoyez ce fichier&nbsp;:{' '}
+            <code className="rounded bg-km-bg px-1 py-0.5 font-mono text-[11px]">
+              %LOCALAPPDATA%\Kimatch\journal.txt
+            </code>
           </p>
         </div>
-
-        <p className="text-km-xs text-km-faint">
-          Si un appel ne part pas, envoyez ce fichier à Naoëlle — il dit exactement ce qui a
-          bloqué&nbsp;:{' '}
-          <code className="rounded bg-km-bg px-1 py-0.5 font-mono">
-            %LOCALAPPDATA%\Kimatch\journal.txt
-          </code>
-        </p>
       </CardContent>
     </Card>
   )
