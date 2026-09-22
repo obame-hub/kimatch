@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { CarteAppel } from '@/components/allo/CarteAppel'
 import { VoletAllo, ouvrirVoletAlloSiDejaUtilise, appelDansLeVolet } from '@/components/allo/VoletAllo'
 import { FenetreAppel, ouvrirFenetreAppel, signalerEtatFile } from '@/components/allo/FenetreAppel'
+import { lancerAlloBureau } from '@/lib/alloBureau'
 
 /**
  * APPELER DEPUIS KIMATCH — un seul entonnoir, un numéro normalisé, et un numéro TOUJOURS VISIBLE.
@@ -322,7 +323,25 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
     /* ── LA FILE D'APPEL ALLO, D'ABORD ──
        Le numéro part dans la file du Power Dialer de la personne connectée, avec le nom et la
        société. Il n'y a plus qu'à cliquer « appeler » dans Allo. */
-    const file = await poserDansLaFileAllo(e164, qui)
+    /* ══ LA FENÊTRE NE DOIT JAMAIS RESTER SUR « PRÉPARATION » ══
+     *
+     * Naoëlle, 22/09/2026 : « quand je clique, ça met préparation du numéro, ça charge, et ça
+     * n'appelle pas, rien ne se passe. »
+     *
+     * Elle décrit un état qui NE SE TERMINE PAS. `poserDansLaFileAllo` charge Supabase puis demande
+     * la session avant même de partir en réseau : si l'une des deux ne rend pas la main — session
+     * expirée qui déclenche un rafraîchissement, fonction `api/` absente en `npm run dev`, Allo
+     * injoignable — la fenêtre reste sur son message d'attente pour toujours.
+     *
+     * UN DÉLAI MAXIMUM TRANCHE, et c'est la seule façon honnête de s'en sortir : au bout de huit
+     * secondes on renonce à la file et on dit ce qui reste faisable. Le numéro est déjà copié, le
+     * volet est ouvert — l'essentiel ne dépendait pas de cette requête. */
+    const file = await Promise.race([
+      poserDansLaFileAllo(e164, qui),
+      new Promise<Awaited<ReturnType<typeof poserDansLaFileAllo>>>((r) =>
+        setTimeout(() => r({ ok: false, erreur: 'Allo n’a pas répondu à temps' }), 8000),
+      ),
+    ])
     if (file.ok || file.dejaDansLaFile) {
       /* LE VOLET ALLO S'OUVRE ICI, et c'est le geste qui manquait.
          Naoelle, 08/09/2026 : « je ne comprends pas pourquoi ca n'ouvre pas une fenetre pour appeler
@@ -449,28 +468,6 @@ export function useTelephonie(): Telephonie {
  * NE LÈVE JAMAIS. L'appelant décide quoi afficher, et il a un repli. Une exception ici ferait perdre
  * la copie du numéro, c'est-à-dire le seul comportement dont on est sûr.
  */
-/**
- * Demande à l'application de bureau d'Allo de composer ce numéro.
- *
- * Ne rend rien et ne lève jamais : on ne peut pas savoir si le protocole a été pris en charge. Le
- * dépôt dans la file, lui, dira ce qu'il a fait — c'est lui qui porte le message affiché.
- */
-function lancerAlloBureau(e164: string) {
-  try {
-    const a = document.createElement('a')
-    a.href = `allo://call?number=${encodeURIComponent(e164)}`
-    a.rel = 'noopener'
-    a.style.position = 'fixed'
-    a.style.left = '-9999px'
-    document.body.appendChild(a)
-    a.click()
-    // Retiré au tick suivant : l'enlever tout de suite annulerait le clic sur certains navigateurs.
-    setTimeout(() => a.remove(), 0)
-  } catch {
-    /* Un protocole refusé n'est pas une erreur à remonter : le dépôt dans la file suit. */
-  }
-}
-
 async function poserDansLaFileAllo(
   e164: string,
   qui?: Correspondant,

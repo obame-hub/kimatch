@@ -48,16 +48,30 @@
  *     n'est pas « un clic de plus », c'est un cul-de-sac : elle alimente le Power Dialer, que ce
  *     clavier n'affiche même pas.
  *
- * ══ ET LA VRAIE CAUSE RACINE EST DANS WINDOWS, PAS DANS ALLO ══
+ * ══ CE QUE J'AI CRU, PUIS CE QUE J'AI VÉRIFIÉ — 22/09/2026 ══
  *
- * Relevé dans le registre du poste le 21/09 : l'application Allo (Microsoft Store,
- * `Mobile-First.All_3.44.0.0`) DÉCLARE bien les protocoles `tel`, `callto` et `allo` dans son
- * manifeste — mais son paquet n'est PAS ENREGISTRÉ pour la session de l'utilisateur. Les clés
- * `HKCU\Software\Classes\tel` et `…\allo` existent, vides, sans `shell\open\command`.
+ * J'avais écrit ici que la cause était dans Windows : les clés `HKCU\Software\Classes\tel` et
+ * `…\allo` sont vides, sans `shell\open\command`, donc « le navigateur n'a rien à lancer ».
  *
- * Donc quand le navigateur rencontre `allo://call?number=…`, il cherche quoi lancer, ne trouve
- * rien, et NE FAIT RIEN, sans message. C'est l'explication de tout : du click-to-call d'Allo, de
- * leur extension Chrome, et de notre tentative par leur route `/call/`.
+ * C'ÉTAIT FAUX, et lire le registre était la mauvaise méthode. Une application du Microsoft Store
+ * enregistre ses protocoles par un mécanisme que le registre classique n'expose pas. Le test direct
+ * tranche : `Start-Process "allo://call?number=…"` est ACCEPTÉ par Windows et ouvre l'application.
+ *
+ * ══ LE PROTOCOLE EST MÊME PRÉVU POUR NOUS, ET ÇA NE MARCHE TOUJOURS PAS ══
+ *
+ * Leur application de bureau a été extraite (`app.asar`, 112 Mo) et lue. Leur propre commentaire :
+ *
+ *     « Parse `allo://call?number=+33...` … LETS EXTERNAL TOOLS (CUSTOM CRMS, intranet pages,
+ *       shortcuts) TRIGGER A CALL ON WINDOWS WHERE `tel:` IS NOT ROUTED TO ALLO. »
+ *
+ * Kimatch est le « custom CRM » de cette phrase, sur la plateforme visée. Et leur code Windows est
+ * correct : `second-instance` — le chemin d'un lien profond sur Windows — lit bien l'URL et en
+ * extrait le numéro, contrairement à ce que j'avais cru en voyant `open-url` (le chemin macOS).
+ * Leur `readPhoneQueryParam` décode la valeur, donc `+` et `%2B` passent tous les deux.
+ *
+ * TOUT EST EN PLACE DES DEUX CÔTÉS, ET L'APPEL NE PART PAS. À ce stade c'est un défaut chez eux ou
+ * une condition invisible de l'extérieur. On continue de lancer le protocole — il ne coûte rien
+ * quand il échoue, et il donnera l'appel entier le jour où ils corrigent, sans rien changer ici.
  *
  * ══ CE QUI RESTE, ET QUI MARCHE VRAIMENT ══
  *
@@ -82,6 +96,7 @@ import { Phone, X, Loader2, AlertTriangle, Copy, Check } from 'lucide-react'
 import { numeroLisible } from '@/lib/telephonie'
 import { useAppelEnCours } from '@/lib/data/appelEnCours'
 import { ouvrirVoletAllo } from '@/components/allo/VoletAllo'
+import { lancerAlloBureau } from '@/lib/alloBureau'
 import { cn } from '@/lib/utils'
 
 /** Ce que la fenêtre montre, et qui vient du clic sur « Appeler ». */
@@ -123,7 +138,6 @@ export function FenetreAppel() {
   useEffect(() => {
     ouvrirCourant = (a: AppelALancer) => {
       setAppel(a)
-      setFile({ phase: 'en_cours' })
       setCopie(false)
       /* ══ ON COPIE TOUT DE SUITE, SANS ATTENDRE UN SECOND CLIC ══
        *
@@ -138,6 +152,21 @@ export function FenetreAppel() {
         () => setCopie(true),
         () => { /* Presse-papiers refusé : le bouton copier reste là, et le numéro est affiché. */ },
       )
+      /* ══ ON N'ATTEND PAS LA FILE POUR DIRE QUOI FAIRE — 22/09/2026 ══
+       *
+       * Naoëlle : « ça met préparation du numéro, ça charge, et ça n'appelle pas, rien ne se
+       * passe. » Cet état d'attente était suspendu au dépôt dans la file d'Allo, et il pouvait ne
+       * jamais se terminer — fonction `api/` absente en développement local, session en cours de
+       * rafraîchissement, Allo injoignable.
+       *
+       * OR CETTE REQUÊTE NE CONDITIONNE RIEN. Le numéro est copié, le volet est ouvert, `allo://`
+       * est déjà parti : tout ce que la fenêtre a à dire est vrai AVANT elle. On affiche donc les
+       * consignes tout de suite, et la file ne fera que les préciser si elle répond.
+       *
+       * Faire dépendre un message d'une requête réseau, c'est promettre un écran qui n'arrive
+       * jamais dès que le réseau tousse. C'est exactement la faute qu'on vient de corriger sur les
+       * vingt-trois listes. */
+      setFile({ phase: 'pret', position: null })
       /* LE VOLET S’OUVRE AVEC LA FENÊTRE, et sans condition. C'est là qu'on colle le numéro : une
          fenêtre qui dit « colle dans le téléphone » sans le montrer serait une énigme. */
       ouvrirVoletAllo()
@@ -278,16 +307,38 @@ export function FenetreAppel() {
           )}
         </div>
 
+        {/* ══ « OUVRIR LE TÉLÉPHONE » NE FAISAIT RIEN, ET C'ÉTAIT LOGIQUE — 22/09/2026 ══
+         *
+         * Naoëlle, capture à l'appui : « pourquoi quand je mets ouvrir le téléphone ça fait rien ».
+         * Parce que le volet était DÉJÀ OUVERT, juste à côté de la fenêtre. Le bouton appelait
+         * `ouvrirVoletAllo()`, qui ouvre un volet ouvert : aucun changement à l'écran, donc un
+         * bouton mort dans le seul cas où l'on a envie d'appuyer dessus.
+         *
+         * IL RELANCE DONC L'APPEL. C'est ce qu'on attend d'un bouton vert dans une fenêtre d'appel :
+         * `allo://` repart vers l'application, le numéro est recopié, et le volet s'ouvre s'il ne
+         * l'était pas. Trois gestes utiles au lieu d'un geste nul.
+         *
+         * ON NE PEUT PAS ÉCRIRE DANS LE CLAVIER D'ALLO à leur place : le volet affiche un autre
+         * domaine, et un site ne touche pas au contenu d'un site étranger. C'est une règle du
+         * navigateur, pas une limite qu'on pourrait contourner — d'où la copie, qui est le seul
+         * pont possible entre les deux. */}
         <button
           type="button"
-          onClick={() => ouvrirVoletAllo()}
+          onClick={() => {
+            void navigator.clipboard?.writeText(appel.e164).then(
+              () => setCopie(true),
+              () => { /* sans conséquence : le numéro reste affiché au-dessus */ },
+            )
+            lancerAlloBureau(appel.e164)
+            ouvrirVoletAllo()
+          }}
           className={cn(
             'mt-2.5 flex w-full items-center justify-center gap-2 rounded-km px-3 py-2',
             'bg-kiwi-gradient text-km-xs font-semibold text-white transition-opacity hover:opacity-90',
           )}
         >
           <Phone className="h-3.5 w-3.5" />
-          Ouvrir le téléphone
+          Relancer l’appel
         </button>
       </div>
     </div>
