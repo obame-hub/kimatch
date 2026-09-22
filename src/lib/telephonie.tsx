@@ -76,6 +76,12 @@ export function numeroInternational(brut: string | null | undefined): string | n
   else if (/^[1-9]\d{8}$/.test(n)) n = '+33' + n
 
   if (!n.startsWith('+')) return null
+  /* AUCUN INDICATIF PAYS NE COMMENCE PAR ZÉRO — c'est la règle E.164 elle-même, et elle rattrape
+     une famille entière de fausses saisies. « 0000000000 » passait par la branche « 00 → + » et
+     ressortait en « +00000000 », qui a la bonne LONGUEUR et aucune existence : Kimatch demandait
+     alors à Allô de composer un numéro impossible, et l'appel ne partait pas sans qu'on sache
+     pourquoi. Constaté le 22/09/2026 sur la fiche d'essai de William. */
+  if (/^\+0/.test(n)) return null
   // Entre 8 et 15 chiffres après l'indicatif : la plage de la recommandation E.164.
   return /^\+\d{8,15}$/.test(n) ? n : null
 }
