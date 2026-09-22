@@ -10,6 +10,7 @@ import { useMonProfil, useCurrentAccess, useUploadMaPhoto } from '@/lib/data/rol
 import { useGmailConnection, useDisconnectGmail, connectGmail } from '@/lib/data/gmail'
 import { CarteSignature } from '@/components/email/CarteSignature'
 import { useDocusignConnexion, useDocusignStatus, useDisconnectDocusign, connectDocusign } from '@/lib/data/docusign'
+import { InstallerClicPourAppeler } from '@/components/allo/InstallerClicPourAppeler'
 
 function GmailCard() {
   const { data: connection, isLoading } = useGmailConnection()
@@ -289,6 +290,10 @@ export default function MonProfil() {
           </CardContent>
         </Card>
 
+        {/* LE TELEPHONE AVANT LES BOITES MAIL : c'est le reglage que toute l'equipe doit faire
+            aujourd'hui, et il tient en un double-clic. Voir le composant pour pourquoi il vit ici
+            et non dans Administration. */}
+        <InstallerClicPourAppeler />
         <GmailCard />
         <CarteSignature />
         <DocusignCard />
