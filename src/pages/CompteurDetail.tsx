@@ -11,7 +11,9 @@ import { CartesRattachement } from '@/components/compteur/CartesRattachement'
 import { FormField, Input, Select } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { EntityLink } from '@/components/ui/entity-link'
-import { useCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField } from '@/lib/data/compteurs'
+import { PDL_FORMAT_RE, useCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField } from '@/lib/data/compteurs'
+import { nettoyerSaisie } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 import { useEnedisFetch } from '@/lib/data/enedis'
 import { useGrdFetch } from '@/lib/data/grd'
 import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
@@ -578,6 +580,42 @@ export default function CompteurDetail() {
     if (!compteur) return
     await majChampCompteur.mutateAsync({ id: compteur.id, patch })
   }
+
+  /**
+   * Changer le numéro du point de livraison.
+   *
+   * LE DOUBLON SE CHERCHE EN BASE, pas dans une liste déjà chargée : la fiche d'un compteur ne
+   * charge pas les 4 000 autres, et `findCompteurByNumero` ne sait dédoublonner que ce qu'on lui
+   * donne. Une requête ciblée coûte moins qu'un chargement complet, et elle voit TOUT.
+   */
+  async function commitNumeroPdl(saisi: string) {
+    if (!compteur) return
+    /* `nettoyerSaisie` retire les espaces insécables et les caractères invisibles que colle un
+       copier-coller depuis un PDF de facture — ils ressortent en tiret ou en virgule sur le mandat.
+       Même nettoyage qu'à la création (voir `creerCompteur`). */
+    const numero = nettoyerSaisie(saisi).replace(/\s+/g, '')
+    if (!numero) throw new Error('Un compteur ne peut pas être sans numéro.')
+    if (numero === compteur.numero_pdl) return
+
+    const { data: deja, error } = await supabase
+      .from('compteurs')
+      .select('id, reference')
+      .eq('numero_point', numero)
+      .neq('id', compteur.id)
+      .limit(1)
+    if (error) throw new Error(error.message)
+    if (deja && deja.length > 0) {
+      throw new Error(`Ce numéro est déjà porté par le compteur ${deja[0].reference ?? deja[0].id}.`)
+    }
+
+    await majCompteur({ numero_point: numero })
+    /* L'ALERTE DE FORMAT ARRIVE APRÈS L'ENREGISTREMENT, à dessein : elle informe, elle n'empêche
+       pas. Un PCE gaz fait le plus souvent quatorze chiffres lui aussi, mais tous les points ne
+       rentrent pas dans le motif — refuser aurait été plus faux que d'accepter. */
+    if (!PDL_FORMAT_RE.test(numero)) {
+      showToast('✓ enregistré — format inhabituel (ni 14 chiffres ni GI + 6)')
+    }
+  }
   const deleteCompteur = useDeleteCompteur()
   /* LE REPLI N'EST PLUS `/sites` : la liste des sites est supprimée depuis le 09/09/2026. Tant
      qu'on connaît le compteur, le retour mène au regroupement d'adresse qui le contient ; sinon,
@@ -695,7 +733,34 @@ export default function CompteurDetail() {
             <p className="truncate text-xl font-bold tracking-tight text-km-text">{compteur.utilisation || compteur.numero_pdl}</p>
             <Badge tone={compteur.statut === 'actif' ? 'kiwi' : 'neutral'}>{compteur.statut}</Badge>
           </div>
-          <p className="truncate font-mono text-xs text-km-faint">{compteur.numero_pdl}</p>
+          {/* ══ LE NUMÉRO DU POINT SE CORRIGE ICI ══
+
+              William, 22/09/2026 : « sur la page des compteurs, possibilité de changer le numéro du
+              compteur, c'est très important ».
+
+              IL ÉTAIT EN LECTURE SEULE DEPUIS TOUJOURS, et c'est le champ le plus souvent faux :
+              il arrive d'une facture scannée, d'un import Salesforce ou d'une saisie au téléphone,
+              et un seul chiffre de travers rend le point introuvable chez Enedis comme chez le GRD.
+              Le corriger demandait de supprimer le compteur et de le recréer — donc de perdre son
+              historique, ses contrats et ses rattachements.
+
+              TROIS GARDES, ET UNE SEULE BLOQUE. Le doublon bloque : deux compteurs sur le même
+              point de livraison, c'est une donnée fausse quelque part. Le format ne bloque PAS, il
+              alerte — c'est la règle écrite dans `compteurs.ts` pour `PDL_FORMAT_RE`, et elle vaut
+              ici : un point exotique existe, un écran qui le refuse ne sert personne. Le vide
+              bloque, parce qu'un compteur sans numéro n'est plus un compteur. */}
+          <div className="max-w-[22rem]">
+            <InlineField
+              variant="text"
+              value={compteur.numero_pdl}
+              mono
+              emptyLabel="numéro du point de livraison"
+              disabled={!canManage}
+              onCommit={commitNumeroPdl}
+              onSaved={() => showToast('✓ numéro enregistré')}
+              onError={(e) => showToast(`Erreur : ${e.message}`)}
+            />
+          </div>
           <p className="truncate text-km-xs text-km-faint">
             {compteur.date_creation && <>Créé le {new Date(compteur.date_creation).toLocaleDateString('fr-FR')} · </>}
             Propriétaire : {compteur.proprietaire_nom || 'Aucun'}
