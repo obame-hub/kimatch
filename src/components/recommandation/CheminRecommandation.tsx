@@ -124,6 +124,7 @@ export function CheminRecommandation({
   peutModifier,
   onChoisirEtape,
   onMarquerProposee,
+  onRetirerProposee,
   onOuvrirCloture,
   onRendreAuCalcul,
 }: {
@@ -133,6 +134,8 @@ export function CheminRecommandation({
   onChoisirEtape?: (code: 'BROUILLON' | 'ACTIVE') => void
   /** Date la présentation au client à la main, quand la proposition est partie hors de Kimatch. */
   onMarquerProposee?: () => void
+  /** Défait cette date : la proposition n'est finalement pas partie. Voir « REVENIR EN ARRIÈRE ». */
+  onRetirerProposee?: () => void
   /** La clôture passe par son panneau : elle réclame une finalité et un motif. */
   onOuvrirCloture?: () => void
   /** Rend le dossier au calcul automatique — l'échappatoire du choix manuel. */
@@ -199,8 +202,27 @@ export function CheminRecommandation({
       /* 186 dossiers clos n'ont aucune version : ils sont morts à l'état d'intention. Le jalon est
          derrière eux sans avoir eu lieu — c'est exactement ce que `depasse` dit. */
       depasse: estClose && reco.versions.length === 0,
-      onChoisir: cliquable('ACTIVE', () => onChoisirEtape?.('ACTIVE')),
-      titre: reco.etape === 'ACTIVE'
+      /* ══ REVENIR EN ARRIÈRE, ET NON SEULEMENT AVANCER (William, 22/09/2026) ══
+
+         Marie a marqué « Proposée » par erreur sur un dossier DÉJÀ actif, et s'est retrouvée
+         enfermée : « En consultation » refusait le clic — on ne repose pas l'étape en cours — et
+         « Proposée » aussi, la règle interdisant de redater une présentation faite. Chaque garde
+         était juste ; ensemble elles fermaient la seule porte de sortie.
+
+         QUAND UNE PRÉSENTATION EST DATÉE, CE JALON LA DÉFAIT. C'est le sens littéral de « revenir
+         en consultation » : le dossier reste actif, mais la proposition n'est plus réputée partie
+         — et la relance, qui repose entièrement sur cette date, s'éteint avec elle.
+
+         SAUF SUR UN DOSSIER CLOS, où ce même clic garde son sens d'origine : ROUVRIR. Un dossier
+         clos et présenté n'a pas besoin qu'on défasse sa présentation — elle a bien eu lieu, elle
+         fait partie de son histoire ; il a besoin de revivre. Confondre les deux ferait effacer
+         un fait passé au moment où l'on veut reprendre le travail. */
+      onChoisir: peutModifier && !estClose && datePresentation != null && onRetirerProposee
+        ? onRetirerProposee
+        : cliquable('ACTIVE', () => onChoisirEtape?.('ACTIVE')),
+      titre: !estClose && datePresentation != null && peutModifier && onRetirerProposee
+        ? 'Revenir en consultation — retirer la date de présentation et arrêter la relance'
+        : reco.etape === 'ACTIVE'
         ? 'Le dossier est actif'
         : estClose
           ? reco.versions.length === 0

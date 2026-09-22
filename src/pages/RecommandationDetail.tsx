@@ -25,6 +25,7 @@ import { CheminRecommandation } from '@/components/recommandation/CheminRecomman
 import { HeroRecommandation } from '@/components/recommandation/HeroRecommandation'
 import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
 import { suggestionRelance } from '@/lib/relance'
+import { jourLocalISO } from '@/lib/heureTache'
 import { ComparatifVersions, coutPrestationEstime } from '@/components/recommandation/ComparatifVersions'
 import { OngletCommandeClient } from '@/components/recommandation/OngletCommandeClient'
 import { DetailVersion } from '@/components/recommandation/DetailVersion'
@@ -247,11 +248,52 @@ export default function RecommandationDetail() {
     try {
       await updateVersion.mutateAsync({
         versionId: cible.id,
-        patch: { date_presentation_client: new Date().toISOString().slice(0, 10) },
+        /* LE JOUR VÉCU ICI, ET NON LE JOUR UTC. `toISOString().slice(0, 10)` découpe la chaîne
+           UTC : cliqué à 00 h 30 à Paris, il aurait daté la présentation de LA VEILLE — la
+           famille de bogues « J-1 » que William fait remonter depuis plusieurs semaines.
+           `jourLocalISO` existe depuis le 08/09/2026 exactement pour ça. */
+        patch: { date_presentation_client: jourLocalISO(new Date().toISOString()) },
       })
       if (avecMessage) {
         signaler(`✓ Proposition marquée envoyée — la relance partira dans deux jours ouvrés`)
       }
+    } catch (e) {
+      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  /**
+   * ══════════ REVENIR EN CONSULTATION — DÉFAIRE UNE PRÉSENTATION DATÉE PAR ERREUR ══════════
+   *
+   * William, 22/09/2026 : « Marie a fait une erreur et elle voudrait revenir à l'étape "En
+   * consultation" manuellement mais c'est impossible. »
+   *
+   * ELLE ÉTAIT PIÉGÉE, ET LE CHEMIN NE POUVAIT QU'AVANCER. Sur le dossier
+   * 84cd9433 (CABINET CAZALIERES), l'étape valait déjà ACTIVE — « En consultation » n'était donc
+   * pas cliquable, puisqu'on ne repose pas l'étape en cours. Et « Proposée » ne l'était pas non
+   * plus, la règle interdisant de REdater une présentation déjà faite. Les deux gardes sont
+   * justes séparément ; ensemble elles fermaient la porte.
+   *
+   * CE QU'ON DÉFAIT EST UN FAIT, PAS UNE ÉTAPE. « Revenir en consultation » ne change pas
+   * `etape_id` — le dossier est bien actif — il retire `date_presentation_client`. C'est ce que
+   * Marie veut dire : la proposition n'est pas partie.
+   *
+   * ET ÇA ÉTEINT LA RELANCE, ce qui est le vrai enjeu. La suggestion repose entièrement sur cette
+   * date : laissée en place par erreur, Kimatch réclamerait dans deux jours ouvrés la relance
+   * d'une offre que le client n'a jamais reçue.
+   *
+   * TOUTES LES VERSIONS DATÉES SONT NETTOYÉES, pas seulement la version actuelle : le chemin lit
+   * « la dernière présentée », qui n'est pas forcément celle qu'on regarde. N'en effacer qu'une
+   * laisserait le jalon allumé sans qu'on comprenne pourquoi.
+   */
+  async function retirerPresentationClient() {
+    const datees = (reco?.versions ?? []).filter((v) => v.date_presentation_client)
+    if (datees.length === 0) return
+    try {
+      for (const v of datees) {
+        await updateVersion.mutateAsync({ versionId: v.id, patch: { date_presentation_client: null } })
+      }
+      signaler('✓ Retour en consultation — la proposition n’est plus marquée envoyée')
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -1097,6 +1139,7 @@ export default function RecommandationDetail() {
                 peutModifier={canManage}
                 onChoisirEtape={choisirEtape}
                 onMarquerProposee={() => void datePresentationClient(true)}
+                onRetirerProposee={() => void retirerPresentationClient()}
                 onRendreAuCalcul={async () => {
                   try {
                     await rendreAuCalcul.mutateAsync(reco.id)
