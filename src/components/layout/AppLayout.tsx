@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner'
+import { BanniereRappels } from '@/components/layout/BanniereRappels'
 import { DocusignBanner } from '@/components/layout/DocusignBanner'
 import { GmailBanner } from '@/components/layout/GmailBanner'
 import { SidebarProvider } from '@/lib/layout'
@@ -67,6 +68,10 @@ export function AppLayout() {
       {/* `flex-1` et non plus `h-screen` : la colonne pleine hauteur est montée dans `App`,
           bandeau compris. Reprendre `h-screen` ici rendrait les 28 px de débordement. */}
       <div className="flex min-h-0 w-full flex-1 flex-col">
+        {/* LE RAPPEL À L'HEURE, AU-DESSUS DE TOUT LE RESTE. Il pousse le contenu comme les deux
+            autres bandeaux, il ne recouvre rien — et il ne paraît pas dans le Cockpit, qui a le
+            sien et qui en fait davantage. */}
+        <BanniereRappels />
         <DocusignBanner />
         {/* MÊME PLACE, MÊME FORME QUE DOCUSIGN. Les deux peuvent s'afficher ensemble : ils se
             posent l'un sous l'autre et poussent le contenu, aucun ne recouvre l'autre. */}

@@ -34,7 +34,7 @@ import { useMonProfil } from '@/lib/data/roles'
  */
 export type NatureAlerte = 'RAPPEL_HEURE' | 'FACTURES'
 
-export interface AlerteSprint {
+export interface Alerte {
   cle: string
   nature: NatureAlerte
   titre: string
@@ -50,19 +50,30 @@ export interface AlerteSprint {
 const AVANCE_MINUTES = 10
 const RETARD_MINUTES = 5
 
-export function useAlertesSprint(actif: boolean) {
+/**
+ * ══ LES RAPPELS SUIVENT PARTOUT, PAS SEULEMENT DANS LE SPRINT ══
+ *
+ * William, 23/09/2026 : « je veux que la bannière puisse apparaître partout sur Kimatch, pas
+ * uniquement dans Cockpit ».
+ *
+ * C'EST LA NATURE MÊME D'UN RENDEZ-VOUS TÉLÉPHONIQUE : il tombe à 14 h 30, qu'on soit en train de
+ * prospecter, de relire une recommandation ou de chercher un compteur. Le réserver au Cockpit
+ * revenait à ne prévenir que ceux qui n'avaient pas besoin d'être prévenus.
+ *
+ * LA CADENCE N'EST PAS LA MÊME DES DEUX CÔTÉS. Dans le sprint on enchaîne les appels et une minute
+ * de retard fait manquer le créneau ; ailleurs on travaille sur autre chose, et relire quatre fois
+ * par minute une requête qui rend presque toujours zéro ligne ne sert personne.
+ */
+export function useAlertes({ actif = true, cadenceMs = 45_000 }: { actif?: boolean; cadenceMs?: number } = {}) {
   const { data: profil } = useMonProfil()
   const moi = profil?.id ?? null
 
   return useQuery({
     queryKey: ['cockpit', 'alertes', moi],
     enabled: actif && Boolean(moi),
-    /* DIX SECONDES. Une bannière de rappel qui arrive avec une minute de retard a manqué son objet,
-       et une séance dure une heure : c'est trois cent soixante lectures d'une requête qui rend
-       presque toujours zéro ligne. Le coût est négligeable, le retard ne l'est pas. */
-    refetchInterval: actif ? 10_000 : false,
+    refetchInterval: actif ? cadenceMs : false,
     staleTime: 0,
-    queryFn: async (): Promise<AlerteSprint[]> => {
+    queryFn: async (): Promise<Alerte[]> => {
       if (!moi) return []
       const maintenant = Date.now()
       const debut = new Date(maintenant - RETARD_MINUTES * 60_000).toISOString()
@@ -87,7 +98,7 @@ export function useAlertesSprint(actif: boolean) {
           .limit(5),
       ])
 
-      const alertes: AlerteSprint[] = []
+      const alertes: Alerte[] = []
 
       /* UNE TÂCHE SANS HEURE VAUT MINUIT LOCAL — c'est la convention de toute l'application
          (`heureTache.ts`). Elle tomberait dans la fenêtre une fois par nuit, et n'a rien à y faire :

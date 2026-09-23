@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowUpRight, CalendarClock, CalendarX, ChevronDown, GripVertical, Mail, Phone, Zap } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Badge } from '@/components/ui/badge'
@@ -332,6 +332,31 @@ function CockpitOuvert() {
      sans les imposer. Six cents lignes au plus se filtrent sans qu'on le sente. */
   const { data: mesPistes } = useMesPistes(true)
   const [enSprint, setEnSprint] = useState(false)
+  /**
+   * ══ ARRIVER DEPUIS LE BANDEAU DE RAPPEL ══
+   *
+   * William, 23/09/2026 : « si la bannière apparaît dans Kimatch, le clic dessus doit renvoyer vers
+   * Cockpit sur cette fiche en question ».
+   *
+   * LA CIBLE PASSE PAR L'ADRESSE (`?rappel=PISTE:uuid`) et non par l'état de navigation : un lien
+   * se recopie, se met en favori, et surtout survit à un rechargement. Un rappel qu'on retrouve en
+   * rouvrant l'onglet vaut mieux qu'un rappel perdu au premier F5.
+   *
+   * ON L'EFFACE UNE FOIS CONSOMMÉE, sans quoi revenir en arrière rouvrirait le sprint indéfiniment
+   * sur la même fiche.
+   */
+  const [params, setParams] = useSearchParams()
+  const rappelDemande = params.get('rappel')
+  const [cibleRappel, setCibleRappel] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!rappelDemande) return
+    setCibleRappel(rappelDemande)
+    setEnSprint(true)
+    const suite = new URLSearchParams(params)
+    suite.delete('rappel')
+    setParams(suite, { replace: true })
+  }, [rappelDemande, params, setParams])
   const [choisie, setChoisie] = useState<string | null>(null)
   const [cochees, setCochees] = useState<Set<string>>(new Set())
   /* LE CLIC SUR LA LIGNE CHOISIT, LA CASE COCHE (William, 21/09/2026 : « quand je clique sur une
@@ -538,8 +563,9 @@ function CockpitOuvert() {
     return (
       <SprintCockpit
         lignes={affichees}
+        departSur={cibleRappel}
         onSortir={(ligne, motif) => void sortir.mutateAsync({ ligne, motif })}
-        onFermer={() => setEnSprint(false)}
+        onFermer={() => { setCibleRappel(null); setEnSprint(false) }}
       />
     )
   }

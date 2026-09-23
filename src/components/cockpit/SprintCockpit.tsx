@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CalendarClock, ChevronUp, Mail, Phone, PhoneOff, SkipForward, StickyNote, X, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { numeroInternational } from '@/lib/telephonie'
@@ -14,7 +15,8 @@ import {
 } from '@/lib/data/appelEnCours'
 import { useCreateAction, useUpdateActionPartiel } from '@/lib/data/actions'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { LIBELLE_SOURCE, useAvancerStatutPiste, useFichePipe, useMajFicheSprint, useOuvrirDepot, type ChampFicheSprint, type LignePipe } from '@/lib/data/cockpit'
+import { LIBELLE_SOURCE, useAvancerStatutPiste, useFichePipe, useMajFicheSprint, useOuvrirDepot, useReordonnerPipe, type ChampFicheSprint, type LignePipe } from '@/lib/data/cockpit'
+import type { Alerte } from '@/lib/data/alertes'
 import { QUALIFICATIONS_FIN } from '@/lib/data/opportunites'
 import { supabase } from '@/lib/supabase'
 import { ChampSprint } from '@/components/cockpit/ChampSprint'
@@ -150,14 +152,28 @@ function chrono(secondes: number): string {
 
 export function SprintCockpit({
   lignes,
+  departSur,
   onSortir,
   onFermer,
 }: {
   lignes: LignePipe[]
+  /**
+   * La fiche sur laquelle ouvrir la séance, au format `TYPE:uuid`.
+   *
+   * Sert quand on arrive depuis le bandeau de rappel d'une autre page : on ne veut pas commencer
+   * au début du plan, on veut appeler CETTE personne, tout de suite. Absente, la séance commence
+   * par la première fiche comme toujours.
+   */
+  departSur?: string | null
   onSortir: (ligne: string, motif: 'APPELE' | 'REPORTE' | 'ECARTE') => void
   onFermer: () => void
 }) {
-  const [index, setIndex] = useState(0)
+  const [index, setIndex] = useState(() => {
+    if (!departSur) return 0
+    const [type, id] = departSur.split(':')
+    const rang = lignes.findIndex((l) => l.cible_type === type && l.cible_id === id)
+    return rang >= 0 ? rang : 0
+  })
   const [secondes, setSecondes] = useState(0)
   /* Le numéro à composer quand la fiche en porte deux. Remis à zéro en changeant de fiche —
      sinon le second numéro d'un contact deviendrait le premier du suivant. */
@@ -199,6 +215,10 @@ export function SprintCockpit({
   const majAction = useUpdateActionPartiel()
   const avancerStatut = useAvancerStatutPiste()
   const ouvrirDepot = useOuvrirDepot()
+  const reordonner = useReordonnerPipe()
+  const navigate = useNavigate()
+  /* La sortie vers une fiche demande confirmation : elle ferme la séance. */
+  const [sortieFactures, setSortieFactures] = useState<Alerte | null>(null)
   /* ══ L'APPEL EN COURS VIENT D'ALLO, PAS DE NOUS ══
      `appels_en_cours` est rempli par le webhook (`api/allo/webhook.ts`) : c'est la seule source qui
      sache qu'une ligne sonne, qu'on a décroché et quand. Kimatch ne peut pas le deviner — voir la
@@ -219,6 +239,36 @@ export function SprintCockpit({
   const [origineMorph, setOrigineMorph] = useState<DOMRect | null>(null)
   /* Vrai pendant la sortie : l'éditeur reste monté le temps de se refermer sur la carte. */
   const [mailSort, setMailSort] = useState(false)
+
+  /**
+   * ══ LA FICHE À RAPPELER PASSE JUSTE APRÈS CELLE EN COURS ══
+   *
+   * William, 23/09/2026 : « Cockpit doit positionner la fiche à rappeler automatiquement à la suite
+   * de la fiche en cours d'appel. Ainsi, simplement en passant à la prochaine étape, le commercial
+   * appellera la bonne personne à la bonne heure. »
+   *
+   * C'EST PLUS FIN QU'UN BOUTON « Y ALLER ». Sauter tout de suite couperait l'appel en cours ; ne
+   * rien faire obligerait à chercher la fiche dans une liste de soixante. Le rangement laisse
+   * finir, et le geste suivant — celui qu'on allait faire de toute façon — tombe sur la bonne
+   * personne.
+   *
+   * L'ORDRE EST ÉCRIT EN BASE (`ordre_manuel`, via `reordonner_pipe`) et non gardé à l'écran : un
+   * rechargement au milieu d'une séance ne doit pas défaire le rangement, sans quoi le rappel se
+   * perdrait exactement comme avant.
+   *
+   * ON NE DÉPLACE PAS CE QUI EST DÉJÀ EN PLACE : ni la fiche en cours, ni celle qui la suit déjà.
+   */
+  const rangerApresLaFicheEnCours = useCallback((alerte: Alerte) => {
+    const source = lignes.findIndex((l) => l.cible_type === alerte.cible_type && l.cible_id === alerte.cible_id)
+    if (source < 0 || source === index || source === index + 1) return
+
+    const ordre = lignes.map((l) => l.ligne_id)
+    const [deplacee] = ordre.splice(source, 1)
+    /* Si la fiche à rappeler était AVANT celle en cours, la retirer décale l'index d'un cran. */
+    const apres = source < index ? index : index + 1
+    ordre.splice(apres, 0, deplacee)
+    reordonner.mutate(ordre)
+  }, [lignes, index, reordonner])
 
   /**
    * Ouvre l'éditeur en le faisant naître de la carte « Contacter ».
@@ -655,16 +705,7 @@ export function SprintCockpit({
           ferait un troisième étage et cacherait le nom de celui à qui l'on parle. Elles s'insèrent
           sous la barre de séance et décalent le contenu de quelques dizaines de pixels. */}
       <div className="shrink-0">
-        <BannieresSprint
-          actif
-          onOuvrir={(a) => {
-            /* SI LA FICHE EST DANS LE PLAN, ON Y VA SANS QUITTER LA SÉANCE. Sinon seulement, on
-               ouvre sa fiche dans un onglet — le sprint ne se ferme jamais d'un clic de bannière. */
-            const rang = lignes.findIndex((l) => l.cible_type === a.cible_type && l.cible_id === a.cible_id)
-            if (rang >= 0) { setIndex(rang); setGeste(null); setAppelLance(null); return }
-            if (a.lien) window.open(a.lien, '_blank', 'noopener')
-          }}
-        />
+        <BannieresSprint actif surRappel={rangerApresLaFicheEnCours} onOuvrirFactures={setSortieFactures} />
       </div>
 
       <div className="grid flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[1.05fr_0.95fr]">
@@ -1371,7 +1412,58 @@ export function SprintCockpit({
 
         </aside>
       </div>
+      {/* ══ QUITTER LE SPRINT SE CONFIRME ══
+
+          William, 23/09/2026 : « vu que ça quitte le sprint, une petite popup de confirmation de
+          redirection me semble utile ».
+
+          Il a raison, et la raison n'est pas la prudence : une séance interrompue par mégarde ne se
+          reprend pas. On repart du début, on relit les fiches déjà traitées, et l'élan — qui est
+          tout l'objet du sprint — est perdu. Deux clics valent mieux qu'une heure à refaire.
+
+          LE COMPTE DE LA SÉANCE EST RAPPELÉ DANS LA FENÊTRE : c'est ce qu'on abandonne, et c'est la
+          seule information qui rende la décision éclairée. */}
+      {sortieFactures ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-[26rem] rounded-km-lg border border-km-side-line bg-km-side p-5">
+            <p className="text-km-title font-bold text-km-side-text">Quitter la séance ?</p>
+            <p className="mt-2 text-km-body leading-relaxed text-km-side-muted">
+              <b className="font-semibold text-km-side-green">{sortieFactures.titre}</b>
+              {sortieFactures.detail ? ` — ${sortieFactures.detail}.` : '.'}
+              {' '}Ouvrir la fiche ferme le sprint : vous reprendrez la séance depuis le début.
+            </p>
+            <p className="mt-2 text-km-label text-km-side-faint">
+              {index} fiche{index > 1 ? 's' : ''} traitée{index > 1 ? 's' : ''} sur {lignes.length},
+              {' '}{appels} appel{appels > 1 ? 's' : ''} passé{appels > 1 ? 's' : ''}.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => { const lien = sortieFactures.lien; setSortieFactures(null); if (lien) navigate(lien) }}
+                className="rounded-km bg-km-side-green px-4 py-2.5 text-km-name font-bold text-[#0B241C] transition-[filter] hover:brightness-110"
+              >
+                Ouvrir la fiche
+              </button>
+              {/* LA TROISIÈME VOIE, qui est souvent la bonne : regarder plus tard sans rien perdre.
+                  Un nouvel onglet garde la séance intacte derrière. */}
+              <button
+                onClick={() => { const lien = sortieFactures.lien; setSortieFactures(null); if (lien) window.open(lien, '_blank', 'noopener') }}
+                className="rounded-km border border-km-side-line px-4 py-2.5 text-km-name font-semibold text-km-side-text transition-colors hover:border-km-side-muted hover:bg-km-side-bas"
+              >
+                Ouvrir dans un onglet
+              </button>
+              <button
+                onClick={() => setSortieFactures(null)}
+                className="rounded-km px-4 py-2.5 text-km-name font-semibold text-km-side-muted transition-colors hover:text-km-side-text"
+              >
+                Rester ici
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
+
   )
 }
 
