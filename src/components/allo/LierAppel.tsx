@@ -71,14 +71,31 @@ export function LierAppel({
   const lier = useLierAppel()
   const [recherche, setRecherche] = useState('')
 
+  /* ══ UNE BASCULE PAR CATÉGORIE ══
+   *
+   * Naoëlle, 23/09/2026 : « sous forme de toggle par catégorie d'objet ».
+   *
+   * `null` signifie « toutes », et c'est le départ : on ne sait pas d'avance de quoi l'appel
+   * parlait, et présélectionner une catégorie ferait manquer les autres. La bascule sert à réduire
+   * une liste trop longue, pas à imposer un chemin.
+   *
+   * ON NE MONTRE QUE LES CATÉGORIES QUI ONT QUELQUE CHOSE. Une bascule « Requête » sur un compte
+   * qui n'en a aucune promet une liste et rend le vide — le défaut qu'on corrige partout ailleurs. */
+  const [categorie, setCategorie] = useState<TypeLien | null>(null)
+
   const tous = objets ?? []
-  const filtres = recherche.trim()
-    ? tous.filter((o) =>
-        `${o.libelle} ${o.detail ?? ''} ${DESSIN[o.type].libelle}`
-          .toLowerCase()
-          .includes(recherche.trim().toLowerCase()),
-      )
-    : tous
+  const presentes = (['opportunite', 'recommandation', 'requete', 'piste'] as TypeLien[])
+    .filter((t) => tous.some((o) => o.type === t))
+
+  const filtres = tous
+    .filter((o) => (categorie ? o.type === categorie : true))
+    .filter((o) =>
+      recherche.trim()
+        ? `${o.libelle} ${o.detail ?? ''} ${DESSIN[o.type].libelle}`
+            .toLowerCase()
+            .includes(recherche.trim().toLowerCase())
+        : true,
+    )
 
   const choisir = (o: ObjetLiable | null) => {
     lier.mutate(
@@ -89,7 +106,7 @@ export function LierAppel({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-km-text/25 p-4 sm:items-center"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-km-text/25 p-4"
       role="dialog"
       aria-modal="true"
       aria-label="À quoi se rapportait cet appel ?"
@@ -115,6 +132,50 @@ export function LierAppel({
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {/* ══ LES BASCULES PAR CATÉGORIE ══
+            Naoëlle : « sous forme de toggle par catégorie d'objet ». « Tout » d'abord, puis une
+            bascule par catégorie PRÉSENTE — avec son compte, parce que savoir qu'il y a trois
+            recommandations avant de cliquer évite un aller-retour.
+
+            ELLES NE PARAISSENT QU'À PARTIR DE DEUX CATÉGORIES : un seul bouton « Tout » à côté
+            d'un seul autre ne propose aucun choix, il occupe juste une ligne. */}
+        {presentes.length > 1 && (
+          <div className="flex flex-wrap gap-1 border-b border-km-line px-4 py-2.5">
+            <button
+              type="button"
+              onClick={() => setCategorie(null)}
+              className={cn(
+                'rounded-km px-2.5 py-1 text-km-tiny font-semibold transition-colors',
+                categorie === null
+                  ? 'bg-km-green-soft text-km-green'
+                  : 'text-km-muted hover:bg-km-soft',
+              )}
+            >
+              Tout ({tous.length})
+            </button>
+            {presentes.map((t) => {
+              const n = tous.filter((o) => o.type === t).length
+              const { libelle, Icone } = DESSIN[t]
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setCategorie(categorie === t ? null : t)}
+                  className={cn(
+                    'flex items-center gap-1 rounded-km px-2.5 py-1 text-km-tiny font-semibold transition-colors',
+                    categorie === t
+                      ? 'bg-km-green-soft text-km-green'
+                      : 'text-km-muted hover:bg-km-soft',
+                  )}
+                >
+                  <Icone className="h-3 w-3 shrink-0" />
+                  {libelle} ({n})
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {tous.length > SEUIL_RECHERCHE && (
           <div className="border-b border-km-line px-4 py-2.5">

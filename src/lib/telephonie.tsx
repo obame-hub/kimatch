@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { lancerAppelBureau } from '@/lib/alloBureau'
-import { BoutonRattacher } from '@/components/allo/BoutonRattacher'
+import { DemandeRattachement } from '@/components/allo/DemandeRattachement'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -279,10 +279,10 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
           numéro, appuyer sur le vert — parce que rien ne composait. Depuis que le clic compose
           pour de bon, elle ne fait qu'ajouter un écran entre le geste et l'appel. `CarteAppel`
           suffit : elle s'ouvre quand ça sonne. */}
-      {/* RATTACHER LE DERNIER APPEL — disponible partout, Cockpit compris : ce fournisseur est
-          monte une fois dans AppLayout, et le Cockpit vit par-dessus l'application, pas a cote.
-          Le bouton ne parait que s'il y a un appel recent non rattache. */}
-      <BoutonRattacher />
+      {/* LA DEMANDE DE RATTACHEMENT — elle s'ouvre d'elle-meme a la fin d'un appel, au milieu de
+          l'ecran. Montee ici, donc disponible partout, Cockpit compris : ce fournisseur vit dans
+          AppLayout, et le Cockpit est un calque PAR-DESSUS l'application, pas a cote. */}
+      <DemandeRattachement />
       {message && (
         <div className="fixed bottom-[70px] left-1/2 z-[60] -translate-x-1/2 rounded-km border border-km-line bg-white px-4 py-2.5 text-km-xs font-semibold text-km-text shadow-km-pop md:bottom-6">
           {message}
