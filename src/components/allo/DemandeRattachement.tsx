@@ -200,51 +200,54 @@ export function DemandeRattachement() {
     setOuvert(true)
   }, [dernier])
 
-  /* ══ ON NE SE TAIT QUE POUR L'APPEL QU'ON EST EN TRAIN DE PASSER — CORRIGÉ LE 23/09/2026 ══
+  /* ══ ON NE SE TAIT QUE TANT QU'ON A QUELQU'UN AU BOUT DU FIL — 23/09/2026 ══
    *
-   * Naoëlle, après trois tentatives : « la modale ne s'ouvre toujours pas ». C'est ce garde qui
-   * la retenait, et il a fallu le mesurer deux fois pour le voir en entier.
+   * Naoëlle, après quatre tentatives : « c'est bon l'appel est bien dans le fil d'activité mais
+   * aucune modale ne s'active ». Ce garde est la seule chose qui la retenait, et il a fallu le
+   * corriger trois fois parce que chaque version butait sur un fait que la précédente ignorait.
    *
-   * ══ CE QUE FAISAIT L'ANCIENNE VERSION ══
+   * ══ CE QUI A ÉTÉ ESSAYÉ, ET POURQUOI CHAQUE VERSION A ÉCHOUÉ ══
    *
-   * Elle se taisait dès QU'UN appel était ouvert depuis moins d'un quart d'heure, quel qu'il soit.
-   * Relevé en base ce jour : 20 lignes de `appels_en_cours` sur 827 n'ont JAMAIS reçu de
-   * `call.completed` — Allo ne l'envoie pas à tous les coups, et ces lignes restent ouvertes pour
-   * toujours. L'une d'elles, ouverte à 13:45 sur le compte Allo de William, avait sept minutes :
-   * `enLigne` valait vrai alors que la requête trouvait QUATRE appels à rattacher. Et comme un
-   * fantôme naît toutes les quelques dizaines de minutes pendant une prospection, et qu'il est
-   * FRAIS pendant son premier quart d'heure, la fenêtre où la modale avait le droit de paraître
-   * était refermée en permanence par le fantôme suivant.
+   * ① « UN APPEL OUVERT DEPUIS MOINS DE 15 MINUTES » — mesuré en base : 20 lignes sur 827 n'ont
+   *   jamais reçu de `call.completed`, Allo ne l'envoie pas à tous les coups. Un fantôme naît
+   *   toutes les quelques dizaines de minutes en prospection et il est FRAIS pendant son premier
+   *   quart d'heure : la fenêtre où la modale avait le droit de paraître était donc refermée en
+   *   permanence par le fantôme suivant.
    *
-   * ══ POURQUOI COMPARER LES CORRESPONDANTS NE SUFFIT PAS ══
+   * ② « ...ET VERS LE MÊME CORRESPONDANT » — éprouvé à l'écran, toujours rien. Le fantôme de 13:45
+   *   portait exactement le même contact que l'interaction de 13:20 : c'était un rappel, et
+   *   rappeler deux fois le même client est le geste ordinaire de la prospection.
    *
-   * Ma première correction n'écartait que l'appel ouvert vers le MÊME correspondant. Éprouvée à
-   * l'écran le même jour : la modale ne s'ouvrait toujours pas. Le fantôme de 13:45 portait
-   * EXACTEMENT le même `contact_id` et le même `compte_id` que l'interaction de 13:20 proposée au
-   * rattachement — c'est un rappel, et rappeler deux fois le même contact est le geste ordinaire
-   * de la prospection, pas un cas limite.
+   * ③ « ...ET L'INTERACTION POSTÉRIEURE AU DÉBUT DE L'APPEL » — c'était juste TANT QUE
+   *   l'interaction arrivait après l'appel, c'est-à-dire tant qu'on attendait Allo. Depuis que
+   *   Kimatch écrit l'appel ET son interaction au clic (migration 20260923173000), les deux
+   *   naissent À LA MÊME SECONDE : 17:58:14 pour les deux, mesuré. Le garde voyait donc un appel
+   *   en cours, même contact, interaction postérieure ou égale — et se taisait pour toujours,
+   *   puisque Allo ne referme jamais cette ligne. Mon propre correctif se mordait la queue.
    *
-   * ══ LE BON CRITÈRE EST LA CHRONOLOGIE ══
+   * ══ LE SEUL CRITÈRE QUI RESTE VRAI : A-T-ON DÉCROCHÉ ? ══
    *
-   * L'interaction qu'on propose de rattacher décrit un appel DÉJÀ FINI — c'est le webhook qui
-   * l'écrit à la fin. Si elle est ANTÉRIEURE au début de l'appel encore ouvert, elle parle d'un
-   * autre appel, plus ancien, et rien ne justifie de la taire : la demander pendant que la ligne
-   * sonne est même le bon moment, puisqu'on a le dossier sous les yeux.
+   * La question « à quoi se rapportait cet appel » n'est gênante que pendant la CONVERSATION — la
+   * modale recouvrirait l'écran au moment où l'on prend des notes. Or une conversation, ça
+   * commence au décroché, et `decroche_le` est rempli par `call.answered` d'Allo.
    *
-   * ON NE SE TAIT DONC QUE POUR L'INTERACTION DE L'APPEL EN COURS LUI-MÊME : même correspondant ET
-   * postérieure à son début. Là, oui, la modale recouvrirait l'écran au moment des notes. */
+   * TANT QUE LA LIGNE SONNE, ON N'EST PAS EN TRAIN DE PARLER : la modale peut paraître, et c'est
+   * même le bon moment puisqu'on a le dossier sous les yeux. Un appel ouvert par Kimatch au clic
+   * n'a par construction pas encore décroché — il ne bloque donc plus rien, ce qui est exactement
+   * ce qu'on veut.
+   *
+   * ET LE FANTÔME NE PEUT PLUS TOUT BLOQUER : on exige le décroché ET la fraîcheur. Un appel
+   * décroché il y a deux heures et jamais refermé est un fantôme, pas une conversation. */
   const enLigne = Boolean(
     appelEnCours
       && dernier
       && !appelEnCours.termine_le
+      /* LE DÉCROCHÉ, ET LUI SEUL. Sans lui, un appel qui sonne — ou qu'on vient de lancer d'un
+         clic — ferait taire la modale alors que personne ne parle. */
+      && appelEnCours.decroche_le
       && ((appelEnCours.contact_id && appelEnCours.contact_id === dernier.contact_id)
         || (appelEnCours.compte_id && appelEnCours.compte_id === dernier.compte_id))
-      /* L'interaction est postérieure au début de l'appel ouvert : elle en est la trace, on parle
-         donc encore. Antérieure, elle vient d'un appel précédent et ne doit rien bloquer. */
-      && new Date(dernier.date).getTime() >= new Date(appelEnCours.demarre_le).getTime()
-      /* ET L'APPEL OUVERT DOIT ÊTRE VRAISEMBLABLE. Au-delà d'un quart d'heure sans `call.completed`,
-         c'est un des 20 fantômes : il ne doit plus rien retenir. */
-      && Date.now() - new Date(appelEnCours.demarre_le).getTime() < 15 * 60 * 1000,
+      && Date.now() - new Date(appelEnCours.decroche_le).getTime() < 15 * 60 * 1000,
   )
 
   if (!ouvert || !dernier || enLigne) return null

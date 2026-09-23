@@ -62,8 +62,8 @@ const voir = (page) => page.evaluate(() => Boolean(document.querySelector('[role
     await page.screenshot({ path: path.join(SORTIE,'parcours-1.png') })
     if (!ouverte) return
 
-    await page.locator('[role="dialog"] button', { hasText: 'Plus tard' }).first().click()
-    await page.waitForTimeout(3000)
+    await page.getByRole('button', { name: 'Plus tard', exact: true }).click()
+    await page.waitForTimeout(6000)
     console.log('2. apres « Plus tard »      : modale', await voir(page) ? '*** ENCORE LA ***' : 'fermee')
 
     await page.reload({ waitUntil:'domcontentloaded', timeout:60000 })
