@@ -271,69 +271,10 @@ export function useCreerPiste() {
   })
 }
 
-/**
- * Convertit une piste en opportunité.
- *
- * « La Piste devient une Opportunité lorsqu'un signal positif est identifié. » L'opportunité naît
- * donc avec l'origine PISTE et le lien retour, et rien de plus : le compte, le périmètre et le mandat
- * se rassemblent ensuite, c'est le travail de l'opportunité.
- */
-export function useConvertirPisteEnOpportunite() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ piste, statutNouvelleId, signal, contactId, compteId }: {
-      piste: Piste
-      statutNouvelleId: string | null
-      signal: string | null
-      /** Le contact retenu au moment de la conversion : prerequis de Michel, il ne peut pas etre nul. */
-      contactId?: string | null
-      compteId?: string | null
-    }) => {
-      const base = {
-        origine: 'PISTE',
-        piste_id: piste.id,
-        // Ce que le dialogue a retenu prime sur ce que la piste portait : une piste peut avoir ete
-        // rattachee a un contact du patrimoine au moment meme de la conversion.
-        compte_id: compteId ?? piste.compte_id,
-        contact_id: contactId ?? piste.contact_id,
-        ...(statutNouvelleId ? { statut_id: statutNouvelleId } : {}),
-      }
-
-      // LE SIGNAL A SON CHAMP DEPUIS LE 23/08/2026. Il partait dans `commentaire`, si bien que le
-      // contrôle de prérequis se réduisait à « il y a un commentaire, donc il y a un signal » —
-      // n'importe quelle note libre le validait. Repli sur le commentaire tant que la migration
-      // 20260823150000 n'est pas appliquée : mieux vaut un signal mal rangé qu'une conversion qui
-      // échoue.
-      let reponse = await supabase
-        .from('opportunites')
-        .insert({ ...base, signal_libelle: signal })
-        .select('id')
-        .single()
-      if (reponse.error && /signal_libelle/.test(reponse.error.message)) {
-        reponse = await supabase.from('opportunites').insert({ ...base, commentaire: signal }).select('id').single()
-      }
-      const { data, error } = reponse
-      if (error) throw new Error(messageDErreur(error.message))
-      const oppId = (data as { id: string }).id
-      // La piste garde la trace du contact retenu : sans cela l'information ne vivrait que sur
-      // l'opportunite, et la piste continuerait d'afficher un contact en texte libre alors qu'on
-      // vient de le rattacher au patrimoine.
-      await supabase
-        .from('pistes')
-        .update({
-          opportunite_id: oppId,
-          ...(contactId ? { contact_id: contactId } : {}),
-          ...(compteId ? { compte_id: compteId } : {}),
-        })
-        .eq('id', piste.id)
-      return oppId
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pistes'] })
-      qc.invalidateQueries({ queryKey: ['opportunites'] })
-    },
-  })
-}
+/* ══ `useConvertirPisteEnOpportunite` A ÉTÉ RETIRÉE LE 23/09/2026 ══
+   Elle n'insérait que l'opportunité et ne posait aucun périmètre : c'est elle qui explique les 99
+   opportunités sans compteur sur 132. La conversion passe désormais par `ParcoursConversion`, qui
+   va jusqu'au mandat, et son écriture vit dans `src/lib/data/conversionPiste.ts`. */
 
 /** Même traduction que partout : un refus de PostgREST doit dire quoi faire. */
 function messageDErreur(brut: string): string {

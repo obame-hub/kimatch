@@ -17,6 +17,7 @@ import {
   type PdlDraft,
   type ExtractedField,
 } from '@/components/compteur/PdlDraftRows'
+import { cn } from '@/lib/utils'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
@@ -38,6 +39,10 @@ export function CreationCompteurDialog({
   titre = 'Nouveau compteur',
   compteIdParDefaut,
   onSaved,
+  onCrees,
+  enTete,
+  responsableParDefautId,
+  sansCadre = false,
 }: {
   open: boolean
   onClose: () => void
@@ -51,6 +56,30 @@ export function CreationCompteurDialog({
   /** Présélectionne le compte dans le sélecteur (ex. « créer un site » depuis une fiche compte). */
   compteIdParDefaut?: string
   onSaved: (message: string) => void
+  /* ══ LES DEUX CROCHETS DU PARCOURS DE CONVERSION (23/09/2026) ══
+     Ce dialogue est l'étape « périmètre » du parcours de conversion d'une piste. Il y est réemployé
+     tel quel plutôt que recopié : c'est le même geste, avec les mêmes contrôles d'éligibilité, et
+     deux écrans de saisie de PDL qui divergeraient seraient deux écrans à corriger. */
+  /** Les compteurs créés, avec leurs identifiants. `onSaved` ne rend qu'une phrase : la suite du
+   *  parcours (opportunité puis mandat) a besoin des identifiants eux-mêmes.
+   *  LE FOURNIR REMPLACE AUSSI L'ÉCRAN DE SORTIE : `MandatChainPrompt` propose d'enchaîner sur un
+   *  mandat, ce que le parcours fait déjà de lui-même. Le laisser poserait deux fois la même
+   *  question, avec deux réponses possibles. */
+  onCrees?: (compteurs: ChainedCompteur[]) => void
+  /** Rendu en tête du dialogue : le parcours y place son ruban d'étapes, pour qu'on ne perde pas
+   *  de vue où l'on en est au moment où l'écran change. */
+  enTete?: React.ReactNode
+  /** Le responsable désigné d'avance sur chaque PDL. Le parcours de conversion y met le contact
+   *  qu'il vient de créer : c'est lui qu'on a eu au téléphone, c'est lui qui signera le mandat, et
+   *  le redemander PDL par PDL juste après l'avoir saisi n'apprend rien à personne.
+   *  Pré-rempli, pas imposé : le sélecteur reste ouvert, un syndic peut confier la chaufferie à
+   *  quelqu'un d'autre. */
+  responsableParDefautId?: string
+  /** ══ RENDU SANS SA PROPRE FENÊTRE ══
+   *  Le parcours de conversion a déjà la sienne, avec son rail à gauche : imbriquer un second
+   *  `Dialog` dedans poserait un voile par-dessus le voile et une carte par-dessus la carte. On
+   *  rend donc le seul formulaire, que le parcours place dans son panneau de droite. */
+  sansCadre?: boolean
 }) {
   const { data: energiesRef } = useReferenceTable('types_energies')
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
@@ -71,7 +100,7 @@ export function CreationCompteurDialog({
 
   // Plus d'etape « adresse » ni d'ecran de desambiguisation : le site est un simple libelle saisi
   // dans le formulaire du PDL, resolu ou cree a l'enregistrement (decision William 06/08/2026).
-  const [drafts, setDrafts] = useState<PdlDraft[]>([emptyPdlDraft()])
+  const [drafts, setDrafts] = useState<PdlDraft[]>([emptyPdlDraft(responsableParDefautId)])
   const [submitting, setSubmitting] = useState(false)
   const [createdCompteurs, setCreatedCompteurs] = useState<ChainedCompteur[] | null>(null)
   // Champs de la facture extraits à l'étape adresse : ils servent l'adresse tout de suite, puis
@@ -111,7 +140,7 @@ export function CreationCompteurDialog({
   })
 
   function reset() {
-    setDrafts([emptyPdlDraft()])
+    setDrafts([emptyPdlDraft(responsableParDefautId)])
     setSubmitting(false)
     setCreatedCompteurs(null)
     setChampsFacture(null)
@@ -177,6 +206,7 @@ export function CreationCompteurDialog({
     e.preventDefault()
     setSubmitting(true)
     let created = 0
+    let echecs = 0
     let sitesCrees = 0
     const nouveaux: ChainedCompteur[] = []
     const cacheSites = new Map<string, { id: string; nom: string }>()
@@ -218,6 +248,7 @@ export function CreationCompteurDialog({
         created += 1
         nouveaux.push({ id: result.compteur.id, numero_pdl: result.compteur.numero_pdl, responsable_contact_id: result.compteur.responsable_contact_id ?? null })
       } catch (err) {
+        echecs += 1
         patchDraft(d.key, { status: 'error', errorMessage: err instanceof Error ? err.message : 'Erreur inconnue' })
       }
     }
@@ -227,12 +258,17 @@ export function CreationCompteurDialog({
       const ou = sitesCrees > 0 ? `nouveau site « ${dernierSiteNom} »` : `site « ${dernierSiteNom} »`
       onSaved(`✓ ${quoi} sur le ${ou}`)
     }
-    setDrafts((prev) => {
-      if (prev.every((d) => d.status === 'saved') && nouveaux.length > 0) {
-        setCreatedCompteurs(nouveaux)
-      }
-      return prev
-    })
+    /* ══ « TOUT EST PASSÉ » SE COMPTE, IL NE SE RELIT PAS DANS L'ÉTAT ══
+       C'était `setDrafts((prev) => ...)` qui décidait, en relisant les statuts — un effet de bord
+       glissé dans une fonction de mise à jour, que React a le droit d'exécuter deux fois. Anodin
+       tant qu'il n'appelait qu'un `setState` du même composant ; plus du tout maintenant qu'il
+       prévient le parcours, qui enchaînerait alors deux fois sur l'opportunité.
+       Le compte des échecs est tenu par la boucle elle-même : c'est la même information, prise là
+       où elle est sûre. */
+    if (echecs === 0 && nouveaux.length > 0) {
+      if (onCrees) onCrees(nouveaux)
+      else setCreatedCompteurs(nouveaux)
+    }
   }
 
   if (createdCompteurs) {
@@ -271,14 +307,9 @@ export function CreationCompteurDialog({
     )
   }
 
-  return (
-    <Dialog
-      open={open}
-      onClose={() => { reset(); onClose() }}
-      title={titre}
-      className="max-w-xl"
-      description="Le site est retrouvé ou créé automatiquement à partir du libellé et de l'adresse."
-    >
+  const corps = (
+    <>
+      {enTete}
       {/* Recherche et non liste déroulante : voir `ChoixParRecherche`. Ce `<select>` déroulait
           tous les comptes clients (Naoëlle, 08/09/2026 : « montrer tous les comptes c'est horrible
           à l'affichage »). */}
@@ -304,7 +335,7 @@ export function CreationCompteurDialog({
       )}
 
       {compte && (
-      <>
+      <div className={cn(sansCadre && 'flex min-h-0 flex-1 flex-col')}>
       <div className="mb-3 space-y-2">
         {/* Dépôt de facture : ce que promettait « Extraction automatique » sans jamais l'ouvrir.
             Proposé aussi en saisie manuelle -- ça ne coûte rien. */}
@@ -321,12 +352,12 @@ export function CreationCompteurDialog({
         )}
       </div>
 
-      <form onSubmit={handleSubmitPdl} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+      <form onSubmit={handleSubmitPdl} className={cn('space-y-4 overflow-y-auto pr-1', sansCadre ? 'min-h-0 flex-1' : 'max-h-[70vh]')}>
           <PdlDraftRows
             drafts={drafts}
             onChange={patchDraft}
             onRemove={(key) => setDrafts((prev) => prev.filter((d) => d.key !== key))}
-            onAdd={() => setDrafts((prev) => [...prev, emptyPdlDraft()])}
+            onAdd={() => setDrafts((prev) => [...prev, emptyPdlDraft(responsableParDefautId)])}
             energies={energies}
             utilisationsRef={utilisationsRef}
             fournisseurs={fournisseurs}
@@ -351,8 +382,22 @@ export function CreationCompteurDialog({
             </Button>
           </div>
       </form>
-      </>
+      </div>
       )}
+    </>
+  )
+
+  if (sansCadre) return corps
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => { reset(); onClose() }}
+      title={titre}
+      className="max-w-xl"
+      description="Le site est retrouvé ou créé automatiquement à partir du libellé et de l'adresse."
+    >
+      {corps}
     </Dialog>
   )
 }

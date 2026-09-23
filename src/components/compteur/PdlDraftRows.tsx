@@ -60,7 +60,9 @@ export interface PdlDraft {
   errorMessage: string | null
 }
 
-export function emptyPdlDraft(): PdlDraft {
+/** @param responsableContactId Le responsable désigné d'avance — le contact que le parcours de
+ *  conversion vient de créer, par exemple. Vide partout ailleurs. */
+export function emptyPdlDraft(responsableContactId = ''): PdlDraft {
   return {
     key: nextDraftKey(),
     typeEnergieId: '',
@@ -73,7 +75,7 @@ export function emptyPdlDraft(): PdlDraft {
     typeUtilisationId: '',
     dateEcheance: '',
     fournisseurActuelId: '',
-    responsableContactId: '',
+    responsableContactId,
     segment: '',
     tension: '',
     puissanceParClasseKva: {},
@@ -378,9 +380,15 @@ export function PdlDraftRows({
                   {doublon ? `Un compteur avec ce numéro existe déjà (${doublon.site_nom}).` : "Format inhabituel pour un numéro de PDL/PCE — vérifie avant de continuer."}
                 </p>
               )}
-              <FormField label="Utilisation">
-                <Input value={d.utilisation} onChange={(e) => onChange(d.key, { utilisation: e.target.value })} placeholder="Ex. Parties communes, Chaufferie…" />
-              </FormField>
+              {/* ══ LE CHAMP LIBRE « UTILISATION » A ÉTÉ RETIRÉ LE 23/09/2026 ══
+                  William : « supprime le champ Utilisation ». Il alimentait `compteurs.libelle`, et
+                  les chiffres lui donnent raison : sur les 106 compteurs créés dans Kimatch depuis
+                  le 1er août, 45 seulement portaient quelque chose — un champ qu'on saute une fois
+                  sur deux n'est pas un champ, c'est un ralentisseur. Le vrai classement se fait par
+                  « Type d'utilisation (CU/MU/LU) », juste en dessous, qui lui est obligatoire et
+                  vient d'une table de référence.
+                  `PdlDraft.utilisation` reste dans le type : `useCreateCompteur` l'exige, et les
+                  7 865 libellés repris de Salesforce continuent de s'afficher partout ailleurs. */}
               {estElectricite && utilisationsRef && utilisationsRef.length > 0 && (
                 <FormField label="Type d'utilisation (CU/MU/LU)" required>
                   <Select value={d.typeUtilisationId} onChange={(e) => onChange(d.key, { typeUtilisationId: e.target.value })} className={kManque('typeUtilisationId')}>

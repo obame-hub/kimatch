@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { OngletFichiers } from '@/components/compte/OngletFichiers'
-import { DialogConversionPiste } from '@/components/prospection/DialogConversionPiste'
+import { ParcoursConversion } from '@/components/prospection/ParcoursConversion'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useGoBack } from '@/lib/useGoBack'
@@ -14,9 +14,8 @@ import { useActionsParPiste } from '@/lib/data/actions'
 import { useInteractionsParPiste } from '@/lib/data/interactions'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { useStatutsOpportunites } from '@/lib/data/opportunites'
 import {
-  usePiste, useMajPiste, useConvertirPisteEnOpportunite, useStatutsPistes, useSupprimerPiste,
+  usePiste, useMajPiste, useStatutsPistes, useSupprimerPiste,
 } from '@/lib/data/prospection'
 import { BandeauPiste } from '@/components/prospection/BandeauPiste'
 import { ZonesPiste } from '@/components/prospection/ZonesPiste'
@@ -84,13 +83,11 @@ export default function PisteDetail() {
   const { data: interactions } = useInteractionsParPiste(id)
   const { data: documents } = useDocumentsParEntites(id ? [id] : undefined)
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
-  const { data: statuts } = useStatutsOpportunites()
   const { data: statutsPistes } = useStatutsPistes()
   const { data: profils } = useProfilsAdmin()
   const { data: origines } = useReferenceTable('origines_pistes')
   const maj = useMajPiste()
   const televerser = useTeleverserDocuments()
-  const convertir = useConvertirPisteEnOpportunite()
 
   const [onglet, setOnglet] = useState<CleOnglet>('piste')
   const [conversionOuverte, setConversionOuverte] = useState(false)
@@ -528,26 +525,13 @@ export default function PisteDetail() {
         </div>
       </Dialog>
 
+      {/* ══ LE PARCOURS DE CONVERSION, D'UNE TRAITE (William, 23/09/2026) ══
+          Le dialogue d'avant s'arrêtait au couple compte + contact et rendait la main : on obtenait
+          une opportunité sans périmètre — 99 des 132 opportunités n'en ont aucun — et le mandat se
+          demandait plus tard, ou jamais. Les six étapes s'enchaînent désormais jusqu'à l'envoi du
+          mandat, et c'est le parcours lui-même qui crée l'opportunité et fait basculer la piste. */}
       {conversionOuverte && (
-        <DialogConversionPiste
-          piste={piste}
-          onFermer={() => setConversionOuverte(false)}
-          onValide={async (signal, contactId, compteId) => {
-            try {
-              const nouvelleId = await convertir.mutateAsync({
-                piste,
-                statutNouvelleId: statuts?.find((s) => s.code === 'NOUVELLE')?.id ?? null,
-                signal,
-                contactId,
-                compteId,
-              })
-              setConversionOuverte(false)
-              navigate(`/opportunites/${nouvelleId}`)
-            } catch (e) {
-              signaler(e instanceof Error ? e.message : 'Conversion impossible')
-            }
-          }}
-        />
+        <ParcoursConversion piste={piste} onFermer={() => setConversionOuverte(false)} />
       )}
 
       {toast && (
