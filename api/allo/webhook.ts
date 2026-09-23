@@ -168,8 +168,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const numeroDistant = topic === 'call.received' ? d.from_number : (d.to_number ?? d.to)
+  /* ══════════════════════════════════════════════════════════════════════════════════════════
+     LE NUMÉRO DISTANT DÉPEND DU SENS, PAS DU SUJET DU MESSAGE
+     ══════════════════════════════════════════════════════════════════════════════════════════
+
+     Matthieu, 23/09/2026, sur la piste de florian COSTAL : « il a reçu un appel entrant, je le vois
+     sur Allô mais ce call n'est pas indiqué dans la piste ».
+
+     ══ CE QUI SE PASSAIT, ET DEPUIS QUAND ══
+
+     La ligne lisait `to_number` dès que le sujet n'était pas `call.received`. Sur un appel ENTRANT,
+     `to_number` est NOTRE ligne — celle du commercial. Le `call.completed` d'un entrant partait donc
+     chercher « +33644647431 » au lieu du numéro du client, et trois choses s'enchaînaient :
+
+       1. `appelDejaConnu` ne retrouvait pas la carte ouverte par `call.received`, qui portait le
+          vrai numéro. Il en créait une SECONDE, avec notre propre ligne.
+       2. `reconnaitre` ne trouvait évidemment aucune fiche derrière notre propre numéro :
+          `contact_id`, `compte_id` et `piste_id` repartaient tous les trois à `null`.
+       3. `interactions_contexte_check` exige au moins un rattachement. L'écriture était donc
+          REFUSÉE par la base, la fonction levait, et Allô recevait un 500 — sur un appel qui, lui,
+          avait été parfaitement capté.
+
+     MESURÉ AVANT CORRECTION : 130 appels entrants enregistrés avec leur identifiant Allô, leur
+     enregistrement, leur transcription et leur résumé — et ZÉRO interaction sur les fiches. Aucun
+     appel entrant n'est arrivé dans un historique depuis la mise en service du webhook le 08/09.
+     Les 698 entrants présents en base datent tous de l'import du 07/09.
+
+     ══ POURQUOI LE SENS SE LIT D'ABORD ══
+
+     `call.received` n'existe que pour un entrant, mais `call.completed` sert LES DEUX : c'est son
+     `direction` qui tranche, et lui seul. On calcule donc le sens en premier, et le numéro distant
+     s'en déduit — `from_number` quand ça vient de chez eux, `to_number` quand ça part de chez nous.
+     C'est la seule lecture qui reste juste quel que soit le sujet du message. */
   const sens = topic === 'call.received' || (d.direction ?? d.type) === 'INBOUND' ? 'ENTRANT' : 'SORTANT'
+  const numeroDistant = sens === 'ENTRANT' ? (d.from_number ?? d.to_number) : (d.to_number ?? d.to)
   const demarre = d.started_at ?? d.start_date ?? enveloppe.timestamp ?? new Date().toISOString()
   const email = (d.user_email ?? '').trim().toLowerCase()
 
@@ -421,6 +453,21 @@ async function terminer(
   // ── L'INTERACTION, dans l'historique de la fiche ────────────────────────────────────────────
   if (!d.id) return
   const reconnu = await reconnaitre(admin, numero)
+
+  /* ══ SANS RATTACHEMENT, PAS D'INTERACTION — ET SURTOUT PAS DE 500 ══
+   *
+   * `interactions_contexte_check` exige au moins un lien : compte, contact, piste… Un appelant que
+   * Kimatch ne connaît pas — un numéro masqué, un prospect qui n'est dans aucune fiche — n'en a
+   * aucun, et l'écriture partait en violation de contrainte. La fonction levait, Allô recevait un
+   * 500, et réessayait un appel qu'on ne saurait de toute façon pas ranger.
+   *
+   * L'APPEL N'EST PAS PERDU POUR AUTANT : sa carte reste dans `appels_en_cours`, d'où l'écran
+   * « Appels non rattachés » le reprend pour qu'on lui donne une fiche. C'est exactement le rôle de
+   * cet écran, et c'est la bonne place pour un appel dont on ignore de qui il vient.
+   *
+   * C'est le second défaut de la même famille que celui du numéro entrant : une donnée manquante
+   * qui faisait échouer toute l'écriture au lieu de la faire dévier. */
+  if (!reconnu.contact_id && !reconnu.compte_id && !reconnu.piste_id) return
   const { data: type } = await admin
     .from('types_interactions')
     .select('id')
