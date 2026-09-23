@@ -53,3 +53,6 @@ message-naoelle-*.md
 
 # Les captures des essais Playwright : une preuve qu'on regarde, pas un livrable qu'on versionne.
 essai-rattachement/
+# Les captures posees a la racine pendant un essai : jamais un livrable.
+/appels-non-lies.png
+/rattacher.png

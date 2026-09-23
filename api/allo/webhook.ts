@@ -547,6 +547,78 @@ async function terminer(
     .limit(1)
   if (erreurLecture) throw new Error(`lecture interaction : ${erreurLecture.message}`)
 
+  /* ══ L'INTERACTION QUE KIMATCH A DÉJÀ ÉCRITE AU CLIC — 23/09/2026 ══
+   *
+   * Depuis la migration 20260923173000, Kimatch n'attend plus `call.completed` pour faire paraître
+   * l'appel : il écrit la ligne dès le clic sur « Appeler ». La raison est mesurée sur 60 appels —
+   * Allo livre ses fins avec 11 à 43 minutes de retard, un retard qui croît d'heure en heure et ne
+   * se rattrape pas.
+   *
+   * CETTE INTERACTION-LÀ N'A PAS DE `source_externe_id` : elle est née avant qu'Allo ne nomme
+   * l'appel. La recherche ci-dessus ne peut donc pas la trouver, et sans ce second rapprochement on
+   * en écrirait une SECONDE — chaque appel apparaîtrait EN DOUBLE dans le fil de la fiche, l'une
+   * avec la durée et l'enregistrement, l'autre sans. Personne ne saurait laquelle croire.
+   *
+   * ON RAPPROCHE PAR CE QUI EXISTAIT DÉJÀ AU MOMENT DU CLIC : le numéro, l'auteur, et une fenêtre
+   * de temps autour du départ de l'appel. `FENETRE_MS` est la même que pour les cartes — dix
+   * minutes, éprouvée depuis le 08/09 sur le décalage des `started_at` d'Allo.
+   *
+   * ON NE PREND QUE LES LIGNES `ouverte_par_kimatch` : une interaction d'appel ordinaire, saisie à
+   * la main ou importée, ne doit jamais être écrasée par un webhook. */
+  let aCompleter = existante && existante.length > 0 ? (existante[0].id as string) : null
+
+  if (!aCompleter && numero) {
+    const t = new Date(demarre).getTime()
+    const { data: anticipee } = await admin
+      .from('interactions')
+      .select('id, numero_correspondant')
+      .eq('ouverte_par_kimatch', true)
+      .is('source_externe_id', null)
+      .eq('auteur_profil_id', ligne.auteur_profil_id as string)
+      .gte('date_interaction', new Date(t - FENETRE_MS).toISOString())
+      .lte('date_interaction', new Date(t + FENETRE_MS).toISOString())
+      .order('date_interaction', { ascending: false })
+      .limit(10)
+
+    /* LE NUMÉRO SE COMPARE SUR SES CHIFFRES, JAMAIS SUR LA CHAÎNE : c'est la leçon des 1 319 fiches
+       dont le téléphone porte des espaces (migration 20260921160000). `dixDerniers` fait ici ce que
+       `fin_numero` fait en base.
+       
+       ET IL SE COMPARE VRAIMENT. Prendre la première ligne de la fenêtre sans vérifier le numéro
+       rattacherait l'enregistrement et la transcription d'un appel À LA FICHE D'UN AUTRE CLIENT —
+       pendant une prospection, plusieurs appels partent dans la même fenêtre de dix minutes. */
+    const fin = dixDerniers(numero)
+    for (const c of (anticipee ?? []) as { id: string; numero_correspondant: string | null }[]) {
+      if (fin && dixDerniers(c.numero_correspondant) === fin) {
+        aCompleter = c.id
+        break
+      }
+    }
+  }
+
+  if (aCompleter) {
+    /* ON COMPLÈTE SANS DÉMENTIR LE RATTACHEMENT DÉJÀ FAIT. Si quelqu'un a rattaché cet appel à une
+       opportunité pendant les quarante-cinq minutes d'attente, `ligne` ne porte pas ces liens et les
+       remettrait à null : le travail de rattachement serait effacé par l'arrivée tardive d'Allo.
+       On ne verse donc que ce qu'Allo est seul à savoir. */
+    const apport = {
+      source_externe_id: ligne.source_externe_id,
+      objet: ligne.objet,
+      resume_ia: ligne.resume_ia,
+      transcription: ligne.transcription,
+      enregistrement_url: ligne.enregistrement_url,
+      resultat: ligne.resultat,
+      duree_appel_secondes: ligne.duree_appel_secondes,
+      duree_minutes: ligne.duree_minutes,
+      appel_manque: ligne.appel_manque,
+      messagerie_vocale: ligne.messagerie_vocale,
+      ouverte_par_kimatch: false,
+    }
+    const { error } = await admin.from('interactions').update(apport).eq('id', aCompleter)
+    if (error) throw new Error(`complément interaction : ${error.message}`)
+    return
+  }
+
   if (existante && existante.length > 0) {
     const { error } = await admin.from('interactions').update(ligne).eq('id', existante[0].id as string)
     if (error) throw new Error(`mise à jour interaction : ${error.message}`)

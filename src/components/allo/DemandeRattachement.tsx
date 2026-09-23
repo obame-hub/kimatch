@@ -39,7 +39,7 @@
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useMonProfil, emailAllo } from '@/lib/data/roles'
 import { useAppelEnCours } from '@/lib/data/appelEnCours'
@@ -97,7 +97,33 @@ async function fetchDernierNonLie(adresseAllo: string | null): Promise<DernierAp
       .is('recommandation_id', null)
       .is('requete_id', null)
       .is('piste_id', null)
-      .gte('date_interaction', new Date(Date.now() - 2 * 3600 * 1000).toISOString())
+      /* ══ UNE QUESTION DÉJÀ REFUSÉE NE SE REPOSE PAS ══
+       *
+       * Naoëlle, 23/09/2026, capture à l'appui : « quand je refresh j'ai la modale qui s'affiche en
+       * permanence ». Le drapeau qui l'en empêchait était un `useRef` — il meurt au rechargement,
+       * donc chaque F5 reposait la même question sur la même interaction. Et tant qu'aucun appel
+       * plus récent n'arrivait, c'était toujours celle-là.
+       *
+       * Le refus est désormais retenu en base (migration 20260923174500) : il suit sur le mobile
+       * comme sur le PC, et l'appel reste malgré tout dans « Appels à rattacher ». */
+      .is('rattachement_ecarte_le', null)
+      /* ══ CINQ MINUTES, ET NON DEUX HEURES — 23/09/2026 ══
+       *
+       * Naoëlle : « quand je refresh j'ai la modale qui s'affiche en permanence ».
+       *
+       * LA FENÊTRE ÉTAIT DE DEUX HEURES, et c'était le défaut. Mesuré ce jour : 254 appels non
+       * rattachés sur son compte Allo, 10 rien qu'aujourd'hui, 14 939 pour l'équipe. À chaque
+       * rechargement la modale y puisait le plus récent — elle en écartait un, le suivant
+       * paraissait. Un arriéré servi un par un, indéfiniment.
+       *
+       * LA MODALE SE POSE UNE SEULE QUESTION : « tu viens de raccrocher, c'était à propos de quoi ? »
+       * Elle n'est pas là pour rattraper l'arriéré — c'est le rôle de « Appels à rattacher » sur la
+       * vue d'ensemble, un écran qu'on ouvre quand on a le temps, et qui les montre TOUS.
+       *
+       * CINQ MINUTES parce que le webhook écrit l'interaction dans la foulée du raccroché quand Allo
+       * répond vite, et que Kimatch l'écrit désormais lui-même au clic (migration 20260923173000).
+       * Au-delà, on n'a plus « à l'instant » en tête, et la question devient une corvée. */
+      .gte('date_interaction', new Date(Date.now() - 5 * 60 * 1000).toISOString())
       /* ON BORNE AUSSI PAR LE HAUT. Une interaction datée de 2028 existe en base — reprise
          Salesforce, ou saisie fautive : sans ce garde, elle serait toujours « le dernier appel »
          et l'on proposerait éternellement de rattacher le mauvais. Constaté le 23/09/2026. */
@@ -131,6 +157,7 @@ export function DemandeRattachement() {
   const { data: profil } = useMonProfil()
   const { data: appelEnCours } = useAppelEnCours()
   const [ouvert, setOuvert] = useState(false)
+  const queryClient = useQueryClient()
 
   const adresseAllo = emailAllo(profil)
 
@@ -230,6 +257,14 @@ export function DemandeRattachement() {
       nomCorrespondant={dernier.nom}
       onFerme={() => {
         setOuvert(false)
+        /* ON RETIENT LE REFUS, SINON IL NE SURVIT PAS AU RECHARGEMENT. Le `useRef` ci-dessus suffit
+           pour cet onglet-ci ; il ne suffit pas quand on recharge, ni quand on passe du PC au
+           mobile. C'est le défaut que Naoëlle a vu — « la modale s'affiche en permanence ». */
+        void supabase
+          .from('interactions')
+          .update({ rattachement_ecarte_le: new Date().toISOString() })
+          .eq('id', dernier.id)
+          .then(() => queryClient.invalidateQueries({ queryKey: ['dernier-appel-non-lie'] }))
         /* ON NE MARQUE RIEN EN BASE : l'appel reste non rattache, donc il paraitra dans
            « Appels a rattacher » sur la vue d'ensemble. C'est la consigne — fermer sans choisir ne
            perd rien. Le drapeau  empeche seulement la modale de se rouvrir pour CET

@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { lancerAppelBureau } from '@/lib/alloBureau'
 import { DemandeRattachement } from '@/components/allo/DemandeRattachement'
+import { supabase } from '@/lib/supabase'
+import { useMonProfil, emailAllo } from '@/lib/data/roles'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -168,6 +171,14 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
   // Le seul message possible : un numéro inexploitable. Le reste est un geste immédiat, il n'a rien
   // à annoncer — un bandeau « appel lancé » serait du bruit.
   const [message, setMessage] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+
+  /* L'APPEL S'ÉCRIT SOUS LE COMPTE ALLO, PAS SOUS LE PROFIL KIMATCH. Naoëlle opère le compte de
+     William : sans cela, son appel porterait un auteur différent de celui qu'Allo écrira une
+     demi-heure plus tard, et les deux lignes ne se rejoindraient jamais. Même règle que
+     `useAppelEnCours` et `DemandeRattachement`. */
+  const { data: profil } = useMonProfil()
+  const adresseAllo = emailAllo(profil)
 
   const appeler = useCallback(async (
     numero: string | null | undefined,
@@ -216,12 +227,51 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      */
     lancerAppelBureau(e164)
 
-    /* `qui` n'est plus transmis à personne : il servait à pré-remplir la fiche du correspondant
-       dans la file du Power Dialer, retirée le 22/09. On garde le paramètre — des dizaines
-       d'appelants le passent, et il redeviendra utile le jour où l'on écrira nous-mêmes l'appel. */
+    /* ══ KIMATCH ÉCRIT L'APPEL LUI-MÊME, SANS ATTENDRE ALLO — 23/09/2026 ══
+     *
+     * Naoëlle : « je comprends pas pourquoi les appels n'apparaissent pas dans le fil d'activité
+     * des contacts ? je me suis appelée plusieurs fois. »
+     *
+     * ILS N'ÉTAIENT PAS PERDUS, ILS ÉTAIENT EN RETARD. Mesuré sur 60 appels du 23/09 : Allo livre
+     * ses `call.completed` avec 11 à 43 minutes de décalage, et le retard CROÎT d'heure en heure —
+     * 11 min à 15:19, 43 min à 16:19. Jusque-là, l'interaction n'étant écrite qu'à `call.completed`,
+     * l'appel n'existait NULLE PART dans Kimatch : ni dans le fil de la fiche, ni dans la modale de
+     * rattachement. Le commercial venait de raccrocher et son écran ne savait rien.
+     *
+     * ON N'ATTEND DONC PLUS. `ouvrir_appel_kimatch` écrit la ligne d'appel et son interaction tout
+     * de suite ; quand Allo se réveille, `api/allo/webhook.ts` RETROUVE cette interaction par
+     * (numéro, auteur, fenêtre de dix minutes) et y verse ce que lui seul connaît — durée,
+     * enregistrement, transcription, résumé. Sans ce rapprochement, la fiche afficherait chaque
+     * appel en double.
+     *
+     * ══ APRÈS `lancerAppelBureau`, ET SANS `await` DEVANT LUI ══
+     *
+     * C'est le piège numéro un de la spécification de William : « `tel:` après un `await` → Allô ne
+     * s'ouvre pas sur Safari/macOS/iOS. Le déclenchement doit être la première instruction du
+     * gestionnaire de clic. » L'écriture part donc APRÈS, et on ne l'attend pas.
+     *
+     * ══ ET SON ÉCHEC NE DOIT RIEN CASSER ══
+     *
+     * L'appel, lui, est déjà parti — le protocole a été lancé. Si l'écriture échoue, le webhook
+     * reprendra la main comme avant : on retombe sur le comportement d'hier, pas sur une panne.
+     * D'où le `catch` muet, qui est ici un choix et non un oubli. */
     void qui
+    void (async () => {
+      try {
+        if (!adresseAllo) return
+        await supabase.rpc('ouvrir_appel_kimatch', { p_numero: e164, p_email_allo: adresseAllo })
+        /* LE FIL DE LA FICHE SE RELIT : sans cela, l'appel serait en base mais l'écran ouvert ne le
+           montrerait qu'au prochain rechargement — exactement le défaut que l'on corrige. */
+        void queryClient.invalidateQueries({ queryKey: ['interactions'] })
+        void queryClient.invalidateQueries({ queryKey: ['activite'] })
+        void queryClient.invalidateQueries({ queryKey: ['appel-en-cours'] })
+      } catch {
+        /* Volontairement muet : voir ci-dessus. */
+      }
+    })()
+
     return `Appel de ${numeroLisible(e164)}…`
-  }, [])
+  }, [adresseAllo, queryClient])
 
 
   useEffect(() => {
