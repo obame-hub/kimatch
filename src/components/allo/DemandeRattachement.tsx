@@ -51,6 +51,8 @@ interface DernierAppel {
   contact_id: string | null
   compte_id: string | null
   nom: string | null
+  /** Quand l'appel a eu lieu. Sert à savoir s'il PRÉCÈDE l'appel encore ouvert — voir le garde. */
+  date: string
 }
 
 /**
@@ -84,7 +86,7 @@ async function fetchDernierNonLie(adresseAllo: string | null): Promise<DernierAp
     const { data, error } = await supabase
       .from('interactions')
       .select(`
-        id, contact_id, compte_id,
+        id, contact_id, compte_id, date_interaction,
         type:types_interactions!inner(code),
         contact:contacts(prenom, nom),
         compte:comptes(nom)
@@ -105,7 +107,7 @@ async function fetchDernierNonLie(adresseAllo: string | null): Promise<DernierAp
     if (error) throw error
 
     const i = (data ?? [])[0] as unknown as {
-      id: string; contact_id: string | null; compte_id: string | null
+      id: string; contact_id: string | null; compte_id: string | null; date_interaction: string
       contact: { prenom: string | null; nom: string | null } | null
       compte: { nom: string | null } | null
     } | undefined
@@ -115,6 +117,7 @@ async function fetchDernierNonLie(adresseAllo: string | null): Promise<DernierAp
       id: i.id,
       contact_id: i.contact_id,
       compte_id: i.compte_id,
+      date: i.date_interaction,
       nom: i.contact
         ? `${i.contact.prenom ?? ''} ${i.contact.nom ?? ''}`.trim() || i.compte?.nom || null
         : i.compte?.nom ?? null,
@@ -170,16 +173,50 @@ export function DemandeRattachement() {
     setOuvert(true)
   }, [dernier])
 
-  /* PENDANT UN APPEL, ON NE DEMANDE RIEN : la question « à quoi se rapportait-il » n'a pas de sens
-     tant qu'il dure, et la modale recouvrirait l'écran au moment où l'on prend des notes.
-     `termine_le` nul signifie qu'on est encore en ligne — ou qu'Allo n'a jamais dit la fin, d'où
-     la borne de temps plus bas. */
+  /* ══ ON NE SE TAIT QUE POUR L'APPEL QU'ON EST EN TRAIN DE PASSER — CORRIGÉ LE 23/09/2026 ══
+   *
+   * Naoëlle, après trois tentatives : « la modale ne s'ouvre toujours pas ». C'est ce garde qui
+   * la retenait, et il a fallu le mesurer deux fois pour le voir en entier.
+   *
+   * ══ CE QUE FAISAIT L'ANCIENNE VERSION ══
+   *
+   * Elle se taisait dès QU'UN appel était ouvert depuis moins d'un quart d'heure, quel qu'il soit.
+   * Relevé en base ce jour : 20 lignes de `appels_en_cours` sur 827 n'ont JAMAIS reçu de
+   * `call.completed` — Allo ne l'envoie pas à tous les coups, et ces lignes restent ouvertes pour
+   * toujours. L'une d'elles, ouverte à 13:45 sur le compte Allo de William, avait sept minutes :
+   * `enLigne` valait vrai alors que la requête trouvait QUATRE appels à rattacher. Et comme un
+   * fantôme naît toutes les quelques dizaines de minutes pendant une prospection, et qu'il est
+   * FRAIS pendant son premier quart d'heure, la fenêtre où la modale avait le droit de paraître
+   * était refermée en permanence par le fantôme suivant.
+   *
+   * ══ POURQUOI COMPARER LES CORRESPONDANTS NE SUFFIT PAS ══
+   *
+   * Ma première correction n'écartait que l'appel ouvert vers le MÊME correspondant. Éprouvée à
+   * l'écran le même jour : la modale ne s'ouvrait toujours pas. Le fantôme de 13:45 portait
+   * EXACTEMENT le même `contact_id` et le même `compte_id` que l'interaction de 13:20 proposée au
+   * rattachement — c'est un rappel, et rappeler deux fois le même contact est le geste ordinaire
+   * de la prospection, pas un cas limite.
+   *
+   * ══ LE BON CRITÈRE EST LA CHRONOLOGIE ══
+   *
+   * L'interaction qu'on propose de rattacher décrit un appel DÉJÀ FINI — c'est le webhook qui
+   * l'écrit à la fin. Si elle est ANTÉRIEURE au début de l'appel encore ouvert, elle parle d'un
+   * autre appel, plus ancien, et rien ne justifie de la taire : la demander pendant que la ligne
+   * sonne est même le bon moment, puisqu'on a le dossier sous les yeux.
+   *
+   * ON NE SE TAIT DONC QUE POUR L'INTERACTION DE L'APPEL EN COURS LUI-MÊME : même correspondant ET
+   * postérieure à son début. Là, oui, la modale recouvrirait l'écran au moment des notes. */
   const enLigne = Boolean(
     appelEnCours
+      && dernier
       && !appelEnCours.termine_le
-      /* UN APPEL « EN COURS » DEPUIS PLUS D'UN QUART D'HEURE EST UN FANTÔME, pas une conversation :
-         dix-sept d'entre eux traînent en base, dont un depuis une semaine. Sans cette borne, un
-         seul appel jamais clos empêcherait la modale de paraître pour tous les suivants. */
+      && ((appelEnCours.contact_id && appelEnCours.contact_id === dernier.contact_id)
+        || (appelEnCours.compte_id && appelEnCours.compte_id === dernier.compte_id))
+      /* L'interaction est postérieure au début de l'appel ouvert : elle en est la trace, on parle
+         donc encore. Antérieure, elle vient d'un appel précédent et ne doit rien bloquer. */
+      && new Date(dernier.date).getTime() >= new Date(appelEnCours.demarre_le).getTime()
+      /* ET L'APPEL OUVERT DOIT ÊTRE VRAISEMBLABLE. Au-delà d'un quart d'heure sans `call.completed`,
+         c'est un des 20 fantômes : il ne doit plus rien retenir. */
       && Date.now() - new Date(appelEnCours.demarre_le).getTime() < 15 * 60 * 1000,
   )
 

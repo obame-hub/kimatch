@@ -13,8 +13,9 @@
  * ces trente jours, la médiane est de DEUX objets — la liste tient à l'écran, et le bon choix est
  * souvent le seul.
  *
- * UN COMPTE MONTE À SOIXANTE-HUIT, d'où la recherche qui apparaît au-delà de six. Elle est le
- * recours, pas le chemin normal.
+ * UN COMPTE MONTE À SOIXANTE-HUIT objets, d'où les sections dépliantes : quatre titres tiennent en
+ * quatre lignes, et l'on n'ouvre que celle qui concerne l'appel. Naoëlle, 23/09/2026, capture à
+ * l'appui : « la modale est trop grande, je veux que les objets apparaissent en un titre dépliant ».
  *
  * ══ ON NE FILTRE PAS SUR « EN COURS », ET C'EST MESURÉ ══
  *
@@ -32,7 +33,7 @@
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 import { useState } from 'react'
-import { X, Search, Link2, Target, Lightbulb, Inbox, Filter, Check } from 'lucide-react'
+import { X, ChevronDown, Link2, Target, Lightbulb, Inbox, Filter, Check } from 'lucide-react'
 import {
   useObjetsLiables,
   useLierAppel,
@@ -41,8 +42,6 @@ import {
 } from '@/lib/data/liensAppel'
 import { cn } from '@/lib/utils'
 
-/** Le seuil au-delà duquel la recherche paraît : six lignes se parcourent des yeux, vingt non. */
-const SEUIL_RECHERCHE = 6
 
 const DESSIN: Record<TypeLien, { libelle: string; Icone: typeof Target }> = {
   opportunite: { libelle: 'Opportunité', Icone: Target },
@@ -69,33 +68,19 @@ export function LierAppel({
 }) {
   const { data: objets, isLoading, isError } = useObjetsLiables(compteId, contactId)
   const lier = useLierAppel()
-  const [recherche, setRecherche] = useState('')
 
-  /* ══ UNE BASCULE PAR CATÉGORIE ══
+  /* ══ LA SECTION OUVERTE, ET UNE SEULE ══
    *
-   * Naoëlle, 23/09/2026 : « sous forme de toggle par catégorie d'objet ».
+   * `null` au départ : tout est fermé, la fenêtre tient sur quelques lignes. En ouvrir une referme
+   * l'autre — deux catégories dépliées ramèneraient la liste longue que Naoëlle a refusée.
    *
-   * `null` signifie « toutes », et c'est le départ : on ne sait pas d'avance de quoi l'appel
-   * parlait, et présélectionner une catégorie ferait manquer les autres. La bascule sert à réduire
-   * une liste trop longue, pas à imposer un chemin.
-   *
-   * ON NE MONTRE QUE LES CATÉGORIES QUI ONT QUELQUE CHOSE. Une bascule « Requête » sur un compte
-   * qui n'en a aucune promet une liste et rend le vide — le défaut qu'on corrige partout ailleurs. */
-  const [categorie, setCategorie] = useState<TypeLien | null>(null)
+   * ON NE MONTRE QUE LES CATÉGORIES QUI ONT QUELQUE CHOSE : un titre « Requête » sur un compte qui
+   * n'en a aucune promet une liste et rend le vide, le défaut qu'on corrige partout ailleurs. */
+  const [ouverte, setOuverte] = useState<TypeLien | null>(null)
 
   const tous = objets ?? []
   const presentes = (['opportunite', 'recommandation', 'requete', 'piste'] as TypeLien[])
     .filter((t) => tous.some((o) => o.type === t))
-
-  const filtres = tous
-    .filter((o) => (categorie ? o.type === categorie : true))
-    .filter((o) =>
-      recherche.trim()
-        ? `${o.libelle} ${o.detail ?? ''} ${DESSIN[o.type].libelle}`
-            .toLowerCase()
-            .includes(recherche.trim().toLowerCase())
-        : true,
-    )
 
   const choisir = (o: ObjetLiable | null) => {
     lier.mutate(
@@ -133,65 +118,19 @@ export function LierAppel({
           </button>
         </div>
 
-        {/* ══ LES BASCULES PAR CATÉGORIE ══
-            Naoëlle : « sous forme de toggle par catégorie d'objet ». « Tout » d'abord, puis une
-            bascule par catégorie PRÉSENTE — avec son compte, parce que savoir qu'il y a trois
-            recommandations avant de cliquer évite un aller-retour.
-
-            ELLES NE PARAISSENT QU'À PARTIR DE DEUX CATÉGORIES : un seul bouton « Tout » à côté
-            d'un seul autre ne propose aucun choix, il occupe juste une ligne. */}
-        {presentes.length > 1 && (
-          <div className="flex flex-wrap gap-1 border-b border-km-line px-4 py-2.5">
-            <button
-              type="button"
-              onClick={() => setCategorie(null)}
-              className={cn(
-                'rounded-km px-2.5 py-1 text-km-tiny font-semibold transition-colors',
-                categorie === null
-                  ? 'bg-km-green-soft text-km-green'
-                  : 'text-km-muted hover:bg-km-soft',
-              )}
-            >
-              Tout ({tous.length})
-            </button>
-            {presentes.map((t) => {
-              const n = tous.filter((o) => o.type === t).length
-              const { libelle, Icone } = DESSIN[t]
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setCategorie(categorie === t ? null : t)}
-                  className={cn(
-                    'flex items-center gap-1 rounded-km px-2.5 py-1 text-km-tiny font-semibold transition-colors',
-                    categorie === t
-                      ? 'bg-km-green-soft text-km-green'
-                      : 'text-km-muted hover:bg-km-soft',
-                  )}
-                >
-                  <Icone className="h-3 w-3 shrink-0" />
-                  {libelle} ({n})
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {tous.length > SEUIL_RECHERCHE && (
-          <div className="border-b border-km-line px-4 py-2.5">
-            <div className="flex items-center gap-2 rounded-km border border-km-line px-2.5 py-1.5">
-              <Search className="h-3.5 w-3.5 shrink-0 text-km-faint" />
-              <input
-                type="text"
-                value={recherche}
-                onChange={(e) => setRecherche(e.target.value)}
-                placeholder="Filtrer…"
-                className="min-w-0 flex-1 bg-transparent text-km-xs text-km-text outline-none placeholder:text-km-faint"
-              />
-            </div>
-          </div>
-        )}
-
+        {/* ══ UNE SECTION DÉPLIANTE PAR CATÉGORIE, FERMÉES AU DÉPART ══
+         *
+         * Naoëlle, 23/09/2026, capture à l'appui : « la modale est trop grande, je veux que les
+         * objets apparaissent en un titre dépliant, et quand on déplie on voit les
+         * enregistrements ».
+         *
+         * Sa capture montrait dix lignes empilées, la modale occupant l'écran entier. Or on ne
+         * choisit qu'UN objet : afficher les dix revient à montrer neuf lignes qu'on ne prendra
+         * pas. Quatre titres tiennent en quatre lignes, et l'on ouvre celui qui concerne l'appel.
+         *
+         * TOUT EST FERMÉ AU DÉPART, même quand il n'y a qu'une catégorie : ouvrir d'office ferait
+         * réapparaître la liste longue dès qu'un compte a vingt recommandations — le défaut qu'on
+         * corrige. Un clic de plus, mais une fenêtre qui tient sur un quart d'écran. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
           {isLoading && <p className="px-2 py-4 text-km-xs text-km-faint">Chargement…</p>}
 
@@ -203,41 +142,66 @@ export function LierAppel({
             </p>
           )}
 
-          {!isLoading && !isError && filtres.length === 0 && (
+          {!isLoading && !isError && tous.length === 0 && (
             <p className="px-2 py-4 text-km-xs text-km-faint">
-              {tous.length === 0
-                ? 'Rien à proposer pour ce correspondant — il n’a ni opportunité, ni recommandation, ni requête, ni piste.'
-                : 'Aucun objet ne correspond.'}
+              Rien à proposer pour ce correspondant — il n’a ni opportunité, ni recommandation, ni
+              requête, ni piste.
             </p>
           )}
 
-          {filtres.map((o) => {
-            const { libelle: nomType, Icone } = DESSIN[o.type]
-            const retenu = lienActuel?.type === o.type && lienActuel.id === o.id
+          {presentes.map((t) => {
+            const lignes = tous.filter((o) => o.type === t)
+            const { libelle, Icone } = DESSIN[t]
+            const deplie = ouverte === t
             return (
-              <button
-                key={`${o.type}-${o.id}`}
-                type="button"
-                disabled={lier.isPending}
-                onClick={() => choisir(retenu ? null : o)}
-                className={cn(
-                  'flex w-full items-center gap-2.5 rounded-km px-2.5 py-2 text-left transition-colors disabled:opacity-50',
-                  retenu ? 'bg-km-green-soft' : 'hover:bg-km-soft',
+              <div key={t}>
+                <button
+                  type="button"
+                  onClick={() => setOuverte(deplie ? null : t)}
+                  aria-expanded={deplie}
+                  className="flex w-full items-center gap-2.5 rounded-km px-2.5 py-2.5 text-left transition-colors hover:bg-km-soft"
+                >
+                  <Icone className="h-4 w-4 shrink-0 text-km-faint" />
+                  <span className="flex-1 text-km-xs font-semibold text-km-text">{libelle}</span>
+                  <span className="text-km-tiny font-bold text-km-muted">{lignes.length}</span>
+                  <ChevronDown
+                    className={cn(
+                      'h-3.5 w-3.5 shrink-0 text-km-faint transition-transform',
+                      deplie && 'rotate-180',
+                    )}
+                  />
+                </button>
+
+                {deplie && (
+                  <div className="pb-1 pl-6">
+                    {lignes.map((o) => {
+                      const retenu = lienActuel?.type === o.type && lienActuel.id === o.id
+                      return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          disabled={lier.isPending}
+                          onClick={() => choisir(retenu ? null : o)}
+                          className={cn(
+                            'flex w-full items-center gap-2 rounded-km px-2.5 py-2 text-left transition-colors disabled:opacity-50',
+                            retenu ? 'bg-km-green-soft' : 'hover:bg-km-soft',
+                          )}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-km-xs text-km-text">{o.libelle}</span>
+                            {o.detail && (
+                              <span className="block truncate text-km-tiny text-km-muted">{o.detail}</span>
+                            )}
+                          </span>
+                          {/* LE LIEN ACTUEL SE VOIT, ET SE DÉFAIT D'UN CLIC : cette fenêtre sert
+                              aussi à corriger depuis la liste de rattrapage. */}
+                          {retenu && <Check className="h-4 w-4 shrink-0 text-km-green" />}
+                        </button>
+                      )
+                    })}
+                  </div>
                 )}
-              >
-                <Icone className={cn('h-4 w-4 shrink-0', retenu ? 'text-km-green' : 'text-km-faint')} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-km-xs font-semibold text-km-text">{o.libelle}</span>
-                  <span className="block truncate text-km-tiny text-km-muted">
-                    {nomType}
-                    {o.detail ? ` · ${o.detail}` : ''}
-                  </span>
-                </span>
-                {/* LE LIEN ACTUEL SE VOIT, ET SE DÉFAIT D'UN CLIC : cette fenêtre sert aussi à
-                    corriger depuis la liste de rattrapage, pas seulement à choisir la première
-                    fois. */}
-                {retenu && <Check className="h-4 w-4 shrink-0 text-km-green" />}
-              </button>
+              </div>
             )
           })}
         </div>

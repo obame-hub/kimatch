@@ -220,6 +220,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  /* ══ ON REFERME LES APPELS QU'ALLO N'A JAMAIS REFERMÉS ══
+   *
+   * Mesuré le 23/09/2026 : 20 lignes de `appels_en_cours` sur 827 ont `termine_le` à NULL pour
+   * toujours, dont une vieille de quatorze jours. Allo n'envoie pas `call.completed` à tous les
+   * coups, et rien ici ne peut l'y forcer.
+   *
+   * CE N'EST PAS UNE INEXACTITUDE SANS CONSÉQUENCE : un appel « en cours » commande des écrans.
+   * La modale de rattachement se taisait tant qu'un appel était ouvert — un seul fantôme la faisait
+   * taire pour tous les appels suivants, et c'est la panne que Naoëlle a signalée trois fois.
+   *
+   * ON S'ACCROCHE AU TRAFIC D'ALLO plutôt qu'à une tâche planifiée : c'est le battement le plus
+   * fiable dont on dispose, il ne coûte pas une infrastructure de plus, et il bat précisément
+   * pendant les heures où les fantômes naissent.
+   *
+   * ══ AVANT `res`, JAMAIS APRÈS ══
+   *
+   * Sur Vercel, tout ce qui suit `res.send()` peut ne jamais s'exécuter : la fonction est gelée dès
+   * la réponse partie. Un balayage placé après aurait l'air correct et ne tournerait jamais.
+   *
+   * ══ ET IL N'A PAS LE DROIT DE FAIRE ÉCHOUER LE WEBHOOK ══
+   *
+   * C'est de l'entretien, pas le traitement de l'événement. S'il échoue, l'appel a quand même été
+   * enregistré : répondre 500 ferait rejouer à Allo un message déjà traité pour une raison qui ne
+   * le regarde pas. On avale donc l'erreur — c'est le seul `catch` muet du fichier, et il l'est
+   * pour cette raison précise. */
+  try {
+    await admin.rpc('fermer_appels_fantomes', { p_heures: 2 })
+  } catch {
+    // Volontairement muet : voir ci-dessus.
+  }
+
   res.status(200).json({ recu: true, topic })
 }
 

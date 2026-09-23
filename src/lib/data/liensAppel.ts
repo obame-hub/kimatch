@@ -130,20 +130,38 @@ async function fetchObjetsLiables(
       }
     }
 
+    /* ══ ON NOMME LA RECOMMANDATION PAR SON `nom`, PAS PAR SA `reference` ══
+     *
+     * Éprouvé à l'écran le 23/09/2026 : la modale proposait trois lignes strictement identiques,
+     * « Recommandation » suivi d'une date. Impossible de choisir entre elles — on cliquait au
+     * hasard, ou l'on renonçait.
+     *
+     * LA CAUSE N'ÉTAIT PAS UN OUBLI D'AFFICHAGE : mesuré en base, `reference` est NULLE sur LES
+     * 1 794 RECOMMANDATIONS. La colonne n'est jamais remplie, donc le repli « Recommandation »
+     * n'était pas le cas rare qu'il prétendait couvrir, c'était le cas unique.
+     *
+     * `nom` l'est en revanche sur les 1 794, et il porte l'information utile — « KIWEE ENERGIE
+     * FRANCE - MARACANA ». On y ajoute l'étape, qui dit où en est le dossier : à ce moment-là on
+     * cherche de quoi on vient de parler, et « À réactiver » le rappelle mieux qu'une date. */
     if (compteId) {
       const { data, error } = await supabase
         .from('recommandations')
-        .select('id, reference, date_creation')
+        .select('id, nom, date_creation, etape:etapes_recommandation(libelle)')
         .eq('compte_id', compteId)
         .order('date_creation', { ascending: false })
         .limit(20)
       if (error) throw error
-      for (const r of (data ?? []) as { id: string; reference: string | null; date_creation: string }[]) {
+      for (const r of (data ?? []) as unknown as {
+        id: string; nom: string | null; date_creation: string
+        etape: { libelle: string } | { libelle: string }[] | null
+      }[]) {
+        const e = Array.isArray(r.etape) ? r.etape[0] : r.etape
+        const quand = r.date_creation ? new Date(r.date_creation).toLocaleDateString('fr-FR') : null
         objets.push({
           type: 'recommandation',
           id: r.id,
-          libelle: r.reference ?? 'Recommandation',
-          detail: r.date_creation ? new Date(r.date_creation).toLocaleDateString('fr-FR') : null,
+          libelle: r.nom ?? 'Recommandation',
+          detail: [e?.libelle, quand].filter(Boolean).join(' · ') || null,
         })
       }
     }
