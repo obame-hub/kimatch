@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { CarteAppel } from '@/components/allo/CarteAppel'
-import { composerSurLePoste } from '@/lib/alloBureau'
+import { lancerAppelBureau } from '@/lib/alloBureau'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -188,153 +187,36 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
      * cliquer. Le test porte sur le POINTEUR et non sur la largeur de l'écran : un portable à écran
      * tactile de 15 pouces compose très bien, une fenêtre étroite sur un poste fixe non.
      */
-    const tactile =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(hover: none) and (pointer: coarse)').matches === true
+    /* ══ ON REPREND EXACTEMENT LA MÉTHODE DE WILLIAM — 23/09/2026 ══
+     *
+     * Naoëlle : « mets en place ce qu'il a fait lui, sur toute notre application. C'est exactement
+     * ce que William a fait. Reprends sa fonctionnalité à lui. »
+     *
+     * Son sprint Cockpit appelle par `tel:`, et ça marche. Trois choses que son analyse corrige
+     * dans la mienne, et qu'il faut garder en tête avant de revenir en arrière un jour :
+     *
+     *   ① `tel:` N'EST PAS RÉSERVÉ AU MOBILE. Kimatch le croyait depuis le 26/08, après que Chrome
+     *     eut affiché « Sélectionner une application » sur le poste de Naoëlle. L'observation était
+     *     juste, la conclusion non : SON poste n'avait pas Allô associé à `tel:`. C'est un réglage
+     *     de système, pas une propriété du code.
+     *
+     *   ② `tel:` EST LE MEILLEUR CHEMIN CHEZ EUX. Lu par William dans l'application installée
+     *     (v3.47) : `allo://call` émet `open-url/alloCall`, consommé par UN SEUL composant ; `tel:`
+     *     émet `open-url/tel`, lu à DEUX endroits, et qui ramène en plus la fenêtre au premier plan.
+     *
+     *   ③ ON N'EN LANCE QU'UN. J'enchaînais `allo://` puis le nôtre : trois navigations de
+     *     protocole dans le même geste ne sont pas gratuites, le navigateur peut n'en honorer
+     *     qu'une — et rien ne dit laquelle. C'est ce qui a cassé les appels pendant une heure le
+     *     22/09.
+     *
+     * TOUT EST SYNCHRONE, et c'est le piège numéro un de sa spécification : « `tel:` après un
+     * `await` → Allô ne s'ouvre pas sur Safari/macOS/iOS. Le déclenchement doit être la première
+     * instruction du gestionnaire de clic. » Rien ne s'intercale donc ici — ni requête, ni état.
+     */
+    lancerAppelBureau(e164)
 
-    if (tactile) {
-      window.location.href = 'tel:' + e164
-      return e164
-    }
-
-    /* ══ LA COMPOSITION DIRECTE : `allo://call?number=…` ══
-     *
-     * Naoëlle, 08/09/2026 : « il faudrait que quand je clique sur le petit logo appeler à côté d'un
-     * numéro, ça appelle direct le numéro », puis « sans installer l'extension ».
-     *
-     * TROUVÉ DANS LEUR PROPRE CODE. Leur application web déclare une route `/call/$number` dont le
-     * composant tient en trois lignes :
-     *
-     *     const { number } = useParams()
-     *     window.location.href = `allo://call?number=${number}`
-     *     setTimeout(() => navigate({ to: '/' }), 1500)
-     *
-     * Ce n'est donc pas un composeur web : c'est un LANCEUR vers le protocole `allo://`, que
-     * l'application de BUREAU enregistre à son installation. On peut l'appeler directement, sans
-     * passer par leur page intermédiaire ni par l'extension Chrome.
-     *
-     * ══ CE QUI SE PASSE SANS L'APPLICATION DE BUREAU ══
-     *
-     * Rien : un protocole non enregistré ne navigue pas. La première fois, Chrome demandera
-     * l'autorisation — et c'est le même dialogue que celui qui apparaissait pour `tel:`, à une
-     * différence près : cette fois il y a une application derrière. Une case « toujours autoriser »
-     * et il ne repose plus la question.
-     *
-     * C'est pour ça qu'on continue AUSSI de déposer le numéro dans la file : sans l'application de
-     * bureau, le dépôt et le volet restent le seul chemin, et ils ne coûtent rien à celui qui a
-     * l'application.
-     *
-     * `<a>` CLIQUÉ PLUTÔT QUE `location.href`, et de façon SYNCHRONE dans le geste de l'utilisateur :
-     * c'est la leçon du document de William sur Cockpit, où Safari et iOS refusent d'ouvrir une
-     * application externe depuis un appel différé. Le même réflexe s'applique ici. */
-    /* ══ ON TENTE `allo://` DANS TOUS LES CAS — 21/09/2026 AU SOIR ══
-     *
-     * Jusqu'ici ce protocole n'était lancé QUE si l'on avait choisi l'application de bureau, parce
-     * qu'il ouvrait cette application par-dessus et vidait le volet de sa raison d'être.
-     *
-     * DEUX MESURES DU SOIR RETOURNENT LA DÉCISION :
-     *
-     *   · LA FILE NE COMPOSE RIEN. Le numéro de Naoëlle y était depuis le 8 septembre, position 0,
-     *     `NOT_SYNCED`. Treize jours, aucun appel. Le chemin « volet seul » ne mène donc nulle
-     *     part : on ne protège plus rien en s'abstenant.
-     *
-     *   · `allo://` RÉPOND. Éprouvé sur le poste : `Start-Process "allo://call?number=…"` est
-     *     accepté par Windows et routé vers l'application. Les clés de registre paraissent vides
-     *     parce qu'une application du Store passe par un mécanisme que le registre classique
-     *     n'expose pas — c'est ce qui m'avait fait conclure trop vite qu'il n'y avait personne
-     *     derrière le protocole.
-     *
-     * Le lancer coûte RIEN quand il n'aboutit pas : un protocole sans gestionnaire ne navigue pas,
-     * et la fenêtre d'appel reste là avec le numéro déjà copié. Il fait gagner l'appel entier quand
-     * il aboutit. On le tente donc toujours, et le volet demeure pour raccrocher. */
-    /* ══ ON NE LANCE PLUS `allo://` — ET C'EST LUI QUI CASSAIT TOUT ══
-     *
-     * Naoëlle, 22/09/2026 : « ça n'appelle plus ? pourquoi ? » Le journal du poste le confirme :
-     * aucune trace du clic, alors que le protocole `kimatch://` était intact et que les essais
-     * directs marchaient tous.
-     *
-     * LA FAUTE EST L'ORDRE, ET ELLE EST DE MOI. `allo://` partait juste avant `kimatch://`. Or il
-     * OUVRE L'APPLICATION ALLO ET LUI DONNE LE FOCUS. Quand notre script arrivait, une fraction de
-     * seconde plus tard, Allo était en train de se réveiller ou affichait autre chose que son
-     * clavier : l'écriture tombait à côté.
-     *
-     * C'est pour ça que les essais isolés réussissaient et que le clic depuis Kimatch échouait —
-     * les deux protocoles ne partaient ensemble que dans le second cas.
-     *
-     * ET ON NE PERD RIEN. `allo://` ne compose pas : éprouvé plusieurs fois le 21 et le 22/09, il
-     * ouvre l'application et s'arrête là. C'est un défaut chez eux, sur un chemin que leur propre
-     * code documente pour les CRM. On le laisse donc de côté ; `lancerAlloBureau` reste exporté
-     * dans `alloBureau.ts` pour le jour où ils le répareront. */
-
-    /* ══ ET NOTRE PROPRE PROTOCOLE, CELUI QUI MARCHE — 22/09/2026 ══
-     *
-     * Naoëlle : « ils ne veulent pas répondre, faut qu'on le fasse nous-mêmes de n'importe quelle
-     * manière. »
-     *
-     * `kimatch://appeler?numero=…` demande au poste de composer dans Allo : écrire le numéro dans
-     * leur champ, RELIRE pour vérifier, puis actionner leur bouton « Appeler ». Voir
-     * `scripts/appeler-depuis-kimatch.ps1`, et `alloBureau.ts` pour pourquoi ce n'est pas de la
-     * simulation de clic à l'aveugle.
-     *
-     * ON LANCE LES DEUX, dans cet ordre. `allo://` est le chemin officiel — leur code le documente
-     * pour les CRM sous Windows — et le jour où ils le réparent, on en profite sans rien changer
-     * ici. `kimatch://` est celui qui marche aujourd'hui.
-     *
-     * SUR UN POSTE SANS NOTRE INSTALLATION, OU SUR MOBILE, il ne se passe rien : un protocole non
-     * enregistré ne navigue pas et ne lève pas. Le comportement y reste exactement celui d'avant —
-     * le numéro copié, le volet ouvert. On ne dégrade donc personne en tentant. */
-    composerSurLePoste(e164)
-
-    /* ══ ON OUVRE LA CARTE NOUS-MÊMES, SANS ATTENDRE ALLO ══
-     *
-     * Naoëlle, 22/09/2026 : « je vois le bloc une fois sur deux, surtout quand je lance un appel
-     * direct après. Au pire créons-en un custom à nous, comme ça on est sûr qu'il apparaisse tout
-     * le temps. »
-     *
-     * MESURÉ CE JOUR-LÀ : le webhook d'Allo n'arrive pas toujours. Plusieurs appels ont sonné —
-     * constaté à l'écran, « Sonnerie en cours » chez eux — sans qu'aucune ligne n'apparaisse en
-     * base. Pas de ligne, pas de carte, et aucune correction d'interface n'y pouvait rien. Quand il
-     * arrive, il met de 2 à 372 secondes.
-     *
-     * KIMATCH SAIT QU'IL LANCE L'APPEL : il écrit donc la ligne lui-même. Le `call.triggered`
-     * d'Allo la retrouvera par les neuf derniers chiffres et l'enrichira au lieu d'en créer une
-     * seconde — voir `api/allo/ouvrir-appel.ts`.
-     *
-     * ON N'ATTEND PAS LA RÉPONSE : la carte sonde toutes les quatre secondes et verra la ligne
-     * d'elle-même. Bloquer le clic sur un aller-retour réseau ferait revenir le « ça charge » que
-     * Naoëlle a signalé ce matin. */
-    void ouvrirLaCarteDAppel(e164)
-
-    /* ══ LE VOLET S'OUVRE AVANT TOUTE REQUÊTE, ET SANS CONDITION ══
-     *
-     * Naoëlle, 15/09 : « ça me copie juste le numéro quand je clique sur le logo téléphone vert ».
-     * Le message disait la cause — « Allo injoignable » — mais la faute était ailleurs : le volet
-     * ne s'ouvrait QUE SI le dépôt dans la file avait réussi.
-     *
-     * Or le dépôt n'est qu'un confort : il pré-remplit le Power Dialer. Ce qui compte, quand l'appel
-     * doit vivre dans le volet, c'est que le volet soit là. Le faire dépendre d'une requête réseau,
-     * c'est promettre un téléphone qui n'apparaît pas dès qu'Allo tousse — ou, en développement
-     * local, jamais : `npm run dev` ne sert que l'interface, les fonctions `api/` n'y existent pas.
-     *
-     * On ouvre donc d'abord, on dépose ensuite.
-     *
-     * ══ ET C'EST NOTRE FENÊTRE QUI S'OUVRE — 21/09/2026 ══
-     *
-     * Naoëlle : « leur click-to-call marche pas : quand on appelle, ça appelle pas, juste ça ouvre
-     * le volet sans rien, ni le numéro dans le clavier. » Puis, après un essai raté par leur route
-     * `/call/<numéro>` : « triche comme tu veux, même s'il faut créer notre propre fenêtre d'appel. »
-     *
-     * L'ESSAI RATÉ MÉRITE D'ÊTRE DIT, parce qu'il ferme une porte pour de bon : leur route ne fait
-     * que `window.location.href = 'allo://call?…'`, et `allo://` n'est associé à aucune application
-     * sur les postes de l'équipe — Windows a donné `tel:` à Chrome et n'a rien enregistré pour
-     * `allo`. Le navigateur n'avait rien à lancer. Pire, recharger le cadre pour y arriver aurait
-     * RACCROCHÉ l'appel en cours. Les deux fautes sont corrigées dans `VoletAllo`.
-     *
-     * `ouvrirFenetreAppel` ouvre donc NOTRE fenêtre, tout de suite et avant toute requête : elle dit
-     * qui on appelle, montre le numéro en grand, et suit le dépôt dans la file. Voir
-     * `FenetreAppel.tsx` pour les quatre portes essayées et refermées. */
     /* `qui` n'est plus transmis à personne : il servait à pré-remplir la fiche du correspondant
-       dans la file du Power Dialer, qui vient d'être retirée. On garde le paramètre — des dizaines
+       dans la file du Power Dialer, retirée le 22/09. On garde le paramètre — des dizaines
        d'appelants le passent, et il redeviendra utile le jour où l'on écrira nous-mêmes l'appel. */
     void qui
     return `Appel de ${numeroLisible(e164)}…`
@@ -378,11 +260,18 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
        *
        * LE FICHIER RESTE DANS LE DÉPÔT : le jour où Allo branche `END_CALL`, le remettre est une
        * ligne. Voir `components/allo/VoletAllo.tsx` et `lib/pontAllo.ts`. */}
-      {/* LA CARTE D'APPEL VIT ICI, et non dans la mise en page.
-          Ce fournisseur est deja le porteur du telephone dans l'application : y monter la carte lui
-          donne exactement la meme portee que le bouton « Appeler », sans toucher a `AppLayout`.
-          Elle rend `null` tant qu'aucun appel n'est en cours, donc son cout est nul. */}
-      <CarteAppel />
+      {/* ══ LA CARTE « QUI AS-TU EU ? » EST RETIRÉE — 23/09/2026 ══
+          Naoëlle, sur consigne de William : « supprime le bloc qui dit si j'ai eu quelqu'un ou
+          service client, William m'a dit de le supprimer ».
+
+          ELLE POSAIT SA QUESTION AU MAUVAIS ENDROIT. Le Cockpit la pose déjà, au bon moment et
+          avec la suite à donner : `PanneauApresAppel` et `QualifierAppel` demandent qui on a eu,
+          puis quelle tâche poser — sans quoi la fiche sort du plan et n'y revient jamais.
+          Superposer une seconde question, flottante et sans suite, faisait répondre deux fois pour
+          un seul appel.
+
+          `components/allo/CarteAppel.tsx` reste dans le dépôt : il porte le raisonnement sur les
+          262 appels non qualifiés et sur la croix qui écrivait « pas de réponse » à tort. */}
       {/* ══ LA FENÊTRE « APPELER CE NUMÉRO » EST RETIRÉE — 22/09/2026 ══
           Naoëlle : « est-ce que tu peux enlever le Power Dialer et le petit bloc qui ne servent
           plus à rien ». Elle a raison : cette fenêtre disait quoi faire à la main — coller le
@@ -402,30 +291,5 @@ export function useTelephonie(): Telephonie {
   const c = useContext(Contexte)
   if (!c) throw new Error('useTelephonie hors de TelephonieProvider')
   return c
-}
-
-/**
- * Demande au serveur d'ouvrir la carte d'appel pour ce numéro.
- *
- * NE LÈVE JAMAIS, et ne rend rien : la carte est un confort, pas une condition de l'appel. Si cette
- * requête échoue — session expirée, réseau coupé, fonction absente en `npm run dev` — le téléphone
- * sonne quand même, et la carte paraîtra quand le webhook d'Allo arrivera. On ne fait donc dépendre
- * aucun message de sa réussite : c'est la faute commise ce matin avec « préparation du numéro… »,
- * qui tournait indéfiniment quand la requête ne répondait pas.
- */
-async function ouvrirLaCarteDAppel(e164: string): Promise<void> {
-  try {
-    const { supabase } = await import('@/lib/supabase')
-    const { data } = await supabase.auth.getSession()
-    const token = data.session?.access_token
-    if (!token) return
-    await fetch('/api/allo/ouvrir-appel', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numero: e164 }),
-    })
-  } catch {
-    /* Sans conséquence : voir le commentaire ci-dessus. */
-  }
 }
 
