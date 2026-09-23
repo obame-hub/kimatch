@@ -63,7 +63,24 @@ function dureeAppel(i: Interaction): string | null {
 
 export function InteractionSentence({ interaction }: { interaction: Interaction }) {
   const cat = classifyInteraction(interaction)
-  const future = new Date(interaction.date_interaction).getTime() > Date.now()
+  /* ══ « À UNE MINUTE PRÈS » N'EST PAS LE FUTUR — 23/09/2026 ══
+   *
+   * Naoëlle, capture à l'appui : un appel qu'elle venait de passer s'affichait « a un appel PRÉVU
+   * avec Naoelle GHOUMA », au présent du futur, dans le fil d'activité.
+   *
+   * LA COMPARAISON ÉTAIT STRICTE. La date vient du serveur — `clock_timestamp()` pour un appel
+   * lancé depuis Kimatch, l'horodatage d'Allo pour les autres — et elle est lue ici avec l'horloge
+   * DU NAVIGATEUR. Les deux ne sont jamais parfaitement d'accord : quelques centièmes de seconde
+   * d'avance côté serveur, et l'interaction qu'on vient d'écrire bascule au futur.
+   *
+   * Le défaut ne se voyait pas tant que les appels arrivaient par le webhook, avec ses dizaines de
+   * minutes de retard. Depuis que Kimatch écrit l'appel AU CLIC, la phrase est rendue dans la
+   * seconde — et c'est précisément là que l'écart d'horloge se voit.
+   *
+   * UNE MINUTE DE TOLÉRANCE : plus long que tout désaccord d'horloge plausible entre deux machines
+   * synchronisées, et bien plus court que le moindre rendez-vous, qui est ce que « prévu » doit
+   * vraiment désigner. */
+  const future = new Date(interaction.date_interaction).getTime() > Date.now() + 60 * 1000
   const [prefix, connector, relConn] = TEMPLATES[cat][future ? 'future' : 'past']
   const related = relatedEntity(interaction)
   const hasAuteur = interaction.auteur.trim().length > 0

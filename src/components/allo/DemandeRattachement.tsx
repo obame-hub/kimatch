@@ -43,6 +43,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useMonProfil, emailAllo } from '@/lib/data/roles'
 import { useAppelEnCours } from '@/lib/data/appelEnCours'
+import { ecouterAppelsOuverts } from '@/lib/telephonie'
 import { LierAppel } from '@/components/allo/LierAppel'
 import { relancer } from '@/lib/data/erreurLecture'
 
@@ -153,6 +154,45 @@ async function fetchDernierNonLie(adresseAllo: string | null): Promise<DernierAp
   }
 }
 
+/**
+ * UNE INTERACTION PRÉCISE, celle que le clic « Appeler » vient d'écrire.
+ *
+ * `fetchDernierNonLie` cherche « la dernière » ; ici on sait laquelle, parce que
+ * `ouvrir_appel_kimatch` vient de nous rendre son identifiant. On ne cherche donc pas, on lit —
+ * et la modale n'attend plus le sondage suivant.
+ */
+async function fetchInteraction(id: string): Promise<DernierAppel | null> {
+  try {
+    const { data, error } = await supabase
+      .from('interactions')
+      .select(`
+        id, contact_id, compte_id, date_interaction,
+        contact:contacts(prenom, nom),
+        compte:comptes(nom)
+      `)
+      .eq('id', id)
+      .maybeSingle()
+    if (error) throw error
+    const i = data as unknown as {
+      id: string; contact_id: string | null; compte_id: string | null; date_interaction: string
+      contact: { prenom: string | null; nom: string | null } | null
+      compte: { nom: string | null } | null
+    } | null
+    if (!i) return null
+    return {
+      id: i.id,
+      contact_id: i.contact_id,
+      compte_id: i.compte_id,
+      date: i.date_interaction,
+      nom: i.contact
+        ? `${i.contact.prenom ?? ''} ${i.contact.nom ?? ''}`.trim() || i.compte?.nom || null
+        : i.compte?.nom ?? null,
+    }
+  } catch (error) {
+    relancer('fetchInteraction', error)
+  }
+}
+
 export function DemandeRattachement() {
   const { data: profil } = useMonProfil()
   const { data: appelEnCours } = useAppelEnCours()
@@ -192,13 +232,38 @@ export function DemandeRattachement() {
   /* UNE SEULE FOIS PAR APPEL. `useRef` et non un état : ce drapeau ne doit pas provoquer de rendu,
      et il doit survivre à la fermeture — sinon la modale se rouvrirait au sondage suivant, toutes
      les dix secondes, sur l'appel qu'on vient justement d'écarter. */
+  /* ══ LE CLIC ANNONCE L'APPEL : LA MODALE N'ATTEND PLUS LE SONDAGE ══
+   *
+   * Naoëlle, 23/09/2026 : « je veux que la modale apparaisse au moment de l'appel, pas 10 secondes
+   * après ».
+   *
+   * Depuis que Kimatch écrit l'appel lui-même au clic, il connaît l'interaction à rattacher à la
+   * milliseconde près. On l'ouvre donc tout de suite, sur l'identifiant qu'on vient de recevoir.
+   *
+   * LE SONDAGE RESTE, en dessous, et ce n'est pas une hésitation : un appel passé depuis le mobile,
+   * ou composé directement dans Allo, n'a pas de clic ici. Il arrive par le webhook, et la modale
+   * doit s'ouvrir pour lui aussi. Le sondage cesse d'être le chemin normal pour devenir le filet. */
+  const [annoncee, setAnnoncee] = useState<string | null>(null)
+  useEffect(() => ecouterAppelsOuverts(setAnnoncee), [])
+
+  const { data: surAnnonce } = useQuery({
+    queryKey: ['interaction-annoncee', annoncee],
+    enabled: Boolean(annoncee),
+    staleTime: Infinity,
+    queryFn: () => fetchInteraction(annoncee as string),
+  })
+
   const dejaDemande = useRef<string | null>(null)
+  /* L'ANNONCE PASSE DEVANT LE SONDAGE : quand les deux désignent le même appel, c'est l'annonce qui
+     arrive la première, et le sondage ne fera que confirmer ce qui est déjà à l'écran. */
+  const propose = surAnnonce ?? dernier
+
   useEffect(() => {
-    if (!dernier) return
-    if (dejaDemande.current === dernier.id) return
-    dejaDemande.current = dernier.id
+    if (!propose) return
+    if (dejaDemande.current === propose.id) return
+    dejaDemande.current = propose.id
     setOuvert(true)
-  }, [dernier])
+  }, [propose])
 
   /* ══ ON NE SE TAIT QUE TANT QU'ON A QUELQU'UN AU BOUT DU FIL — 23/09/2026 ══
    *
@@ -240,24 +305,24 @@ export function DemandeRattachement() {
    * décroché il y a deux heures et jamais refermé est un fantôme, pas une conversation. */
   const enLigne = Boolean(
     appelEnCours
-      && dernier
+      && propose
       && !appelEnCours.termine_le
       /* LE DÉCROCHÉ, ET LUI SEUL. Sans lui, un appel qui sonne — ou qu'on vient de lancer d'un
          clic — ferait taire la modale alors que personne ne parle. */
       && appelEnCours.decroche_le
-      && ((appelEnCours.contact_id && appelEnCours.contact_id === dernier.contact_id)
-        || (appelEnCours.compte_id && appelEnCours.compte_id === dernier.compte_id))
+      && ((appelEnCours.contact_id && appelEnCours.contact_id === propose.contact_id)
+        || (appelEnCours.compte_id && appelEnCours.compte_id === propose.compte_id))
       && Date.now() - new Date(appelEnCours.decroche_le).getTime() < 15 * 60 * 1000,
   )
 
-  if (!ouvert || !dernier || enLigne) return null
+  if (!ouvert || !propose || enLigne) return null
 
   return (
     <LierAppel
-      interactionId={dernier.id}
-      compteId={dernier.compte_id}
-      contactId={dernier.contact_id}
-      nomCorrespondant={dernier.nom}
+      interactionId={propose.id}
+      compteId={propose.compte_id}
+      contactId={propose.contact_id}
+      nomCorrespondant={propose.nom}
       onFerme={() => {
         setOuvert(false)
         /* ON RETIENT LE REFUS, SINON IL NE SURVIT PAS AU RECHARGEMENT. Le `useRef` ci-dessus suffit
@@ -266,7 +331,7 @@ export function DemandeRattachement() {
         void supabase
           .from('interactions')
           .update({ rattachement_ecarte_le: new Date().toISOString() })
-          .eq('id', dernier.id)
+          .eq('id', propose.id)
           .then(() => queryClient.invalidateQueries({ queryKey: ['dernier-appel-non-lie'] }))
         /* ON NE MARQUE RIEN EN BASE : l'appel reste non rattache, donc il paraitra dans
            « Appels a rattacher » sur la vue d'ensemble. C'est la consigne — fermer sans choisir ne

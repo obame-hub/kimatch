@@ -155,6 +155,32 @@ const Contexte = createContext<Telephonie | null>(null)
  * porteur et à y ajouter un appel qui n'a rien à y faire. Le téléphone, lui, est unique dans
  * l'application : ce n'est pas un état qui varie d'un endroit à l'autre, c'est un périphérique.
  */
+/* ══ LE CANAL PAR LEQUEL UN APPEL QUI PART RÉVEILLE LA MODALE ══
+ *
+ * Naoëlle : « je veux que la modale apparaisse au moment de l'appel, pas 10 secondes après ».
+ *
+ * MÊME MOTIF QUE `appelerCourant` JUSTE EN DESSOUS, et pour la même raison : le bouton « Appeler »
+ * vit au fond de dizaines de composants, la modale vit à la racine, et les faire dialoguer par des
+ * propriétés traverserait tout l'arbre pour un signal qui ne concerne que deux points.
+ *
+ * UN SEUL ABONNÉ, et c'est voulu : `DemandeRattachement` est monté une fois, à la racine. Une liste
+ * d'abonnés laisserait croire qu'on peut en brancher d'autres, et il faudrait alors se demander
+ * lequel ouvre la modale. */
+let surAppelOuvert: ((interactionId: string) => void) | null = null
+
+/** La modale s'abonne au montage. Rend la fonction de désabonnement. */
+export function ecouterAppelsOuverts(f: (interactionId: string) => void): () => void {
+  surAppelOuvert = f
+  return () => {
+    if (surAppelOuvert === f) surAppelOuvert = null
+  }
+}
+
+/** Un appel vient de partir, et voici l'interaction à rattacher. */
+function annoncerAppelOuvert(interactionId: string) {
+  surAppelOuvert?.(interactionId)
+}
+
 let appelerCourant:
   | ((numero: string | null | undefined, qui?: Correspondant) => Promise<string>)
   | null = null
@@ -259,12 +285,28 @@ export function TelephonieProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         if (!adresseAllo) return
-        await supabase.rpc('ouvrir_appel_kimatch', { p_numero: e164, p_email_allo: adresseAllo })
+        const { data } = await supabase
+          .rpc('ouvrir_appel_kimatch', { p_numero: e164, p_email_allo: adresseAllo })
         /* LE FIL DE LA FICHE SE RELIT : sans cela, l'appel serait en base mais l'écran ouvert ne le
            montrerait qu'au prochain rechargement — exactement le défaut que l'on corrige. */
         void queryClient.invalidateQueries({ queryKey: ['interactions'] })
         void queryClient.invalidateQueries({ queryKey: ['activite'] })
         void queryClient.invalidateQueries({ queryKey: ['appel-en-cours'] })
+
+        /* ══ LA MODALE S'OUVRE MAINTENANT, PAS AU PROCHAIN SONDAGE — 23/09/2026 ══
+         *
+         * Naoëlle : « je veux que la modale apparaisse au moment de l'appel, pas 10 secondes après ».
+         *
+         * Elle guettait l'apparition d'une interaction non rattachée, toutes les dix secondes. C'était
+         * le bon choix tant que l'appel nous arrivait par le webhook d'Allo : on ne pouvait pas savoir
+         * autrement. Depuis que Kimatch écrit l'appel lui-même, guetter ce qu'on vient d'écrire est
+         * une attente qu'on s'impose sans raison.
+         *
+         * On annonce donc l'interaction directement. Le sondage reste — il rattrape les appels passés
+         * depuis le mobile ou composés dans Allo, qui n'ont pas de clic ici — mais il cesse d'être le
+         * chemin normal pour devenir le filet. */
+        const ligne = (data as { interaction_id: string | null }[] | null)?.[0]
+        if (ligne?.interaction_id) annoncerAppelOuvert(ligne.interaction_id)
       } catch {
         /* Volontairement muet : voir ci-dessus. */
       }
