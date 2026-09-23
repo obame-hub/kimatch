@@ -1,10 +1,11 @@
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog, Building2, Cog, Database } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Automatismes } from '@/components/administration/Automatismes'
 import { Corbeille } from '@/components/administration/Corbeille'
+import { DroitsReels } from '@/components/administration/DroitsReels'
 import { GestionnaireObjets } from '@/components/administration/GestionnaireObjets'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
@@ -18,14 +19,8 @@ import {
   useProfilsAdmin,
   useRolesAcces,
   usePostes,
-  useCreatePoste,
-  usePermissionsList,
-  useRolePermissionsMatrix,
-  usePostePermissionsMatrix,
   useAssignRoleAcces,
   useAssignPoste,
-  useToggleRolePermission,
-  useTogglePostePermission,
   useIsAdmin,
   useProfilsAutorises,
   useAddProfilAutorise,
@@ -208,140 +203,7 @@ function UtilisateursTab() {
   )
 }
 
-function PermissionMatrix({
-  columns,
-  permissions,
-  matrix,
-  onToggle,
-}: {
-  columns: { id: string; libelle: string }[]
-  permissions: { id: string; libelle: string; module: string }[]
-  matrix: Set<string> | undefined
-  onToggle: (columnId: string, permissionId: string, enabled: boolean) => void
-}) {
-  const parModule = new Map<string, typeof permissions>()
-  for (const perm of permissions) {
-    const list = parModule.get(perm.module) ?? []
-    list.push(perm)
-    parModule.set(perm.module, list)
-  }
 
-  return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="border-b border-km-line text-left text-xs uppercase tracking-wide text-km-faint">
-          <th className="py-2 pr-4">Permission</th>
-          {columns.map((c) => (
-            <th key={c.id} className="px-2 py-2 text-center font-medium normal-case text-km-muted">{c.libelle}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {[...parModule.entries()].map(([module, perms]) => (
-          <Fragment key={module}>
-            <tr className="bg-km-bg/60">
-              <td colSpan={columns.length + 1} className="px-1 py-1.5 text-xs font-semibold uppercase tracking-wide text-km-muted">
-                {module}
-              </td>
-            </tr>
-            {perms.map((perm) => (
-              <tr key={perm.id} className="border-b border-navy-50">
-                <td className="py-1.5 pr-4 text-km-text">{perm.libelle}</td>
-                {columns.map((c) => {
-                  const checked = matrix?.has(`${c.id}:${perm.id}`) ?? false
-                  return (
-                    <td key={c.id} className="px-2 py-1.5 text-center">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => onToggle(c.id, perm.id, e.target.checked)}
-                        className="h-4 w-4 rounded border-km-line text-km-green focus:ring-kiwi-500"
-                      />
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </Fragment>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
-function NouveauPosteForm() {
-  const createPoste = useCreatePoste()
-  const [libelle, setLibelle] = useState('')
-  const [niveau, setNiveau] = useState('50')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setFeedback(null)
-    try {
-      await createPoste.mutateAsync({ code: libelle, libelle, niveauHierarchique: Number(niveau) || 50 })
-      setLibelle('')
-      setNiveau('50')
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Erreur inconnue')
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="mb-4 flex flex-wrap items-end gap-2">
-      <Input placeholder="Nom du poste (ex. Commercial)" value={libelle} onChange={(e) => setLibelle(e.target.value)} className="min-w-[200px] flex-1" />
-      <Input type="number" placeholder="Niveau" value={niveau} onChange={(e) => setNiveau(e.target.value)} className="w-24" />
-      <Button type="submit" disabled={createPoste.isPending || !libelle.trim()}>
-        <Plus className="h-4 w-4" />
-        Créer le poste
-      </Button>
-      {feedback && <p className="w-full text-xs text-km-red">{feedback}</p>}
-    </form>
-  )
-}
-
-function PermissionsTab() {
-  const { data: roles } = useRolesAcces()
-  const { data: postes } = usePostes()
-  const { data: permissions } = usePermissionsList()
-  const { data: roleMatrix } = useRolePermissionsMatrix()
-  const { data: posteMatrix } = usePostePermissionsMatrix()
-  const toggleRole = useToggleRolePermission()
-  const togglePoste = useTogglePostePermission()
-
-  if (!roles || !postes || !permissions) return <p className="text-sm text-km-faint">Chargement…</p>
-
-  return (
-    <div className="space-y-8">
-      <div>
-        <h3 className="mb-1 text-sm font-semibold text-km-text">Postes — permissions de base</h3>
-        <p className="mb-3 text-xs text-km-muted">Le poste définit les permissions de base d'une personne selon sa fonction (Commercial, Cotation, Direction…).</p>
-        <NouveauPosteForm />
-        <div className="overflow-x-auto">
-          <PermissionMatrix
-            columns={postes}
-            permissions={permissions}
-            matrix={posteMatrix}
-            onToggle={(posteId, permissionId, enabled) => togglePoste.mutate({ posteId, permissionId, enabled })}
-          />
-        </div>
-      </div>
-
-      <div>
-        <h3 className="mb-1 text-sm font-semibold text-km-text">Rôles d'accès — ajouts/retraits spécifiques</h3>
-        <p className="mb-3 text-xs text-km-muted">Le rôle d'accès ajoute ou retire des permissions par-dessus celles du poste (ex. Super administrateur voit tout, Service client est plus restreint).</p>
-        <div className="overflow-x-auto">
-          <PermissionMatrix
-            columns={roles}
-            permissions={permissions}
-            matrix={roleMatrix}
-            onToggle={(roleAccesId, permissionId, enabled) => toggleRole.mutate({ roleAccesId, permissionId, enabled })}
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function AccesAutorisesTab() {
   const { data: emails, isLoading } = useProfilsAutorises()
@@ -662,7 +524,7 @@ export default function Administration() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <PermissionsTab /> : tab === 'acces' ? <AccesAutorisesTab /> : tab === 'automatismes' ? <Automatismes /> : tab === 'objets' ? <GestionnaireObjets /> : tab === 'corbeille' ? <Corbeille /> : <AssignationsTab />}
+            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <DroitsReels /> : tab === 'acces' ? <AccesAutorisesTab /> : tab === 'automatismes' ? <Automatismes /> : tab === 'objets' ? <GestionnaireObjets /> : tab === 'corbeille' ? <Corbeille /> : <AssignationsTab />}
           </CardContent>
         </Card>
       </div>
