@@ -22,6 +22,10 @@ import Login from '@/pages/Login'
  * Login fait exception : c'est le premier ecran, le differer ajouterait une attente exactement la
  * ou l'utilisateur n'a encore rien vu.
  */
+/* LA BOÎTE DE DÉPÔT EST PUBLIQUE, et c'est la seule page de Kimatch dans ce cas avec l'écran de
+   connexion. Elle est différée comme les autres : personne de l'équipe ne l'ouvre jamais, il n'y a
+   aucune raison de la faire peser sur le premier chargement de ceux qui travaillent. */
+const DepotFactures = lazy(() => chargerPage(() => import('@/pages/DepotFactures')))
 const Dashboard = lazy(() => chargerPage(() => import('@/pages/Dashboard')))
 const RedirectionSite = lazy(() => chargerPage(() => import('@/pages/RedirectionSite')))
 const PageIntrouvable = lazy(() => chargerPage(() => import('@/pages/PageIntrouvable')))
@@ -94,6 +98,10 @@ function App() {
       <Suspense fallback={null}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        {/* HORS DE `ProtectedRoute` : le client qui dépose ses factures n'a pas de compte Kimatch
+            et n'en aura pas. Le jeton de l'URL est sa seule autorisation, et il est vérifié côté
+            serveur par `api/depot/*` — aucune politique n'ouvre ces tables au navigateur. */}
+        <Route path="/depot/:jeton" element={<DepotFactures />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>

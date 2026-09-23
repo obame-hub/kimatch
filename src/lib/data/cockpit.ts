@@ -1388,3 +1388,68 @@ export function useAvancerStatutPiste() {
     },
   })
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * OUVRIR UNE BOÎTE DE DÉPÔT, ET RÉCUPÉRER SON LIEN
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 23/09/2026 : « lors de l'envoi du mail de demande de facture, j'aimerais que ça ajoute
+ * dans ce mail un lien unique qui ouvre une boîte de dépôt ».
+ *
+ * LE LIEN EST DEMANDÉ À L'OUVERTURE DE L'ÉDITEUR, pas à l'envoi : il doit être DANS le corps du
+ * mail quand le commercial le relit, sinon il écrit autour d'un trou. Et le jeton naît côté serveur
+ * — c'est la seule clé d'accès à une boîte où atterriront des factures, elle ne se fabrique pas
+ * dans un navigateur.
+ */
+export interface LienDepot { jeton: string; lien: string; reutilise: boolean }
+
+/**
+ * ══ UN LIEN QUI MANQUE DOIT SE DIRE, PAS SE TAIRE ══
+ *
+ * William, 23/09/2026 : « quand je clique sur Demander les factures, je ne vois pas le lien intégré
+ * dans le mail, c'est normal ? »
+ *
+ * NON, ET MA PREMIÈRE VERSION AVAIT UN DÉFAUT PIRE QUE LA PANNE. Elle rendait `null` sur n'importe
+ * quel échec et l'éditeur s'ouvrait sans le lien, SANS RIEN DIRE. Le commercial écrivait « le plus
+ * simple est de les déposer ici » — phrase qui n'était plus dans le modèle — ou pire, envoyait un
+ * mail en croyant que le client pourrait déposer. On ne s'en apercevait qu'en ne recevant jamais
+ * rien.
+ *
+ * ON REND DONC LA RAISON. L'éditeur s'ouvre toujours — une demande de factures sans lien reste une
+ * demande de factures, et refuser de l'ouvrir coûterait l'appel en cours — mais l'écran affiche ce
+ * qui manque, et le modèle se passe de sa phrase d'invitation.
+ */
+export type ResultatDepot = { lien: LienDepot } | { erreur: string }
+
+export function useOuvrirDepot() {
+  return useMutation({
+    mutationFn: async (cible: {
+      pisteId?: string | null
+      opportuniteId?: string | null
+      contactId?: string | null
+      compteId?: string | null
+    }): Promise<ResultatDepot> => {
+      const res = await fetch('/api/depot/ouvrir', {
+        method: 'POST',
+        headers: await authHeaderJson(),
+        body: JSON.stringify(cible),
+      })
+      const texte = await res.text()
+      let data: { ok?: boolean; erreur?: string; error?: string } & Partial<LienDepot>
+      try {
+        data = JSON.parse(texte)
+      } catch {
+        return {
+          erreur: texte.trimStart().startsWith('<')
+            ? 'les fonctions serveur ne répondent pas ici'
+            : `réponse illisible du serveur (${res.status})`,
+        }
+      }
+      if (!res.ok || !data.ok || !data.jeton || !data.lien) {
+        return { erreur: data.erreur ?? data.error ?? `erreur ${res.status}` }
+      }
+      return { lien: { jeton: data.jeton, lien: data.lien, reutilise: Boolean(data.reutilise) } }
+    },
+  })
+}

@@ -14,7 +14,7 @@ import {
 } from '@/lib/data/appelEnCours'
 import { useCreateAction, useUpdateActionPartiel } from '@/lib/data/actions'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { LIBELLE_SOURCE, useAvancerStatutPiste, useFichePipe, useMajFicheSprint, type ChampFicheSprint, type LignePipe } from '@/lib/data/cockpit'
+import { LIBELLE_SOURCE, useAvancerStatutPiste, useFichePipe, useMajFicheSprint, useOuvrirDepot, type ChampFicheSprint, type LignePipe } from '@/lib/data/cockpit'
 import { QUALIFICATIONS_FIN } from '@/lib/data/opportunites'
 import { supabase } from '@/lib/supabase'
 import { ChampSprint } from '@/components/cockpit/ChampSprint'
@@ -23,6 +23,7 @@ import { PanneauApresAppel, type GesteApresAppel } from '@/components/cockpit/Pa
 import { EditeurMailSprint } from '@/components/cockpit/EditeurMailSprint'
 import { MorphDepuis } from '@/components/cockpit/MorphDepuis'
 import { OngletsFiche } from '@/components/cockpit/OngletsFiche'
+import { BannieresSprint } from '@/components/cockpit/BannieresSprint'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -95,16 +96,31 @@ const MOTIFS_DISQUALIFICATION = [
  * LES CROCHETS RESTENT À COMPLÉTER, à dessein : un mail entièrement écrit part tel quel et se voit.
  * Ce qu'on fait gagner, c'est la frappe — pas la relecture.
  */
-const MODELE_FACTURES = {
-  objet: 'Vos factures d’énergie pour l’étude comparative',
-  corps:
-    '<p>Bonjour,</p>'
-    + '<p>Comme convenu, pouvez-vous me transmettre <b>une facture récente d’électricité et de gaz</b> '
-    + 'pour chacun des sites concernés ? Une simple copie suffit.</p>'
-    + '<p>Elles me permettent de relever les points de livraison, les consommations et les dates '
-    + 'd’échéance — c’est ce qui me permet de construire un comparatif chiffré, et non une estimation.</p>'
-    + '<p>Je reviens vers vous dès réception.</p>',
+function modeleFactures(lienDepot: string | null) {
+  return {
+    objet: 'Vos factures d’énergie pour l’étude comparative',
+    corps:
+      '<p>Bonjour,</p>'
+      + '<p>Comme convenu, pouvez-vous me transmettre <b>une facture récente d’électricité et de gaz</b> '
+      + 'pour chacun des sites concernés ? Une simple copie suffit.</p>'
+      /* ══ LE LIEN REMPLACE LA PIÈCE JOINTE EN RETOUR ══
+         William, 23/09/2026. Une facture demandée par mail revient en pièce jointe, dans une boîte
+         de réception, et n'atteint jamais la fiche : c'est ainsi qu'une seule piste sur 4 734 porte
+         un document. Déposée par ce lien, elle arrive SUR la piste, datée, et prévient son
+         propriétaire. Le lien n'apparaît que si la boîte a pu s'ouvrir — un mail sans lien reste un
+         mail utile, un mail avec un lien mort ne l'est pas. */
+      + (lienDepot
+        ? `<p>Le plus simple est de les déposer ici, en une fois : <a href="${lienDepot}">${lienDepot}</a><br>`
+          + '<span style="color:#69716C">Aucun compte à créer — le lien vous est personnel et reste valable trente jours.</span></p>'
+        : '')
+      + '<p>Elles me permettent de relever les points de livraison, les consommations et les dates '
+      + 'd’échéance — c’est ce qui me permet de construire un comparatif chiffré, et non une estimation.</p>'
+      + '<p>Je reviens vers vous dès réception.</p>',
+  }
 }
+
+/** Sert à reconnaître ce modèle après coup, pour poser le statut et la relance qui vont avec. */
+const OBJET_FACTURES = 'Vos factures d’énergie pour l’étude comparative'
 
 /** Une date locale à J+n, au format court. `instantTache` en fait ensuite un instant complet. */
 function dansNJoursISO(n: number): string {
@@ -182,6 +198,7 @@ export function SprintCockpit({
   const creerAction = useCreateAction()
   const majAction = useUpdateActionPartiel()
   const avancerStatut = useAvancerStatutPiste()
+  const ouvrirDepot = useOuvrirDepot()
   /* ══ L'APPEL EN COURS VIENT D'ALLO, PAS DE NOUS ══
      `appels_en_cours` est rempli par le webhook (`api/allo/webhook.ts`) : c'est la seule source qui
      sache qu'une ligne sonne, qu'on a décroché et quand. Kimatch ne peut pas le deviner — voir la
@@ -237,6 +254,35 @@ export function SprintCockpit({
 
   const ouvrirEditeurMail = (modele?: { objet: string; corps: string }) =>
     ouvrirGeste('mail', 'carte-contacter', modele)
+
+  /**
+   * ══ LA BOÎTE S'OUVRE AVANT L'ÉDITEUR, PAS À L'ENVOI ══
+   *
+   * Le lien doit être DANS le corps quand le commercial le relit : glissé à l'envoi, il écrirait
+   * autour d'un trou, et un modèle qu'on ne voit pas en entier ne se relit pas.
+   *
+   * L'ÉDITEUR S'OUVRE MÊME SI LA BOÎTE ÉCHOUE. Une demande de factures sans lien reste une demande
+   * de factures ; un éditeur qui refuse de s'ouvrir coûte l'appel en cours.
+   */
+  async function ouvrirDemandeDeFactures() {
+    const resultat = await ouvrirDepot.mutateAsync({
+      pisteId: estPiste ? fiche.cible_id : null,
+      opportuniteId: estPiste ? null : fiche.cible_id,
+      contactId: fiche.contact_id,
+      compteId: fiche.compte_id,
+    }).catch((e: unknown) => ({ erreur: e instanceof Error ? e.message : 'appel impossible' }))
+
+    if ('erreur' in resultat) {
+      /* LE MAIL PART QUAND MÊME, ET L'ÉCRAN DIT CE QUI MANQUE. Un lien absent en silence est pire
+         qu'une panne : on envoie le mail en croyant que le client pourra déposer, et on ne s'en
+         aperçoit qu'en ne recevant jamais rien. */
+      setMessageSprint(`Sans lien de dépôt — ${resultat.erreur}. Le client devra répondre en pièce jointe.`)
+      window.setTimeout(() => setMessageSprint(null), 9000)
+      ouvrirEditeurMail(modeleFactures(null))
+      return
+    }
+    ouvrirEditeurMail(modeleFactures(resultat.lien.lien))
+  }
 
   const majFiche = useMajFicheSprint()
   const { data: typesActions } = useReferenceTable('types_actions')
@@ -519,7 +565,7 @@ export function SprintCockpit({
    * attend une réception, pas qu'on a eu l'intention de la demander.
    */
   async function apresEnvoiMail() {
-    const demandeDeFactures = modeleMail?.objet === MODELE_FACTURES.objet
+    const demandeDeFactures = modeleMail?.objet === OBJET_FACTURES
     if (estPiste && demandeDeFactures) {
       avancerStatut.mutate({
         piste: fiche.cible_id,
@@ -603,6 +649,23 @@ export function SprintCockpit({
           {messageSprint}
         </p>
       ) : null}
+
+      {/* ══ LES BANNIÈRES POUSSENT, ELLES NE RECOUVRENT PAS ══
+          Le sprint est déjà un recouvrement plein écran : une notification flottante par-dessus
+          ferait un troisième étage et cacherait le nom de celui à qui l'on parle. Elles s'insèrent
+          sous la barre de séance et décalent le contenu de quelques dizaines de pixels. */}
+      <div className="shrink-0">
+        <BannieresSprint
+          actif
+          onOuvrir={(a) => {
+            /* SI LA FICHE EST DANS LE PLAN, ON Y VA SANS QUITTER LA SÉANCE. Sinon seulement, on
+               ouvre sa fiche dans un onglet — le sprint ne se ferme jamais d'un clic de bannière. */
+            const rang = lignes.findIndex((l) => l.cible_type === a.cible_type && l.cible_id === a.cible_id)
+            if (rang >= 0) { setIndex(rang); setGeste(null); setAppelLance(null); return }
+            if (a.lien) window.open(a.lien, '_blank', 'noopener')
+          }}
+        />
+      </div>
 
       <div className="grid flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[1.05fr_0.95fr]">
         {/* ══ GAUCHE · QUI J'APPELLE ══
@@ -1270,7 +1333,7 @@ export function SprintCockpit({
               id="menu-action-rapide"
               estPiste={estPiste}
               onAction={(a: ActionRapide) => {
-                if (a === 'factures') { ouvrirEditeurMail(MODELE_FACTURES); return }
+                if (a === 'factures') { void ouvrirDemandeDeFactures(); return }
                 if (a === 'mandat') { ouvrirEditeurMail(MODELE_MANDAT); return }
                 /* LA TÂCHE NAÎT DE SA CARTE quand il y en a une — c'est celle-là même qu'on est en
                    train de terminer, et la voir se dérouler en panneau le dit sans un mot. */
