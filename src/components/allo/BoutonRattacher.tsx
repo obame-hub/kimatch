@@ -37,7 +37,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useMonProfil } from '@/lib/data/roles'
+import { useMonProfil, emailAllo } from '@/lib/data/roles'
 import { useAppelEnCours } from '@/lib/data/appelEnCours'
 import { LierAppel } from '@/components/allo/LierAppel'
 import { relancer } from '@/lib/data/erreurLecture'
@@ -56,9 +56,29 @@ interface DernierAppel {
  * liens, et c'est là que le rattachement s'écrit. La table des appels ne sert qu'à suivre l'appel
  * pendant qu'il se passe.
  */
-async function fetchDernierNonLie(profilId: string | null): Promise<DernierAppel | null> {
-  if (!profilId) return null
+async function fetchDernierNonLie(adresseAllo: string | null): Promise<DernierAppel | null> {
+  if (!adresseAllo) return null
   try {
+    /* ══ ON CHERCHE PAR L'ADRESSE ALLO, PAS PAR LE PROFIL KIMATCH — CORRIGÉ LE 23/09/2026 ══
+     *
+     * Naoëlle : « la modale n'est toujours pas apparue », alors que ses quatre appels étaient bien
+     * en base. Ils portaient `auteur_profil_id` = WILLIAM, parce qu'elle opère son compte Allo :
+     * sept membres chez Allo, dix profils actifs dans Kimatch. Filtrer sur son profil ne trouvait
+     * donc rien, et le bouton restait invisible sans que rien ne le signale.
+     *
+     * `useAppelEnCours` avait déjà résolu exactement ce problème le 08/09 — sa carte se cale sur le
+     * compte Allo et non sur le profil. Je ne l'avais pas repris ici : deux écrans qui répondent à
+     * « quel est mon dernier appel » et qui n'ont pas la même définition de « mon ».
+     *
+     * On traduit donc l'adresse Allo en profil, comme le fait le webhook à l'écriture. */
+    const { data: p } = await supabase
+      .from('profils')
+      .select('id')
+      .ilike('email', adresseAllo)
+      .maybeSingle()
+    const profilId = (p as { id: string } | null)?.id
+    if (!profilId) return null
+
     const { data, error } = await supabase
       .from('interactions')
       .select(`
@@ -110,12 +130,17 @@ export function BoutonRattacher() {
   /* ON SONDE TOUTES LES QUINZE SECONDES. Le webhook d'Allo écrit l'interaction à la fin de l'appel,
      avec un délai qui va de deux secondes à plusieurs minutes (mesuré le 22/09) : un sondage plus
      lent ferait paraître le bouton longtemps après qu'on a raccroché, quand on est déjà ailleurs. */
+  /* L'ADRESSE ALLO, ET NON L'ADRESSE KIMATCH : voir `fetchDernierNonLie`. Quelqu'un qui opère le
+     compte d'un collègue — le cas de Naoëlle sur celui de William — ne verrait sinon jamais ses
+     propres appels. */
+  const adresseAllo = emailAllo(profil)
+
   const { data: dernier } = useQuery({
-    queryKey: ['dernier-appel-non-lie', profil?.id],
-    enabled: Boolean(profil?.id),
+    queryKey: ['dernier-appel-non-lie', adresseAllo],
+    enabled: Boolean(adresseAllo),
     refetchInterval: 15000,
     staleTime: 10000,
-    queryFn: () => fetchDernierNonLie(profil?.id ?? null),
+    queryFn: () => fetchDernierNonLie(adresseAllo),
   })
 
   /* PENDANT UN APPEL, RIEN : voir l'en-tête. `termine_le` nul signifie qu'on est encore en ligne. */

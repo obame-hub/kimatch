@@ -214,9 +214,18 @@ export function useObjetsLiables(compteId: string | null, contactId: string | nu
  * ON NE REMONTE PAS PLUS DE TRENTE JOURS : au-delà, on ne se souvient plus de quoi on a parlé, et
  * une liste qu'on ne peut pas traiter devient du décor. Voir `CarteAppel` : c'est la même leçon.
  */
-async function fetchAppelsNonLies(profilId: string | null): Promise<AppelALier[]> {
-  if (!profilId) return []
+async function fetchAppelsNonLies(adresseAllo: string | null): Promise<AppelALier[]> {
+  if (!adresseAllo) return []
   try {
+    /* ON CHERCHE PAR L'ADRESSE ALLO, PAS PAR LE PROFIL KIMATCH — meme correction que le bouton, le
+       23/09/2026. Naoelle opere le compte Allo de William : ses appels portent l'identifiant de
+       William, et filtrer sur son profil Kimatch ne rendait RIEN. La liste paraissait vide alors
+       qu'elle avait quatre appels a rattacher. */
+    const { data: p } = await supabase
+      .from('profils').select('id').ilike('email', adresseAllo).maybeSingle()
+    const profilId = (p as { id: string } | null)?.id
+    if (!profilId) return []
+
     const { data, error } = await supabase
       .from('interactions')
       .select(`
@@ -267,12 +276,12 @@ async function fetchAppelsNonLies(profilId: string | null): Promise<AppelALier[]
   }
 }
 
-export function useAppelsNonLies(profilId: string | null) {
+export function useAppelsNonLies(adresseAllo: string | null) {
   return useQuery({
-    queryKey: ['appels-non-lies', profilId],
-    enabled: Boolean(profilId),
+    queryKey: ['appels-non-lies', adresseAllo],
+    enabled: Boolean(adresseAllo),
     staleTime: 30 * 1000,
-    queryFn: () => fetchAppelsNonLies(profilId),
+    queryFn: () => fetchAppelsNonLies(adresseAllo),
   })
 }
 

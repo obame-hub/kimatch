@@ -30,7 +30,7 @@
 import { useState } from 'react'
 import { PhoneCall, Link2 } from 'lucide-react'
 import { useAppelsNonLies, type AppelALier } from '@/lib/data/liensAppel'
-import { useMonProfil } from '@/lib/data/roles'
+import { useMonProfil, emailAllo } from '@/lib/data/roles'
 import { LierAppel } from '@/components/allo/LierAppel'
 import { numeroLisible } from '@/lib/telephonie'
 
@@ -47,7 +47,9 @@ function quand(iso: string): string {
 
 export function AppelsNonLies() {
   const { data: profil } = useMonProfil()
-  const { data: appels, isLoading, isError } = useAppelsNonLies(profil?.id ?? null)
+  /* L'ADRESSE ALLO, ET NON L'ADRESSE KIMATCH : quelqu'un qui opere le compte d'un collegue
+     ne verrait sinon jamais ses propres appels. Voir `fetchAppelsNonLies`. */
+  const { data: appels, isLoading, isError } = useAppelsNonLies(emailAllo(profil))
   const [aLier, setALier] = useState<AppelALier | null>(null)
   const [tout, setTout] = useState(false)
 
