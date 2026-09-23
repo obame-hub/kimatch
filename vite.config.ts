@@ -157,7 +157,19 @@ function servirApiEnLocal() {
                 reponse.status(500).json({ error: `\`${chemin}\` n'exporte pas de gestionnaire par défaut.` })
                 return
               }
-              await gestionnaire(Object.assign(req, { body: corps, query: {} }), reponse)
+              /* ══ LA CHAÎNE DE REQUÊTE, ANALYSÉE ══
+                 J'avais écrit `query: {}` en dur. Les points d'entrée qui lisent `req.query`
+                 — `api/depot/etat`, `api/gmail/pixel` — recevaient donc TOUJOURS un objet vide et
+                 répondaient « inconnu » à des jetons parfaitement valides, pendant que ceux qui
+                 lisent le corps fonctionnaient. Trouvé en essayant la boîte de dépôt de bout en
+                 bout : `etat` refusait le jeton que `televerser` venait d'accepter. */
+              const params = new URL(req.url ?? '/', 'http://local').searchParams
+              const query: Record<string, string | string[]> = {}
+              for (const [cle] of params) {
+                const toutes = params.getAll(cle)
+                query[cle] = toutes.length > 1 ? toutes : toutes[0]
+              }
+              await gestionnaire(Object.assign(req, { body: corps, query }), reponse)
             } catch (e) {
               const message = e instanceof Error ? e.message : String(e)
               console.error(`\x1b[31m[api en local] ${chemin} : ${message}\x1b[0m`)
