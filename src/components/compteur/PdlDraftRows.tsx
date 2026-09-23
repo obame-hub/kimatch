@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { AlertTriangle, Check, CheckCircle2, Flame, Plus, Trash2, Zap } from 'lucide-react'
+import { AlertTriangle, MapPin, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ContactPicker } from '@/components/contact/ContactPicker'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
@@ -265,21 +265,19 @@ export function trouverSiteExistant(sites: Site[], compteId: string, d: PdlDraft
    LE VOCABULAIRE DU FORMULAIRE — posé une fois, employé partout
    ══════════════════════════════════════════════════════════════════════════════════════════════
 
-   William, 23/09/2026 : « le design du périmètre avec les champs ne correspond pas du tout à ton
-   design proposé ». Il avait raison : la fenêtre était au dessin, son contenu non.
-
    C'EST CE COMPOSANT QUI CHANGE, ET PAS UNE COPIE DE CE COMPOSANT. Il sert aussi la création de
    compteur depuis la fiche compte et depuis la liste des sites. Un second formulaire PDL rien que
    pour la conversion finirait par diverger sur l'éligibilité fournisseur, et c'est la cotation qui
-   paierait l'écart. Les trois écrans gagnent donc la même présentation.
+   paierait l'écart.
 
-   CE QUI CHANGE : les listes déroulantes de deux à cinq choix deviennent des segments — un clic au
-   lieu de deux, et on voit les options sans rien ouvrir ; l'énergie devient deux cartes ; le numéro
-   de PDL passe en chasse fixe et en grand, parce que quatorze chiffres en police proportionnelle
-   ne se vérifient pas d'un coup d'œil.
+   L'ORDRE DES CHAMPS EST CELUI QUE WILLIAM A DICTÉ le 23/09/2026 : l'énergie en haut à droite ;
+   le libellé et le numéro sur une ligne ; l'adresse en recherche ; segment, tension et utilisation
+   sur une ligne ; les puissances ; le fournisseur et l'échéance ; le contact pour finir. C'est
+   l'ordre dans lequel on lit une facture, et c'est ce qui le rend fluide.
 
-   CE QUI NE CHANGE PAS : les champs, les règles d'obligation, le repérage des doublons, le contrôle
-   de format, la reprise d'un site existant. Aucune ligne de `champsPdlManquants` n'est touchée. */
+   CE QUI NE CHANGE PAS : les champs écrits en base, les règles d'obligation, le repérage des
+   doublons, le contrôle de format, la reprise d'un site existant. Aucune ligne de
+   `champsPdlManquants` n'est touchée. */
 
 const SAISIE = 'w-full rounded-[10px] border border-km-line bg-white px-[13px] py-[10px] text-[13.5px] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)] disabled:bg-km-soft'
 const SAISIE_MONO = 'w-full rounded-[10px] border border-km-line bg-white px-[13px] py-[10px] font-mono text-[13px] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)] disabled:bg-km-soft'
@@ -308,79 +306,45 @@ function Champ({ intitule, requis, complement, children, className }: {
 /**
  * Le sélecteur à segments.
  *
- * IL REMPLACE UNE LISTE DÉROULANTE, PAS UN CHAMP LIBRE : il ne vaut que jusqu'à cinq choix venus
- * d'une liste fermée (segment, tension, tarif, utilisation). Au-delà — les 52 fournisseurs — il
- * deviendrait une bouillie de pastilles, et la liste déroulante reste la bonne réponse.
+ * ══ LA VALEUR RETENUE EST EN VERT PLEIN, ET C'EST UNE CORRECTION ══
+ *
+ * William, 23/09/2026 : « améliore le design des toggles pour rendre la valeur sélectionnée plus
+ * lisible ». La première version posait la valeur retenue en blanc sur un fond gris pâle : la
+ * différence tenait à une ombre de 1 px, invisible sur un écran mat. Le vert plein est le même
+ * signal que l'interrupteur Électricité / Gaz qu'il a retenu, et il se voit de loin.
+ *
+ * IL NE VAUT QUE JUSQU'À CINQ CHOIX venus d'une liste fermée. Au-delà — les neuf profils gaz, les
+ * 52 fournisseurs — il deviendrait une bouillie de pastilles, et la liste déroulante reste la
+ * bonne réponse.
  */
-function Segments({ valeur, options, onChoisir, manquant, compact }: {
+function Segments({ valeur, options, onChoisir, manquant }: {
   valeur: string
-  options: { valeur: string; libelle: string }[]
+  options: { valeur: string; libelle: string; titre?: string }[]
   onChoisir: (v: string) => void
   manquant?: boolean
-  /** Chasse fixe : pour les codes alignés (C5, T2, HTA) plutôt que pour des mots. */
-  compact?: boolean
 }) {
   return (
     <div className={cn(
-      'flex gap-[2px] rounded-[10px] border bg-km-soft p-[3px]',
+      'flex gap-[3px] rounded-[10px] border bg-km-soft p-[3px]',
       manquant ? BORDURE_MANQUANT : 'border-km-line',
     )}>
       {options.map((o) => (
         <button
           key={o.valeur}
           type="button"
+          title={o.titre}
           onClick={() => onChoisir(o.valeur === valeur ? '' : o.valeur)}
           className={cn(
-            'flex-1 rounded-[7px] py-[7px] text-[12.5px] transition-colors',
-            compact && 'font-mono',
+            'flex-1 rounded-[7px] px-[6px] py-[7px] text-[12.5px] transition-colors',
             o.valeur === valeur
-              ? 'bg-white font-semibold text-km-text shadow-[0_1px_2px_rgba(20,24,22,.09)]'
-              : 'font-medium text-km-muted hover:text-km-text',
+              ? 'bg-km-green font-bold text-white'
+              : 'font-medium text-km-muted hover:bg-white hover:text-km-text',
           )}
         >
           {o.libelle}
         </button>
       ))}
     </div>
-  )
-}
-
-/** Le choix de l'énergie : deux cartes, parce que c'est la décision qui commande tout le reste. */
-function CarteEnergie({ libelle, aide, choisie, gaz, onChoisir }: {
-  libelle: string
-  aide: string
-  choisie: boolean
-  gaz: boolean
-  onChoisir: () => void
-}) {
-  const Icone = gaz ? Flame : Zap
-  return (
-    <button
-      type="button"
-      onClick={onChoisir}
-      className={cn(
-        'flex flex-1 items-center gap-3 rounded-[13px] border p-[14px] text-left transition-colors',
-        choisie
-          ? 'border-[1.5px] border-km-green bg-km-green-tint shadow-[0_0_0_3px_rgba(13,122,95,.10)]'
-          : 'border-km-line bg-white hover:bg-km-bg/60',
-      )}
-    >
-      <span className={cn(
-        'flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px]',
-        choisie ? 'bg-km-green' : 'bg-km-soft',
-      )}>
-        <Icone className={cn('h-[18px] w-[18px]', choisie ? 'text-white' : 'text-km-muted')} />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className={cn('text-[14px] font-semibold', choisie ? 'text-km-text' : 'text-km-muted')}>{libelle}</span>
-        <span className="text-[11px] text-km-faint">{aide}</span>
-      </span>
-      {choisie && (
-        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-km-green">
-          <Check className="h-[10px] w-[10px] stroke-[3.6] text-white" />
-        </span>
-      )}
-    </button>
   )
 }
 
@@ -441,6 +405,9 @@ export function PdlDraftRows({
         const manque = (f: string) => manquants.has(f)
         const kManque = (f: string) => (manque(f) ? BORDURE_MANQUANT : undefined)
         const responsableHerite = Boolean(responsableParDefautId) && d.responsableContactId === responsableParDefautId
+        // La commune est-elle résolue ? C'est elle qui décide si l'on montre une ligne de confirmation
+        // ou les deux champs de repli -- voir le commentaire du bloc adresse.
+        const communeResolue = Boolean(d.ville.trim() && d.codePostal.trim())
 
         return (
           <div
@@ -450,33 +417,30 @@ export function PdlDraftRows({
               d.status === 'saved' ? 'border-km-green-line bg-km-green-tint' : 'border-km-line bg-white',
             )}
           >
+            {/* ── L'EN-TÊTE : l'intitulé à gauche, l'énergie à droite ── */}
             <div className="mb-[15px] flex items-center gap-3">
               <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-km-green">
                 {drafts.length > 1 ? `Compteur ${i + 1}` : 'Le compteur'}
                 {d.status === 'saved' && ' — créé'}
               </span>
               <span className="flex-1" />
-              {/* L'énergie se choisit ici, en tête : c'est elle qui commande tous les champs du bas. */}
               {!locked && (
-                <div className="flex gap-2">
-                  {energies.map((en) => {
-                    const gaz = (en.code ?? '').toLowerCase() === 'gaz'
-                    return (
-                      <button
-                        key={en.id}
-                        type="button"
-                        onClick={() => onChange(d.key, { typeEnergieId: en.id, typeUtilisationId: '' })}
-                        className={cn(
-                          'rounded-[8px] px-[13px] py-[6px] text-[12px] transition-colors',
-                          d.typeEnergieId === en.id
-                            ? 'bg-km-green font-semibold text-white'
-                            : 'bg-km-soft font-medium text-km-muted hover:text-km-text',
-                        )}
-                      >
-                        {gaz ? 'Gaz' : en.libelle}
-                      </button>
-                    )
-                  })}
+                <div className={cn('flex gap-2', manque('typeEnergieId') && 'rounded-[9px] ring-2 ring-km-amber')}>
+                  {energies.map((en) => (
+                    <button
+                      key={en.id}
+                      type="button"
+                      onClick={() => onChange(d.key, { typeEnergieId: en.id, typeUtilisationId: '' })}
+                      className={cn(
+                        'rounded-[8px] px-[13px] py-[6px] text-[12px] transition-colors',
+                        d.typeEnergieId === en.id
+                          ? 'bg-km-green font-semibold text-white'
+                          : 'bg-km-soft font-medium text-km-muted hover:text-km-text',
+                      )}
+                    >
+                      {(en.code ?? '').toLowerCase() === 'gaz' ? 'Gaz' : en.libelle}
+                    </button>
+                  ))}
                 </div>
               )}
               {!locked && drafts.length > 1 && (
@@ -486,98 +450,104 @@ export function PdlDraftRows({
               )}
             </div>
 
-            <fieldset disabled={locked} className="flex flex-col gap-[15px] disabled:opacity-60">
+            <fieldset disabled={locked} className="flex flex-col gap-[13px] disabled:opacity-60">
 
-              {/* ── L'ÉNERGIE, EN DEUX CARTES, TANT QU'ELLE N'EST PAS CHOISIE ── */}
-              {!d.typeEnergieId && (
-                <div className="flex gap-[11px]">
-                  {energies.map((en) => {
-                    const gaz = (en.code ?? '').toLowerCase() === 'gaz'
-                    return (
-                      <CarteEnergie
-                        key={en.id}
-                        libelle={gaz ? 'Gaz' : en.libelle}
-                        aide={gaz ? 'PCE à 14 chiffres' : 'PDL à 14 chiffres'}
-                        gaz={gaz}
-                        choisie={false}
-                        onChoisir={() => onChange(d.key, { typeEnergieId: en.id, typeUtilisationId: '' })}
-                      />
-                    )
-                  })}
-                </div>
-              )}
-              {manque('typeEnergieId') && (
-                <p className="text-[11.5px] text-km-amber">Choisissez l'énergie : elle commande le reste du formulaire.</p>
-              )}
-
-              {/* ── LE NUMÉRO, EN GRAND ET EN CHASSE FIXE ── */}
-              {d.typeEnergieId && (
+              {/* ── LE LIBELLÉ ET LE NUMÉRO, SUR UNE LIGNE ──
+                  Ce sont les deux choses qu'on lit sur la facture avant tout le reste : le nom
+                  qu'on donne au point, et son identifiant. */}
+              <div className="grid grid-cols-[1fr_260px] gap-[13px]">
+                {!siteImpose ? (
+                  <Champ intitule="Libellé du site" requis>
+                    <input
+                      value={d.libelleSite}
+                      onChange={(e) => onChange(d.key, { libelleSite: e.target.value })}
+                      placeholder="Ex. Les Tilleuls — parties communes"
+                      className={cn(SAISIE, kManque('libelleSite'))}
+                    />
+                  </Champ>
+                ) : <span />}
                 <Champ intitule={estElectricite ? 'Numéro de PDL' : 'Numéro de PCE'} requis>
                   <input
                     value={d.numeroPdl}
                     onChange={(e) => onChange(d.key, { numeroPdl: e.target.value })}
                     placeholder="14 chiffres"
                     className={cn(
-                      'w-full rounded-[10px] border bg-white px-[14px] py-[12px] font-mono text-[15.5px] font-medium tracking-[0.04em] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)]',
+                      'w-full rounded-[10px] border bg-white px-[13px] py-[10px] font-mono text-[14px] font-medium tracking-[0.03em] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)]',
                       manque('numeroPdl') ? BORDURE_MANQUANT : 'border-km-line',
                     )}
                   />
-                  {(doublon || formatSuspect) && (
-                    <p className="flex items-center gap-1.5 text-[11.5px] text-km-amber">
-                      <AlertTriangle className="h-[14px] w-[14px] shrink-0" />
-                      {doublon ? `Un compteur avec ce numéro existe déjà (${doublon.site_nom}).` : 'Format inhabituel — vérifiez avant de continuer.'}
-                    </p>
-                  )}
                 </Champ>
+              </div>
+
+              {(doublon || formatSuspect) && (
+                <p className="-mt-[5px] flex items-center gap-1.5 text-[11.5px] text-km-amber">
+                  <AlertTriangle className="h-[14px] w-[14px] shrink-0" />
+                  {doublon ? `Un compteur avec ce numéro existe déjà (${doublon.site_nom}).` : 'Format inhabituel — vérifiez avant de continuer.'}
+                </p>
               )}
 
-              {/* ── LE SITE ── */}
+              {/* ── L'ADRESSE : UN SEUL CHAMP ──
+                  William, 23/09/2026 : « une barre de recherche d'adresse […] au clic renseigne
+                  l'adresse dans un champ même si en base c'est divisé entre les champs adresse +
+                  ville + code postal ».
+
+                  LA BASE GARDE TOUJOURS TROIS COLONNES : `adresse`, `ville` et `code_postal`
+                  alimentent `compteurs.adresse_site`, donc la recherche, et le site créé ou
+                  retrouvé s'appuie sur les trois. Choisir une suggestion les remplit toutes les
+                  trois d'un coup ; la commune se confirme en dessous, en clair.
+
+                  LES DEUX CHAMPS DE REPLI NE S'AFFICHENT QUE S'IL LE FAUT. L'annuaire ne connaît
+                  pas toutes les adresses — une zone d'activité récente, un lieu-dit — et l'adresse
+                  reste alors tapée à la main, sans commune. Les masquer pour de bon rendrait ces
+                  cas-là insaisissables, alors qu'ils sont justement ceux où l'on a besoin d'aide. */}
               {!siteImpose && (
-                <div className="flex flex-col gap-[13px] rounded-[12px] border border-km-line bg-km-bg/40 p-[14px]">
-                  <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">Où se trouve ce compteur</span>
-                  <div className="grid grid-cols-2 gap-[13px]">
-                    <Champ intitule="Libellé du site" requis>
-                      <input
-                        value={d.libelleSite}
-                        onChange={(e) => onChange(d.key, { libelleSite: e.target.value })}
-                        placeholder="Ex. Les Tilleuls — parties communes"
-                        className={cn(SAISIE, kManque('libelleSite'))}
-                      />
-                    </Champ>
-                    <Champ intitule="Adresse" requis>
-                      <AddressAutocomplete
-                        value={d.adresse}
-                        className={cn(SAISIE, kManque('adresse'))}
-                        onChange={(v) => onChange(d.key, { adresse: v })}
-                        onSelect={(a) => onChange(d.key, {
-                          adresse: a.rue ?? a.label,
-                          ...(a.codePostal ? { codePostal: a.codePostal } : {}),
-                          ...(a.ville ? { ville: a.ville } : {}),
-                        })}
-                      />
-                    </Champ>
-                    <Champ intitule="Ville" requis>
-                      <input value={d.ville} onChange={(e) => onChange(d.key, { ville: e.target.value })} className={cn(SAISIE, kManque('ville'))} />
-                    </Champ>
-                    <Champ intitule="Code postal" requis>
-                      <input value={d.codePostal} onChange={(e) => onChange(d.key, { codePostal: e.target.value })} className={cn(SAISIE_MONO, kManque('codePostal'))} />
-                    </Champ>
-                  </div>
-                  {siteExistant && (
-                    <p className="flex items-start gap-1.5 text-[11.5px] text-km-green">
-                      <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
-                      Sera rattaché au site existant « {siteExistant.nom} ».
+                <div className="flex flex-col gap-[8px]">
+                  <Champ intitule="Adresse" requis>
+                    <AddressAutocomplete
+                      value={d.adresse}
+                      className={cn(SAISIE, kManque('adresse'))}
+                      placeholder="Chercher une adresse…"
+                      onChange={(v) => onChange(d.key, { adresse: v })}
+                      onSelect={(a) => onChange(d.key, {
+                        adresse: a.rue ?? a.label,
+                        ...(a.codePostal ? { codePostal: a.codePostal } : {}),
+                        ...(a.ville ? { ville: a.ville } : {}),
+                      })}
+                    />
+                  </Champ>
+
+                  {communeResolue ? (
+                    <p className="flex items-center gap-1.5 text-[11.5px] text-km-green">
+                      <MapPin className="h-[13px] w-[13px] shrink-0" />
+                      <span className="font-mono">{d.codePostal}</span> {d.ville}
+                      {siteExistant && <span className="text-km-muted">· rattaché au site « {siteExistant.nom} »</span>}
                     </p>
+                  ) : (
+                    <div className="grid grid-cols-[1fr_140px] gap-[13px]">
+                      <Champ intitule="Ville" requis complement="l'adresse n'a pas été reconnue">
+                        <input value={d.ville} onChange={(e) => onChange(d.key, { ville: e.target.value })} className={cn(SAISIE, kManque('ville'))} />
+                      </Champ>
+                      <Champ intitule="Code postal" requis>
+                        <input value={d.codePostal} onChange={(e) => onChange(d.key, { codePostal: e.target.value })} className={cn(SAISIE_MONO, kManque('codePostal'))} />
+                      </Champ>
+                      {siteExistant && (
+                        <p className="col-span-2 flex items-center gap-1.5 text-[11.5px] text-km-green">
+                          <MapPin className="h-[13px] w-[13px] shrink-0" />
+                          Sera rattaché au site existant « {siteExistant.nom} ».
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* ── LES CARACTÉRISTIQUES ── */}
-              {d.typeEnergieId && estElectricite && (
-                <div className="grid grid-cols-2 gap-[13px]">
+              {/* ── SEGMENT, TENSION, UTILISATION : LES TROIS SUR UNE LIGNE ──
+                  Les libellés de la table sont « Courte / Moyenne / Longue utilisation » ; sur une
+                  pastille de 60 px c'est le code qui se lit, et le libellé entier reste en infobulle. */}
+              {estElectricite && (
+                <div className="grid grid-cols-[5fr_2fr_3fr] gap-[13px]">
                   <Champ intitule="Segment" requis>
                     <Segments
-                      compact
                       valeur={d.segment}
                       manquant={manque('segment')}
                       options={SEGMENTS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
@@ -586,7 +556,6 @@ export function PdlDraftRows({
                   </Champ>
                   <Champ intitule="Tension" requis>
                     <Segments
-                      compact
                       valeur={d.tension}
                       manquant={manque('tension')}
                       options={TENSIONS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
@@ -594,11 +563,11 @@ export function PdlDraftRows({
                     />
                   </Champ>
                   {utilisationsRef && utilisationsRef.length > 0 && (
-                    <Champ intitule="Type d'utilisation" requis className="col-span-2">
+                    <Champ intitule="Utilisation" requis>
                       <Segments
                         valeur={d.typeUtilisationId}
                         manquant={manque('typeUtilisationId')}
-                        options={utilisationsRef.map((u) => ({ valeur: u.id, libelle: u.libelle }))}
+                        options={utilisationsRef.map((u) => ({ valeur: u.id, libelle: u.code ?? u.libelle, titre: u.libelle }))}
                         onChoisir={(v) => onChange(d.key, { typeUtilisationId: v })}
                       />
                     </Champ>
@@ -606,9 +575,10 @@ export function PdlDraftRows({
                 </div>
               )}
 
-              {d.typeEnergieId && estElectricite && (
+              {/* ── LES PUISSANCES ── */}
+              {estElectricite && (
                 d.segment === 'C5' ? (
-                  <Champ intitule="PS Unique (kW)" requis className="max-w-[220px]">
+                  <Champ intitule="PS Unique (kW)" requis className="max-w-[200px]">
                     <input
                       type="number"
                       step="0.1"
@@ -618,7 +588,7 @@ export function PdlDraftRows({
                     />
                   </Champ>
                 ) : d.segment ? (
-                  <div className="flex flex-col gap-[10px]">
+                  <div className="flex flex-col gap-[9px]">
                     <div className="grid grid-cols-5 gap-[9px]">
                       {CLASSES_PUISSANCE_ELEC.map((c) => (
                         <Champ key={c.key} intitule={c.label.replace('PS ', '').replace(' (kVA)', '')} requis>
@@ -652,27 +622,18 @@ export function PdlDraftRows({
                 ) : null
               )}
 
+              {/* ── LE GAZ : tarif, profil, CAR ── */}
               {d.typeEnergieId && !estElectricite && (
-                <div className="grid grid-cols-2 gap-[13px]">
-                  <Champ intitule="Tarif d'acheminement" requis>
+                <div className="grid grid-cols-[3fr_4fr_3fr] gap-[13px]">
+                  <Champ intitule="Tarif" requis>
                     <Segments
-                      compact
                       valeur={d.tarifDistribution}
                       manquant={manque('tarifDistribution')}
                       options={TARIFS_GAZ.map((x) => ({ valeur: x, libelle: x }))}
                       onChoisir={(v) => onChange(d.key, { tarifDistribution: v })}
                     />
                   </Champ>
-                  <Champ intitule="CAR (MWh)" requis>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={d.carMwh}
-                      onChange={(e) => onChange(d.key, { carMwh: e.target.value })}
-                      className={cn(SAISIE_MONO, kManque('carMwh'))}
-                    />
-                  </Champ>
-                  <Champ intitule="Profil de consommation" requis className="col-span-2">
+                  <Champ intitule="Profil de consommation" requis>
                     {/* Neuf profils : trop pour des segments, et ils se lisent en liste. */}
                     <select
                       value={d.profilConsommation}
@@ -682,6 +643,15 @@ export function PdlDraftRows({
                       <option value="">Non renseigné</option>
                       {PROFILS_GAZ.map((x) => <option key={x} value={x}>{x}</option>)}
                     </select>
+                  </Champ>
+                  <Champ intitule="CAR (MWh)" requis>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={d.carMwh}
+                      onChange={(e) => onChange(d.key, { carMwh: e.target.value })}
+                      className={cn(SAISIE_MONO, kManque('carMwh'))}
+                    />
                   </Champ>
                 </div>
               )}
@@ -711,7 +681,7 @@ export function PdlDraftRows({
                 </div>
               )}
 
-              {/* ── LE RESPONSABLE ── */}
+              {/* ── LE RESPONSABLE, POUR FINIR ── */}
               <div className={cn(
                 'flex flex-col gap-[7px] rounded-[12px] border p-[14px]',
                 responsableHerite ? 'border-km-green-line bg-km-green-tint'
