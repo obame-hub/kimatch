@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
-  Building2, ChevronDown, FileText, Gauge, Mail, MailOpen, NotebookPen, Phone, PhoneOff, Play,
+  Building2, ChevronDown, FileText, Gauge, Mail, MailCheck, MailOpen, MailQuestion, MailX,
+  NotebookPen, Phone, PhoneOff, Play,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { dureeLisible, LIBELLE_ISSUE, LIBELLE_QUALIFICATION } from '@/lib/data/appelEnCours'
@@ -430,6 +431,8 @@ function Evenement({ e }: { e: EvenementFil }) {
         ) : null}
         {e.auteur ? <p className="mt-1 font-mono text-km-micro text-km-side-faint">{e.auteur}</p> : null}
 
+        {!recu ? <Ouverture e={e} /> : null}
+
         {/* SEULE UNE RÉPONSE SE VALENCE. Un mail que nous avons envoyé ne dit rien du contact —
             c'est notre activité, pas la sienne, et le score l'ignore (voir `santeRelation.ts`). */}
         {recu ? <Valencer e={e} /> : null}
@@ -450,6 +453,64 @@ function Evenement({ e }: { e: EvenementFil }) {
       {e.resume ? <p className="mt-1 whitespace-pre-line break-words text-km-body text-km-side-text">{e.resume}</p> : null}
       {e.auteur ? <p className="mt-1 font-mono text-km-micro text-km-side-faint">{e.auteur}</p> : null}
     </li>
+  )
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LU OU NON LU — ET « ON NE SAIT PAS », QUI EST UNE TROISIÈME RÉPONSE
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 23/09/2026 : « j'aimerais que chaque mail envoyé soit tracké et que du coup une mention
+ * lu ou non lu apparaisse sur chaque mail dans le fil d'actualité ».
+ *
+ * ══ TROIS ÉTATS, PAS DEUX ══
+ *
+ * Un mail sans jeton n'est pas un mail non lu : c'est un mail dont l'ouverture n'a jamais pu être
+ * mesurée — parti avant le suivi, importé de Salesforce, ou envoyé en texte brut. Ils sont 42 144
+ * dans ce cas contre 15 suivis ; les afficher « non lu » serait un mensonge à grande échelle, et
+ * surtout un mensonge qui pousse à relancer quelqu'un qui a peut-être répondu.
+ *
+ * ══ CE QUE LE PIXEL SAIT, ET CE QU'IL NE SAIT PAS ══
+ *
+ * Il dit qu'une image a été chargée. Il ne dit pas que le message a été lu, et il se tait quand le
+ * client bloque les images — ce que font Gmail en cache, Outlook en entreprise et la plupart des
+ * messageries mobiles. « Non lu » veut donc dire « aucune ouverture détectée », et l'infobulle le
+ * précise plutôt que de laisser croire à une certitude.
+ */
+function Ouverture({ e }: { e: EvenementFil }) {
+  if (!e.jeton_ouverture) {
+    return (
+      <p className="mt-1.5 flex items-center gap-1.5 text-km-micro text-km-side-faint" title="Ce mail est parti sans pixel de suivi : envoyé avant la mise en place, importé, ou en texte brut.">
+        <MailQuestion className="h-3 w-3 shrink-0" aria-hidden="true" />
+        Ouverture non mesurée
+      </p>
+    )
+  }
+
+  if (!e.premiere_ouverture_le) {
+    return (
+      <p className="mt-1.5 flex items-center gap-1.5 text-km-micro text-km-side-muted" title="Aucune ouverture détectée. Le pixel se tait aussi quand la messagerie bloque les images.">
+        <MailX className="h-3 w-3 shrink-0" aria-hidden="true" />
+        Pas encore ouvert
+      </p>
+    )
+  }
+
+  const premiere = new Date(e.premiere_ouverture_le)
+  const quand = premiere.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+    + ' à ' + premiere.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-km-micro font-semibold text-km-side-green">
+      <MailCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
+      Ouvert le {quand}
+      {e.nb_ouvertures > 1 ? (
+        <span className="font-normal text-km-side-muted" title={`Dernière ouverture : ${e.derniere_ouverture_le ? new Date(e.derniere_ouverture_le).toLocaleString('fr-FR') : '—'}`}>
+          · {e.nb_ouvertures} fois
+        </span>
+      ) : null}
+    </p>
   )
 }
 

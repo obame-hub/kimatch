@@ -1041,6 +1041,21 @@ export interface EvenementFil {
   /* ── LE SENS DE L'ÉCHANGE (migration 20260922140000) ──
      POSITIF / NEUTRE / NEGATIF, avec sa source et la phrase qui le justifie. C'est cette valence,
      et non le fait qu'un échange ait eu lieu, qui fait bouger le score de santé. */
+  /* ── L'OUVERTURE DU MAIL ──
+     William, 23/09/2026 : « j'aimerais que chaque mail envoyé soit tracké et qu'une mention lu ou
+     non lu apparaisse sur chaque mail dans le fil ».
+
+     LA PLOMBERIE EXISTAIT DÉJÀ et personne ne la lisait : `api/gmail/send.ts` pose un jeton sur
+     tout mail parti en HTML, `api/gmail/pixel.ts` l'encaisse. Quinze mails portent un jeton, les
+     quinze ont été ouverts — le dernier ce matin à 08 h 38. Il ne manquait que de le montrer.
+
+     LE JETON DIT SI LE SUIVI ÉTAIT POSSIBLE. Sans lui — mail d'avant le suivi, mail importé de
+     Salesforce, mail envoyé en texte brut — on n'écrit PAS « non lu » : on ne sait pas. 42 144
+     mails sortants sont dans ce cas, et les marquer non lus serait un mensonge de masse. */
+  jeton_ouverture: string | null
+  premiere_ouverture_le: string | null
+  derniere_ouverture_le: string | null
+  nb_ouvertures: number
   sentiment: Valence | null
   sentiment_source: 'IA' | 'HUMAIN' | null
   sentiment_motif: string | null
@@ -1093,6 +1108,7 @@ export function useFilActivite(ligne: LignePipe | null) {
           'id, date_interaction, sens, objet, resume, resume_ia, duree_appel_secondes,'
           + ' enregistrement_url, appel_manque, messagerie_vocale, etiquettes_allo,'
           + ' sentiment, sentiment_source, sentiment_motif,'
+          + ' jeton_ouverture, premiere_ouverture_le, derniere_ouverture_le, nb_ouvertures,'
           + ' source_externe_id, type:types_interactions(code), auteur:profils!interactions_auteur_profil_id_fkey(prenom, nom)',
         )
         .or(clauses.join(','))
@@ -1144,6 +1160,10 @@ export function useFilActivite(ligne: LignePipe | null) {
             interlocuteur_nom: (q?.interlocuteur_nom as string) ?? null,
             aura: (q?.aura as number) ?? null,
             issue: (q?.issue as IssueAppel) ?? null,
+            jeton_ouverture: (i.jeton_ouverture as string) ?? null,
+            premiere_ouverture_le: (i.premiere_ouverture_le as string) ?? null,
+            derniere_ouverture_le: (i.derniere_ouverture_le as string) ?? null,
+            nb_ouvertures: (i.nb_ouvertures as number) ?? 0,
             sentiment: (i.sentiment as Valence) ?? null,
             sentiment_source: (i.sentiment_source as 'IA' | 'HUMAIN') ?? null,
             sentiment_motif: (i.sentiment_motif as string) ?? null,
