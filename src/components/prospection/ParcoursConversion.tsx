@@ -540,6 +540,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
                 compte={compte}
                 sites={sites ?? []}
                 responsableParDefautId={contactId ?? undefined}
+                libelleValidation="Créer le périmètre"
                 onSaved={() => { /* Le parcours annonce lui-même la suite. */ }}
                 onCrees={(compteurs) => {
                   setCompteurNumeros(compteurs.map((c) => c.numero_pdl))

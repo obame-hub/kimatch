@@ -1,6 +1,6 @@
-import { AlertTriangle, Trash2, Plus, CheckCircle2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { FormField, Input, Select } from '@/components/ui/form'
+import type { ReactNode } from 'react'
+import { AlertTriangle, Check, CheckCircle2, Flame, Plus, Trash2, Zap } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { ContactPicker } from '@/components/contact/ContactPicker'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 import type { Site } from '@/types/domain'
@@ -134,8 +134,8 @@ export function champsPdlManquants(d: PdlDraft, estElectricite: boolean, siteImp
   return manquants
 }
 
-/** Bordure ambre vive sur un champ requis encore vide -- Tools surligne ces champs en orange. */
-const CLASSE_MANQUANT = 'border-amber-500 bg-amber-50/40'
+/* La bordure d'un champ requis encore vide s'appelle maintenant `BORDURE_MANQUANT`, plus bas, et
+   prend ses teintes aux jetons `km-amber` plutôt qu'à la palette Tailwind brute. Même signal. */
 
 export interface ExtractedField { value: string | number | null; confidence: number }
 
@@ -260,6 +260,130 @@ export function trouverSiteExistant(sites: Site[], compteId: string, d: PdlDraft
   return null
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   LE VOCABULAIRE DU FORMULAIRE — posé une fois, employé partout
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+
+   William, 23/09/2026 : « le design du périmètre avec les champs ne correspond pas du tout à ton
+   design proposé ». Il avait raison : la fenêtre était au dessin, son contenu non.
+
+   C'EST CE COMPOSANT QUI CHANGE, ET PAS UNE COPIE DE CE COMPOSANT. Il sert aussi la création de
+   compteur depuis la fiche compte et depuis la liste des sites. Un second formulaire PDL rien que
+   pour la conversion finirait par diverger sur l'éligibilité fournisseur, et c'est la cotation qui
+   paierait l'écart. Les trois écrans gagnent donc la même présentation.
+
+   CE QUI CHANGE : les listes déroulantes de deux à cinq choix deviennent des segments — un clic au
+   lieu de deux, et on voit les options sans rien ouvrir ; l'énergie devient deux cartes ; le numéro
+   de PDL passe en chasse fixe et en grand, parce que quatorze chiffres en police proportionnelle
+   ne se vérifient pas d'un coup d'œil.
+
+   CE QUI NE CHANGE PAS : les champs, les règles d'obligation, le repérage des doublons, le contrôle
+   de format, la reprise d'un site existant. Aucune ligne de `champsPdlManquants` n'est touchée. */
+
+const SAISIE = 'w-full rounded-[10px] border border-km-line bg-white px-[13px] py-[10px] text-[13.5px] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)] disabled:bg-km-soft'
+const SAISIE_MONO = 'w-full rounded-[10px] border border-km-line bg-white px-[13px] py-[10px] font-mono text-[13px] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)] disabled:bg-km-soft'
+/** Le manquant se signale par la bordure, comme avant — seule la teinte suit les jetons. */
+const BORDURE_MANQUANT = 'border-km-amber bg-km-amber-soft/40'
+
+function Champ({ intitule, requis, complement, children, className }: {
+  intitule: string
+  requis?: boolean
+  complement?: string
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn('flex min-w-0 flex-col gap-[7px]', className)}>
+      <span className="text-[11.5px] font-semibold text-km-muted">
+        {intitule}
+        {requis && <span className="text-km-amber"> *</span>}
+        {complement && <span className="font-normal text-km-faint"> — {complement}</span>}
+      </span>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Le sélecteur à segments.
+ *
+ * IL REMPLACE UNE LISTE DÉROULANTE, PAS UN CHAMP LIBRE : il ne vaut que jusqu'à cinq choix venus
+ * d'une liste fermée (segment, tension, tarif, utilisation). Au-delà — les 52 fournisseurs — il
+ * deviendrait une bouillie de pastilles, et la liste déroulante reste la bonne réponse.
+ */
+function Segments({ valeur, options, onChoisir, manquant, compact }: {
+  valeur: string
+  options: { valeur: string; libelle: string }[]
+  onChoisir: (v: string) => void
+  manquant?: boolean
+  /** Chasse fixe : pour les codes alignés (C5, T2, HTA) plutôt que pour des mots. */
+  compact?: boolean
+}) {
+  return (
+    <div className={cn(
+      'flex gap-[2px] rounded-[10px] border bg-km-soft p-[3px]',
+      manquant ? BORDURE_MANQUANT : 'border-km-line',
+    )}>
+      {options.map((o) => (
+        <button
+          key={o.valeur}
+          type="button"
+          onClick={() => onChoisir(o.valeur === valeur ? '' : o.valeur)}
+          className={cn(
+            'flex-1 rounded-[7px] py-[7px] text-[12.5px] transition-colors',
+            compact && 'font-mono',
+            o.valeur === valeur
+              ? 'bg-white font-semibold text-km-text shadow-[0_1px_2px_rgba(20,24,22,.09)]'
+              : 'font-medium text-km-muted hover:text-km-text',
+          )}
+        >
+          {o.libelle}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Le choix de l'énergie : deux cartes, parce que c'est la décision qui commande tout le reste. */
+function CarteEnergie({ libelle, aide, choisie, gaz, onChoisir }: {
+  libelle: string
+  aide: string
+  choisie: boolean
+  gaz: boolean
+  onChoisir: () => void
+}) {
+  const Icone = gaz ? Flame : Zap
+  return (
+    <button
+      type="button"
+      onClick={onChoisir}
+      className={cn(
+        'flex flex-1 items-center gap-3 rounded-[13px] border p-[14px] text-left transition-colors',
+        choisie
+          ? 'border-[1.5px] border-km-green bg-km-green-tint shadow-[0_0_0_3px_rgba(13,122,95,.10)]'
+          : 'border-km-line bg-white hover:bg-km-bg/60',
+      )}
+    >
+      <span className={cn(
+        'flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px]',
+        choisie ? 'bg-km-green' : 'bg-km-soft',
+      )}>
+        <Icone className={cn('h-[18px] w-[18px]', choisie ? 'text-white' : 'text-km-muted')} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className={cn('text-[14px] font-semibold', choisie ? 'text-km-text' : 'text-km-muted')}>{libelle}</span>
+        <span className="text-[11px] text-km-faint">{aide}</span>
+      </span>
+      {choisie && (
+        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-km-green">
+          <Check className="h-[10px] w-[10px] stroke-[3.6] text-white" />
+        </span>
+      )}
+    </button>
+  )
+}
+
 export function PdlDraftRows({
   drafts,
   onChange,
@@ -276,6 +400,7 @@ export function PdlDraftRows({
   existingCompteurs,
   sites = [],
   siteImpose = false,
+  responsableParDefautId,
 }: {
   drafts: PdlDraft[]
   onChange: (key: string, patch: Partial<PdlDraft>) => void
@@ -296,6 +421,9 @@ export function PdlDraftRows({
   sites?: Site[]
   /** Vrai quand on part déjà d'une fiche site : le site est connu, on masque ses champs. */
   siteImpose?: boolean
+  /** Le responsable posé d'avance — le contact que la conversion vient de créer. Sert ici à DIRE
+   *  d'où il vient, pour qu'on ne croie pas à une valeur tombée du ciel. */
+  responsableParDefautId?: string
 }) {
   return (
     <div className="space-y-4">
@@ -310,197 +438,287 @@ export function PdlDraftRows({
         const manquants = locked ? new Set<string>() : champsPdlManquants(d, estElectricite, siteImpose)
         // Site existant correspondant à la saisie -- on le signale plutôt que de créer un doublon.
         const siteExistant = siteImpose ? null : trouverSiteExistant(sites, compteId, d)
-        const kManque = (f: string) => (manquants.has(f) ? CLASSE_MANQUANT : undefined)
+        const manque = (f: string) => manquants.has(f)
+        const kManque = (f: string) => (manque(f) ? BORDURE_MANQUANT : undefined)
+        const responsableHerite = Boolean(responsableParDefautId) && d.responsableContactId === responsableParDefautId
 
         return (
-          <div key={d.key} className={`rounded-xl border p-4 ${d.status === 'saved' ? 'border-kiwi-200 bg-kiwi-50/40' : 'border-km-line'}`}>
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-km-faint">PDL {i + 1}{d.status === 'saved' && ' — créé'}</p>
+          <div
+            key={d.key}
+            className={cn(
+              'rounded-[14px] border p-[18px]',
+              d.status === 'saved' ? 'border-km-green-line bg-km-green-tint' : 'border-km-line bg-white',
+            )}
+          >
+            <div className="mb-[15px] flex items-center gap-3">
+              <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-km-green">
+                {drafts.length > 1 ? `Compteur ${i + 1}` : 'Le compteur'}
+                {d.status === 'saved' && ' — créé'}
+              </span>
+              <span className="flex-1" />
+              {/* L'énergie se choisit ici, en tête : c'est elle qui commande tous les champs du bas. */}
+              {!locked && (
+                <div className="flex gap-2">
+                  {energies.map((en) => {
+                    const gaz = (en.code ?? '').toLowerCase() === 'gaz'
+                    return (
+                      <button
+                        key={en.id}
+                        type="button"
+                        onClick={() => onChange(d.key, { typeEnergieId: en.id, typeUtilisationId: '' })}
+                        className={cn(
+                          'rounded-[8px] px-[13px] py-[6px] text-[12px] transition-colors',
+                          d.typeEnergieId === en.id
+                            ? 'bg-km-green font-semibold text-white'
+                            : 'bg-km-soft font-medium text-km-muted hover:text-km-text',
+                        )}
+                      >
+                        {gaz ? 'Gaz' : en.libelle}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
               {!locked && drafts.length > 1 && (
-                <button type="button" onClick={() => onRemove(d.key)} className="text-km-faint hover:text-km-red">
-                  <Trash2 className="h-3.5 w-3.5" />
+                <button type="button" onClick={() => onRemove(d.key)} aria-label="Retirer ce compteur" className="text-km-faint hover:text-km-red">
+                  <Trash2 className="h-[15px] w-[15px]" />
                 </button>
               )}
             </div>
-            <fieldset disabled={locked} className="space-y-3 disabled:opacity-60">
-              {/* Site : un libellé et une adresse, sans étape dédiée. Le site est retrouvé ou créé
-                  automatiquement à l'enregistrement. Masqué quand on part déjà d'une fiche site. */}
+
+            <fieldset disabled={locked} className="flex flex-col gap-[15px] disabled:opacity-60">
+
+              {/* ── L'ÉNERGIE, EN DEUX CARTES, TANT QU'ELLE N'EST PAS CHOISIE ── */}
+              {!d.typeEnergieId && (
+                <div className="flex gap-[11px]">
+                  {energies.map((en) => {
+                    const gaz = (en.code ?? '').toLowerCase() === 'gaz'
+                    return (
+                      <CarteEnergie
+                        key={en.id}
+                        libelle={gaz ? 'Gaz' : en.libelle}
+                        aide={gaz ? 'PCE à 14 chiffres' : 'PDL à 14 chiffres'}
+                        gaz={gaz}
+                        choisie={false}
+                        onChoisir={() => onChange(d.key, { typeEnergieId: en.id, typeUtilisationId: '' })}
+                      />
+                    )
+                  })}
+                </div>
+              )}
+              {manque('typeEnergieId') && (
+                <p className="text-[11.5px] text-km-amber">Choisissez l'énergie : elle commande le reste du formulaire.</p>
+              )}
+
+              {/* ── LE NUMÉRO, EN GRAND ET EN CHASSE FIXE ── */}
+              {d.typeEnergieId && (
+                <Champ intitule={estElectricite ? 'Numéro de PDL' : 'Numéro de PCE'} requis>
+                  <input
+                    value={d.numeroPdl}
+                    onChange={(e) => onChange(d.key, { numeroPdl: e.target.value })}
+                    placeholder="14 chiffres"
+                    className={cn(
+                      'w-full rounded-[10px] border bg-white px-[14px] py-[12px] font-mono text-[15.5px] font-medium tracking-[0.04em] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)]',
+                      manque('numeroPdl') ? BORDURE_MANQUANT : 'border-km-line',
+                    )}
+                  />
+                  {(doublon || formatSuspect) && (
+                    <p className="flex items-center gap-1.5 text-[11.5px] text-km-amber">
+                      <AlertTriangle className="h-[14px] w-[14px] shrink-0" />
+                      {doublon ? `Un compteur avec ce numéro existe déjà (${doublon.site_nom}).` : 'Format inhabituel — vérifiez avant de continuer.'}
+                    </p>
+                  )}
+                </Champ>
+              )}
+
+              {/* ── LE SITE ── */}
               {!siteImpose && (
-                <div className="space-y-3 rounded-lg border border-km-line bg-km-bg/40 p-3">
-                  <FormField label="Libellé du site" required>
-                    <Input
-                      value={d.libelleSite}
-                      onChange={(e) => onChange(d.key, { libelleSite: e.target.value })}
-                      placeholder="Ex. Résidence Les Tilleuls"
-                      className={kManque('libelleSite')}
-                    />
-                  </FormField>
-                  <FormField label="Adresse" required>
-                    <AddressAutocomplete
-                      value={d.adresse}
-                      className={kManque('adresse')}
-                      onChange={(v) => onChange(d.key, { adresse: v })}
-                      onSelect={(a) => onChange(d.key, {
-                        adresse: a.rue ?? a.label,
-                        ...(a.codePostal ? { codePostal: a.codePostal } : {}),
-                        ...(a.ville ? { ville: a.ville } : {}),
-                      })}
-                    />
-                  </FormField>
-                  <div className="grid grid-cols-2 gap-3">
-                    <FormField label="Ville" required>
-                      <Input value={d.ville} onChange={(e) => onChange(d.key, { ville: e.target.value })} className={kManque('ville')} />
-                    </FormField>
-                    <FormField label="Code postal" required>
-                      <Input value={d.codePostal} onChange={(e) => onChange(d.key, { codePostal: e.target.value })} className={kManque('codePostal')} />
-                    </FormField>
+                <div className="flex flex-col gap-[13px] rounded-[12px] border border-km-line bg-km-bg/40 p-[14px]">
+                  <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">Où se trouve ce compteur</span>
+                  <div className="grid grid-cols-2 gap-[13px]">
+                    <Champ intitule="Libellé du site" requis>
+                      <input
+                        value={d.libelleSite}
+                        onChange={(e) => onChange(d.key, { libelleSite: e.target.value })}
+                        placeholder="Ex. Les Tilleuls — parties communes"
+                        className={cn(SAISIE, kManque('libelleSite'))}
+                      />
+                    </Champ>
+                    <Champ intitule="Adresse" requis>
+                      <AddressAutocomplete
+                        value={d.adresse}
+                        className={cn(SAISIE, kManque('adresse'))}
+                        onChange={(v) => onChange(d.key, { adresse: v })}
+                        onSelect={(a) => onChange(d.key, {
+                          adresse: a.rue ?? a.label,
+                          ...(a.codePostal ? { codePostal: a.codePostal } : {}),
+                          ...(a.ville ? { ville: a.ville } : {}),
+                        })}
+                      />
+                    </Champ>
+                    <Champ intitule="Ville" requis>
+                      <input value={d.ville} onChange={(e) => onChange(d.key, { ville: e.target.value })} className={cn(SAISIE, kManque('ville'))} />
+                    </Champ>
+                    <Champ intitule="Code postal" requis>
+                      <input value={d.codePostal} onChange={(e) => onChange(d.key, { codePostal: e.target.value })} className={cn(SAISIE_MONO, kManque('codePostal'))} />
+                    </Champ>
                   </div>
                   {siteExistant && (
-                    <p className="flex items-start gap-1.5 text-km-label text-km-green">
+                    <p className="flex items-start gap-1.5 text-[11.5px] text-km-green">
                       <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
                       Sera rattaché au site existant « {siteExistant.nom} ».
                     </p>
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Type d'énergie" required>
-                  <Select value={d.typeEnergieId} onChange={(e) => onChange(d.key, { typeEnergieId: e.target.value, typeUtilisationId: '' })} required className={kManque('typeEnergieId')}>
-                    <option value="">Sélectionner…</option>
-                    {energies.map((en) => <option key={en.id} value={en.id}>{en.libelle}</option>)}
-                  </Select>
-                </FormField>
-                <FormField label={estElectricite ? 'Numéro de PDL' : 'Numéro de PCE'} required>
-                  <Input value={d.numeroPdl} onChange={(e) => onChange(d.key, { numeroPdl: e.target.value })} required placeholder="Ex. 30001234567890" className={kManque('numeroPdl')} />
-                </FormField>
-              </div>
-              {(doublon || formatSuspect) && (
-                <p className="flex items-center gap-1.5 text-xs text-amber-700">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  {doublon ? `Un compteur avec ce numéro existe déjà (${doublon.site_nom}).` : "Format inhabituel pour un numéro de PDL/PCE — vérifie avant de continuer."}
-                </p>
-              )}
-              {/* ══ LE CHAMP LIBRE « UTILISATION » A ÉTÉ RETIRÉ LE 23/09/2026 ══
-                  William : « supprime le champ Utilisation ». Il alimentait `compteurs.libelle`, et
-                  les chiffres lui donnent raison : sur les 106 compteurs créés dans Kimatch depuis
-                  le 1er août, 45 seulement portaient quelque chose — un champ qu'on saute une fois
-                  sur deux n'est pas un champ, c'est un ralentisseur. Le vrai classement se fait par
-                  « Type d'utilisation (CU/MU/LU) », juste en dessous, qui lui est obligatoire et
-                  vient d'une table de référence.
-                  `PdlDraft.utilisation` reste dans le type : `useCreateCompteur` l'exige, et les
-                  7 865 libellés repris de Salesforce continuent de s'afficher partout ailleurs. */}
-              {estElectricite && utilisationsRef && utilisationsRef.length > 0 && (
-                <FormField label="Type d'utilisation (CU/MU/LU)" required>
-                  <Select value={d.typeUtilisationId} onChange={(e) => onChange(d.key, { typeUtilisationId: e.target.value })} className={kManque('typeUtilisationId')}>
-                    <option value="">Non renseigné</option>
-                    {utilisationsRef.map((u) => <option key={u.id} value={u.id}>{u.libelle}</option>)}
-                  </Select>
-                </FormField>
-              )}
-              {d.typeEnergieId && (
-                <div className="rounded-lg border border-km-line bg-km-bg/60 p-3">
-                  <p className="mb-2 text-km-xs font-semibold uppercase tracking-wide text-km-faint">
-                    {estElectricite ? 'Caractéristiques techniques' : 'Caractéristiques & consommation'}
-                  </p>
-                  {estElectricite ? (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <FormField label="Segment" required>
-                          <Select value={d.segment} onChange={(e) => onChange(d.key, { segment: e.target.value })} className={kManque('segment')}>
-                            <option value="">Non renseigné</option>
-                            {SEGMENTS_ELEC.map((s) => <option key={s} value={s}>{s}</option>)}
-                          </Select>
-                        </FormField>
-                        <FormField label="Tension" required>
-                          <Select value={d.tension} onChange={(e) => onChange(d.key, { tension: e.target.value })} className={kManque('tension')}>
-                            <option value="">Non renseigné</option>
-                            {TENSIONS_ELEC.map((t) => <option key={t} value={t}>{t}</option>)}
-                          </Select>
-                        </FormField>
-                      </div>
-                      {d.segment === 'C5' ? (
-                        <FormField label="PS Unique (kW)" required>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={d.puissanceParClasseKva.base ?? ''}
-                            onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, base: e.target.value } })}
-                            className={kManque('ps:base')}
-                          />
-                        </FormField>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-3 gap-3">
-                            {CLASSES_PUISSANCE_ELEC.map((c) => (
-                              <FormField key={c.key} label={c.label} required>
-                                <Input
-                                  type="number"
-                                  step="0.1"
-                                  value={d.puissanceParClasseKva[c.key] ?? ''}
-                                  onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, [c.key]: e.target.value } })}
-                                  className={kManque(`ps:${c.key}`)}
-                                />
-                              </FormField>
-                            ))}
-                          </div>
-                          {/* Réclamé par William : la plupart des PDL ont la même puissance sur les
-                              cinq classes, et les ressaisir une par une est fastidieux. On copie
-                              depuis POINTE, la première renseignée dans la pratique. */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const source = d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? ''
-                              if (!source.trim()) return
-                              onChange(d.key, {
-                                puissanceParClasseKva: Object.fromEntries(
-                                  CLASSES_PUISSANCE_ELEC.map((c) => [c.key, source]),
-                                ),
-                              })
-                            }}
-                            disabled={!(d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? '').trim()}
-                            className="text-km-label font-medium text-km-green hover:underline disabled:cursor-not-allowed disabled:text-km-faint disabled:no-underline"
-                          >
-                            ⇊ Appliquer la valeur de {CLASSES_PUISSANCE_ELEC[0].label} à toutes les classes
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <FormField label="Tarif d'acheminement" required>
-                          <Select value={d.tarifDistribution} onChange={(e) => onChange(d.key, { tarifDistribution: e.target.value })} className={kManque('tarifDistribution')}>
-                            <option value="">Non renseigné</option>
-                            {TARIFS_GAZ.map((t) => <option key={t} value={t}>{t}</option>)}
-                          </Select>
-                        </FormField>
-                        <FormField label="Profil de consommation" required>
-                          <Select value={d.profilConsommation} onChange={(e) => onChange(d.key, { profilConsommation: e.target.value })} className={kManque('profilConsommation')}>
-                            <option value="">Non renseigné</option>
-                            {PROFILS_GAZ.map((p) => <option key={p} value={p}>{p}</option>)}
-                          </Select>
-                        </FormField>
-                      </div>
-                      <FormField label="CAR (MWh)" required>
-                        <Input type="number" step="0.1" value={d.carMwh} onChange={(e) => onChange(d.key, { carMwh: e.target.value })} className={kManque('carMwh')} />
-                      </FormField>
-                    </div>
+
+              {/* ── LES CARACTÉRISTIQUES ── */}
+              {d.typeEnergieId && estElectricite && (
+                <div className="grid grid-cols-2 gap-[13px]">
+                  <Champ intitule="Segment" requis>
+                    <Segments
+                      compact
+                      valeur={d.segment}
+                      manquant={manque('segment')}
+                      options={SEGMENTS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
+                      onChoisir={(v) => onChange(d.key, { segment: v })}
+                    />
+                  </Champ>
+                  <Champ intitule="Tension" requis>
+                    <Segments
+                      compact
+                      valeur={d.tension}
+                      manquant={manque('tension')}
+                      options={TENSIONS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
+                      onChoisir={(v) => onChange(d.key, { tension: v })}
+                    />
+                  </Champ>
+                  {utilisationsRef && utilisationsRef.length > 0 && (
+                    <Champ intitule="Type d'utilisation" requis className="col-span-2">
+                      <Segments
+                        valeur={d.typeUtilisationId}
+                        manquant={manque('typeUtilisationId')}
+                        options={utilisationsRef.map((u) => ({ valeur: u.id, libelle: u.libelle }))}
+                        onChoisir={(v) => onChange(d.key, { typeUtilisationId: v })}
+                      />
+                    </Champ>
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Fournisseur actuel">
-                  <Select value={d.fournisseurActuelId} onChange={(e) => onChange(d.key, { fournisseurActuelId: e.target.value })}>
-                    <option value="">Non renseigné</option>
-                    {fournisseurs.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
-                  </Select>
-                </FormField>
-                <FormField label="Échéance">
-                  <Input type="date" value={d.dateEcheance} onChange={(e) => onChange(d.key, { dateEcheance: e.target.value })} />
-                </FormField>
-              </div>
-              <div className={manquants.has('responsableContactId') ? 'rounded-lg ring-2 ring-amber-400' : undefined}>
-                <FormField label="Responsable" required>
+
+              {d.typeEnergieId && estElectricite && (
+                d.segment === 'C5' ? (
+                  <Champ intitule="PS Unique (kW)" requis className="max-w-[220px]">
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={d.puissanceParClasseKva.base ?? ''}
+                      onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, base: e.target.value } })}
+                      className={cn(SAISIE_MONO, kManque('ps:base'))}
+                    />
+                  </Champ>
+                ) : d.segment ? (
+                  <div className="flex flex-col gap-[10px]">
+                    <div className="grid grid-cols-5 gap-[9px]">
+                      {CLASSES_PUISSANCE_ELEC.map((c) => (
+                        <Champ key={c.key} intitule={c.label.replace('PS ', '').replace(' (kVA)', '')} requis>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={d.puissanceParClasseKva[c.key] ?? ''}
+                            onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, [c.key]: e.target.value } })}
+                            className={cn(SAISIE_MONO, 'px-[9px]', kManque(`ps:${c.key}`))}
+                          />
+                        </Champ>
+                      ))}
+                    </div>
+                    {/* Réclamé par William : la plupart des PDL ont la même puissance sur les cinq
+                        classes, et les ressaisir une par une est fastidieux. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const source = d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? ''
+                        if (!source.trim()) return
+                        onChange(d.key, {
+                          puissanceParClasseKva: Object.fromEntries(CLASSES_PUISSANCE_ELEC.map((c) => [c.key, source])),
+                        })
+                      }}
+                      disabled={!(d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? '').trim()}
+                      className="self-start text-[11.5px] font-medium text-km-green hover:underline disabled:cursor-not-allowed disabled:text-km-faint disabled:no-underline"
+                    >
+                      ⇊ Appliquer la valeur de POINTE à toutes les classes
+                    </button>
+                  </div>
+                ) : null
+              )}
+
+              {d.typeEnergieId && !estElectricite && (
+                <div className="grid grid-cols-2 gap-[13px]">
+                  <Champ intitule="Tarif d'acheminement" requis>
+                    <Segments
+                      compact
+                      valeur={d.tarifDistribution}
+                      manquant={manque('tarifDistribution')}
+                      options={TARIFS_GAZ.map((x) => ({ valeur: x, libelle: x }))}
+                      onChoisir={(v) => onChange(d.key, { tarifDistribution: v })}
+                    />
+                  </Champ>
+                  <Champ intitule="CAR (MWh)" requis>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={d.carMwh}
+                      onChange={(e) => onChange(d.key, { carMwh: e.target.value })}
+                      className={cn(SAISIE_MONO, kManque('carMwh'))}
+                    />
+                  </Champ>
+                  <Champ intitule="Profil de consommation" requis className="col-span-2">
+                    {/* Neuf profils : trop pour des segments, et ils se lisent en liste. */}
+                    <select
+                      value={d.profilConsommation}
+                      onChange={(e) => onChange(d.key, { profilConsommation: e.target.value })}
+                      className={cn(SAISIE, kManque('profilConsommation'))}
+                    >
+                      <option value="">Non renseigné</option>
+                      {PROFILS_GAZ.map((x) => <option key={x} value={x}>{x}</option>)}
+                    </select>
+                  </Champ>
+                </div>
+              )}
+
+              {/* ── LE CONTRAT ACTUEL : c'est lui qui dit quand l'affaire se joue ── */}
+              {d.typeEnergieId && (
+                <div className="grid grid-cols-2 gap-[13px]">
+                  <Champ intitule="Fournisseur actuel">
+                    {/* Cinquante-deux fournisseurs : la liste déroulante reste la bonne réponse. */}
+                    <select
+                      value={d.fournisseurActuelId}
+                      onChange={(e) => onChange(d.key, { fournisseurActuelId: e.target.value })}
+                      className={SAISIE}
+                    >
+                      <option value="">Non renseigné</option>
+                      {fournisseurs.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
+                    </select>
+                  </Champ>
+                  <Champ intitule="Échéance du contrat" complement="elle commande la relance">
+                    <input
+                      type="date"
+                      value={d.dateEcheance}
+                      onChange={(e) => onChange(d.key, { dateEcheance: e.target.value })}
+                      className={SAISIE_MONO}
+                    />
+                  </Champ>
+                </div>
+              )}
+
+              {/* ── LE RESPONSABLE ── */}
+              <div className={cn(
+                'flex flex-col gap-[7px] rounded-[12px] border p-[14px]',
+                responsableHerite ? 'border-km-green-line bg-km-green-tint'
+                  : manque('responsableContactId') ? 'border-km-amber bg-km-amber-soft/40'
+                  : 'border-km-line bg-km-bg/40',
+              )}>
+                <Champ intitule="Responsable de ce compteur" requis>
                   <ContactPicker
                     value={d.responsableContactId}
                     onChange={(contactId) => onChange(d.key, { responsableContactId: contactId })}
@@ -510,23 +728,29 @@ export function PdlDraftRows({
                     accountNom={compteNom}
                     segment={compteSegment}
                   />
-                </FormField>
+                </Champ>
+                {responsableHerite ? (
+                  <p className="text-[11.5px] text-km-green">Repris du contact que vous venez de créer — vous pouvez en désigner un autre.</p>
+                ) : manque('responsableContactId') ? (
+                  <p className="text-[11.5px] text-km-amber">La sélection d'un responsable est obligatoire.</p>
+                ) : (
+                  <p className="text-[11.5px] text-km-faint">
+                    Contacts liés au compte. Si le bon n'apparaît pas, cherchez dans tous les contacts du CRM.
+                  </p>
+                )}
               </div>
-              {manquants.has('responsableContactId') ? (
-                <p className="text-km-label text-amber-700">La sélection d'un responsable est obligatoire.</p>
-              ) : (
-                <p className="text-km-label text-km-faint">
-                  Contacts liés au compte. Si le bon contact n'apparaît pas, cherchez dans tous les contacts du CRM.
-                </p>
-              )}
             </fieldset>
-            {d.errorMessage && <p className="mt-2 text-xs text-km-red">{d.errorMessage}</p>}
+            {d.errorMessage && <p className="mt-2 text-[12px] text-km-red">{d.errorMessage}</p>}
           </div>
         )
       })}
-      <Button type="button" variant="outline" size="sm" onClick={onAdd}>
-        <Plus className="h-3.5 w-3.5" /> Ajouter un autre PDL
-      </Button>
+      <button
+        type="button"
+        onClick={onAdd}
+        className="flex w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-km-line py-[13px] text-[12.5px] font-semibold text-km-muted transition-colors hover:bg-km-bg"
+      >
+        <Plus className="h-[15px] w-[15px]" /> Ajouter un compteur
+      </button>
     </div>
   )
 }

@@ -42,6 +42,7 @@ export function CreationCompteurDialog({
   onCrees,
   enTete,
   responsableParDefautId,
+  libelleValidation,
   sansCadre = false,
 }: {
   open: boolean
@@ -75,6 +76,8 @@ export function CreationCompteurDialog({
    *  Pré-rempli, pas imposé : le sélecteur reste ouvert, un syndic peut confier la chaufferie à
    *  quelqu'un d'autre. */
   responsableParDefautId?: string
+  /** Remplace « Créer le PDL » : le parcours de conversion crée un PÉRIMÈTRE, pas un PDL isolé. */
+  libelleValidation?: string
   /** ══ RENDU SANS SA PROPRE FENÊTRE ══
    *  Le parcours de conversion a déjà la sienne, avec son rail à gauche : imbriquer un second
    *  `Dialog` dedans poserait un voile par-dessus le voile et une carte par-dessus la carte. On
@@ -368,6 +371,7 @@ export function CreationCompteurDialog({
             compteSegment={compte!.segment}
             existingCompteurs={compteurs ?? []}
             sites={sites}
+            responsableParDefautId={responsableParDefautId}
           />
           {draftsIncomplets && (
             <p className="flex items-center gap-1.5 text-xs text-amber-700">
@@ -378,7 +382,7 @@ export function CreationCompteurDialog({
           <div className="flex justify-end gap-2 border-t border-km-line pt-3">
             <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Fermer</Button>
             <Button type="submit" disabled={submitting || draftsIncomplets || drafts.every((d) => d.status === 'saved')}>
-              {drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL'}
+              {libelleValidation ?? (drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL')}
             </Button>
           </div>
       </form>
