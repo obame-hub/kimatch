@@ -7,6 +7,7 @@ import { OffresDuJour } from '@/components/dashboard/OffresDuJour'
 import { useOffresDuJour, useTotauxOffres, DEFAUT_PERIODE, PERIODES_MONTANT, type PeriodeMontant } from '@/lib/data/offresDuJour'
 import { TachesDuJour } from '@/components/dashboard/TachesDuJour'
 import { useTachesDuJour, useChargeAVenir, depuisIso, PLAFOND_JOURNALIER } from '@/lib/data/tachesDuJour'
+import { AppelsNonLies } from '@/components/allo/AppelsNonLies'
 import { cn } from '@/lib/utils'
 
 /**
@@ -286,6 +287,12 @@ export default function Dashboard() {
                 charge={charge}
                 chargement={tachesEnCours || chargeEnCours}
               />
+            </div>
+            {/* LES APPELS À RATTACHER, sous les tâches du jour : c'est le même geste — ce qui
+                reste à faire avant de refermer la journée. Le bloc disparaît quand il n'y a rien,
+                voir `AppelsNonLies`. */}
+            <div className="mt-2.5">
+              <AppelsNonLies />
             </div>
           </Zone>
         </div>
