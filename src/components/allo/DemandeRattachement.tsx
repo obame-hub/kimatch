@@ -14,14 +14,21 @@
  * permanence pendant une prospection, et il fallait penser à le cliquer. Une question qu'on doit
  * penser à se poser ne se pose jamais.
  *
- * ══ QUAND EXACTEMENT ══
+ * ══ QUAND EXACTEMENT — ET POURQUOI PAS « À LA FIN DE L'APPEL » ══
  *
- * On surveille le passage de « en cours » à « terminé » sur l'appel courant — le même signal qui
- * fait déjà relire le fil d'activité (voir `useAppelEnCours`). Dès qu'Allo dit que l'appel est
- * fini, la modale s'ouvre.
+ * On surveille l'APPARITION DE L'INTERACTION, pas la fin de l'appel.
+ *
+ * La première version guettait le passage de « en cours » à « terminé » sur `appels_en_cours`. Ce
+ * signal N'ARRIVE PAS TOUJOURS : relevé le 23/09, dix-sept appels de la semaine sont restés « en
+ * cours » pour toujours — douze de plus d'une heure, un depuis le 16 septembre. Allo n'envoie pas
+ * `call.completed` à tous les coups, et un déclencheur suspendu à un événement qui n'arrive pas ne
+ * peut pas marcher.
+ *
+ * L'interaction, elle, est écrite dans tous les cas, et c'est précisément l'objet qu'on veut
+ * rattacher. Si elle est là, l'appel est fini — quoi qu'en dise `appels_en_cours`.
  *
  * UNE SEULE FOIS PAR APPEL, et c'est un `useRef` : sans lui, la modale se rouvrirait à chaque
- * sondage tant que l'appel reste le dernier connu — donc toutes les quatre secondes, y compris
+ * sondage tant que l'appel reste le dernier non rattaché — donc toutes les dix secondes, y compris
  * après qu'on l'a fermée.
  *
  * ══ SI ON FERME SANS RIEN CHOISIR ══
@@ -32,7 +39,7 @@
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 import { useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useMonProfil, emailAllo } from '@/lib/data/roles'
 import { useAppelEnCours } from '@/lib/data/appelEnCours'
@@ -120,49 +127,63 @@ async function fetchDernierNonLie(adresseAllo: string | null): Promise<DernierAp
 export function DemandeRattachement() {
   const { data: profil } = useMonProfil()
   const { data: appelEnCours } = useAppelEnCours()
-  const queryClient = useQueryClient()
   const [ouvert, setOuvert] = useState(false)
 
   const adresseAllo = emailAllo(profil)
 
-  /* ══ ON NE CHERCHE L'APPEL À RATTACHER QUE QUAND IL Y EN A UN ══
-     Sans appel terminé récemment, cette requête ne sert à rien : on l'active au moment où la
-     question se pose, et pas toutes les quinze secondes toute la journée. */
-  const [aDemander, setADemander] = useState(false)
-
+  /* ══ ON SURVEILLE L'ARRIVÉE DE L'INTERACTION, PAS LA FIN DE L'APPEL ══
+   *
+   * Naoëlle, 23/09/2026 : « la modale ne s'affiche toujours pas, fais les tests toi-même. »
+   *
+   * MA PREMIÈRE VERSION ATTENDAIT LE PASSAGE DE « EN COURS » À « TERMINÉ » sur `appels_en_cours`.
+   * Ce signal N'ARRIVE PAS TOUJOURS : relevé ce jour, DIX-SEPT appels de la semaine sont restés
+   * « en cours » pour toujours, dont douze vieux de plus d'une heure et un remontant au 16
+   * septembre. Allo n'envoie pas `call.completed` à tous les coups.
+   *
+   * Un déclencheur suspendu à un événement qui n'arrive pas ne peut pas marcher — et pire, tant
+   * qu'un appel fantôme occupe la ligne, il masque le suivant.
+   *
+   * ON SURVEILLE DONC CE QUI EXISTE VRAIMENT : l'apparition d'une interaction d'appel non
+   * rattachée. C'est le webhook qui l'écrit, à `call.completed` comme au raccrochage — et c'est
+   * précisément l'objet qu'on veut rattacher. Si elle est là, l'appel est fini, quoi qu'en dise
+   * `appels_en_cours`.
+   *
+   * ON SONDE TOUTES LES DIX SECONDES, tout le temps : la requête est légère — une ligne au plus,
+   * sur un index — et c'est le prix d'une modale qui paraît quand il le faut plutôt qu'après un
+   * geste qu'on oublie de faire. */
   const { data: dernier } = useQuery({
     queryKey: ['dernier-appel-non-lie', adresseAllo],
-    enabled: Boolean(adresseAllo) && aDemander,
+    enabled: Boolean(adresseAllo),
+    refetchInterval: 10000,
     staleTime: 5000,
     queryFn: () => fetchDernierNonLie(adresseAllo),
   })
 
-  /* ══ LE PASSAGE DE « EN COURS » À « TERMINÉ » ══
-   *
-   * `useRef` et non un état : ce drapeau ne doit pas provoquer de rendu, et surtout il doit
-   * survivre à la fermeture de la modale — sinon elle se rouvrirait au sondage suivant, toutes les
-   * quatre secondes, sur le même appel qu'on vient d'écarter. */
+  /* UNE SEULE FOIS PAR APPEL. `useRef` et non un état : ce drapeau ne doit pas provoquer de rendu,
+     et il doit survivre à la fermeture — sinon la modale se rouvrirait au sondage suivant, toutes
+     les dix secondes, sur l'appel qu'on vient justement d'écarter. */
   const dejaDemande = useRef<string | null>(null)
   useEffect(() => {
-    if (!appelEnCours?.termine_le) return
-    if (dejaDemande.current === appelEnCours.id) return
-    dejaDemande.current = appelEnCours.id
+    if (!dernier) return
+    if (dejaDemande.current === dernier.id) return
+    dejaDemande.current = dernier.id
+    setOuvert(true)
+  }, [dernier])
 
-    /* L'INTERACTION N'EXISTE PAS ENCORE À CET INSTANT. `call.completed` écrit d'abord la fin de
-       l'appel, l'interaction suit — de deux secondes à plusieurs minutes, mesuré le 22/09. On
-       demande donc la relecture, et la modale s'ouvre quand la ligne arrive. */
-    setADemander(true)
-    void queryClient.invalidateQueries({ queryKey: ['dernier-appel-non-lie'] })
-  }, [appelEnCours?.id, appelEnCours?.termine_le, queryClient])
+  /* PENDANT UN APPEL, ON NE DEMANDE RIEN : la question « à quoi se rapportait-il » n'a pas de sens
+     tant qu'il dure, et la modale recouvrirait l'écran au moment où l'on prend des notes.
+     `termine_le` nul signifie qu'on est encore en ligne — ou qu'Allo n'a jamais dit la fin, d'où
+     la borne de temps plus bas. */
+  const enLigne = Boolean(
+    appelEnCours
+      && !appelEnCours.termine_le
+      /* UN APPEL « EN COURS » DEPUIS PLUS D'UN QUART D'HEURE EST UN FANTÔME, pas une conversation :
+         dix-sept d'entre eux traînent en base, dont un depuis une semaine. Sans cette borne, un
+         seul appel jamais clos empêcherait la modale de paraître pour tous les suivants. */
+      && Date.now() - new Date(appelEnCours.demarre_le).getTime() < 15 * 60 * 1000,
+  )
 
-  /* LA MODALE S'OUVRE QUAND L'INTERACTION EST LÀ, et pas avant : ouvrir une fenêtre vide pendant
-     qu'on attend le webhook ferait exactement ce que Naoëlle a refusé ce matin — un écran qui
-     parle sans rien dire. */
-  useEffect(() => {
-    if (aDemander && dernier) setOuvert(true)
-  }, [aDemander, dernier])
-
-  if (!ouvert || !dernier) return null
+  if (!ouvert || !dernier || enLigne) return null
 
   return (
     <LierAppel
@@ -172,10 +193,10 @@ export function DemandeRattachement() {
       nomCorrespondant={dernier.nom}
       onFerme={() => {
         setOuvert(false)
-        /* ON CESSE DE CHERCHER, mais on ne marque rien : l'appel reste non rattaché, donc il
-           paraîtra dans « Appels à rattacher » sur la vue d'ensemble. C'est la consigne — fermer
-           sans choisir ne perd rien. */
-        setADemander(false)
+        /* ON NE MARQUE RIEN EN BASE : l'appel reste non rattache, donc il paraitra dans
+           « Appels a rattacher » sur la vue d'ensemble. C'est la consigne — fermer sans choisir ne
+           perd rien. Le drapeau  empeche seulement la modale de se rouvrir pour CET
+           appel-la. */
       }}
     />
   )
