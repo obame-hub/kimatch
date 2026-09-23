@@ -69,10 +69,29 @@ export interface Inventaire {
 /** Les objets que Kimatch sait supprimer depuis une fiche. */
 export type TypeObjet = 'compte' | 'site' | 'compteur' | 'contact' | 'contrat' | 'mandat' | 'recommandation' | 'opportunite'
 
-/** Un comptage, sans ramener les lignes : `head: true` ne transfère que le total. */
+/**
+ * Un comptage, sans ramener les lignes : `head: true` ne transfère que le total.
+ *
+ * ══ ON COMPTE SUR LA COLONNE DE FILTRE, ET NON SUR `id` ══
+ *
+ * Guillaume, 23/09/2026 : « il est impossible pour moi de supprimer un compteur, une fenêtre
+ * s'affiche indiquant qu'il est impossible de savoir à quoi est lié l'objet ».
+ *
+ * `select('id')` supposait que toute table en porte une. `recommandations_compteurs` n'en a pas —
+ * c'est une table de liaison pure, ses deux seules colonnes sont `recommandation_id` et
+ * `compteur_id`. PostgREST refusait donc la requête, `compter` levait, l'inventaire échouait, et la
+ * fenêtre affichait « Impossible de savoir ce qui est rattaché » avec le bouton inerte.
+ *
+ * PERSONNE NE POUVAIT SUPPRIMER UN COMPTEUR, pas seulement Guillaume : le défaut ne dépend ni du
+ * rôle ni du compteur choisi. Il suffisait d'ouvrir la fenêtre.
+ *
+ * LA COLONNE DE FILTRE EXISTE FORCÉMENT, puisqu'on filtre dessus. C'est la seule qu'on puisse
+ * nommer sans rien supposer du schéma — et ce comptage-ci sert quinze tables dont on ne connaît pas
+ * la forme d'avance.
+ */
 async function compter(table: string, colonne: string, valeur: string | string[]): Promise<number> {
   if (Array.isArray(valeur) && valeur.length === 0) return 0
-  let r = supabase.from(table).select('id', { count: 'exact', head: true })
+  let r = supabase.from(table).select(colonne, { count: 'exact', head: true })
   r = Array.isArray(valeur) ? r.in(colonne, valeur) : r.eq(colonne, valeur)
   const { count, error } = await r
   // UN COMPTAGE QUI ÉCHOUE NE VAUT PAS ZÉRO. Rendre 0 ferait afficher « rien ne sera supprimé »
