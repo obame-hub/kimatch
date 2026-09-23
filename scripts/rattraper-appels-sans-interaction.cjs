@@ -80,7 +80,8 @@ async function lot(ids) {
   await db.connect()
 
   const { rows: cartes } = await db.query(`
-    select a.id, a.source_externe_id, a.sens, a.numero, a.user_email, a.demarre_le
+    select a.id, a.source_externe_id, a.sens, a.numero, a.user_email, a.demarre_le,
+           a.contact_id, a.compte_id, a.piste_id
       from appels_en_cours a
      where a.source_externe_id is not null
        and not exists (select 1 from interactions i where i.source_externe_id = a.source_externe_id)
@@ -108,8 +109,17 @@ async function lot(ids) {
       if (!numero) continue
 
       const neufDerniers = String(numero).replace(/\D/g, '').slice(-9)
-      const { rows: [qui] } = await db.query('select * from qui_appelle($1)', [neufDerniers])
-      if (!qui || (!qui.contact_id && !qui.compte_id && !qui.piste_id)) { inconnus++; continue }
+      const { rows: [trouve] } = await db.query('select * from qui_appelle($1)', [neufDerniers])
+
+      /* ══ LA CARTE SAIT PARFOIS CE QUE LE NUMÉRO NE DIT PLUS ══
+         Neuf appels portaient déjà leur piste sur la carte — posée au décroché, ou à la main depuis
+         l'écran des appels non rattachés — sans que `qui_appelle` la retrouve : le numéro de la
+         fiche a changé depuis, ou il n'a jamais été le même que celui composé. Chercher par numéro
+         ET ignorer ce qu'on sait déjà revenait à jeter un rattachement acquis. */
+      const qui = (trouve && (trouve.contact_id || trouve.compte_id || trouve.piste_id))
+        ? trouve
+        : { contact_id: carte.contact_id, compte_id: carte.compte_id, piste_id: carte.piste_id }
+      if (!qui.contact_id && !qui.compte_id && !qui.piste_id) { inconnus++; continue }
 
       if (ESSAI) { ecrits++; continue }
 
