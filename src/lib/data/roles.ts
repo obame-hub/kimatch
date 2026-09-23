@@ -129,6 +129,36 @@ async function fetchProfilsAdmin(): Promise<ProfilAdmin[]> {
     poste: posteParProfil.get(p.id) ?? null,
   }))
 }
+/**
+ * Les profils actifs, pour désigner quelqu'un — un responsable de tâche, un propriétaire.
+ *
+ * ══ POURQUOI PAS `useProfilsAdmin` ══
+ *
+ * Elle existe, mais elle tire trois requêtes pour rapporter les rôles d'accès et les postes. Pour
+ * remplir une liste déroulante « qui s'en occupe ? », c'est deux requêtes de trop, et surtout c'est
+ * faire entrer la gestion des droits dans un panneau d'édition de tâche — deux sujets qui n'ont
+ * rien à voir et qui finiraient par se tenir par la manche.
+ *
+ * LES INACTIFS SONT ÉCARTÉS : on n'assigne pas une tâche à quelqu'un qui est parti.
+ */
+export interface ProfilAssignable { id: string; prenom: string | null; nom: string | null }
+
+export function useProfilsActifs() {
+  return useQuery({
+    queryKey: ['profils-actifs'],
+    staleTime: 10 * 60 * 1000,
+    queryFn: async (): Promise<ProfilAssignable[]> => {
+      const { data, error } = await supabase
+        .from('profils')
+        .select('id, prenom, nom')
+        .eq('actif', true)
+        .order('nom')
+      if (error) throw new Error(error.message)
+      return (data ?? []) as ProfilAssignable[]
+    },
+  })
+}
+
 export function useProfilsAdmin() {
   return useQuery({ queryKey: ['profils-admin'], queryFn: fetchProfilsAdmin })
 }

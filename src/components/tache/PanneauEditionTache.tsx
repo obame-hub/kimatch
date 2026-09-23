@@ -1,6 +1,9 @@
 import { useState } from 'react'
-import { Input, Label, Textarea } from '@/components/ui/form'
+import { useQuery } from '@tanstack/react-query'
+import { Input, Label, Select, Textarea } from '@/components/ui/form'
 import { useUpdateActionPartiel } from '@/lib/data/actions'
+import { useProfilsActifs } from '@/lib/data/roles'
+import { supabase } from '@/lib/supabase'
 import { heureDe, instantTache, jourLocalISO } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
 
@@ -48,6 +51,18 @@ export function PanneauEditionTache({
   className?: string
 }) {
   const majAction = useUpdateActionPartiel()
+  const { data: profils } = useProfilsActifs()
+  /* LE RESPONSABLE ACTUEL SE LIT ICI, et non par une nouvelle prop : ce panneau est monté depuis
+     cinq écrans qui ne portent pas tous la même forme de tâche. Une requête d'une ligne, mise en
+     cache, coûte moins qu'une prop à ajouter cinq fois — et qu'on oublierait une fois. */
+  const { data: responsableActuel } = useQuery({
+    queryKey: ['action', action.id, 'responsable'],
+    queryFn: async (): Promise<string | null> => {
+      const { data } = await supabase
+        .from('actions').select('responsable_profil_id').eq('id', action.id).maybeSingle()
+      return (data as { responsable_profil_id: string | null } | null)?.responsable_profil_id ?? null
+    },
+  })
   const [titre, setTitre] = useState(action.titre)
   /* ══ LE JOUR SE LIT DANS LE FUSEAU OÙ ON TRAVAILLE ══
      William, 15/09/2026, capture à l'appui : « j'ai modifié la date au 18/09 mais quand je demande
@@ -64,6 +79,10 @@ export function PanneauEditionTache({
   const [heure, setHeure] = useState(() => heureDe(action.echeance) ?? '')
   const [commentaire, setCommentaire] = useState(action.commentaire ?? '')
   const [erreur, setErreur] = useState<string | null>(null)
+  /* `undefined` tant que la lecture n'a pas répondu : on ne veut pas écraser un responsable par
+     « personne » simplement parce que la requête n'était pas encore revenue. */
+  const [responsable, setResponsable] = useState<string | null | undefined>(undefined)
+  const responsableChoisi = responsable === undefined ? (responsableActuel ?? null) : responsable
 
   async function enregistrer() {
     // `titre` est NOT NULL en base, et c'est la seule colonne affichée dans la liste des tâches :
@@ -79,6 +98,7 @@ export function PanneauEditionTache({
           titre: titre.trim(),
           date_prevue: date ? instantTache(date, heure || null) : null,
           commentaire: commentaire.trim() || null,
+          responsable_profil_id: responsableChoisi,
         },
       })
       onFini()
@@ -131,6 +151,27 @@ export function PanneauEditionTache({
           >
             sans heure
           </button>
+        )}
+      </div>
+
+      <div>
+        <Label htmlFor={`responsable-${action.id}`}>Responsable</Label>
+        <Select
+          id={`responsable-${action.id}`}
+          value={responsableChoisi ?? ''}
+          onChange={(e) => setResponsable(e.target.value || null)}
+        >
+          <option value="">Personne</option>
+          {(profils ?? []).map((p) => (
+            <option key={p.id} value={p.id}>
+              {[p.prenom, p.nom].filter(Boolean).join(' ') || 'Sans nom'}
+            </option>
+          ))}
+        </Select>
+        {!responsableChoisi && (
+          <p className="mt-1 text-km-label text-km-amber">
+            Sans responsable, cette tâche n’apparaît dans la journée de personne.
+          </p>
         )}
       </div>
 
