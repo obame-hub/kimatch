@@ -53,42 +53,6 @@ export function lancerAlloBureau(e164: string) {
   ouvrirProtocole(`allo://call?number=${encodeURIComponent(e164)}`)
 }
 
-/**
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * NOTRE PROPRE PROTOCOLE — CELUI-LÀ, ON LE MAÎTRISE
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- *
- * Naoëlle, 22/09/2026 : « ils ne veulent pas répondre, faut qu'on le fasse nous-mêmes de n'importe
- * quelle manière. »
- *
- * `kimatch://appeler?numero=…` est enregistré sur le poste par
- * `scripts/installer-clic-pour-appeler.ps1`. Windows lance alors un script qui, dans Allo :
- *
- *   ① écrit le numéro dans le champ de composition,
- *   ② RELIT le champ pour vérifier que c'est bien écrit,
- *   ③ actionne le bouton « Appeler ».
- *
- * ── CE N'EST PAS DE LA SIMULATION DE CLIC ──
- *
- * Allo est une application Electron, donc une page web, et Windows publie son arbre
- * d'accessibilité — 266 éléments, mesuré le 22/09/2026. Le champ supporte `ValuePattern` (on y
- * écrit) et le bouton `InvokePattern` (on l'actionne). C'est le mécanisme d'un lecteur d'écran :
- * rien n'est détourné, et surtout RIEN NE DÉPEND DE COORDONNÉES À L'ÉCRAN — une fenêtre déplacée
- * ou une notification qui passe devant ne peuvent plus envoyer le numéro ailleurs.
- *
- * ── ON LANCE LES DEUX PROTOCOLES, ET C'EST VOULU ──
- *
- * `allo://` d'abord, parce que c'est le chemin officiel : leur propre code le documente pour les
- * CRM sous Windows, et le jour où ils le réparent il faut qu'on en profite sans rien changer ici.
- * `kimatch://` ensuite, parce que c'est celui qui marche aujourd'hui.
- *
- * Aucun des deux ne coûte quoi que ce soit quand il n'aboutit pas : un protocole non enregistré ne
- * navigue pas et ne lève rien. Sur un poste sans notre installation, ou sur mobile, le
- * comportement est exactement celui d'avant — le numéro copié, le volet ouvert.
- */
-export function composerSurLePoste(e164: string) {
-  ouvrirProtocole(`kimatch://appeler?numero=${encodeURIComponent(e164)}`)
-}
 
 /**
  * Ouvre une URL de protocole sans quitter la page.
