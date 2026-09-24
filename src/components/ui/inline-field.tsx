@@ -561,7 +561,7 @@ function SelectInlineField({ value, options, onCommit, label, emptyLabel = 'choi
 function NumberInlineField({ value, unit, onCommit, label, emptyLabel = 'ajouter', onSaved, onError, className, disabled }: NumberFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [text, setText] = useState(value != null ? String(value) : '')
-  const { editing, displayValue, start: startBase, commit: commitBase, cancel, handleKeyDown } = useInlineEdit<number | null>({
+  const { editing, displayValue, start: startBase, commit: commitBase, cancel } = useInlineEdit<number | null>({
     value, onCommit, onSaved, onError,
   })
 
@@ -595,7 +595,22 @@ function NumberInlineField({ value, unit, onCommit, label, emptyLabel = 'ajouter
             value={text}
             onChange={(e) => setText(e.target.value)}
             onBlur={commit}
-            onKeyDown={handleKeyDown}
+            /* == SON PROPRE commit, ET NON CELUI DU HOOK — CORRIGE LE 24/09/2026 ==
+             *
+             * handleKeyDown vient de useInlineEdit et appelle le commit DU HOOK, qui lit draft.
+             * Or cette variante n alimente jamais draft : elle tient sa saisie dans son propre
+             * text, pour normaliser « 1 200,5 » avant de convertir.
+             *
+             * VALIDER PAR ENTREE ENREGISTRAIT DONC L ANCIENNE VALEUR. Mesure sur la fiche GEDIA :
+             * le champ contenait bien « 99 » a l instant de la touche, aucune requete ne partait,
+             * et la ligne se refermait sur 70. Sortir du champ a la souris marchait, puisque onBlur
+             * appelle le bon commit — ce qui rendait le defaut difficile a voir.
+             *
+             * Il touchait TOUS les champs numeriques de Kimatch. */
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); void commit() }
+              if (e.key === "Escape") { e.preventDefault(); cancel() }
+            }}
             className={cn(inputBase, 'font-mono')}
           />
           <span className="text-km-body text-km-muted">{unit}</span>

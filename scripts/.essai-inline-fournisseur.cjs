@@ -1,13 +1,30 @@
 /**
- * MODIFIER UNE CONDITION FOURNISSEUR DEPUIS LA FICHE, DE BOUT EN BOUT.
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * MODIFIER UNE CONDITION FOURNISSEUR DEPUIS LA FICHE, DE BOUT EN BOUT
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
- * Naoelle : « il faut pouvoir modifier directement sur les fiches et pas juste en base ».
+ * Naoelle, 24/09/2026 : « il faut pouvoir modifier directement sur les fiches et pas juste en
+ * base, des modifications de champs inline ».
  *
- * On ne se contente pas de voir un crayon : on clique, on saisit, et l'on verifie EN BASE que la
- * valeur a change — puis on remet l'etat d'origine, quoi qu'il arrive.
+ * ══ POURQUOI CE SCRIPT A MIS TROIS ESSAIS A MARCHER ══
+ *
+ * Il ne suffit pas de voir un crayon. Mes deux premieres versions ont chacune conclu a tort :
+ *
+ *   · la premiere cliquait le PREMIER bouton de la ligne — l'icone « copier » — et annoncait que
+ *     la saisie n'enregistrait pas ;
+ *   · la seconde cherchait le champ de saisie DANS la ligne, alors qu'InlineField remplace le
+ *     contenu et que Playwright garde l'ancienne portee.
+ *
+ * Un essai qui vise mal accuse le produit a sa place. On liste donc les boutons avant de choisir,
+ * et l'on cherche le champ sur la page entiere.
+ *
+ * ON VERIFIE EN BASE, JAMAIS A L'ECRAN : un champ qui affiche la valeur saisie ne prouve rien —
+ * c'est exactement ce que faisait l'ecran quand l'`upsert` echouait en silence.
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 const { chromium } = require('playwright')
-const fs = require('fs'), path = require('path')
+const fs = require('fs')
+const path = require('path')
 const BASE = process.env.BASE_CAPTURE || 'http://localhost:5184'
 const SORTIE = path.join(process.cwd(), 'essai-rattachement')
 const env = (c) => {
@@ -26,12 +43,11 @@ const lire = async (id) =>
   const c = (await (await fetch(U + '/rest/v1/comptes?nom=eq.GEDIA&select=id,nom', { headers: H })).json())[0]
   if (!c) { console.log('GEDIA introuvable'); return }
   const avant = await lire(c.id)
-  console.log('GEDIA avant : minimum = ' + avant.min_consumption + ' MWh  (70 attendu, du document)')
+  console.log('GEDIA avant : minimum = ' + avant.min_consumption + ' MWh  (70 au document)')
 
   const nav = await chromium.launch({ headless: true })
   const page = await nav.newPage({ viewport: { width: 1400, height: 1000 } })
   page.on('pageerror', (e) => console.log('   ERREUR PAGE : ' + e.message))
-  page.on('console', (m) => { if (m.type() === 'error') console.log('   CONSOLE : ' + m.text().slice(0, 140)) })
   try {
     const r = await fetch(U + '/auth/v1/admin/generate_link', {
       method: 'POST', headers: H,
@@ -41,7 +57,8 @@ const lire = async (id) =>
     const lien = j.properties ? j.properties.action_link : j.action_link
     await page.goto(lien, { waitUntil: 'domcontentloaded', timeout: 60000 })
     await page.waitForTimeout(2500)
-    const ref = new URL(U).hostname.split('.')[0], cs = 'sb-' + ref + '-auth-token'
+    const ref = new URL(U).hostname.split('.')[0]
+    const cs = 'sb-' + ref + '-auth-token'
     const sess = await page.evaluate((x) => localStorage.getItem(x), cs)
     await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' })
     await page.evaluate(([x, v]) => localStorage.setItem(x, v), [cs, sess])
@@ -51,36 +68,63 @@ const lire = async (id) =>
     fs.mkdirSync(SORTIE, { recursive: true })
     await page.screenshot({ path: path.join(SORTIE, 'inline-1-fiche.png'), fullPage: true })
 
-    // Le champ « Minimum annuel » : on remonte du libelle a son voisin editable.
     const ligne = page.locator('div.flex.items-center').filter({ hasText: 'Minimum annuel' }).last()
-    console.log('1. ligne « Minimum annuel » :', (await ligne.count()) ? 'presente' : '*** ABSENTE ***')
+    console.log('1. ligne « Minimum annuel » : ' + ((await ligne.count()) ? 'presente' : '*** ABSENTE ***'))
     if (!(await ligne.count())) return
 
-    /* LA LIGNE PORTE DEUX BOUTONS : une icone « copier » et le crayon. Ma premiere version prenait
-       le premier venu — donc « copier » — et concluait que la saisie n enregistrait pas. */
-    /* LA LIGNE PORTE DEUX BOUTONS : « copier » puis le crayon. Ma premiere version prenait le
-       premier venu — donc « copier » — et concluait que la saisie n enregistrait pas. */
-    const crayon = ligne.getByRole('button').last()
-    console.log('2. bouton d edition :', (await crayon.count()) ? 'present (' + (await crayon.count()) + ')' : '*** ABSENT — pas modifiable ***')
-    if (!(await crayon.count())) return
+    // ON LISTE LES BOUTONS AVANT DE CHOISIR : c'est ce qui manquait aux deux premieres versions.
+    const boutons = ligne.getByRole('button')
+    const titres = await boutons.evaluateAll((els) =>
+      els.map((e) => (e.getAttribute('title') || e.getAttribute('aria-label') || '?').trim()))
+    console.log('2. boutons de la ligne : ' + JSON.stringify(titres))
 
-    await crayon.click()
+    const crayon = ligne.getByRole('button', { name: /modifier/i })
+    /* LE CRAYON EST LE PREMIER BOUTON, sans titre ; « Copier » est le second. Mesure :
+       les titres releves sont ["?", "Copier"]. */
+    const cible = (await crayon.count()) ? crayon.first() : boutons.first()
+    await cible.click()
     await page.waitForTimeout(1200)
-    const champ = ligne.locator('input')
-    if (!(await champ.count())) { console.log('3. *** le clic n ouvre aucun champ de saisie ***'); return }
 
-    await champ.first().fill('99')
-    await champ.first().press('Enter')
-    await page.waitForTimeout(3500)
+    /* LE CHAMP S'OUVRE HORS DE LA PORTEE DE LA LIGNE : InlineField remplace le contenu. On le
+       cherche sur la page, en excluant la recherche globale de l'en-tete. */
+    await page.screenshot({ path: path.join(SORTIE, 'inline-clic.png'), fullPage: true })
+    const tousInputs = await page.locator('input').evaluateAll((els) => els.map((e) => (e.type || '?') + ':' + (e.placeholder || e.value || '').slice(0, 24)))
+    console.log('   champs presents apres clic : ' + JSON.stringify(tousInputs))
+    const champ = page.locator('input').last()
+    if (!(await champ.count())) { console.log('3. *** aucun champ de saisie ***'); return }
+
+    /* ON SAISIT AU CLAVIER, pas avec fill() : React ecoute onChange, et un fill() qui pose la
+       valeur sans evenement laisse l etat interne du composant sur l ancienne. Le champ affichait
+       99 et le composant enregistrait 70 — mon essai accusait le produit a sa place. */
+    /* LE CHAMP EST DEJA FOCUS a l ouverture (InlineField appelle focus() + select()).
+       On tape donc au CLAVIER DE LA PAGE : passer par le locator reclique ailleurs et perd le
+       focus, ce qui referme le champ sur son ancienne valeur. */
+    const focus = await page.evaluate(() => { const a = document.activeElement; return a ? a.tagName + ":" + (a.type || "") + ":" + (a.value || "") : "AUCUN" })
+    console.log("   element ayant le focus : " + focus)
+    /* PAS DE Control+A : Kimatch capte ce raccourci (voir lib/raccourci.ts) et le champ se
+       refermait sur son ancienne valeur. InlineField fait deja select() a l ouverture, donc le
+       texte est deja choisi : taper le remplace. */
+    await page.keyboard.type("99", { delay: 80 })
+    const avantEnter = await page.evaluate(() => { const a = document.activeElement; return a ? a.value : "AUCUN FOCUS" })
+    console.log("   valeur du champ juste avant Enter : " + JSON.stringify(avantEnter))
+    await page.keyboard.press("Enter")
+    await page.waitForTimeout(1500)
+    const apresSaisie = await page.locator("input").evaluateAll((els) => els.map((e) => e.value))
+    console.log("   champs apres Enter : " + JSON.stringify(apresSaisie))
+    const texteLigne = await ligne.innerText().catch(() => "?")
+    console.log("   la ligne affiche  : " + texteLigne.split(String.fromCharCode(10)).join(" | "))
+    await page.waitForTimeout(4000)
 
     const apres = await lire(c.id)
+    const ecrit = apres.min_consumption === 99
     console.log('3. apres saisie de 99 :')
     console.log('   en base : minimum = ' + apres.min_consumption +
-      (apres.min_consumption === 99 ? '  -> LA MODIFICATION EST ENREGISTREE' : '  *** RIEN N A CHANGE ***'))
+      (ecrit ? '  -> LA MODIFICATION EST ENREGISTREE' : '  *** RIEN N A CHANGE ***'))
     await page.screenshot({ path: path.join(SORTIE, 'inline-2-modifie.png'), fullPage: true })
   } finally {
     await nav.close()
-    // ON REMET LA VALEUR DU DOCUMENT, quoi qu il soit arrive : un essai ne laisse pas la base fausse.
+    /* ON REMET LA VALEUR DU DOCUMENT, quoi qu'il soit arrive : un essai ne laisse pas la base
+       fausse, surtout sur un critere qui decide quels fournisseurs sont proposes. */
     await fetch(U + '/rest/v1/comptes_fournisseurs?compte_id=eq.' + c.id, {
       method: 'PATCH', headers: H, body: JSON.stringify({ min_consumption: avant.min_consumption }),
     })
