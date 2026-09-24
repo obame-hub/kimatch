@@ -264,6 +264,15 @@ async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
     return null
   }
 
+  /* ══ ON NOTE CE QUE LE RAPPORT CONTIENT, UNE FOIS ══
+     William, 24/09/2026 : « peux-tu checker tout ce que contient un rapport venant d'Ellipro ? »
+     Les identifiants vivent sur Vercel : seule la production peut le voir passer. Elle en consigne
+     donc la STRUCTURE — noms de balises, types de `value` et de `comment` — dans
+     `diagnostics_ellisphere`, le temps de construire la carte sur du réel.
+     TEMPORAIRE, et sans effet sur la réponse : un échec d'écriture est ignoré. À retirer une fois
+     la lecture faite. */
+  void consignerStructure(text)
+
   // Le score courant est dans le PREMIER bloc <score> de <assessmentData> ; les suivants sont
   // l'historique. On isole donc ce bloc avant d'y chercher les valeurs.
   const bloc = text.match(/<score\b[\s\S]*?<\/score>/)?.[0] ?? text
@@ -364,4 +373,52 @@ async function getScoreFromMonitoring(siren: string): Promise<EllisphereScore> {
     }
   }
   return { siren, score: String(scoreNode), scale: null, creditOpinion: null, paymentIncidents: null, encoursConseille: null, historique: [] }
+}
+
+
+/**
+ * Consigne la structure d'un rapport — TEMPORAIRE, voir son appel.
+ *
+ * ON NE GARDE PAS LE RAPPORT ENTIER : les noms de balises et leurs occurrences, les valeurs de
+ * `type=` (c'est là qu'est le sens : score, riskclass, creditlimit…), et 4 000 caractères d'extrait
+ * pour lire la forme des valeurs. Assez pour décider quoi afficher, pas assez pour constituer une
+ * copie du service.
+ */
+async function consignerStructure(rapport: string): Promise<void> {
+  try {
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+    const cle = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !cle) return
+
+    const balises: Record<string, number> = {}
+    for (const m of rapport.matchAll(/<([A-Za-z][\w:.-]*)\b/g)) {
+      balises[m[1]] = (balises[m[1]] ?? 0) + 1
+    }
+    const types: Record<string, number> = {}
+    for (const m of rapport.matchAll(/<(value|comment|indicator|item)\b[^>]*\btype="([^"]+)"/gi)) {
+      const cle2 = `${m[1].toLowerCase()}:${m[2]}`
+      types[cle2] = (types[cle2] ?? 0) + 1
+    }
+    const siren = rapport.match(/idName="SIREN"[^>]*>\s*(\d{9})/i)?.[1]
+      ?? rapport.match(/>(\d{9})</)?.[1]
+      ?? 'inconnu'
+
+    await fetch(`${url}/rest/v1/diagnostics_ellisphere`, {
+      method: 'POST',
+      headers: {
+        apikey: cle,
+        Authorization: `Bearer ${cle}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        siren,
+        balises,
+        types_valeurs: types,
+        extrait: rapport.slice(0, 4000),
+      }),
+    })
+  } catch {
+    /* Un diagnostic qui échoue ne doit surtout pas empêcher un score d'être rendu. */
+  }
 }
