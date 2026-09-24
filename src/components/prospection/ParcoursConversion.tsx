@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
-import { MandatWizard } from '@/components/mandat/MandatWizard'
+import { MandatEnUnePage } from '@/components/mandat/MandatEnUnePage'
 import { optionsCivilite } from '@/lib/civilite'
 import { searchCompanies, type CompanyResult } from '@/lib/companyDirectory'
 import { useComptes } from '@/lib/data/comptes'
@@ -579,15 +579,19 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
           sousTitre: 'Dernière étape',
           note: { titre: 'La piste est convertie', texte: 'La relance mandat est posée à J+2.' },
         })}
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto px-9 pb-[22px] pt-8">
-          <EnTeteEtape numero={4} titre="Qui signe le mandat ?" />
-          {/* La garde évite de remplir quatre sous-étapes pour buter sur DocuSign à la fin. */}
+        <div className="flex min-w-0 flex-1 flex-col px-9 pb-[22px] pt-8">
+          <EnTeteEtape numero={4} titre="Le mandat à faire signer" />
+          {/* ══ UNE PAGE, PLUS QUATRE ÉTAPES ══
+              William, 24/09/2026 : « l'envoi de mandat doit être largement facilité, tout doit
+              tenir sur une page ». `MandatWizard` demandait en quatre écrans ce que le parcours
+              vient de créer — il reste l'assistant général, lancé depuis une fiche compte ou une
+              opportunité, là où rien n'est encore connu. La garde DocuSign reste : mieux vaut
+              buter sur l'autorisation avant de remplir que juste avant d'envoyer. */}
           <WizardConnectionGate required={['crm', 'docusign']} feature="demande de mandat">
-            <MandatWizard
+            <MandatEnUnePage
               compteId={compteId}
-              contactInitialId={contactId ?? undefined}
-              compteursInitiaux={compteurIds}
-              onClose={demanderSortie}
+              contactId={contactId}
+              compteurIds={compteurIds}
             />
           </WizardConnectionGate>
         </div>

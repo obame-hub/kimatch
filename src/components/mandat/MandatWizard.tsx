@@ -5,10 +5,11 @@ import { useComptes } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useContacts } from '@/lib/data/contacts'
-import { useMandats, useCreateMandat, useMarkMandatEnvoye } from '@/lib/data/mandats'
+import { useMandats } from '@/lib/data/mandats'
+import { useEnvoiMandat } from '@/lib/data/envoiMandat'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_COURTIERS_MANDAT } from '@/lib/referenceFallbacks'
-import { sendMandatForSignature, connectDocusign, DocusignNonConnecte } from '@/lib/data/docusign'
+import { connectDocusign } from '@/lib/data/docusign'
 import { cn } from '@/lib/utils'
 import type { Compteur } from '@/types/domain'
 
@@ -83,8 +84,6 @@ export function MandatWizard({
   const { data: courtiersRef } = useReferenceTable('types_courtiers_mandat')
   const courtiers = courtiersRef && courtiersRef.length > 0 ? courtiersRef : FALLBACK_TYPES_COURTIERS_MANDAT
 
-  const createMandat = useCreateMandat()
-  const markEnvoye = useMarkMandatEnvoye()
 
   const [etape, setEtape] = useState(1)
   const [contactId, setContactId] = useState(contactInitialId ?? '')
@@ -96,12 +95,13 @@ export function MandatWizard({
   const [montrerActifs, setMontrerActifs] = useState(false)
   const [filtresEnergie, setFiltresEnergie] = useState<string[]>([])
   const [filtresEcheance, setFiltresEcheance] = useState<Echeance[]>([])
-  const [enCours, setEnCours] = useState(false)
-  const [etat, setEtat] = useState<string | null>(null)
-  const [erreur, setErreur] = useState<string | null>(null)
-  // Autorisation DocuSign manquante : ce n'est pas un echec, c'est un geste a faire une fois. Le
-  // mandat est deja enregistre, on propose donc la connexion sur place au lieu d'un message mort.
-  const [besoinConnexionDocusign, setBesoinConnexionDocusign] = useState(false)
+  /* ══ LA CHAÎNE D'ENVOI A QUITTÉ CE FICHIER ══
+     Elle est partagée avec le mandat en une page du parcours de conversion (`MandatEnUnePage`) :
+     deux écrans, une seule mécanique. Ce qui diffère entre eux, c'est ce qu'ils DEMANDENT ; ce
+     qu'ils font ensuite — créer, générer les PDF, ouvrir DocuSign en brouillon — ne peut pas
+     diverger sans que ce soit le mandat du client qui paie l'écart. Voir `useEnvoiMandat`. */
+  const { envoyer, etat: envoi } = useEnvoiMandat(onCree)
+  const { etape: etat, erreur, besoinConnexionDocusign, enCours } = envoi
 
   const compte = comptes?.find((c) => c.id === compteId)
   const sitesDuCompte = useMemo(() => sites?.filter((s) => s.compte_id === compteId) ?? [], [sites, compteId])
@@ -184,100 +184,15 @@ export function MandatWizard({
    */
   async function finaliser() {
     if (!compte || !contactChoisi) return
-    setEnCours(true)
-    setErreur(null)
-    try {
-      const compteursChoisis = compteursEligibles.filter((c) => compteurIds.includes(c.id))
-      const codes = avecEnergix ? ['KIWI', 'ENERGIX'] : ['KIWI']
-
-      setEtat('Création du mandat…')
-      const resultat = await createMandat.mutateAsync({
-        compte_id: compte.id,
-        compte_nom: compte.nom,
-        compteur_ids: compteurIds,
-        compteurs: compteursChoisis.map((c) => ({ id: c.id, site_id: c.site_id })),
-        date_signature: null,
-        duree_mois: dureeMois,
-        contact_signataire_id: contactChoisi.id,
-        contact_signataire_nom: `${contactChoisi.prenom} ${contactChoisi.nom}`,
-        courtier_codes: codes,
-        courtier_type_ids: courtiers.filter((c) => codes.includes(c.code)).map((c) => c.id),
-      })
-
-      onCree?.(resultat.mandat.id)
-
-      if (!resultat.persisted) {
-        setErreur('Mandat enregistré localement seulement — la signature ne peut pas être lancée.')
-        return
-      }
-      if (!contactChoisi.email) {
-        setErreur(
-          `Mandat créé, mais ${contactChoisi.prenom} ${contactChoisi.nom} n'a pas d'adresse e-mail : ajoutez-la puis lancez la signature depuis la fiche du mandat.`,
-        )
-        return
-      }
-
-      setEtat('Génération des documents…')
-
-      /* ══ LE GÉNÉRATEUR DE PDF S'IMPORTE AU MOMENT DU CLIC ══
-         Il tire `jspdf` derrière lui : 396 Ko, soit 28 % de tout le JavaScript que chargeait la
-         fiche compte. En import statique, ces 396 Ko partaient à l'ouverture de N'IMPORTE QUEL
-         compte — pour un générateur qui ne sert qu'au moment où l'on fabrique un mandat.
-
-         Mesuré en production le 12/09/2026 : la fiche compte tirait 84 morceaux de JavaScript pour
-         1 431 Ko, et aucune requête de données ne partait avant 6,7 s — le navigateur finissait
-         d'abord de tout télécharger.
-
-         `await import()` DANS LE GESTIONNAIRE, et non en tête de fichier : la fonction est déjà
-         asynchrone, et l'attente se confond avec la génération elle-même. */
-      const { generateMandatKiweePdf, generateMandatEnergixPdf } = await import('@/lib/mandatPdf')
-
-      const documents = [
-        await generateMandatKiweePdf({ compte, contact: contactChoisi, compteurs: compteursChoisis, dureeMois }),
-      ]
-      if (avecEnergix) {
-        documents.push(
-          await generateMandatEnergixPdf({ compte, contact: contactChoisi, compteurs: compteursChoisis, dureeMois }),
-        )
-      }
-
-      setEtat('Préparation de DocuSign…')
-      const envoi = await sendMandatForSignature({
-        mandatId: resultat.mandat.id,
-        documents,
-        signerEmail: contactChoisi.email,
-        signerName: `${contactChoisi.prenom} ${contactChoisi.nom}`,
-        emailSubject: `KiWee Énergie — Mandat à signer (${compte.nom})`,
-        // Brouillon : c'est ce qui produit l'éditeur au lieu d'un envoi immédiat.
-        draft: true,
-        returnUrl: `${window.location.origin}/mandats/${resultat.mandat.id}`,
-      })
-
-      // Le statut reste inchangé : c'est le webhook DocuSign qui fera passer le mandat à ENVOYE
-      // quand un humain aura réellement cliqué « Envoyer » dans l'éditeur.
-      await markEnvoye.mutateAsync({ mandatId: resultat.mandat.id, envelopeId: envoi.envelopeId, statutId: null })
-
-      if (envoi.senderViewUrl) {
-        setEtat('Ouverture de l’éditeur DocuSign…')
-        window.location.href = envoi.senderViewUrl
-        return
-      }
-      setErreur('Enveloppe créée, mais DocuSign n’a pas renvoyé d’URL d’éditeur. Relancez depuis la fiche du mandat.')
-    } catch (e) {
-      if (e instanceof DocusignNonConnecte) {
-        setBesoinConnexionDocusign(true)
-        setErreur(e.message)
-        return
-      }
-      // Le mandat peut exister malgré l'échec : on le dit, plutôt que de laisser croire à une
-      // création manquée qui pousserait à recommencer et à créer un doublon.
-      setErreur(
-        `${e instanceof Error ? e.message : 'Erreur inconnue'} — si le mandat a été créé, relancez la signature depuis sa fiche plutôt que de recommencer.`,
-      )
-    } finally {
-      setEnCours(false)
-      setEtat(null)
-    }
+    const codes = avecEnergix ? ['KIWI', 'ENERGIX'] : ['KIWI']
+    await envoyer({
+      compte,
+      signataire: contactChoisi,
+      compteurs: compteursEligibles.filter((c) => compteurIds.includes(c.id)),
+      dureeMois,
+      avecEnergix,
+      courtierTypeIds: courtiers.filter((c) => codes.includes(c.code)).map((c) => c.id),
+    })
   }
 
   return (
