@@ -8,6 +8,12 @@ export interface EvenementEllisphere {
   date: string | null
 }
 
+export interface ComptesEllisphere {
+  /** Les exercices, du plus récent au plus ancien. */
+  exercices: string[]
+  lignes: { code: string; nom: string; valeurs: (number | null)[] }[]
+}
+
 export interface DirigeantEllisphere {
   nom: string
   role: string | null
@@ -41,6 +47,7 @@ export interface EllisphereScore {
   effectif: string | null
   dirigeants: DirigeantEllisphere[]
   evenements: EvenementEllisphere[]
+  comptes: ComptesEllisphere | null
 }
 
 async function fetchJson<T>(url: string): Promise<T> {

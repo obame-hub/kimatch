@@ -210,6 +210,17 @@ export interface EvenementEllisphere {
   date: string | null
 }
 
+/**
+ * Les chiffres clés, tels que le rapport les publie : trois exercices en colonnes, une ligne par
+ * poste. Lu le 24/09/2026 dans le rapport de CABINET MICHAU.
+ */
+export interface ComptesEllisphere {
+  /** Les exercices, du plus récent au plus ancien : « 2025 », « 2024 », « 2023 ». */
+  exercices: string[]
+  /** Une ligne par poste retenu, dans l'ordre où on veut la lire. */
+  lignes: { code: string; nom: string; valeurs: (number | null)[] }[]
+}
+
 export interface DirigeantEllisphere {
   nom: string
   role: string | null
@@ -264,6 +275,8 @@ export interface EllisphereScore {
   dirigeants: DirigeantEllisphere[]
   /** Les événements légaux les plus récents, avec leur gravité. */
   evenements: EvenementEllisphere[]
+  /** Les chiffres clés sur trois exercices. Absents quand la société n'a rien déposé. */
+  comptes: ComptesEllisphere | null
 }
 
 /** Commande le rapport de risque complet d'un établissement (produit 50001) et en extrait la
@@ -313,8 +326,6 @@ async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
 
   /* ══ LE SCORE DE L'ENTREPRISE EST DANS `<assessmentData>` ══
      Le document porte aussi une légende de l'échelle ; c'est elle qui produisait le 10 universel. */
-  void consignerLesComptes(text)
-
   const evaluation = text.match(/<assessmentData\b[\s\S]*?<\/assessmentData>/i)?.[0] ?? ''
   const blocStandard = evaluation.match(/<score\b[^>]*\btype="standard"[^>]*>[\s\S]*?<\/score>/i)?.[0] ?? ''
   const blocSecteur = evaluation.match(/<score\b[^>]*\btype="sector"[^>]*>[\s\S]*?<\/score>/i)?.[0] ?? ''
@@ -400,7 +411,47 @@ async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
   const rang = (s: string | null) => (s === 'RED' ? 0 : s === 'ORANGE' ? 1 : 2)
   evenements.sort((a, b) => rang(a.severite) - rang(b.severite) || (b.date ?? '').localeCompare(a.date ?? ''))
 
+  /* ══ LES CHIFFRES CLÉS ══
+     `<financials type="keyfigures">` donne trois `<period number="N">` datées, puis une ligne par
+     poste : `<element code="KC01"><elementName>…</elementName><value period="1">…</value>…`.
+     ON NE GARDE QUE QUATRE POSTES sur la douzaine publiée. Le chiffre d'affaires dit la taille, le
+     résultat net dit si l'affaire gagne de l'argent, les fonds propres disent si elle tient, et
+     l'endettement dit ce qu'elle doit. Le reste — CA export, résultat d'exploitation, total bilan —
+     intéresse un analyste, pas un commercial qui décide d'ouvrir un compte. */
+  const comptes = (() => {
+    const bloc = text.match(/<financials\b[^>]*\btype="keyfigures"[\s\S]*?<\/financials>/i)?.[0]
+      ?? text.match(/<financials\b[\s\S]*?<\/financials>/i)?.[0]
+    if (!bloc) return null
+
+    const exercices: string[] = []
+    for (const m of bloc.matchAll(/<period\b[^>]*\bnumber="(\d+)"[^>]*>([\s\S]*?)<\/period>/gi)) {
+      const fin = m[2].match(/<date\b[^>]*\btype="end"[^>]*>\s*(\d{4})/i)?.[1]
+      exercices[Number(m[1]) - 1] = fin ?? ''
+    }
+    if (exercices.length === 0) return null
+
+    const RETENUS = ['KC01', 'KC04', 'KC06', 'KC07']
+    const lignes: { code: string; nom: string; valeurs: (number | null)[] }[] = []
+    for (const m of bloc.matchAll(/<element\b[^>]*\bcode="([^"]+)"[^>]*>([\s\S]*?)<\/element>/gi)) {
+      const code = m[1]
+      if (!RETENUS.includes(code)) continue
+      const corps = m[2]
+      const nom = corps.match(/<elementName\b[^>]*>\s*([^<]+?)\s*<\/elementName>/i)?.[1]
+      if (!nom) continue
+      const valeurs: (number | null)[] = exercices.map(() => null)
+      for (const v of corps.matchAll(/<value\b[^>]*\bperiod="(\d+)"[^>]*>\s*(-?[\d.,]+)\s*<\/value>/gi)) {
+        const n = Number(v[2].replace(/\s/g, '').replace(',', '.'))
+        if (Number.isFinite(n)) valeurs[Number(v[1]) - 1] = n
+      }
+      lignes.push({ code, nom: decodeXml(nom), valeurs })
+    }
+    if (lignes.length === 0) return null
+    lignes.sort((a, b) => RETENUS.indexOf(a.code) - RETENUS.indexOf(b.code))
+    return { exercices, lignes }
+  })()
+
   return {
+    comptes,
     score, scale, classeRisque, libelleRisque,
     creditOpinion: libelleRisque && classeRisque ? `${libelleRisque} (classe ${classeRisque})` : libelleRisque,
     paymentIncidents, noteDepuis, noteMaj,
@@ -458,7 +509,7 @@ async function getScoreFromMonitoring(siren: string): Promise<EllisphereScore> {
     paymentIncidents: null, noteDepuis: null, noteMaj: null, scoreSecteur: null,
     classeRisqueSecteur: null, encoursConseille: null, encoursPlafond: null, historique: [],
     statut: null, statutType: null, dateCreation: null, capital: null, etablissements: null,
-    effectif: null, dirigeants: [], evenements: [],
+    effectif: null, dirigeants: [], evenements: [], comptes: null,
   }
 
   if (typeof scoreNode === 'object') {
@@ -468,7 +519,7 @@ async function getScoreFromMonitoring(siren: string): Promise<EllisphereScore> {
     paymentIncidents: null, noteDepuis: null, noteMaj: null, scoreSecteur: null,
     classeRisqueSecteur: null, encoursConseille: null, encoursPlafond: null, historique: [],
     statut: null, statutType: null, dateCreation: null, capital: null, etablissements: null,
-    effectif: null, dirigeants: [], evenements: [],
+    effectif: null, dirigeants: [], evenements: [], comptes: null,
   },
       score: asText(scoreNode['#text'] ?? scoreNode),
       scale: (scoreNode['@_scale'] as string) ?? null,
@@ -479,39 +530,11 @@ async function getScoreFromMonitoring(siren: string): Promise<EllisphereScore> {
     paymentIncidents: null, noteDepuis: null, noteMaj: null, scoreSecteur: null,
     classeRisqueSecteur: null, encoursConseille: null, encoursPlafond: null, historique: [],
     statut: null, statutType: null, dateCreation: null, capital: null, etablissements: null,
-    effectif: null, dirigeants: [], evenements: [],
+    effectif: null, dirigeants: [], evenements: [], comptes: null,
   }, score: String(scoreNode) }
 }
 
-/**
- * ══ UNE DERNIÈRE CAPTURE, ÉTROITE : LES COMPTES ANNUELS ══
- *
- * Tout le reste du rapport a été lu le 24/09/2026. Seuls les comptes manquaient : le premier
- * rapport capturé était celui d'une société créée en 2021, qui n'en publie pas. Un syndic établi en
- * aura, et c'est le dernier morceau qui manque à la carte Ellipro.
- *
- * ELLE NE GARDE QUE `<financials>` ET SES VOISINS — ni identité, ni dirigeants, ni événements :
- * tout cela est déjà connu. Elle s'efface dès la lecture faite, comme la précédente.
- */
-async function consignerLesComptes(rapport: string): Promise<void> {
-  try {
-    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-    const cle = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!url || !cle) return
-    const comptes = rapport.match(/<financials\b[\s\S]*?<\/financials>/gi)?.slice(0, 2).join('\n') ?? null
-    if (!comptes) return
-    const siren = rapport.match(/idName="SIREN"[^>]*>\s*(\d{9})/i)?.[1] ?? 'inconnu'
-    await fetch(`${url}/rest/v1/diagnostics_ellisphere`, {
-      method: 'POST',
-      headers: { apikey: cle, Authorization: `Bearer ${cle}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ siren, sections: { financials: comptes.slice(0, 9000) } }),
-    })
-  } catch {
-    /* Un diagnostic qui échoue ne doit jamais empêcher un score d'être rendu. */
-  }
-}
-
-/* LE DIAGNOSTIC DE STRUCTURE COMPLET A ÉTÉ RETIRÉ LE 24/09/2026, sa lecture faite. Il a servi une journée à
+/* LES DEUX DIAGNOSTICS DE STRUCTURE ONT ÉTÉ RETIRÉS LE 24/09/2026, leur lecture faite. Il a servi une journée à
    comprendre ce que le rapport contient vraiment — et à trouver pourquoi quatre sociétés affichaient
    toutes 10/10. Tout ce qui est extrait plus haut vient de cette lecture. Laisser un mouchard écrire
    en production à chaque consultation ne se justifie plus. */
