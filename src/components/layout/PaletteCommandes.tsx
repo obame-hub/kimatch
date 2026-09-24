@@ -17,11 +17,12 @@ import {
   User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { pagesRecherchables } from '@/lib/navItems'
+import { pagesRecherchables, partenaireNavItems } from '@/lib/navItems'
 import { useRechercheGlobale } from '@/lib/data/rechercheGlobale'
 import { SEARCH_KIND_LABEL, type SearchKind } from '@/lib/search'
 import { useConsultationsRecentes } from '@/lib/data/consultationsRecentes'
 import { raccourci } from '@/lib/raccourci'
+import { useEstPartenaire } from '@/lib/data/roles'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -176,6 +177,7 @@ export function PaletteCommandes({
   const listeRef = useRef<HTMLDivElement>(null)
 
   const { data: recents } = useConsultationsRecentes(5)
+  const estPartenaire = useEstPartenaire()
   const terme = recherche.trim()
   const { data: resultats, isFetching } = useRechercheGlobale(terme)
 
@@ -190,7 +192,20 @@ export function PaletteCommandes({
   }, [ouverte, saisieInitiale])
 
   const entrees = useMemo<Entree[]>(() => {
-    const pages = pagesRecherchables
+    /* ══ LA PALETTE NE PROPOSE PAS CE QUE LE RAIL CACHE — 24/09/2026 ══
+     *
+     * Naoëlle : « aussi de faire une recherche commande K comme ce que Will a mis en place ». Elle
+     * doit donc marcher pour un partenaire — mais sur SES pages.
+     *
+     * C'EST PRÉCISÉMENT PAR ICI QU'ON RETOMBAIT SUR CE QU'ON AVAIT RETIRÉ : la leçon des Signaux, le
+     * 02/09/2026. Sortir une page du rail sans la sortir de la recherche ne la retire pas, ça la
+     * déplace. Un partenaire aurait tapé « pist » et serait tombé sur nos pistes — vides grâce aux
+     * policies, mais proposées, ce qui suffit à faire douter du cloisonnement.
+     *
+     * On part donc de SA liste, la même que le rail : deux entrées, et ce qui n'y est pas n'existe
+     * pas pour lui. */
+    const catalogue = estPartenaire ? partenaireNavItems : pagesRecherchables
+    const pages = catalogue
       .filter((p) => !terme || sansAccent(p.label).includes(sansAccent(terme)))
       .map((p) => ({ cle: `page:${p.to}`, groupe: 'Pages', famille: 'page' as const, libelle: p.label, chemin: p.to }))
 
@@ -225,7 +240,7 @@ export function PaletteCommandes({
     const cles = new Set(remontes.map((r) => r.cle))
 
     return [...remontes, ...pages, ...trouves.filter((t) => !cles.has(t.cle))]
-  }, [terme, recents, resultats])
+  }, [terme, recents, resultats, estPartenaire])
 
   useEffect(() => {
     if (choisi >= entrees.length) setChoisi(Math.max(0, entrees.length - 1))

@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader, Indicateurs } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
-import { useMonProfil } from '@/lib/data/roles'
+import { useMonProfil, useEstPartenaire } from '@/lib/data/roles'
 import { RESULTAT_VERSION_LIBELLE } from '@/lib/referenceFallbacks'
 import { ListToolbar, BasculeOption, BasculeSegments } from '@/components/ui/list-toolbar'
 import { MenuChoix } from '@/components/ui/menu-choix'
@@ -274,6 +274,7 @@ export default function Recommandations() {
    * montrer une liste vide qu'on prendrait pour « je n'ai rien à traiter ».
    */
   const { data: monProfil } = useMonProfil()
+  const estPartenaire = useEstPartenaire()
 
   /**
    * LE PERIMETRE EST DESORMAIS UN CHOIX, plus une consequence du role.
@@ -289,7 +290,15 @@ export default function Recommandations() {
    * pas.
    */
   const { perimetre, setPerimetre } = usePerimetre('recommandations')
-  const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
+  /* ══ UN PARTENAIRE N'EST PROPRIÉTAIRE DE RIEN — 24/09/2026 ══
+   *
+   * Le périmètre vaut « moi » par défaut, et filtre alors sur `proprietaire_id`. Or les
+   * recommandations d'un partenaire appartiennent au conseiller KiWee qui les traite, pas à lui :
+   * ce filtre lui aurait rendu une liste VIDE, et il aurait conclu que rien n'a été enregistré.
+   *
+   * On ne filtre donc pas par propriétaire pour lui. Ce sont les policies qui bornent ce qu'il voit
+   * (migration 20260924143000) — son patrimoine, et rien d'autre. */
+  const filtreProprietaire = !estPartenaire && perimetre === 'moi' && monProfil?.id ? monProfil.id : null
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
   // `?creer=1` ouvre ce formulaire depuis le menu « Créer » de la barre du haut.
@@ -541,12 +550,22 @@ export default function Recommandations() {
             </>
           }
         >
-          <BasculePerimetre
-            valeur={perimetre}
-            onChange={setPerimetre}
-            libelleMien="Mes recommandations"
-            libelleTous="Toutes les recommandations"
-          />
+          {/* ══ LA BASCULE DE PÉRIMÈTRE N'A PAS DE SENS POUR UN PARTENAIRE — 24/09/2026 ══
+              Naoëlle : « pas besoin de filtrer mes recommandations ou toutes les recommandations,
+              ça sert à rien ».
+
+              Elle a raison, et c'est plus qu'une simplification : les policies ne rendent au
+              partenaire que SES recommandations, donc « Toutes » afficherait exactement la même
+              liste. Une bascule qui ne bascule rien fait douter de ce qu'on regarde — et pire, elle
+              laisse croire qu'on pourrait voir celles des autres. */}
+          {!estPartenaire && (
+            <BasculePerimetre
+              valeur={perimetre}
+              onChange={setPerimetre}
+              libelleMien="Mes recommandations"
+              libelleTous="Toutes les recommandations"
+            />
+          )}
           {/* ══ LA BASCULE DE VUE ══
               Naoëlle, 01/09/2026 : « deux vues kanban en mode toggle ». Elle est placée juste après
               le périmètre, avant les filtres : elle décide de ce que les filtres suivants pourront

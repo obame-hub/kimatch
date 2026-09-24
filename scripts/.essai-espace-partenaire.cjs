@@ -127,6 +127,31 @@ const dire = (ok, texte) => { if (!ok) echecs++; console.log('   ' + (ok ? '  ok
         dire(arrivee === attendu, 'depuis ' + depart.padEnd(16) + '-> ' + arrivee)
       }
       await page2.screenshot({ path: path.join(SORTIE, 'espace-partenaire-accueil.png'), fullPage: false })
+
+      // ── LA PAGE RECOMMANDATIONS : bascule retiree, filtres gardes, commande K ──
+      await page2.goto(BASE + '/recommandations', { waitUntil: 'domcontentloaded', timeout: 60000 })
+      await page2.waitForTimeout(6000)
+      const texte = await page2.evaluate(() => document.body.innerText)
+      const sansAccents = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      dire(!/Toutes les recommandations/.test(texte), 'la bascule « Toutes les recommandations » a disparu')
+      for (const f of ['Tous les statuts', 'Toutes les energies', 'Trier par']) {
+        dire(sansAccents(texte).includes(sansAccents(f)), 'le filtre « ' + f + ' » est la')
+      }
+
+      await page2.keyboard.press('Control+k')
+      await page2.waitForTimeout(1800)
+      const palette = await page2.evaluate(() => {
+        const d = document.querySelector('[role="dialog"]')
+        return d ? d.innerText.split(String.fromCharCode(10)).map((x) => x.trim()).filter(Boolean) : null
+      })
+      dire(Boolean(palette), 'la palette Ctrl+K s ouvre')
+      if (palette) {
+        console.log('   palette : ' + palette.slice(0, 10).join(' | '))
+        for (const interdit of ['Pistes', 'Cockpit', 'Opportunites']) {
+          dire(!palette.some((x) => x === interdit), 'la palette ne propose pas ' + interdit)
+        }
+      }
+      await page2.screenshot({ path: path.join(SORTIE, 'espace-partenaire-recos.png'), fullPage: false })
     } finally { await page2.close() }
   } finally {
     await nav.close()
