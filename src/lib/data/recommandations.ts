@@ -1669,7 +1669,7 @@ async function annoncerLeDealGagne(recommandationId: string): Promise<void> {
          devant deux chemins possibles ; il refuse la requête au lieu d'en choisir un.
          C'EST CE QUI A FAIT TAIRE LA PREMIÈRE FÉLICITATION, le 24/09/2026 à 10 h 10 : la lecture
          échouait, et le `return` silencieux juste en dessous n'en disait rien à personne. */
-      .select('id, nom, reference, montant, compte_id, compte:comptes!recommandations_compte_id_fkey(nom), proprietaire:profils!recommandations_proprietaire_id_fkey(prenom, nom)')
+      .select('id, nom, reference, marge_nette_coeff, compte_id, compte:comptes!recommandations_compte_id_fkey(nom), proprietaire:profils!recommandations_proprietaire_id_fkey(prenom, nom)')
       .eq('id', recommandationId)
       .maybeSingle()
     if (error || !data) {
@@ -1684,7 +1684,7 @@ async function annoncerLeDealGagne(recommandationId: string): Promise<void> {
       id: string
       nom: string | null
       reference: string | null
-      montant: number | null
+      marge_nette_coeff: number | null
       compte_id: string | null
       compte: { nom: string } | { nom: string }[] | null
       proprietaire: { prenom: string | null; nom: string | null } | { prenom: string | null; nom: string | null }[] | null
@@ -1696,7 +1696,7 @@ async function annoncerLeDealGagne(recommandationId: string): Promise<void> {
 
     const gabarit = buildDealGagneBlocks({
       proprietaire: [proprietaire?.prenom, proprietaire?.nom].filter(Boolean).join(' ') || null,
-      montant: r.montant,
+      montant: r.marge_nette_coeff,
       recommandationNom: r.nom || 'Affaire sans nom',
       recommandationUrl: `${window.location.origin}/recommandations/${r.id}`,
       reference: r.reference,

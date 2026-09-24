@@ -160,7 +160,23 @@ export function sampleContratCreatedData(): ContratCreatedSlackData {
 export interface DealGagneSlackData {
   /** Le propriétaire de la recommandation — « qui a signé ». */
   proprietaire: string | null
-  /** `recommandations.montant`, au centime. `null` quand il n'a jamais été renseigné. */
+  /**
+   * ══ C'EST `recommandations.marge_nette_coeff`, ET SÛREMENT PAS `montant` ══
+   *
+   * Corrigé par William le 24/09/2026, sur le premier deal réel : le message annonçait 80 000 €
+   * là où l'affaire vaut 87 681,75 €.
+   *
+   * LA RÈGLE, UNE FOIS POUR TOUTES — la fiche recommandation montre DEUX choses vertes appelées
+   * « Montant », et elles ne servent pas aux mêmes calculs :
+   *
+   *   `marge_nette_coeff` .. la CAPSULE verte au bas de la calculatrice. C'est LA référence : les
+   *                          commissions, les objectifs, le montant signé du tableau de bord et
+   *                          cette félicitation Slack.
+   *   `montant` ........... l'ENCADRÉ vert du héros, « Montant de l'affaire », saisi à la main.
+   *                          Il ne sert qu'au pipe de la vue d'ensemble.
+   *
+   * `null` quand la colonne n'a jamais été renseignée — le message le dit plutôt que d'écrire 0 €.
+   */
   montant: number | null
   recommandationNom: string
   recommandationUrl?: string | null
