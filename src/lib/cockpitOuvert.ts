@@ -30,8 +30,21 @@
  * elle appartient au code, pas aux données.
  */
 
-/** L'unique ligne à basculer le jour de l'ouverture. */
-const OUVERT_EN_PRODUCTION = false
+/**
+ * L'unique ligne à basculer le jour de l'ouverture.
+ *
+ * ══ OUVERT LE 24/09/2026 ══
+ *
+ * William : « Cockpit est marqué en construction, je veux désormais que ce soit utilisable. »
+ *
+ * Huit jours après la pose de cet interrupteur. Entre-temps le Cockpit a reçu ses trois héros, son
+ * fil d'activité, sa barre de commandes, sa boîte de dépôt de factures et ses bannières de rappel,
+ * et les mesures qui ont sorti 3 466 pistes de l'oubli. Il est essayé pour de bon : il s'ouvre.
+ *
+ * `import.meta.env.DEV` reste dans le calcul : il ne sert plus à rien une fois `true` posé ici,
+ * mais l'effacer ferait perdre le mécanisme si l'on voulait refermer un jour.
+ */
+const OUVERT_EN_PRODUCTION = true
 
 /** Le Cockpit répond-il, ici et maintenant ? */
 export const cockpitOuvert = OUVERT_EN_PRODUCTION || import.meta.env.DEV
