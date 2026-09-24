@@ -138,26 +138,30 @@ export function TuileArgent({
       className="animate-km-card-rise relative flex flex-col overflow-hidden rounded-[20px] px-[18px] py-4 text-white shadow-[0_14px_34px_-20px_rgba(13,122,95,.55)] sm:col-span-2 lg:row-span-2"
       style={{ background: 'linear-gradient(152deg,#199b78 0%,#0d7a5f 55%,#0a5F4A 100%)' }}
     >
-      {/* ══ LE TITRE ET LE CHOIX DE PÉRIODE SUR LA MÊME LIGNE ══
+      {/* ══ LE TITRE ET LES DEUX FILTRES SUR UNE SEULE LIGNE ══
           William, 15/09/2026 : les filtres « dans la partie supérieure droite » de la tuile. C'est
           l'endroit juste : le choix qualifie le chiffre qui suit, on le lit avant lui.
+          William, 24/09/2026 : « les filtres doivent être sur la même ligne que le texte Montant
+          signé ».
 
-          UN SEUL SEGMENT ACTIF, PAS DES CASES À COCHER : les quatre périodes s'emboîtent — le jour
-          est dans le mois, le mois dans le trimestre — donc les cumuler n'aurait aucun sens. */}
-      {/* `flex-wrap` PLUTÔT QU'UN TITRE TRONQUÉ : « Montant signé » et quatre segments dont
-          « Trimestre » tiennent sur une ligne au-delà d'environ 360 px, et se serrent en dessous.
-          Sans repli, c'est le titre qui serait rogné — « Monta… » au-dessus d'un montant, c'est
-          perdre ce que le montant désigne. Avec, le groupe passe sous le titre et tout reste
-          lisible. */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-        <span className="text-km-label font-bold uppercase tracking-[.1em] text-white/75">
+          ON RENONCE DONC AU REPLI, ET C'EST UN ARBITRAGE QUI A CHANGÉ DE SENS. Il tenait jusqu'ici
+          par un argument : sans repli, c'est le titre qui serait rogné, et « Monta… » au-dessus
+          d'un montant fait perdre ce que le montant désigne. Cet argument ne tient plus depuis que
+          la phrase sous le chiffre dit la période ET la portée — « toutes les affaires acceptées ce
+          mois-ci ». Le montant est désormais qualifié en dessous de lui ; le titre peut se serrer
+          sans que le chiffre devienne ambigu.
+
+          LES DEUX GROUPES NE SE COMPRIMENT JAMAIS (`shrink-0`) : un segment tronqué ne se clique
+          pas. C'est le titre qui cède en dernier recours, et lui seul.
+
+          DEUX GROUPES ET NON UNE RANGÉE DE CINQ BOUTONS : les filtres se croisent — une période ET
+          une portée. Les fondre ferait croire qu'ils s'excluent, et « Global » effacerait « Mois »
+          à l'œil. Le filet vertical dit qu'on change de question. */}
+      <div className="flex items-center gap-x-2">
+        <span className="min-w-0 truncate text-km-label font-bold uppercase tracking-[.1em] text-white/75">
           Montant signé
         </span>
 
-        {/* ══ DEUX GROUPES, PAS UN SEUL ══
-            Les filtres se croisent : une période ET une portée. Les fondre en une rangée de cinq
-            boutons ferait croire qu'ils s'excluent, et « Global » effacerait « Mois » à l'œil.
-            Le trait vertical entre les deux dit qu'on change de question. */}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <div
             role="group"
@@ -173,7 +177,7 @@ export function TuileArgent({
                   aria-pressed={actif}
                   onClick={() => onPeriode(p)}
                   className={cn(
-                    'rounded-full px-2 py-[3px] text-km-tiny font-bold transition-colors',
+                    'rounded-full px-[7px] py-[3px] text-km-tiny font-bold transition-colors',
                     actif ? 'bg-white text-[#0d7a5f] shadow-sm' : 'text-white/70 hover:bg-white/10 hover:text-white',
                   )}
                 >
@@ -199,7 +203,7 @@ export function TuileArgent({
                   aria-pressed={actif}
                   onClick={() => onPortee(p)}
                   className={cn(
-                    'rounded-full px-2 py-[3px] text-km-tiny font-bold transition-colors',
+                    'rounded-full px-[7px] py-[3px] text-km-tiny font-bold transition-colors',
                     actif ? 'bg-white text-[#0d7a5f] shadow-sm' : 'text-white/70 hover:bg-white/10 hover:text-white',
                   )}
                 >
