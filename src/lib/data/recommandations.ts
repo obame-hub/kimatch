@@ -1663,10 +1663,22 @@ async function annoncerLeDealGagne(recommandationId: string): Promise<void> {
   try {
     const { data, error } = await supabase
       .from('recommandations')
-      .select('id, nom, reference, montant, compte_id, comptes(nom), proprietaire:profils!recommandations_proprietaire_id_fkey(prenom, nom)')
+      /* ══ LES DEUX JOINTURES SONT NOMMÉES, ET C'EST OBLIGATOIRE ══
+         `recommandations` porte DEUX clés étrangères vers `comptes` : `compte_id` (le client) et
+         `fournisseur_compte_id` (le fournisseur retenu). Un `comptes(nom)` nu laisse PostgREST
+         devant deux chemins possibles ; il refuse la requête au lieu d'en choisir un.
+         C'EST CE QUI A FAIT TAIRE LA PREMIÈRE FÉLICITATION, le 24/09/2026 à 10 h 10 : la lecture
+         échouait, et le `return` silencieux juste en dessous n'en disait rien à personne. */
+      .select('id, nom, reference, montant, compte_id, compte:comptes!recommandations_compte_id_fkey(nom), proprietaire:profils!recommandations_proprietaire_id_fkey(prenom, nom)')
       .eq('id', recommandationId)
       .maybeSingle()
-    if (error || !data) return
+    if (error || !data) {
+      /* ON NE SE TAIT PLUS. Le premier essai de cette fonction a échoué sans laisser de trace, et
+         il a fallu relire le schéma pour comprendre. Une félicitation qui ne part pas n'est pas
+         grave ; ne pas pouvoir savoir pourquoi, si. */
+      console.warn('[slack] deal gagné : lecture impossible', error?.message ?? 'aucune ligne')
+      return
+    }
 
     const r = data as unknown as {
       id: string
@@ -1674,13 +1686,13 @@ async function annoncerLeDealGagne(recommandationId: string): Promise<void> {
       reference: string | null
       montant: number | null
       compte_id: string | null
-      comptes: { nom: string } | { nom: string }[] | null
+      compte: { nom: string } | { nom: string }[] | null
       proprietaire: { prenom: string | null; nom: string | null } | { prenom: string | null; nom: string | null }[] | null
     }
     // Les jointures de PostgREST arrivent en objet ou en tableau selon la cardinalité déduite.
     const premier = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
     const proprietaire = premier(r.proprietaire)
-    const compte = premier(r.comptes)
+    const compte = premier(r.compte)
 
     const gabarit = buildDealGagneBlocks({
       proprietaire: [proprietaire?.prenom, proprietaire?.nom].filter(Boolean).join(' ') || null,
@@ -1692,8 +1704,10 @@ async function annoncerLeDealGagne(recommandationId: string): Promise<void> {
       compteUrl: r.compte_id ? `${window.location.origin}/comptes/${r.compte_id}` : null,
     })
     await notifySlack({ module: 'deal', text: gabarit.text, blocks: gabarit.blocks })
-  } catch {
-    /* Voir l'en-tête : une clôture réussie ne se défait pas parce qu'un message n'est pas parti. */
+  } catch (e) {
+    /* Voir l'en-tête : une clôture réussie ne se défait pas parce qu'un message n'est pas parti.
+       Mais elle laisse une trace en console, sans quoi l'absence de message est indiagnosticable. */
+    console.warn('[slack] deal gagné : envoi impossible', e)
   }
 }
 
