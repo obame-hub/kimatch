@@ -727,6 +727,42 @@ export default function CompteDetail() {
                         <p><span className="text-km-faint">Contact commercial :</span> {compte.contact_commercial_nom || '—'}</p>
                         <p><span className="text-km-faint">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
                         <p><span className="text-km-faint">Limite Ellipro :</span> {compte.limite_ellipro ?? '—'}</p>
+                        {/* ══ LES CONDITIONS QUI DÉCIDENT SI ON PEUT LE CONSULTER — 24/09/2026 ══
+                         *
+                         * Naoëlle : « mets à jour la disponibilité des fournisseurs en fonction de
+                         * ce document », puis « c'est en fonction des fournisseurs disponibles dans
+                         * notre processus quand les commerciaux doivent choisir ».
+                         *
+                         * Ces cinq critères vivaient EN BASE SANS ÊTRE AFFICHÉS : `comptes_fournisseurs`
+                         * les portait déjà (segments, tariffs, targets, response_delay_days,
+                         * min_consumption), le formulaire de modification ne les touchait pas, et la
+                         * fiche n'en montrait aucun. On pouvait donc importer des conditions et ne
+                         * jamais s'apercevoir qu'elles étaient fausses.
+                         *
+                         * ON N'AFFICHE QUE CE QUI EST RENSEIGNÉ : une ligne « — » sur un fournisseur
+                         * qu'on n'a pas encore décrit n'apprend rien et allonge le bloc pour rien. */}
+                        {(compte.segments?.length ?? 0) > 0 && (
+                          <p><span className="text-km-faint">Profils électricité :</span> {compte.segments?.join(', ')}</p>
+                        )}
+                        {(compte.tariffs?.length ?? 0) > 0 && (
+                          <p><span className="text-km-faint">Profils gaz :</span> {compte.tariffs?.join(', ')}</p>
+                        )}
+                        {(compte.targets?.length ?? 0) > 0 && (
+                          <p><span className="text-km-faint">Type de client :</span> {compte.targets?.join(', ')}</p>
+                        )}
+                        {compte.response_delay_days != null && (
+                          <p>
+                            <span className="text-km-faint">Délai de réponse :</span>{' '}
+                            {/* ZÉRO JOUR SE DIT « INSTANTANÉ », comme dans le document : « 0 jour »
+                                se lit comme une valeur manquante. */}
+                            {compte.response_delay_days === 0
+                              ? 'Instantané'
+                              : `${compte.response_delay_days} jour${compte.response_delay_days > 1 ? 's' : ''}`}
+                          </p>
+                        )}
+                        {compte.min_consumption != null && (
+                          <p><span className="text-km-faint">Minimum annuel :</span> {compte.min_consumption} MWh</p>
+                        )}
                         {/* ══ LA PART DE LA MARGE QUI REVIENT À KIWEE ══
                             William, 03/09/2026 : « non pas toujours par 2, et certains fournisseurs
                             on prend moins que ça ». Le taux était une constante dans le code depuis
