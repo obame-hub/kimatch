@@ -154,22 +154,30 @@ export function CarteEllipro({ donnees, nom }: { donnees: EllisphereScore; nom: 
 
         {donnees.historique.length > 1 && (
           <Tuile titre="Notes passées">
-            {/* Les barres se lisent d'un coup : une note qui descend se voit avant d'être lue. */}
-            <div className="flex h-[34px] items-end gap-[4px]">
-              {donnees.historique.slice(0, 5).reverse().map((h, i) => {
-                const v = scoreEnNombre(h.valeur) ?? 0
-                const p = palierScoreEllipro(v)
-                return (
-                  <div key={`${h.valeur}-${i}`} className="flex min-w-0 flex-1 flex-col items-center gap-[2px]">
-                    <span
-                      className={cn('w-full rounded-[2px]', p.bande === 'vert' ? 'bg-km-green' : p.bande === 'jaune' ? 'bg-km-amber' : 'bg-km-red')}
-                      style={{ height: `${Math.max(4, (v / max) * 26)}px` }}
-                    />
-                    {/* L'année seule se répétait — « 24 24 25 25 » : c'est le mois qui distingue. */}
-                    <span className="font-mono text-[8px] text-km-faint">{h.date?.slice(2, 7) ?? ''}</span>
-                  </div>
-                )
-              })}
+            {/* LE GRAPHIQUE SE CENTRE DANS SA TUILE. Sa hauteur est décidée par la tuile voisine,
+                l'analyse, qui fait trois lignes : sans centrage, cinq barres restaient collées en
+                haut avec du vide dessous. */}
+            <div className="flex min-h-0 flex-1 items-center">
+              <div className="flex w-full items-end gap-[5px]">
+                {donnees.historique.slice(0, 5).reverse().map((h, i) => {
+                  const v = scoreEnNombre(h.valeur) ?? 0
+                  const p = palierScoreEllipro(v)
+                  return (
+                    <div key={`${h.valeur}-${i}`} className="flex min-w-0 flex-1 flex-col items-center gap-[2px]">
+                      {/* LA NOTE SE LIT, la barre se compare : la première dit combien, la seconde
+                          dit le sens. Cinq barres de même hauteur ne racontaient rien. */}
+                      <span className={cn('font-mono text-[10.5px] font-extrabold leading-none', p.texteToken)}>
+                        {h.valeur}
+                      </span>
+                      <span
+                        className={cn('w-full rounded-[2px]', p.bande === 'vert' ? 'bg-km-green' : p.bande === 'jaune' ? 'bg-km-amber' : 'bg-km-red')}
+                        style={{ height: `${Math.max(4, (v / max) * 24)}px` }}
+                      />
+                      <span className="font-mono text-[8px] text-km-faint">{h.date?.slice(2, 7) ?? ''}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </Tuile>
         )}
@@ -204,8 +212,11 @@ export function CarteEllipro({ donnees, nom }: { donnees: EllisphereScore; nom: 
 
           {donnees.evenements.length > 0 && (
             <Tuile titre="Événements légaux · les plus graves d’abord" className="min-h-0 flex-1">
-              <div className="flex min-h-0 flex-1 flex-col gap-[4px] overflow-hidden">
-                {donnees.evenements.slice(0, 4).map((e, i) => {
+              {/* IL DÉFILE PLUTÔT QUE DE SE COUPER. Une société qui accumule les inscriptions est
+                  précisément celle dont on veut tout voir : en tronquer la liste effacerait les
+                  dernières, et l'ordre met les plus graves en tête mais pas les plus récentes. */}
+              <div className="flex min-h-0 flex-1 flex-col gap-[4px] overflow-y-auto pr-[3px]">
+                {donnees.evenements.map((e, i) => {
                   const sev = SEVERITES[e.severite ?? 'GREEN'] ?? SEVERITES.GREEN
                   return (
                     <div key={`${e.libelle}-${i}`} className="flex items-center gap-[8px]">

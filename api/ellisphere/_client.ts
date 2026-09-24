@@ -458,7 +458,10 @@ async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
     scoreSecteur, classeRisqueSecteur,
     encoursConseille, encoursPlafond,
     historique, statut, statutType, dateCreation, capital, etablissements, effectif,
-    dirigeants, evenements: evenements.slice(0, 6),
+    /* VINGT ET NON SIX. Le rapport en porte jusqu'à 95 : six suffisaient tant que l'écran les
+       coupait, plus depuis qu'il les fait défiler. Vingt couvre l'histoire utile d'un dossier sans
+       alourdir la réponse — et les plus graves sont en tête, donc rien d'important ne tombe. */
+    dirigeants, evenements: evenements.slice(0, 20),
   }
 }
 
