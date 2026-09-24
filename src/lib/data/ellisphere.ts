@@ -10,6 +10,10 @@ export interface EllisphereScore {
   creditOpinion: string | null
   /** Points faibles / commentaire du score. Même réserve que creditOpinion. */
   paymentIncidents: string | null
+  /** L'encours conseillé, et les notes précédentes — tirés du même rapport, déjà payé. Absents
+   *  quand le rapport ne les porte pas : l'écran n'affiche alors rien à leur sujet. */
+  encoursConseille?: string | null
+  historique?: { valeur: string; date: string | null }[]
 }
 
 async function fetchJson<T>(url: string): Promise<T> {

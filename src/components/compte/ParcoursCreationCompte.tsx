@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowRight, Building2, Check, Factory, Handshake, Home, Loader2, Search, Users, Zap,
+  ArrowRight, Building2, Check, Factory, Handshake, Home, Loader2, Search, ShieldCheck, Users, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ContactForm } from '@/components/contact/ContactForm'
@@ -293,7 +293,9 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
   }
 
   /* Le palier du score affiché — rouge, jaune ou vert. Neutre tant qu'aucun score n'est rendu. */
-  const palier = palierScoreEllipro(scoreEnNombre(lireScore.data?.score) ?? 0)
+  const noteLue = scoreEnNombre(lireScore.data?.score)
+  const palier = palierScoreEllipro(noteLue ?? 0)
+  const historique = lireScore.data?.historique ?? []
 
   function fermer() {
     onFermer()
@@ -514,72 +516,167 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
           </>
         )}
 
-        {/* ════════ ÉTAPE 3 · LE SCORE, PUIS LA CRÉATION ════════ */}
+        {/* ════════ ÉTAPE 3 · LE SCORE, SUR TOUTE LA FENÊTRE ════════
+
+            William, 24/09/2026 : « j'aimerais que l'affichage du score Ellipro prenne toute la
+            popup. Je te laisse me proposer une organisation avec des éléments venus d'Ellipro qui
+            pourraient avoir une valeur ajoutée dans la lecture. »
+
+            CE QUI EST MONTRÉ VIENT DU MÊME RAPPORT, DÉJÀ PAYÉ. Le produit 50001 est commandé en
+            entier depuis toujours ; on n'en gardait que la note et deux phrases. S'y ajoutent
+            l'encours conseillé et l'historique des notes, sans un appel de plus.
+
+            LA LECTURE SE FAIT EN TROIS TEMPS, de gauche à droite : le chiffre et sa position sur
+            l'échelle ; ce qu'Ellisphere en dit ; qui est cette entreprise. C'est l'ordre dans
+            lequel on décide — combien, pourquoi, et de qui parle-t-on.
+
+            CE QUI MANQUE NE LAISSE PAS DE TROU : encours ou historique absents, leur bloc ne
+            s'affiche pas. Un rapport pauvre donne un écran plus court, jamais un écran cassé. */}
         {etape === 'score' && type && (
           <>
             <EnTeteEtape numero={3} total={4} titre="Ce qu’Ellisphere dit de cette entreprise" />
 
             {type.sansSiren ? (
               <p className="rounded-[12px] border border-km-line bg-km-bg/40 px-[15px] py-[13px] text-[12.5px] leading-snug text-km-muted">
-                Un syndic non professionnel n’a pas de SIREN : Ellisphere n’a rien à en dire, et c’est
-                sans conséquence. Le compte se crée sans score.
+                Un syndic non professionnel n’a pas de SIREN : Ellisphere n’a rien à en dire, et
+                c’est sans conséquence. Le compte se crée sans score.
               </p>
             ) : lireScore.isPending ? (
-              <div className="flex flex-col items-center gap-3 rounded-[14px] border border-km-line bg-km-bg/40 py-[34px]">
-                <Loader2 className="h-6 w-6 animate-spin text-km-green" />
+              <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                <Loader2 className="h-7 w-7 animate-spin text-km-green" />
                 <p className="text-[13px] font-semibold text-km-text">Interrogation d’Ellisphere…</p>
               </div>
-            ) : lireScore.data?.score ? (
-              <div className="flex flex-col gap-[13px]">
-                {/* LA COULEUR DIT LA BANDE, pas la nuance : rouge en dessous de 3, jaune jusqu'à 6,
-                    vert à partir de 7. C'est `palierScoreEllipro` qui tranche, et il tranche aussi
-                    pour la carte de la fiche compte. */}
+            ) : (
+              <div className="grid min-h-0 flex-1 grid-cols-[236px_1fr] gap-[16px]">
+
+                {/* ── COLONNE 1 · LE CHIFFRE ET SA PLACE SUR L'ÉCHELLE ── */}
                 <div className={cn(
-                  'flex items-center gap-[20px] rounded-[16px] border px-[22px] py-[20px]',
-                  palier.bordureToken, palier.fondToken,
+                  'flex flex-col gap-[16px] rounded-[16px] border p-[18px]',
+                  noteLue == null ? 'border-km-line bg-km-bg/40' : cn(palier.bordureToken, palier.fondToken),
                 )}>
-                  <div className="flex flex-col">
-                    <span className="text-[10.5px] font-bold uppercase tracking-[0.09em] text-km-faint">Score Ellipro</span>
-                    <span className={cn(
-                      'font-mono text-[46px] font-extrabold leading-none tracking-[-0.04em]',
-                      palier.texteToken,
-                    )}>
-                      {lireScore.data.score}
-                    </span>
-                    <span className={cn('mt-1 text-[11.5px] font-semibold', palier.texteToken)}>
-                      {palier.libelle}
-                      {lireScore.data.scale && <span className="font-normal text-km-muted"> · sur {lireScore.data.scale}</span>}
-                    </span>
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-[6px]">
-                    {lireScore.data.creditOpinion && (
-                      <span className="text-[13px] font-semibold text-km-text">{lireScore.data.creditOpinion}</span>
-                    )}
-                    {lireScore.data.paymentIncidents && (
-                      <span className="text-[11.5px] leading-snug text-km-muted">{lireScore.data.paymentIncidents}</span>
-                    )}
+                  <span className="text-[10.5px] font-bold uppercase tracking-[0.09em] text-km-faint">
+                    Score Ellipro
+                  </span>
+
+                  {noteLue == null ? (
+                    <p className="text-[12.5px] leading-snug text-km-muted">
+                      Ellisphere n’a pas rendu de note pour ce SIREN. Le compte se crée quand même ;
+                      la note se redemandera depuis sa fiche.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <span className={cn('font-mono text-[62px] font-extrabold leading-none tracking-[-0.05em]', palier.texteToken)}>
+                          {lireScore.data?.score}
+                        </span>
+                        <span className="font-mono text-[18px] font-bold text-km-faint">
+                          /{(lireScore.data?.scale ?? '0-10').split('-').pop()?.trim()}
+                        </span>
+                      </div>
+                      <span className={cn('text-[13px] font-bold uppercase tracking-[0.06em]', palier.texteToken)}>
+                        {palier.libelle}
+                      </span>
+
+                      {/* LA RÈGLE DES TROIS BANDES, DESSINÉE. Un chiffre seul ne dit pas s'il est
+                          proche d'une frontière ; la barre le montre d'un coup d'œil. */}
+                      <div className="flex flex-col gap-[6px]">
+                        <div className="relative h-[8px] w-full overflow-hidden rounded-full">
+                          <div className="absolute inset-0 flex">
+                            <span className="h-full w-[30%] bg-km-red/30" />
+                            <span className="h-full w-[40%] bg-km-amber/30" />
+                            <span className="h-full w-[30%] bg-km-green/30" />
+                          </div>
+                          <span
+                            className={cn('absolute top-0 h-full w-[3px] rounded-full', palier.bande === 'vert' ? 'bg-km-green' : palier.bande === 'jaune' ? 'bg-km-amber' : 'bg-km-red')}
+                            style={{ left: `calc(${Math.max(0, Math.min(100, (noteLue / 10) * 100))}% - 1.5px)` }}
+                          />
+                        </div>
+                        <div className="flex justify-between font-mono text-[9.5px] text-km-faint">
+                          <span>0</span><span>3</span><span>7</span><span>10</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* L'HISTORIQUE : une note qui monte ne se lit pas comme une note qui descend. */}
+                  {historique.length > 1 && (
+                    <div className="mt-auto flex flex-col gap-[6px] border-t border-km-line-soft pt-[12px]">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">Notes précédentes</span>
+                      <div className="flex flex-wrap items-center gap-[6px]">
+                        {historique.slice(1).map((h, i) => (
+                          <span key={`${h.valeur}-${i}`} className="inline-flex items-baseline gap-1 rounded-[7px] bg-white px-[7px] py-[3px]">
+                            <span className="font-mono text-[12px] font-bold text-km-muted">{h.valeur}</span>
+                            {h.date && <span className="text-[9.5px] text-km-faint">{h.date.slice(0, 7)}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── COLONNE 2 · CE QU'ELLISPHERE EN DIT, PUIS QUI C'EST ── */}
+                <div className="flex min-h-0 flex-col gap-[12px] overflow-y-auto pr-1">
+
+                  {lireScore.data?.creditOpinion && (
+                    <div className="flex flex-col gap-[6px] rounded-[14px] border border-km-line bg-white p-[15px]">
+                      <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Avis de crédit</span>
+                      <span className="text-[14px] font-semibold leading-snug text-km-text">{lireScore.data.creditOpinion}</span>
+                    </div>
+                  )}
+
+                  {lireScore.data?.paymentIncidents && (
+                    <div className="flex flex-col gap-[6px] rounded-[14px] border border-km-line bg-km-bg/40 p-[15px]">
+                      <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Points faibles relevés</span>
+                      <span className="text-[12.5px] leading-relaxed text-km-muted">{lireScore.data.paymentIncidents}</span>
+                    </div>
+                  )}
+
+                  {/* L'ENCOURS CONSEILLÉ EST LE CHIFFRE LE PLUS ACTIONNABLE DU RAPPORT : c'est ce
+                      qu'Ellisphere estime raisonnable de laisser courir. Il n'apparaît que si le
+                      rapport le porte. */}
+                  {lireScore.data?.encoursConseille && (
+                    <div className="flex items-center gap-[14px] rounded-[14px] border border-km-blue-soft bg-km-blue-soft/50 p-[15px]">
+                      <ShieldCheck className="h-[20px] w-[20px] shrink-0 text-km-blue" />
+                      <div className="flex min-w-0 flex-col">
+                        <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Encours conseillé</span>
+                        <span className="font-mono text-[20px] font-bold text-km-blue">
+                          {Number(lireScore.data.encoursConseille).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* QUI EST CETTE ENTREPRISE — tout vient de l'étape 2, sans un appel de plus. */}
+                  <div className="flex flex-col gap-[10px] rounded-[14px] border border-km-line bg-white p-[15px]">
+                    <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">L’entreprise</span>
+                    <span className="text-[15px] font-semibold leading-tight text-km-text">{nom}</span>
+                    <div className="grid grid-cols-2 gap-x-[14px] gap-y-[8px]">
+                      {[
+                        ['Typologie', type.libelle],
+                        ['Type de compte', type.consommateur ? 'Consommateur' : type.libelle],
+                        ['SIREN', siren || '—'],
+                        ['SIRET', siret || '—'],
+                        ['Code NAF', codeNaf || '—'],
+                        ['Activité', libelleApe || '—'],
+                      ].map(([cle, valeur]) => (
+                        <div key={cle} className="flex min-w-0 flex-col gap-[1px]">
+                          <span className="text-[9.5px] font-bold uppercase tracking-[0.07em] text-km-faint">{cle}</span>
+                          <span className={cn('truncate text-[12.5px] text-km-text', (cle === 'SIREN' || cle === 'SIRET' || cle === 'Code NAF') && 'font-mono')}>
+                            {valeur}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="col-span-2 flex min-w-0 flex-col gap-[1px]">
+                        <span className="text-[9.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Adresse</span>
+                        <span className="truncate text-[12.5px] text-km-text">
+                          {[rue, codePostal, ville].filter(Boolean).join(', ') || '—'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <p className="text-[11.5px] text-km-faint">
-                  Le score est enregistré avec le compte. Il se rafraîchit ensuite depuis sa fiche.
-                </p>
               </div>
-            ) : (
-              <p className="rounded-[12px] border border-km-line bg-km-bg/40 px-[15px] py-[13px] text-[12.5px] leading-snug text-km-muted">
-                Ellisphere n’a pas rendu de score pour ce SIREN. Le compte se crée quand même — le
-                score se demandera plus tard depuis sa fiche.
-              </p>
             )}
-
-            <div className="mt-[16px] flex flex-col gap-[7px] rounded-[12px] border border-km-line bg-km-bg/40 p-[14px]">
-              <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">À créer</span>
-              <span className="text-[14px] font-semibold text-km-text">{nom}</span>
-              <span className="text-[12px] text-km-muted">
-                {type.libelle}
-                {siren && <> · SIREN <span className="font-mono">{siren}</span></>}
-                {ville && ` · ${ville}`}
-              </span>
-            </div>
 
             {erreur && (
               <p className="mt-[12px] rounded-[10px] border border-km-red-line bg-km-red-soft px-[13px] py-[9px] text-[12.5px] text-red-700">
@@ -587,7 +684,10 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
               </p>
             )}
 
-            <div className="mt-auto flex items-center gap-3 border-t border-km-line-soft pt-4">
+            <div className="mt-[14px] flex items-center gap-3 border-t border-km-line-soft pt-4">
+              <span className="text-[11.5px] text-km-faint">
+                Le score est enregistré avec le compte, et se rafraîchit ensuite depuis sa fiche.
+              </span>
               <span className="flex-1" />
               <Button variant="ghost" onClick={() => setEtape('entreprise')}>Précédent</Button>
               <Button disabled={creerCompte.isPending} onClick={() => void creer()}>

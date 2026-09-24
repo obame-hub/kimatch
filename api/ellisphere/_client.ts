@@ -211,6 +211,19 @@ export interface EllisphereScore {
   creditOpinion: string | null
   /** Commentaire détaillé du score = les « points faibles » affichés par Tools. */
   paymentIncidents: string | null
+  /* ══ DEUX LECTURES DE PLUS, TIRÉES DU MÊME RAPPORT DÉJÀ PAYÉ ══
+     Le produit 50001 est commandé en entier ; on n'en gardait que la note et deux phrases. Ces deux
+     champs viennent du même appel, sans un centime de plus.
+     ILS SONT EXTRAITS AU MIEUX, ET RENDUS `null` QUAND ILS MANQUENT : les noms de balises sont
+     déduits de ceux que l'on sait présents (`value type="score"`, `value type="riskclass"`), pas
+     d'une documentation sous les yeux. L'écran n'affiche que ce qui existe — un rapport qui ne les
+     porte pas ne casse rien et ne montre rien. */
+  /** L'encours conseillé par Ellisphere, en euros. */
+  encoursConseille: string | null
+  /** Les notes précédentes, du plus récent au plus ancien : le code notait déjà que les blocs
+   *  `<score>` suivants sont l'historique. Une note qui monte ne se lit pas comme une note qui
+   *  descend, à valeur égale. */
+  historique: { valeur: string; date: string | null }[]
 }
 
 /** Commande le rapport de risque complet d'un établissement (produit 50001) et en extrait la
@@ -220,7 +233,16 @@ export interface EllisphereScore {
  *
  * Renvoie `null` si l'appel échoue, pour que l'appelant puisse retomber sur la note seule plutôt
  * que de perdre l'information complètement. */
-async function getRiskReport(srcId: string): Promise<{ score: string | null; scale: string | null; creditOpinion: string | null; paymentIncidents: string | null } | null> {
+type RapportRisque = {
+  score: string | null
+  scale: string | null
+  creditOpinion: string | null
+  paymentIncidents: string | null
+  encoursConseille: string | null
+  historique: { valeur: string; date: string | null }[]
+}
+
+async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
   const body = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <svcOnlineOrderRequest lang="FR" version="2.2">
   ${adminBlock('WSRISK')}
@@ -263,7 +285,27 @@ async function getRiskReport(srcId: string): Promise<{ score: string | null; sca
   const scoreComment = bloc.match(/<comment\b[^>]*\btype="score"[^>]*>\s*([^<]+?)\s*<\/comment>/i)?.[1]?.trim() ?? null
   const paymentIncidents = scoreComment ? decodeXml(scoreComment) : null
 
-  return { score, scale, creditOpinion, paymentIncidents }
+  /* L'encours conseillé se cherche dans TOUT le rapport et non dans le seul bloc de score : rien ne
+     dit qu'il y vive. Absent, il vaut `null` et l'écran n'en parle pas. */
+  const encoursConseille =
+    text.match(/<value\b[^>]*\btype="creditlimit"[^>]*>\s*([\d.,\s]+?)\s*<\/value>/i)?.[1]?.replace(/\s/g, '').replace(',', '.')
+    ?? null
+
+  /* Les blocs `<score>` suivants sont l'historique — le commentaire ci-dessus le disait déjà sans
+     que personne n'en tire parti. On garde les cinq plus récents, valeur et date quand elle existe. */
+  const historique: { valeur: string; date: string | null }[] = []
+  for (const m of text.matchAll(/<score\b([^>]*)>([\s\S]*?)<\/score>/gi)) {
+    const corps = m[2]
+    const valeur = corps.match(/<value\b[^>]*\btype="score"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i)?.[1]
+    if (!valeur) continue
+    const date = m[1].match(/\bdate="([^"]+)"/i)?.[1]
+      ?? corps.match(/<date\b[^>]*>\s*([^<]+?)\s*<\/date>/i)?.[1]
+      ?? null
+    historique.push({ valeur: valeur.replace(',', '.'), date })
+    if (historique.length >= 5) break
+  }
+
+  return { score, scale, creditOpinion, paymentIncidents, encoursConseille, historique }
 }
 
 export async function getScoreBySiren(siren: string): Promise<EllisphereScore> {
@@ -308,7 +350,7 @@ async function getScoreFromMonitoring(siren: string): Promise<EllisphereScore> {
 
   // La liste de surveillance ne porte ni avis crédit ni points faibles : ces deux champs
   // n'existent que dans le rapport de risque (voir getRiskReport).
-  if (!scoreNode) return { siren, score: null, scale: null, creditOpinion: null, paymentIncidents: null }
+  if (!scoreNode) return { siren, score: null, scale: null, creditOpinion: null, paymentIncidents: null, encoursConseille: null, historique: [] }
 
   if (typeof scoreNode === 'object') {
     return {
@@ -317,7 +359,9 @@ async function getScoreFromMonitoring(siren: string): Promise<EllisphereScore> {
       scale: (scoreNode['@_scale'] as string) ?? null,
       creditOpinion: null,
       paymentIncidents: null,
+      encoursConseille: null,
+      historique: [],
     }
   }
-  return { siren, score: String(scoreNode), scale: null, creditOpinion: null, paymentIncidents: null }
+  return { siren, score: String(scoreNode), scale: null, creditOpinion: null, paymentIncidents: null, encoursConseille: null, historique: [] }
 }
