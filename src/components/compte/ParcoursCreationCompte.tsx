@@ -1,0 +1,604 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowRight, Building2, Check, Factory, Handshake, Home, Loader2, Search, Users, Zap,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ContactForm } from '@/components/contact/ContactForm'
+import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
+import {
+  EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours,
+  type EtapeParcours, type ResumeEtape,
+} from '@/components/parcours/Parcours'
+import { useCreateCompte } from '@/lib/data/comptes'
+import { useSites } from '@/lib/data/sites'
+import { useReferenceTable } from '@/lib/data/referenceTables'
+import { useEllisphereScore, useRechercheEllisphere, type EllisphereCompany } from '@/lib/data/ellisphere'
+import { cn } from '@/lib/utils'
+import type { Compte, TypeCompte } from '@/types/domain'
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * CRÉER UN COMPTE — LE PARCOURS
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 24/09/2026 : « réutilise la même logique pour l'ensemble des enchaînements d'écran
+ * amenant à une création d'enregistrement. On va commencer par optimiser le process de création de
+ * compte. »
+ *
+ *   Étape 1 · le type, en cartes
+ *   Étape 2 · la recherche Ellisphere, qui pré-remplit tout
+ *   Étape 3 · le score, puis la création
+ *   Étape 4 · contacts ou compteurs, au choix
+ *
+ * ══ DEUX CHAMPS POUR UNE SEULE QUESTION, ET C'EST LE MODÈLE QUI LE VEUT ══
+ *
+ * William : « un compte est soit Syndic professionnel, soit Syndic non professionnel, soit
+ * Entreprise (champ Typologie). Dans ce cas le Type de compte est forcément Consommateur. Mais un
+ * compte peut également être Fournisseur ou Partenaire (Type de compte directement). »
+ *
+ * En base, ce sont bien deux colonnes : `segment` porte la typologie, `type_compte` la famille. Les
+ * anciens écrans demandaient les deux, l'une après l'autre, et laissaient créer un « Fournisseur
+ * consommateur ». Ici une seule carte fixe les deux d'un coup, et l'écran DIT la correspondance
+ * plutôt que de la cacher — c'est la même information, apprise en la choisissant.
+ */
+
+type Teinte = 'vert' | 'bleu' | 'ambre'
+
+interface TypeDeCompte {
+  cle: string
+  libelle: string
+  quoi: string
+  segment: string
+  typeCompte: TypeCompte
+  /** Vrai pour les trois typologies qui sont des consommateurs. */
+  consommateur: boolean
+  /** Un syndic bénévole n'a pas de SIREN : ni recherche Ellisphere, ni score. */
+  sansSiren?: boolean
+  icone: typeof Building2
+  teinte: Teinte
+}
+
+const TYPES: TypeDeCompte[] = [
+  {
+    cle: 'SYNDIC_PRO', libelle: 'Syndic professionnel', segment: 'Syndic professionnel',
+    typeCompte: 'client', consommateur: true, icone: Building2, teinte: 'vert',
+    quoi: 'Un cabinet qui administre des copropriétés pour le compte de leurs propriétaires.',
+  },
+  {
+    cle: 'SYNDIC_BENEVOLE', libelle: 'Syndic non professionnel', segment: 'Syndic non professionnel',
+    typeCompte: 'client', consommateur: true, sansSiren: true, icone: Home, teinte: 'vert',
+    quoi: 'Une copropriété administrée par l’un de ses copropriétaires. Elle n’a pas de SIREN.',
+  },
+  {
+    cle: 'ENTREPRISE', libelle: 'Entreprise', segment: 'Entreprise',
+    typeCompte: 'client', consommateur: true, icone: Factory, teinte: 'vert',
+    quoi: 'Une société qui consomme de l’énergie pour son propre compte.',
+  },
+  {
+    cle: 'FOURNISSEUR', libelle: 'Fournisseur', segment: 'Fournisseur',
+    typeCompte: 'fournisseur', consommateur: false, icone: Zap, teinte: 'bleu',
+    quoi: 'Un fournisseur d’énergie à qui l’on demande des offres.',
+  },
+  {
+    cle: 'PARTENAIRE', libelle: 'Partenaire', segment: 'Partenaire',
+    typeCompte: 'partenaire', consommateur: false, icone: Handshake, teinte: 'ambre',
+    quoi: 'Un apporteur d’affaires ou un intermédiaire qui amène des dossiers.',
+  },
+]
+
+const ETAPES: EtapeParcours[] = [
+  { cle: 'type', libelle: 'Type de compte' },
+  { cle: 'entreprise', libelle: 'L’entreprise' },
+  { cle: 'score', libelle: 'Score et création' },
+  { cle: 'suite', libelle: 'Contacts & compteurs' },
+]
+
+/**
+ * LA CARTE D'UN TYPE.
+ *
+ * « Des cards animées et colorées, avec un petit texte expliquant ce qu'est chaque type de compte
+ * à créer. » L'animation se garde au survol et à la sélection — elle dit que c'est cliquable et ce
+ * qui est retenu, jamais plus. Une carte qui bouge sans raison devient un tic.
+ */
+function CarteType({ type, choisi, onChoisir }: {
+  type: TypeDeCompte
+  choisi: boolean
+  onChoisir: () => void
+}) {
+  const Icone = type.icone
+  const couleurs: Record<Teinte, { bord: string; fond: string; puce: string; texte: string }> = {
+    vert: { bord: 'border-km-green', fond: 'bg-km-green-tint', puce: 'bg-km-green', texte: 'text-km-green' },
+    bleu: { bord: 'border-km-blue', fond: 'bg-km-blue-soft', puce: 'bg-km-blue', texte: 'text-km-blue' },
+    ambre: { bord: 'border-km-amber', fond: 'bg-km-amber-soft', puce: 'bg-km-amber', texte: 'text-km-amber' },
+  }
+  const c = couleurs[type.teinte]
+
+  return (
+    <button
+      type="button"
+      onClick={onChoisir}
+      className={cn(
+        'group flex flex-col gap-[10px] rounded-[14px] border p-[15px] text-left transition-all duration-200',
+        'hover:-translate-y-[2px] hover:shadow-[0_8px_20px_-10px_rgba(6,10,8,.35)]',
+        choisi
+          ? cn('border-[1.5px]', c.bord, c.fond, 'shadow-[0_8px_20px_-12px_rgba(6,10,8,.4)]')
+          : 'border-km-line bg-white',
+      )}
+    >
+      <div className="flex items-center gap-[10px]">
+        <span className={cn(
+          'flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] transition-colors',
+          choisi ? c.puce : 'bg-km-soft',
+        )}>
+          <Icone className={cn('h-[17px] w-[17px]', choisi ? 'text-white' : 'text-km-muted')} />
+        </span>
+        <span className={cn('flex-1 text-[13.5px] font-semibold', choisi ? 'text-km-text' : 'text-km-muted')}>
+          {type.libelle}
+        </span>
+        {choisi && (
+          <span className={cn('flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full', c.puce)}>
+            <Check className="h-[10px] w-[10px] stroke-[3.6] text-white" />
+          </span>
+        )}
+      </div>
+      <span className="text-[11.5px] leading-snug text-km-faint">{type.quoi}</span>
+    </button>
+  )
+}
+
+const SAISIE = 'w-full rounded-[10px] border border-km-line bg-white px-[12px] py-[9px] text-[13.5px] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)]'
+const SAISIE_MONO = 'w-full rounded-[10px] border border-km-line bg-white px-[12px] py-[9px] font-mono text-[13px] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)]'
+
+function Champ({ intitule, children, className }: { intitule: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('flex min-w-0 flex-col gap-[6px]', className)}>
+      <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">{intitule}</span>
+      {children}
+    </div>
+  )
+}
+
+export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
+  const navigate = useNavigate()
+  const creerCompte = useCreateCompte()
+  const lireScore = useEllisphereScore()
+  const { data: sites } = useSites()
+  const { data: typesComptes } = useReferenceTable('types_comptes')
+
+  const [etape, setEtape] = useState<string>('type')
+  const [type, setType] = useState<TypeDeCompte | null>(null)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  /* Étape 2 — la recherche et ce qu'elle a rempli. */
+  const [recherche, setRecherche] = useState('')
+  const [terme, setTerme] = useState('')
+  const { data: resultats, isFetching: chercheEnCours, error: erreurRecherche } = useRechercheEllisphere(terme)
+  const [nom, setNom] = useState('')
+  const [siren, setSiren] = useState('')
+  const [siret, setSiret] = useState('')
+  const [codeNaf, setCodeNaf] = useState('')
+  const [libelleApe, setLibelleApe] = useState('')
+  const [rue, setRue] = useState('')
+  const [codePostal, setCodePostal] = useState('')
+  const [ville, setVille] = useState('')
+
+  /* Étape 3 — le score, puis le compte créé. */
+  const [compte, setCompte] = useState<Compte | null>(null)
+  const [suite, setSuite] = useState<'choix' | 'contact' | 'compteur'>('choix')
+  const [contactsCrees, setContactsCrees] = useState<string[]>([])
+  const [compteursCrees, setCompteursCrees] = useState<string[]>([])
+
+  // La frappe se calme avant de partir : chaque appel Ellisphere est facturé.
+  useEffect(() => {
+    const t = setTimeout(() => setTerme(recherche), 400)
+    return () => clearTimeout(t)
+  }, [recherche])
+
+  // Le score se demande en arrivant à l'étape 3, une seule fois.
+  useEffect(() => {
+    if (etape !== 'score' || !siren || lireScore.data || lireScore.isPending) return
+    lireScore.mutate(siren.replace(/\D/g, ''))
+  }, [etape, siren, lireScore])
+
+  const resumes: Record<string, ResumeEtape | undefined> = {
+    type: { lignes: type ? [type.libelle, type.consommateur ? 'Consommateur' : type.libelle] : [] },
+    entreprise: { lignes: [nom, siren].filter(Boolean) },
+    score: { lignes: compte ? ['Compte créé'] : lireScore.data?.score ? [`Score ${lireScore.data.score}`] : [] },
+    suite: {
+      lignes: [
+        contactsCrees.length ? `${contactsCrees.length} contact${contactsCrees.length > 1 ? 's' : ''}` : '',
+        compteursCrees.length ? `${compteursCrees.length} compteur${compteursCrees.length > 1 ? 's' : ''}` : '',
+      ].filter(Boolean),
+    },
+  }
+
+  function choisirEntreprise(c: EllisphereCompany) {
+    setNom(c.raisonSociale || c.nomCommercial || '')
+    setSiren(c.siren ?? '')
+    setSiret(c.siret ?? '')
+    setCodeNaf(c.codeNAF ?? '')
+    setLibelleApe(c.libelleAPE ?? '')
+    setRue(c.rue ?? '')
+    setCodePostal(c.codePostal ?? '')
+    setVille(c.ville ?? '')
+  }
+
+  async function creer() {
+    if (!type) return
+    setErreur(null)
+    try {
+      const typeCompteId = (typesComptes ?? []).find(
+        (t) => t.code === type.typeCompte.toUpperCase(),
+      )?.id ?? null
+      const { compte: cree } = await creerCompte.mutateAsync({
+        segment: type.segment,
+        typeCompte: type.typeCompte,
+        typeCompteId,
+        nom: nom.trim(),
+        rue: rue.trim() || null,
+        codePostal: codePostal.trim() || null,
+        ville: ville.trim() || null,
+        siret: siret.replace(/\D/g, '') || null,
+        siren: siren.replace(/\D/g, '') || null,
+        codeNaf: codeNaf.trim() || null,
+        libelleApe: libelleApe.trim() || null,
+        scoreEllipro: lireScore.data?.score ?? null,
+        scoreElliproScale: lireScore.data?.scale ?? null,
+      })
+      setCompte(cree)
+      setEtape('suite')
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : 'Création impossible.')
+    }
+  }
+
+  function fermer() {
+    onFermer()
+    if (compte) navigate(`/comptes/${compte.id}`)
+  }
+
+  const railProps = {
+    titre: nom.trim() || type?.libelle || 'Nouveau compte',
+    etapes: ETAPES,
+    resumes,
+    onFermer: fermer,
+  }
+
+  /* ════════ ÉTAPE 4 · LES COMPTEURS, dans l'écran de saisie réemployé ════════ */
+  if (etape === 'suite' && suite === 'compteur' && compte) {
+    return (
+      <FenetreParcours onFermer={fermer}>
+        <RailParcours {...railProps} courante="suite" sousTitre="Les compteurs" />
+        <PanneauParcours>
+          <EnTeteEtape numero={4} total={4} titre="Les compteurs de ce compte" />
+          <CreationCompteurDialog
+            sansCadre
+            unParUn
+            open
+            onClose={() => setSuite('choix')}
+            compte={compte}
+            sites={sites ?? []}
+            libelleValidation="Terminer"
+            onSaved={() => { /* le rail annonce lui-même */ }}
+            onCompteurCree={(c) => setCompteursCrees((p) => [...p, c.numero_pdl])}
+            onCrees={() => setSuite('choix')}
+          />
+        </PanneauParcours>
+      </FenetreParcours>
+    )
+  }
+
+  return (
+    <FenetreParcours onFermer={fermer}>
+      <RailParcours
+        {...railProps}
+        courante={etape}
+        sousTitre={
+          etape === 'type' ? 'Ce qu’il est'
+          : etape === 'entreprise' ? 'Qui est-ce ?'
+          : etape === 'score' ? (compte ? 'Créé' : 'Vérification')
+          : 'Ce qu’on y attache'
+        }
+        note={
+          etape === 'suite'
+            ? { titre: 'Le compte existe', texte: 'Vous pouvez vous arrêter là et revenir plus tard.' }
+            : { titre: 'Rien n’est écrit avant l’étape 3', texte: 'Vous pouvez fermer sans rien laisser derrière.' }
+        }
+      />
+
+      <PanneauParcours>
+
+        {/* ════════ ÉTAPE 1 · LE TYPE ════════ */}
+        {etape === 'type' && (
+          <>
+            <EnTeteEtape numero={1} total={4} titre="Quel genre de compte créez-vous ?" />
+            <div className="flex flex-col gap-[18px]">
+              <div className="flex flex-col gap-[10px]">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">
+                  Consommateurs <span className="font-normal normal-case tracking-normal text-km-faint">— ceux qui achètent de l’énergie</span>
+                </span>
+                <div className="grid grid-cols-3 gap-[11px]">
+                  {TYPES.filter((t) => t.consommateur).map((t) => (
+                    <CarteType key={t.cle} type={t} choisi={type?.cle === t.cle} onChoisir={() => setType(t)} />
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-[10px]">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">
+                  Les autres <span className="font-normal normal-case tracking-normal text-km-faint">— ceux avec qui l’on travaille</span>
+                </span>
+                <div className="grid grid-cols-3 gap-[11px]">
+                  {TYPES.filter((t) => !t.consommateur).map((t) => (
+                    <CarteType key={t.cle} type={t} choisi={type?.cle === t.cle} onChoisir={() => setType(t)} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-auto flex items-center gap-4 border-t border-km-line-soft pt-4">
+              {type && (
+                <span className="text-[11.5px] text-km-muted">
+                  Typologie <strong className="font-semibold text-km-text">{type.libelle}</strong>
+                  {type.consommateur && <> · type de compte <strong className="font-semibold text-km-text">Consommateur</strong></>}
+                </span>
+              )}
+              <span className="flex-1" />
+              <Button variant="ghost" onClick={fermer}>Annuler</Button>
+              <Button disabled={!type} onClick={() => setEtape('entreprise')}>
+                Continuer <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* ════════ ÉTAPE 2 · L'ENTREPRISE ════════ */}
+        {etape === 'entreprise' && type && (
+          <>
+            <EnTeteEtape
+              numero={2} total={4}
+              titre={type.sansSiren ? 'Quelle copropriété ?' : 'Quelle entreprise ?'}
+            />
+
+            {/* UN SYNDIC BÉNÉVOLE N'A PAS DE SIREN : le chercher dans Ellisphere ne rendrait rien,
+                et facturerait l'appel. On saisit son nom et son adresse, c'est tout ce qui existe. */}
+            {!type.sansSiren && (
+              <div className="mb-[16px] flex flex-col gap-[8px]">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-[12px] top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-km-faint" />
+                  <input
+                    autoFocus
+                    value={recherche}
+                    onChange={(e) => setRecherche(e.target.value)}
+                    placeholder="Raison sociale, SIREN ou SIRET…"
+                    className={cn(SAISIE, 'py-[11px] pl-[36px] text-[14px]')}
+                  />
+                  {chercheEnCours && (
+                    <Loader2 className="absolute right-[12px] top-1/2 h-[15px] w-[15px] -translate-y-1/2 animate-spin text-km-faint" />
+                  )}
+                </div>
+
+                {erreurRecherche && (
+                  <p className="text-[11.5px] text-km-red">
+                    {erreurRecherche instanceof Error ? erreurRecherche.message : 'Recherche indisponible.'}
+                  </p>
+                )}
+
+                {terme.trim().length >= 3 && (resultats?.length ?? 0) > 0 && (
+                  <div className="max-h-[188px] overflow-y-auto rounded-[11px] border border-km-line bg-white">
+                    {resultats!.map((c) => (
+                      <button
+                        key={c.srcId ?? c.siret ?? c.siren ?? c.raisonSociale}
+                        type="button"
+                        onClick={() => choisirEntreprise(c)}
+                        className="flex w-full flex-col gap-[2px] border-b border-km-line-soft px-[13px] py-[9px] text-left last:border-b-0 hover:bg-km-bg/60"
+                      >
+                        <span className="truncate text-[13px] font-semibold text-km-text">
+                          {c.raisonSociale || c.nomCommercial}
+                        </span>
+                        <span className="truncate text-[11.5px] text-km-faint">
+                          <span className="font-mono">{c.siren}</span>
+                          {c.ville && ` · ${c.ville}`}
+                          {c.libelleAPE && ` · ${c.libelleAPE}`}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {terme.trim().length >= 3 && !chercheEnCours && (resultats?.length ?? 0) === 0 && !erreurRecherche && (
+                  <p className="text-[11.5px] text-km-faint">Aucune entreprise trouvée — complétez à la main ci-dessous.</p>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-[12px]">
+              <Champ intitule="Raison sociale" className="col-span-2">
+                <input value={nom} onChange={(e) => setNom(e.target.value)} className={SAISIE} />
+              </Champ>
+              {!type.sansSiren && (
+                <>
+                  <Champ intitule="SIREN">
+                    <input value={siren} onChange={(e) => setSiren(e.target.value)} className={SAISIE_MONO} />
+                  </Champ>
+                  <Champ intitule="SIRET">
+                    <input value={siret} onChange={(e) => setSiret(e.target.value)} className={SAISIE_MONO} />
+                  </Champ>
+                  <Champ intitule="Code NAF">
+                    <input value={codeNaf} onChange={(e) => setCodeNaf(e.target.value)} className={SAISIE_MONO} />
+                  </Champ>
+                  <Champ intitule="Libellé APE">
+                    <input value={libelleApe} onChange={(e) => setLibelleApe(e.target.value)} className={SAISIE} />
+                  </Champ>
+                </>
+              )}
+              <Champ intitule="Rue" className="col-span-2">
+                <input value={rue} onChange={(e) => setRue(e.target.value)} className={SAISIE} />
+              </Champ>
+              <Champ intitule="Code postal">
+                <input value={codePostal} onChange={(e) => setCodePostal(e.target.value)} className={SAISIE_MONO} />
+              </Champ>
+              <Champ intitule="Ville">
+                <input value={ville} onChange={(e) => setVille(e.target.value)} className={SAISIE} />
+              </Champ>
+            </div>
+
+            <div className="mt-auto flex items-center gap-4 border-t border-km-line-soft pt-4">
+              <span className="text-[11.5px] text-km-faint">
+                {type.sansSiren ? 'Aucun SIREN pour ce type — c’est normal.' : 'Vérifiez avant de continuer : ces champs viennent d’Ellisphere.'}
+              </span>
+              <span className="flex-1" />
+              <Button variant="ghost" onClick={() => setEtape('type')}>Retour</Button>
+              <Button
+                disabled={!nom.trim() || (!type.sansSiren && siren.replace(/\D/g, '').length !== 9)}
+                onClick={() => setEtape('score')}
+              >
+                Continuer <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* ════════ ÉTAPE 3 · LE SCORE, PUIS LA CRÉATION ════════ */}
+        {etape === 'score' && type && (
+          <>
+            <EnTeteEtape numero={3} total={4} titre="Ce qu’Ellisphere dit de cette entreprise" />
+
+            {type.sansSiren ? (
+              <p className="rounded-[12px] border border-km-line bg-km-bg/40 px-[15px] py-[13px] text-[12.5px] leading-snug text-km-muted">
+                Un syndic non professionnel n’a pas de SIREN : Ellisphere n’a rien à en dire, et c’est
+                sans conséquence. Le compte se crée sans score.
+              </p>
+            ) : lireScore.isPending ? (
+              <div className="flex flex-col items-center gap-3 rounded-[14px] border border-km-line bg-km-bg/40 py-[34px]">
+                <Loader2 className="h-6 w-6 animate-spin text-km-green" />
+                <p className="text-[13px] font-semibold text-km-text">Interrogation d’Ellisphere…</p>
+              </div>
+            ) : lireScore.data?.score ? (
+              <div className="flex flex-col gap-[13px]">
+                <div className="flex items-center gap-[20px] rounded-[16px] border border-km-green-line bg-km-green-tint px-[22px] py-[20px]">
+                  <div className="flex flex-col">
+                    <span className="text-[10.5px] font-bold uppercase tracking-[0.09em] text-km-faint">Score Ellipro</span>
+                    <span className="font-mono text-[46px] font-extrabold leading-none tracking-[-0.04em] text-km-green">
+                      {lireScore.data.score}
+                    </span>
+                    {lireScore.data.scale && (
+                      <span className="mt-1 text-[11.5px] text-km-muted">sur {lireScore.data.scale}</span>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-[6px]">
+                    {lireScore.data.creditOpinion && (
+                      <span className="text-[13px] font-semibold text-km-text">{lireScore.data.creditOpinion}</span>
+                    )}
+                    {lireScore.data.paymentIncidents && (
+                      <span className="text-[11.5px] leading-snug text-km-muted">{lireScore.data.paymentIncidents}</span>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11.5px] text-km-faint">
+                  Le score est enregistré avec le compte. Il se rafraîchit ensuite depuis sa fiche.
+                </p>
+              </div>
+            ) : (
+              <p className="rounded-[12px] border border-km-line bg-km-bg/40 px-[15px] py-[13px] text-[12.5px] leading-snug text-km-muted">
+                Ellisphere n’a pas rendu de score pour ce SIREN. Le compte se crée quand même — le
+                score se demandera plus tard depuis sa fiche.
+              </p>
+            )}
+
+            <div className="mt-[16px] flex flex-col gap-[7px] rounded-[12px] border border-km-line bg-km-bg/40 p-[14px]">
+              <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">À créer</span>
+              <span className="text-[14px] font-semibold text-km-text">{nom}</span>
+              <span className="text-[12px] text-km-muted">
+                {type.libelle}
+                {siren && <> · SIREN <span className="font-mono">{siren}</span></>}
+                {ville && ` · ${ville}`}
+              </span>
+            </div>
+
+            {erreur && (
+              <p className="mt-[12px] rounded-[10px] border border-km-red-line bg-km-red-soft px-[13px] py-[9px] text-[12.5px] text-red-700">
+                {erreur}
+              </p>
+            )}
+
+            <div className="mt-auto flex items-center gap-3 border-t border-km-line-soft pt-4">
+              <span className="flex-1" />
+              <Button variant="ghost" onClick={() => setEtape('entreprise')}>Retour</Button>
+              <Button disabled={creerCompte.isPending} onClick={() => void creer()}>
+                {creerCompte.isPending
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Création…</>
+                  : 'Créer le compte'}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* ════════ ÉTAPE 4 · CE QU'ON ATTACHE ════════ */}
+        {etape === 'suite' && compte && suite === 'choix' && (
+          <>
+            <EnTeteEtape numero={4} total={4} titre={`${compte.nom} est créé`} />
+            <p className="mb-[18px] text-[13px] leading-snug text-km-muted">
+              Un compte seul ne sert à rien : il lui faut des gens à qui parler, et des compteurs à
+              travailler. Faites-le maintenant, ou revenez plus tard depuis sa fiche.
+            </p>
+
+            <div className="grid grid-cols-2 gap-[12px]">
+              <button
+                type="button"
+                onClick={() => setSuite('contact')}
+                className="group flex flex-col gap-[10px] rounded-[14px] border border-km-line bg-white p-[17px] text-left transition-all duration-200 hover:-translate-y-[2px] hover:border-km-green hover:shadow-[0_8px_20px_-10px_rgba(6,10,8,.35)]"
+              >
+                <span className="flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-km-soft transition-colors group-hover:bg-km-green">
+                  <Users className="h-[18px] w-[18px] text-km-muted transition-colors group-hover:text-white" />
+                </span>
+                <span className="text-[14px] font-semibold text-km-text">Ajouter des contacts</span>
+                <span className="text-[11.5px] leading-snug text-km-faint">
+                  Les personnes à qui l’on parle. {contactsCrees.length > 0 && `${contactsCrees.length} déjà créé${contactsCrees.length > 1 ? 's' : ''}.`}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSuite('compteur')}
+                className="group flex flex-col gap-[10px] rounded-[14px] border border-km-line bg-white p-[17px] text-left transition-all duration-200 hover:-translate-y-[2px] hover:border-km-green hover:shadow-[0_8px_20px_-10px_rgba(6,10,8,.35)]"
+              >
+                <span className="flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-km-soft transition-colors group-hover:bg-km-green">
+                  <Zap className="h-[18px] w-[18px] text-km-muted transition-colors group-hover:text-white" />
+                </span>
+                <span className="text-[14px] font-semibold text-km-text">Ajouter des compteurs</span>
+                <span className="text-[11.5px] leading-snug text-km-faint">
+                  Les points de livraison. {compteursCrees.length > 0 && `${compteursCrees.length} déjà créé${compteursCrees.length > 1 ? 's' : ''}.`}
+                </span>
+              </button>
+            </div>
+
+            <div className="mt-auto flex items-center gap-3 border-t border-km-line-soft pt-4">
+              <span className="flex-1" />
+              <Button onClick={fermer}>Terminer et ouvrir la fiche</Button>
+            </div>
+          </>
+        )}
+
+        {/* Le contact, dans le formulaire existant. */}
+        {etape === 'suite' && compte && suite === 'contact' && (
+          <>
+            <EnTeteEtape numero={4} total={4} titre="Un contact pour ce compte" />
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <ContactForm
+                compteId={compte.id}
+                compteNom={compte.nom}
+                segment={compte.segment}
+                submitLabel="Créer le contact"
+                onCreated={(c) => {
+                  setContactsCrees((p) => [...p, `${c.prenom} ${c.nom}`])
+                  setSuite('choix')
+                }}
+                onCancel={() => setSuite('choix')}
+              />
+            </div>
+          </>
+        )}
+      </PanneauParcours>
+    </FenetreParcours>
+  )
+}

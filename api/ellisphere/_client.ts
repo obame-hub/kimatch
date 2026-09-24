@@ -84,6 +84,9 @@ export interface EllisphereCompany {
   siren: string | null
   siret: string | null
   adresse: string | null
+  /** La rue seule, et le code postal seul — voir le commentaire de leur construction. */
+  rue: string | null
+  codePostal: string | null
   ville: string | null
   codeNAF: string | null
   libelleAPE: string | null
@@ -104,15 +107,21 @@ function extractCompany(node: Record<string, unknown>): EllisphereCompany {
 
   const address = node?.address as Record<string, unknown> | undefined
   const ville = address ? asText(address.cityName) : null
+  /* ══ LES TROIS MORCEAUX SÉPARÉMENT, EN PLUS DE LA LIGNE ENTIÈRE ══
+     `comptes` range la rue, le code postal et la ville dans trois colonnes : recoller puis
+     redécouper au moment de créer un compte perdrait ce qu'Ellisphere sait déjà. `adresse` reste
+     pour les appelants qui affichent une ligne d'un tenant. */
+  const rue = address ? asText(address.addressLine) : null
+  const codePostal = address ? asText(address.cityCode) : null
   const adresse = address
-    ? [asText(address.addressLine), asText(address.cityCode), asText(address.cityName)].filter(Boolean).join(', ')
+    ? [rue, codePostal, ville].filter(Boolean).join(', ')
     : null
 
   const activity = node?.activity as Record<string, unknown> | undefined
   const codeNAF = (activity?.['@_code'] as string) ?? null
   const libelleAPE = activity ? asText(activity['#text'] ?? activity) : null
 
-  return { raisonSociale, nomCommercial, siren, siret, adresse, ville, codeNAF, libelleAPE, srcId }
+  return { raisonSociale, nomCommercial, siren, siret, adresse, rue, codePostal, ville, codeNAF, libelleAPE, srcId }
 }
 
 function asArray(value: unknown): Record<string, unknown>[] {

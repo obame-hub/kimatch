@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Check, Loader2, Search, X } from 'lucide-react'
+import { ArrowRight, Check, Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
@@ -19,6 +18,10 @@ import {
   useEtablirContact,
   type IdentiteLegale,
 } from '@/lib/data/conversionPiste'
+import {
+  EnTeteEtape, FenetreParcours, RailParcours,
+  type EtapeParcours, type ResumeEtape,
+} from '@/components/parcours/Parcours'
 import { cn } from '@/lib/utils'
 import type { Piste } from '@/types/domain'
 
@@ -63,213 +66,20 @@ import type { Piste } from '@/types/domain'
  * plan du jour, avec sa tâche.
  */
 
-const ETAPES = [
+const ETAPES: EtapeParcours[] = [
   { cle: 'identite', libelle: 'Société & contact' },
   { cle: 'perimetre', libelle: 'Périmètre' },
-  { cle: 'opportunite', libelle: 'Opportunité' },
+  { cle: 'opportunite', libelle: 'Opportunité', auto: true },
   { cle: 'mandat', libelle: 'Mandat' },
-] as const
+]
 
-type CleEtape = (typeof ETAPES)[number]['cle']
+type CleEtape = 'identite' | 'perimetre' | 'opportunite' | 'mandat'
 
-/* ══════════════════════════════════════════════════════════════════════════════════════════════
-   LA FENÊTRE
-   ══════════════════════════════════════════════════════════════════════════════════════════════
-   Elle ne passe pas par `Dialog` : celui-ci impose un titre, une description et un fond blanc sur
-   toute sa surface, alors qu'ici la moitié gauche est anthracite et que l'en-tête vit DANS le rail.
-   Le reste — le portail, le voile, la touche Échap, le compteur de fenêtres ouvertes — est repris
-   à l'identique, parce que ce sont eux qui font qu'une fenêtre se comporte comme les autres.
-
-   LE PORTAIL N'EST PAS UN DÉTAIL : un `position: fixed` se place par rapport au viewport SAUF si un
-   ancêtre porte une transformation, et l'application en est pleine ne serait-ce que par ses
-   animations d'apparition. Sans portail, le voile ne couvre que la boîte de cet ancêtre.
-*/
-function FenetreParcours({ onFermer, children }: { onFermer: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const auClavier = (e: KeyboardEvent) => e.key === 'Escape' && onFermer()
-    window.addEventListener('keydown', auClavier)
-    return () => window.removeEventListener('keydown', auClavier)
-  }, [onFermer])
-
-  /* Les pastilles flottantes (appel, notifications) se retirent quand le document porte cette
-     marque. Un compteur et non un booléen : la confirmation de sortie s'ouvre par-dessus celle-ci. */
-  useEffect(() => {
-    const n = Number(document.body.dataset.modalesOuvertes ?? '0') + 1
-    document.body.dataset.modalesOuvertes = String(n)
-    return () => {
-      const reste = Number(document.body.dataset.modalesOuvertes ?? '1') - 1
-      if (reste > 0) document.body.dataset.modalesOuvertes = String(reste)
-      else delete document.body.dataset.modalesOuvertes
-    }
-  }, [])
-
-  return createPortal(
-    <div
-      className="animate-km-fade fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,14,12,0.62)] p-4 backdrop-blur-[3px]"
-      onClick={(e) => { if (e.target === e.currentTarget) onFermer() }}
-    >
-      <div className="animate-fade-up flex h-[740px] max-h-[calc(100vh-2.5rem)] w-[1000px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[20px] bg-white shadow-[0_32px_80px_rgba(6,10,8,0.44),0_3px_14px_rgba(6,10,8,0.26)]">
-        {children}
-      </div>
-    </div>,
-    document.body,
-  )
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════════════════════
-   LE RAIL
-   ══════════════════════════════════════════════════════════════════════════════════════════════ */
-
-/** Ce qu'une étape faite a produit, tel que le rail le rappelle. */
-interface Resume { lignes: string[]; mono?: boolean }
-
-/*
-  ══ DEUX GRIS DU DESSIN ONT ÉTÉ ÉCLAIRCIS, ET C'EST MESURÉ ══
-
-  La maquette posait les étapes à venir en #6E7A73 sur l'anthracite : 3,8:1, sous les 4,5 exigés
-  pour du petit texte. C'est exactement le défaut relevé deux fois déjà dans `index.css` — un gris
-  juste sur du blanc cesse de l'être sur du sombre. `km-side-faint` (#86918B) donne 5,2:1 et garde
-  la même teinte. Ce qui distingue une étape à venir d'une étape faite reste l'anneau creux et la
-  graisse, pas un gris qu'on ne peut pas lire.
-*/
-const GRIS_A_VENIR = 'text-km-side-faint'
-
-function Pastille({ etat, numero }: { etat: 'faite' | 'courante' | 'avenir'; numero: number }) {
-  if (etat === 'faite') {
-    return (
-      <span className="flex h-[21px] w-[21px] shrink-0 items-center justify-center rounded-full bg-km-side-green">
-        <Check className="h-[11px] w-[11px] stroke-[3.4] text-[#10231D]" />
-      </span>
-    )
-  }
-  if (etat === 'courante') {
-    return (
-      <span className="flex h-[21px] w-[21px] shrink-0 items-center justify-center rounded-full bg-km-side-green text-[10.5px] font-bold text-[#10231D]">
-        {numero}
-      </span>
-    )
-  }
-  return (
-    <span className={cn(
-      'flex h-[21px] w-[21px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#3C453F] text-[10.5px] font-bold',
-      GRIS_A_VENIR,
-    )}>
-      {numero}
-    </span>
-  )
-}
-
-function RailParcours({ titre, reference, courante, sousTitre, resumes, note, onFermer }: {
-  titre: string
-  reference: string | null
-  courante: CleEtape
-  /** La ligne sous l'étape en cours — « En cours », « 2 compteurs saisis »… */
-  sousTitre?: string
-  /** Ce que chaque étape déjà faite a produit. */
-  resumes: Partial<Record<CleEtape, Resume>>
-  note: { titre: string; texte: string }
-  onFermer: () => void
-}) {
-  const index = ETAPES.findIndex((e) => e.cle === courante)
-
-  return (
-    <div className="flex w-[280px] shrink-0 flex-col gap-[22px] bg-km-side-bas px-[22px] py-[26px]">
-
-      <div className="flex items-start gap-[10px]">
-        <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
-          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-km-side-faint">Conversion</span>
-          <span className="text-[18px] font-semibold leading-[1.25] text-white">{titre}</span>
-          {reference && <span className="font-mono text-[10.5px] text-km-side-faint">{reference}</span>}
-        </div>
-        {/* UNE FENÊTRE SE FERME, UNE PAGE NON. Le geste doit exister, et c'est lui qui déclenche
-            l'écran « ce qui est créé reste ». */}
-        <button
-          type="button"
-          aria-label="Fermer"
-          onClick={onFermer}
-          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[8px] bg-[#2A322D] text-[#9EABA4] transition-colors hover:text-white"
-        >
-          <X className="h-[13px] w-[13px] stroke-[2.4]" />
-        </button>
-      </div>
-
-      <div className="h-px bg-km-side-line" />
-
-      <div className="flex flex-1 flex-col gap-[3px]">
-        {ETAPES.map((e, i) => {
-          const etat = i < index ? 'faite' : i === index ? 'courante' : 'avenir'
-          /* LE RÉCAPITULATIF S'AFFICHE AUSSI SUR L'ÉTAPE EN COURS, et c'est nécessaire depuis que
-             le formulaire du périmètre repart à zéro à chaque compteur : sans lui, les compteurs
-             déjà enregistrés n'apparaîtraient nulle part, et on croirait les avoir perdus. */
-          const resume = etat === 'avenir' ? undefined : resumes[e.cle]
-          const automatique = e.cle === 'opportunite' && etat === 'avenir'
-
-          return (
-            <div
-              key={e.cle}
-              className={cn(
-                'flex gap-[11px] px-[11px] py-[10px]',
-                etat === 'courante' && 'rounded-[11px] bg-[#2A322D]',
-              )}
-            >
-              <Pastille etat={etat} numero={i + 1} />
-              <div className="flex min-w-0 flex-col gap-[6px]">
-                <span className={cn(
-                  'text-[12.5px]',
-                  etat === 'courante' ? 'font-semibold text-white' : 'font-medium',
-                  etat === 'faite' && 'text-[#9EABA4]',
-                  etat === 'avenir' && GRIS_A_VENIR,
-                )}>
-                  {e.libelle}
-                </span>
-
-                {etat === 'courante' && sousTitre && (
-                  <span className="text-[10.5px] text-[#9EABA4]">{sousTitre}</span>
-                )}
-                {automatique && <span className={cn('text-[10px]', GRIS_A_VENIR)}>Automatique</span>}
-
-                {resume && resume.lignes.length > 0 && (
-                  <div className="flex flex-col gap-[3px] border-l-2 border-km-side-line pl-[9px]">
-                    {resume.lignes.map((l) => (
-                      <span
-                        key={l}
-                        className={cn(
-                          'leading-[1.35] text-[#D8DFDA]',
-                          resume.mono ? 'font-mono text-[10.5px]' : 'text-[11px]',
-                        )}
-                      >
-                        {l}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="flex flex-col gap-[5px] rounded-[12px] border border-km-side-line bg-km-side px-[13px] py-[12px]">
-        <span className="text-[10.5px] font-semibold text-[#D8DFDA]">{note.titre}</span>
-        <span className="text-[10.5px] leading-[1.45] text-km-side-faint">{note.texte}</span>
-      </div>
-    </div>
-  )
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════════════════════
-   LE PANNEAU DE DROITE — l'en-tête commun aux quatre écrans
-   ══════════════════════════════════════════════════════════════════════════════════════════════ */
-function EnTeteEtape({ numero, titre }: { numero: number; titre: string }) {
-  return (
-    <div className="mb-[22px] flex flex-col gap-[5px]">
-      <span className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-km-green">
-        Étape {numero} sur 4
-      </span>
-      <h1 className="text-[26px] font-semibold tracking-[-0.017em] text-km-text">{titre}</h1>
-    </div>
-  )
-}
+/* LA FENÊTRE, LE RAIL ET L'EN-TÊTE ONT QUITTÉ CE FICHIER le 24/09/2026 : ils vivent désormais dans
+   `@/components/parcours/Parcours`, partagés avec le parcours de création d'un compte et avec ceux
+   qui suivront. William : « réutilise la même logique pour l'ensemble des enchaînements d'écran
+   amenant à une création d'enregistrement ». Deux copies de la même coquille auraient divergé dès
+   la première retouche de voile ou de rail. */
 
 /** Un champ du formulaire d'identité : intitulé au-dessus, saisie en dessous. */
 function Champ({ pour, intitule, complement, children, className }: {
@@ -424,7 +234,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
 
   /* Ce que le rail rappelle sous chaque étape faite. Au-delà de trois PDL on replie : un syndic à
      huit compteurs ferait défiler le rail, et c'est le nombre qui compte alors, pas la liste. */
-  const resumes: Partial<Record<CleEtape, Resume>> = {
+  const resumes: Record<string, ResumeEtape | undefined> = {
     identite: { lignes: [compteNom, contactNom].filter((x): x is string => Boolean(x)) },
     perimetre: {
       mono: true,
@@ -517,6 +327,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
     <RailParcours
       titre={nomSociete}
       reference={piste.reference}
+      etapes={ETAPES}
       resumes={resumes}
       onFermer={demanderSortie}
       {...props}
@@ -536,7 +347,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
             note: { titre: "Sans compteur, pas d'opportunité", texte: "C'est le périmètre qui fait l'affaire." },
           })}
           <div className="flex min-w-0 flex-1 flex-col px-9 pb-[22px] pt-8">
-            <EnTeteEtape numero={2} titre="Quel périmètre couvrir ?" />
+            <EnTeteEtape numero={2} total={4} titre="Quel périmètre couvrir ?" />
             {compte ? (
               <CreationCompteurDialog
                 sansCadre
@@ -580,7 +391,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
           note: { titre: 'La piste est convertie', texte: 'La relance mandat est posée à J+2.' },
         })}
         <div className="flex min-w-0 flex-1 flex-col px-9 pb-[22px] pt-8">
-          <EnTeteEtape numero={4} titre="Le mandat à faire signer" />
+          <EnTeteEtape numero={4} total={4} titre="Le mandat à faire signer" />
           {/* ══ UNE PAGE, PLUS QUATRE ÉTAPES ══
               William, 24/09/2026 : « l'envoi de mandat doit être largement facilité, tout doit
               tenir sur une page ». `MandatWizard` demandait en quatre écrans ce que le parcours
@@ -612,7 +423,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
           note: { titre: 'Les compteurs sont créés', texte: "Il ne manque que l'opportunité." },
         })}
         <div className="flex min-w-0 flex-1 flex-col px-9 pb-[22px] pt-8">
-          <EnTeteEtape numero={3} titre="L'opportunité n'a pas pu s'ouvrir" />
+          <EnTeteEtape numero={3} total={4} titre="L'opportunité n'a pas pu s'ouvrir" />
           <div className="flex flex-col gap-3">
             <p className="rounded-[10px] border border-km-red-line bg-km-red-soft px-[13px] py-[10px] text-[12.5px] text-red-700">
               {erreur ?? 'Erreur inconnue.'}
@@ -655,7 +466,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
             </div>
           ) : (
             <>
-              <EnTeteEtape numero={1} titre="À qui rattacher cette affaire ?" />
+              <EnTeteEtape numero={1} total={4} titre="À qui rattacher cette affaire ?" />
 
               {/* ── LA SOCIÉTÉ ── */}
               {sirenValide ? (

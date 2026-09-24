@@ -21,6 +21,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ParcoursCreationCompte } from '@/components/compte/ParcoursCreationCompte'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { MenuChoix } from '@/components/ui/menu-choix'
 import { SortableTh } from '@/components/ui/sortable-th'
@@ -69,6 +70,11 @@ type FiltreStatut = '' | 'true' | 'false'
  */
 export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
+  /* ══ LA CRÉATION D'UN COMPTE EST UNE FENÊTRE, PLUS UNE PAGE ══
+     William, 24/09/2026 : le même vocabulaire que la conversion d'une piste — pop-up, rail
+     anthracite, étapes. La page `/comptes/nouveau` reste servie : elle est encore l'adresse que
+     portent les liens envoyés et les marque-pages. */
+  const [creationOuverte, setCreationOuverte] = useState(false)
   const [typeFilter, setTypeFilter] = useState('')
   const [statutFilter, setStatutFilter] = useState<FiltreStatut>('')
 
@@ -139,7 +145,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
           title="Comptes"
           description="Le compte représente la relation (client, fournisseur, partenaire) — la valeur se crée sur les sites qui lui sont rattachés."
           actions={(
-            <Button onClick={() => navigate('/comptes/nouveau')}>
+            <Button onClick={() => setCreationOuverte(true)}>
               <Plus className="h-4 w-4" /> Nouveau compte
             </Button>
           )}
@@ -275,6 +281,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
           />
         </Card>
       </div>
+    {creationOuverte && <ParcoursCreationCompte onFermer={() => setCreationOuverte(false)} />}
     </div>
   )
 }
