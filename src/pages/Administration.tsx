@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Automatismes } from '@/components/administration/Automatismes'
 import { Corbeille } from '@/components/administration/Corbeille'
 import { GestionRoles } from '@/components/administration/GestionRoles'
+import { AccesPartenaires } from '@/components/administration/AccesPartenaires'
 import { GestionnaireObjets } from '@/components/administration/GestionnaireObjets'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
@@ -239,6 +240,8 @@ function AccesAutorisesTab() {
       <p className="text-sm text-km-muted">
         Seules les adresses email listées ici peuvent créer un compte Kimatch (recevoir un lien de connexion qui fonctionne). Le prénom, le nom, le poste et le rôle renseignés ici sont automatiquement appliqués à la fiche profil lors de la première connexion.
       </p>
+
+      <AccesPartenaires />
       <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
         <Input placeholder="Prénom" value={prenom} onChange={(e) => setPrenom(e.target.value)} className="w-28" />
         <Input placeholder="Nom" value={nom} onChange={(e) => setNom(e.target.value)} className="w-28" />
