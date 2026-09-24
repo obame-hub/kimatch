@@ -387,9 +387,87 @@ export function GestionRoles() {
         )
       )}
 
-      {/* ══ CHANGER LE RÔLE DE QUELQU'UN ══
-          Le tableau vit dans l'onglet Utilisateurs ; ici on ne montre que ceux qui n'ont RIEN,
-          parce que ceux-là sont invisibles ailleurs et n'ont aucun droit sans que rien ne l'indique. */}
+      {/* ══════════════════════════════════════════════════════════════════════════════════════
+        * QUI A QUEL RÔLE — 24/09/2026
+        * ══════════════════════════════════════════════════════════════════════════════════════
+        *
+        * Naoëlle : « je ne vois pas dans la page où est-ce que je peux attribuer tel rôle à tel
+        * utilisateur, alors que je suis admin ».
+        *
+        * L'ATTRIBUTION EXISTAIT, mais dans l'onglet Utilisateurs — au milieu d'un tableau qui parle
+        * aussi de postes, d'activation et de suppression. Et cette page-ci n'en montrait que les
+        * personnes SANS rôle, c'est-à-dire aucune : les dix profils en ont tous un.
+        *
+        * Chercher « quel rôle a untel » dans la page Rôles est le réflexe juste. C'est donc à la
+        * page de s'y plier, pas à Naoëlle de retenir où nous l'avons rangé. La liste vit ici ET
+        * dans Utilisateurs — deux chemins vers le même geste, et c'est très bien : on n'a pas à
+        * deviner lequel des deux écrans l'autre avait en tête.
+        * ══════════════════════════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-km border border-km-line bg-white p-4">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-km-green" />
+          <h3 className="flex-1 text-km-sm font-semibold text-km-text">Qui a quel rôle</h3>
+          <span className="rounded-md bg-km-green-soft px-1.5 py-0.5 text-km-tiny font-bold text-km-green">
+            {(profils ?? []).filter((p) => p.actif).length}
+          </span>
+        </div>
+        <p className="mt-1 text-km-xs text-km-muted">
+          {peutRegler
+            ? 'Changer le rôle de quelqu’un prend effet immédiatement, y compris sur ce qu’il voit.'
+            : 'Vous pouvez consulter cette liste, mais pas la modifier.'}
+        </p>
+
+        <ul className="mt-3 divide-y divide-km-line">
+          {(profils ?? []).filter((p) => p.actif).map((p) => {
+            const role = roles.find((r) => r.id === p.role_acces?.id)
+            return (
+              <li key={p.id} className="flex items-center gap-2 py-2">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-km-xs font-medium text-km-text">
+                    {`${p.prenom ?? ''} ${p.nom ?? ''}`.trim() || p.email}
+                  </span>
+                  {/* CE QUE LE RÔLE OUVRE, EN UN COUP D'ŒIL : sans cela, il faut remonter aux cartes
+                      du haut pour savoir si « Conseiller » voit tout ou non. */}
+                  <span className="block truncate text-km-tiny text-km-faint">
+                    {role?.ouvre_administration ? 'Administration · ' : ''}
+                    {role?.voit_tous_les_comptes ? 'voit tout le portefeuille' : 'voit ses comptes'}
+                  </span>
+                </span>
+                {peutRegler ? (
+                  <select
+                    value={p.role_acces?.id ?? ''}
+                    disabled={changerRole.isPending}
+                    onChange={(e) => {
+                      if (!e.target.value) return
+                      setErreur(null)
+                      changerRole.mutate(
+                        { profilId: p.id, roleId: e.target.value },
+                        { onError: (err) => setErreur(err.message) },
+                      )
+                    }}
+                    className="shrink-0 rounded-km border border-km-line bg-white px-2 py-1 text-km-xs disabled:opacity-50"
+                  >
+                    {/* PAS D'OPTION VIDE : retirer son rôle à quelqu'un le priverait de tout accès
+                        sans rien lui dire. On change de rôle, on n'en enlève pas. */}
+                    {!p.role_acces && <option value="">Aucun rôle</option>}
+                    {roles.filter((r) => r.actif || r.id === p.role_acces?.id).map((r) => (
+                      <option key={r.id} value={r.id}>{r.libelle}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="shrink-0 text-km-xs text-km-muted">
+                    {p.role_acces?.libelle ?? 'Aucun rôle'}
+                  </span>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      {/* ══ CEUX QUI N'ONT AUCUN RÔLE ══
+          Ils figurent déjà dans la liste ci-dessus, mais sans droits et sans que rien ne le dise.
+          Ce bloc les sort du lot, parce qu'un compte actif sans rôle est une anomalie à traiter. */}
       {sansRole.length > 0 && (
         <div className="rounded-km border border-km-amber/30 bg-km-amber-soft p-4">
           <div className="flex items-center gap-2">
