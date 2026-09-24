@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { messageAnthropicLisible } from '../_anthropic.js'
 import { exigerSession } from '../_auth.js'
 
 // Client serveur pour l'extraction de contrats/mandats scannés via l'API
@@ -102,8 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       content?: { text?: string }[]
     }
     if (!resp.ok) {
-      const message = data?.error?.message ?? `Erreur Anthropic (${resp.status})`
-      res.status(200).json({ success: false, error: message })
+      res.status(200).json({ success: false, error: messageAnthropicLisible(resp.status, data?.error?.message) })
       return
     }
 

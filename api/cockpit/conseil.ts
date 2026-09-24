@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { messageAnthropicLisible } from '../_anthropic.js'
 import { createClient } from '@supabase/supabase-js'
 import { exigerSession } from '../_auth.js'
 import { cleService, urlSupabase } from '../_cleService.js'
@@ -157,7 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const data = (await resp.json()) as { error?: { message?: string }; content?: { text?: string }[] }
     if (!resp.ok) {
-      res.status(200).json({ success: false, error: data?.error?.message ?? `Erreur Anthropic (${resp.status})` })
+      res.status(200).json({ success: false, error: messageAnthropicLisible(resp.status, data?.error?.message) })
       return
     }
 
