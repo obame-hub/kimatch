@@ -28,6 +28,7 @@ Champs propres au point de livraison (surtout présents sur les factures) :
 - ville: commune du point de livraison
 - segment: STRICTEMENT "C1", "C2", "C3", "C4" ou "C5" si mentionné ou déductible de la puissance souscrite en électricité (C5 = ≤ 36 kVA, C4 = 36-250 kVA, C3 = 250 kVA-1 MW environ). Ne devine pas si la puissance est absente.
 - tension: STRICTEMENT "BT" (basse tension) ou "HTA" (haute tension A) si identifiable
+- type_utilisation: STRICTEMENT "CU", "MU" ou "LU" — la plage d'utilisation du TURPE, souvent écrite « Courte Utilisation », « Moyenne Utilisation », « Longue Utilisation » ou par son sigle dans le bloc acheminement. Ne la déduis JAMAIS de la consommation : elle se lit sur la facture ou elle est absente.
 - puissance_souscrite_kva: puissance souscrite en kVA (nombre). S'il y a plusieurs postes horaires, retourne la puissance de pointe.
 - consommation_annuelle_mwh: consommation annuelle en MWh (nombre). Si la facture donne des kWh, convertis en MWh (divise par 1000).
 - tarif_distribution: tarif d'acheminement gaz ("T1", "T2", "T3", "T4") si mentionné

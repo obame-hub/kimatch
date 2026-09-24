@@ -168,7 +168,7 @@ export function CreationCompteurDialog({
         if (i !== 0) return d
         return {
           ...d,
-          ...applyExtractionToDraft(d, fields, energies, fournisseurs),
+          ...applyExtractionToDraft(d, fields, energies, fournisseurs, utilisationsRef ?? []),
           // Site : on ne remplace jamais une saisie deja faite par l'utilisateur.
           libelleSite: d.libelleSite || val('site_nom'),
           adresse: d.adresse || val('adresse'),

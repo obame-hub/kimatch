@@ -84,6 +84,29 @@ function avertirConfigTailwind() {
  * `process.env`, exactement comme Vercel le fait en ligne. Une clé absente du fichier reste
  * absente, et le point d'entrée le dit en clair plutôt que d'échouer obscurément.
  */
+/**
+ * ══ LES POINTS D'ENTRÉE QUI ONT BESOIN D'UN SECRET QU'ON N'A PAS EN LOCAL ══
+ *
+ * William, 24/09/2026 : « fais tout le nécessaire pour que ça marche en local ». L'extraction de
+ * facture appelle Anthropic ; sans `ANTHROPIC_API_KEY`, le point d'entrée répond poliment
+ * « indisponible » et le dépôt reste sans effet. La clé vit sur Vercel, et la copier sur chaque
+ * poste multiplie les endroits d'où elle peut fuir.
+ *
+ * ON RELAIE DONC VERS LA PRODUCTION, et seulement pour les routes listées ici, et seulement quand
+ * le secret manque VRAIMENT. Le jeton de session part avec la requête : c'est le même projet
+ * Supabase des deux côtés, donc la production reconnaît l'utilisateur et applique ses propres
+ * gardes. Poser la clé dans `.env.local` désactive ce relais de lui-même.
+ *
+ * C'EST BRUYANT À DESSEIN : chaque appel relayé s'écrit dans la console du serveur. Un appel qui
+ * part ailleurs que là où on croit ne doit jamais être silencieux.
+ */
+const SECRET_PAR_ROUTE: { prefixe: string; variable: string }[] = [
+  { prefixe: '/api/ocr/', variable: 'ANTHROPIC_API_KEY' },
+  { prefixe: '/api/cockpit/conseil', variable: 'ANTHROPIC_API_KEY' },
+]
+
+const RELAIS_DISTANT = process.env.KIMATCH_API_DISTANTE ?? 'https://kimatch.fr'
+
 function servirApiEnLocal() {
   return {
     name: 'kimatch-api-en-local',
@@ -151,6 +174,32 @@ function servirApiEnLocal() {
             }
 
             try {
+              /* Le secret manque-t-il pour cette route ? Alors on relaie — voir `SECRET_PAR_ROUTE`. */
+              const aRelayer = SECRET_PAR_ROUTE.find(
+                (r) => chemin.startsWith(r.prefixe) && !process.env[r.variable],
+              )
+              if (aRelayer) {
+                const cible = `${RELAIS_DISTANT}${req.url ?? chemin}`
+                console.log(
+                  `\x1b[36m[api en local] ${chemin} relayé vers ${RELAIS_DISTANT}`
+                  + ` (${aRelayer.variable} absente de .env.local)\x1b[0m`,
+                )
+                const auth = req.headers.authorization
+                const distante = await fetch(cible, {
+                  method: req.method ?? 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(typeof auth === 'string' ? { Authorization: auth } : {}),
+                  },
+                  ...(brut ? { body: brut } : {}),
+                })
+                const texte = await distante.text()
+                res.statusCode = distante.status
+                res.setHeader('Content-Type', 'application/json; charset=utf-8')
+                res.end(texte)
+                return
+              }
+
               const module = await serveur.ssrLoadModule(`.${chemin}.ts`)
               const gestionnaire = module.default as ((q: unknown, r: unknown) => unknown) | undefined
               if (typeof gestionnaire !== 'function') {

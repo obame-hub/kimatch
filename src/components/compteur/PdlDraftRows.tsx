@@ -155,6 +155,9 @@ export function applyExtractionToDraft(
   fields: Record<string, ExtractedField>,
   energies: ReferenceRow[],
   fournisseurs: Compte[],
+  /** La table des utilisations (CU/MU/LU) : sans elle, le seul champ obligatoire que la lecture
+   *  laissait vide restait à saisir à la main. Ajouté le 24/09/2026. */
+  utilisations: ReferenceRow[] = [],
 ): Partial<PdlDraft> {
   const patch: Partial<PdlDraft> = {}
 
@@ -192,6 +195,12 @@ export function applyExtractionToDraft(
   if (!draft.segment && SEGMENTS_ELEC.includes(segment)) patch.segment = segment
   const tension = texte(fields.tension).toUpperCase()
   if (!draft.tension && TENSIONS_ELEC.includes(tension)) patch.tension = tension
+
+  const utilisation = texte(fields.type_utilisation).toUpperCase()
+  if (!draft.typeUtilisationId && utilisation) {
+    const cible = utilisations.find((u) => (u.code ?? '').toUpperCase() === utilisation)
+    if (cible) patch.typeUtilisationId = cible.id
+  }
 
   // La facture ne donne qu'une puissance souscrite : en C5 elle alimente la puissance unique,
   // au-delà elle ne renseigne que la pointe — les autres postes horaires restent à saisir.
