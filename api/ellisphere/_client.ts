@@ -273,9 +273,16 @@ async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
      la lecture faite. */
   void consignerStructure(text)
 
-  // Le score courant est dans le PREMIER bloc <score> de <assessmentData> ; les suivants sont
-  // l'historique. On isole donc ce bloc avant d'y chercher les valeurs.
-  const bloc = text.match(/<score\b[\s\S]*?<\/score>/)?.[0] ?? text
+  /* ══ LE PREMIER <score> DU RAPPORT N'EST PAS CELUI DE L'ENTREPRISE ══
+     William, 24/09/2026 : quatre sociétés différentes, toutes à 10/10, toutes « classe A », toutes
+     avec la même phrase. Le rapport porte une LÉGENDE de l'échelle — on y trouve `upTo`, `class`,
+     `color`, `label` — et c'est elle que la recherche attrapait, sur sa première entrée : le haut
+     du barème. D'où un 10 universel.
+     LE SCORE DE L'ENTREPRISE VIT DANS `<assessmentData>`, qui n'apparaît qu'une fois dans le
+     rapport. On s'y enferme AVANT de chercher, et on ne retombe sur le document entier que si la
+     section manque — auquel cas mieux vaut une note douteuse que pas de note du tout. */
+  const evaluation = text.match(/<assessmentData\b[\s\S]*?<\/assessmentData>/i)?.[0] ?? text
+  const bloc = evaluation.match(/<score\b[\s\S]*?<\/score>/)?.[0] ?? evaluation
 
   const scoreMatch =
     bloc.match(/<value\b[^>]*\btype="score"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i) ??
@@ -285,7 +292,12 @@ async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
 
   const riskClass = bloc.match(/<value\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/value>/i)?.[1]?.trim() ?? null
   const riskComment = bloc.match(/<comment\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/comment>/i)?.[1]?.trim() ?? null
-  const creditOpinion = riskComment
+  /* `<creditOpinion>` est un élément à part entière du rapport, et il ne dit pas la même chose que
+     le commentaire de classe de risque : c'est l'avis rédigé, quand il existe. */
+  const avisRedige = text.match(/<creditOpinion\b[^>]*>\s*([\s\S]*?)\s*<\/creditOpinion>/i)?.[1]
+    ?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || null
+
+  const creditOpinion = avisRedige ? decodeXml(avisRedige) : riskComment
     ? decodeXml(riskClass ? `${riskComment} (classe ${riskClass})` : riskComment)
     : riskClass
       ? `Classe ${riskClass}`
@@ -302,16 +314,16 @@ async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
 
   /* Les blocs `<score>` suivants sont l'historique — le commentaire ci-dessus le disait déjà sans
      que personne n'en tire parti. On garde les cinq plus récents, valeur et date quand elle existe. */
+  /* L'HISTORIQUE VIT DANS `<history>` / `<monitoring>`, et non dans les `<score>` du document —
+     il n'y en a que deux, dont la légende. Chaque entrée porte une note et une date. */
   const historique: { valeur: string; date: string | null }[] = []
-  for (const m of text.matchAll(/<score\b([^>]*)>([\s\S]*?)<\/score>/gi)) {
+  for (const m of evaluation.matchAll(/<(history|monitoring)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
     const corps = m[2]
     const valeur = corps.match(/<value\b[^>]*\btype="score"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i)?.[1]
     if (!valeur) continue
-    const date = m[1].match(/\bdate="([^"]+)"/i)?.[1]
-      ?? corps.match(/<date\b[^>]*>\s*([^<]+?)\s*<\/date>/i)?.[1]
-      ?? null
+    const date = corps.match(/<date\b[^>]*>\s*([^<]+?)\s*<\/date>/i)?.[1] ?? null
     historique.push({ valeur: valeur.replace(',', '.'), date })
-    if (historique.length >= 5) break
+    if (historique.length >= 6) break
   }
 
   return { score, scale, creditOpinion, paymentIncidents, encoursConseille, historique }
@@ -403,6 +415,14 @@ async function consignerStructure(rapport: string): Promise<void> {
       ?? rapport.match(/>(\d{9})</)?.[1]
       ?? 'inconnu'
 
+    /* L'EXTRAIT DE 4 000 CARACTÈRES S'ARRÊTAIT AVANT LE SCORE : le rapport commence par l'identité,
+       et tout ce qui a de la valeur vient après. On prélève donc des SECTIONS nommées, choisies
+       dans l'inventaire des balises. */
+    const section = (nom: string, max = 4000): string | null => {
+      const m = rapport.match(new RegExp(`<${nom}\\b[\\s\\S]*?</${nom}>`, 'i'))
+      return m ? m[0].slice(0, max) : null
+    }
+
     await fetch(`${url}/rest/v1/diagnostics_ellisphere`, {
       method: 'POST',
       headers: {
@@ -415,7 +435,21 @@ async function consignerStructure(rapport: string): Promise<void> {
         siren,
         balises,
         types_valeurs: types,
-        extrait: rapport.slice(0, 4000),
+        extrait: rapport.slice(0, 1200),
+        sections: {
+          assessmentData: section('assessmentData', 9000),
+          creditOpinion: section('creditOpinion', 2000),
+          currentStatus: section('currentStatus', 600),
+          foundation: section('foundation', 600),
+          capitalInformation: section('capitalInformation', 800),
+          numberOfEmployees: section('numberOfEmployees', 800),
+          workForce: section('workForce', 800),
+          financials: section('financials', 5000),
+          companyAppointments: section('companyAppointments', 2000),
+          establishmentsBreakDown: section('establishmentsBreakDown', 800),
+          evenement: section('event', 1200),
+          balisesScore: rapport.match(/<score\b[^>]*>/gi)?.slice(0, 4) ?? null,
+        },
       }),
     })
   } catch {
