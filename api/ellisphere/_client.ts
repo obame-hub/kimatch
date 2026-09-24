@@ -203,27 +203,67 @@ async function activateMonitoring(siren: string): Promise<void> {
   }
 }
 
+export interface EvenementEllisphere {
+  libelle: string
+  /** GREEN, ORANGE, RED — tel que le rapport le dit. */
+  severite: string | null
+  date: string | null
+}
+
+export interface DirigeantEllisphere {
+  nom: string
+  role: string | null
+  depuis: string | null
+}
+
+/**
+ * ══ CE QUE LE RAPPORT DE RISQUE CONTIENT VRAIMENT ══
+ *
+ * Établi le 24/09/2026 en lisant un rapport réel, section par section, après que William eut
+ * constaté que quatre sociétés différentes affichaient toutes 10/10. Plus rien ici n'est deviné :
+ * chaque champ a été vu dans un `<assessmentData>` livré par Ellisphere.
+ *
+ * TOUT VIENT DU MÊME APPEL, DÉJÀ PAYÉ. Le produit 50001 est commandé en entier depuis toujours ;
+ * on n'en gardait qu'une note et deux phrases.
+ */
 export interface EllisphereScore {
   siren: string
+  /** La note de l'entreprise, sur l'échelle `scale` (« 0 - 10 »). */
   score: string | null
   scale: string | null
-  /** Libellé de la classe de risque, ex. « Risque moyen à élevé (classe C) ». */
+  /** La classe de risque, sur A - E. */
+  classeRisque: string | null
+  /** « Risque faible à quasi nul » — le commentaire de la classe. */
+  libelleRisque: string | null
+  /** L'analyse rédigée d'Ellisphere sur ce dossier. */
   creditOpinion: string | null
-  /** Commentaire détaillé du score = les « points faibles » affichés par Tools. */
+  /** Conservé sous son ancien nom : c'est le `comment type="score"`, ce que Tools appelait les
+   *  points faibles. En pratique il dit aussi les points forts. */
   paymentIncidents: string | null
-  /* ══ DEUX LECTURES DE PLUS, TIRÉES DU MÊME RAPPORT DÉJÀ PAYÉ ══
-     Le produit 50001 est commandé en entier ; on n'en gardait que la note et deux phrases. Ces deux
-     champs viennent du même appel, sans un centime de plus.
-     ILS SONT EXTRAITS AU MIEUX, ET RENDUS `null` QUAND ILS MANQUENT : les noms de balises sont
-     déduits de ceux que l'on sait présents (`value type="score"`, `value type="riskclass"`), pas
-     d'une documentation sous les yeux. L'écran n'affiche que ce qui existe — un rapport qui ne les
-     porte pas ne casse rien et ne montre rien. */
-  /** L'encours conseillé par Ellisphere, en euros. */
+  /** Depuis quand Ellisphere note ce dossier, et quand il l'a revu pour la dernière fois. */
+  noteDepuis: string | null
+  noteMaj: string | null
+  /** LA MÊME NOTE, POUR LE SECTEUR. Une société à 6 dans un secteur à 4 ne se lit pas comme une
+   *  société à 6 dans un secteur à 9. */
+  scoreSecteur: string | null
+  classeRisqueSecteur: string | null
+  /** L'encours conseillé aujourd'hui (`upTo`), et le plafond du dossier (`limit`), en euros. */
   encoursConseille: string | null
-  /** Les notes précédentes, du plus récent au plus ancien : le code notait déjà que les blocs
-   *  `<score>` suivants sont l'historique. Une note qui monte ne se lit pas comme une note qui
-   *  descend, à valeur égale. */
-  historique: { valeur: string; date: string | null }[]
+  encoursPlafond: string | null
+  /** Les notes passées, de la plus récente à la plus ancienne. */
+  historique: { valeur: string; date: string | null; classe: string | null }[]
+  /** « Active », « Radiée »… tel que le rapport l'écrit. */
+  statut: string | null
+  statutType: string | null
+  dateCreation: string | null
+  /** Le capital social, en euros. */
+  capital: string | null
+  /** Le nombre d'établissements actifs. */
+  etablissements: string | null
+  effectif: string | null
+  dirigeants: DirigeantEllisphere[]
+  /** Les événements légaux les plus récents, avec leur gravité. */
+  evenements: EvenementEllisphere[]
 }
 
 /** Commande le rapport de risque complet d'un établissement (produit 50001) et en extrait la
@@ -233,15 +273,17 @@ export interface EllisphereScore {
  *
  * Renvoie `null` si l'appel échoue, pour que l'appelant puisse retomber sur la note seule plutôt
  * que de perdre l'information complètement. */
-type RapportRisque = {
-  score: string | null
-  scale: string | null
-  creditOpinion: string | null
-  paymentIncidents: string | null
-  encoursConseille: string | null
-  historique: { valeur: string; date: string | null }[]
-}
+type RapportRisque = Omit<EllisphereScore, 'siren'>
 
+/**
+ * Le rapport de risque complet (produit 50001), lu section par section.
+ *
+ * ══ CHAQUE EXTRACTION A ÉTÉ VUE DANS UN RAPPORT RÉEL ══
+ *
+ * Le 24/09/2026, quatre sociétés affichaient toutes 10/10 : le code prenait le premier `<score>` du
+ * document, qui appartient à la LÉGENDE de l'échelle. On travaille désormais dans
+ * `<assessmentData>`, et les noms de balises viennent d'un rapport livré, pas d'une supposition.
+ */
 async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
   const body = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <svcOnlineOrderRequest lang="FR" version="2.2">
@@ -264,73 +306,111 @@ async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
     return null
   }
 
-  /* ══ ON NOTE CE QUE LE RAPPORT CONTIENT, UNE FOIS ══
-     William, 24/09/2026 : « peux-tu checker tout ce que contient un rapport venant d'Ellipro ? »
-     Les identifiants vivent sur Vercel : seule la production peut le voir passer. Elle en consigne
-     donc la STRUCTURE — noms de balises, types de `value` et de `comment` — dans
-     `diagnostics_ellisphere`, le temps de construire la carte sur du réel.
-     TEMPORAIRE, et sans effet sur la réponse : un échec d'écriture est ignoré. À retirer une fois
-     la lecture faite. */
-  void consignerStructure(text)
+  const un = (motif: RegExp, source = text): string | null => {
+    const m = source.match(motif)
+    return m?.[1] ? decodeXml(m[1].trim()) : null
+  }
 
-  /* ══ LE PREMIER <score> DU RAPPORT N'EST PAS CELUI DE L'ENTREPRISE ══
-     William, 24/09/2026 : quatre sociétés différentes, toutes à 10/10, toutes « classe A », toutes
-     avec la même phrase. Le rapport porte une LÉGENDE de l'échelle — on y trouve `upTo`, `class`,
-     `color`, `label` — et c'est elle que la recherche attrapait, sur sa première entrée : le haut
-     du barème. D'où un 10 universel.
-     LE SCORE DE L'ENTREPRISE VIT DANS `<assessmentData>`, qui n'apparaît qu'une fois dans le
-     rapport. On s'y enferme AVANT de chercher, et on ne retombe sur le document entier que si la
-     section manque — auquel cas mieux vaut une note douteuse que pas de note du tout. */
-  const evaluation = text.match(/<assessmentData\b[\s\S]*?<\/assessmentData>/i)?.[0] ?? text
-  const bloc = evaluation.match(/<score\b[\s\S]*?<\/score>/)?.[0] ?? evaluation
+  /* ══ LE SCORE DE L'ENTREPRISE EST DANS `<assessmentData>` ══
+     Le document porte aussi une légende de l'échelle ; c'est elle qui produisait le 10 universel. */
+  const evaluation = text.match(/<assessmentData\b[\s\S]*?<\/assessmentData>/i)?.[0] ?? ''
+  const blocStandard = evaluation.match(/<score\b[^>]*\btype="standard"[^>]*>[\s\S]*?<\/score>/i)?.[0] ?? ''
+  const blocSecteur = evaluation.match(/<score\b[^>]*\btype="sector"[^>]*>[\s\S]*?<\/score>/i)?.[0] ?? ''
+  /* L'en-tête du bloc s'arrête au premier `<history>` : sans cette coupe, les valeurs de l'historique
+     répondraient aux mêmes recherches que la note courante. */
+  const enTete = blocStandard.split('<history')[0]
 
-  const scoreMatch =
-    bloc.match(/<value\b[^>]*\btype="score"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i) ??
-    bloc.match(/<value\b[^>]*scale="0\s*-\s*10"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i)
-  const score = scoreMatch ? scoreMatch[1].replace(',', '.') : null
-  const scale = bloc.match(/<value\b[^>]*\btype="score"[^>]*\bscale="([^"]+)"/i)?.[1] ?? null
+  const score = un(/<value\b[^>]*\btype="score"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i, enTete)?.replace(',', '.') ?? null
+  const scale = un(/<value\b[^>]*\btype="score"[^>]*\bscale="([^"]+)"/i, enTete)
+  const classeRisque = un(/<value\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/value>/i, enTete)
+  const libelleRisque = un(/<comment\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/comment>/i, enTete)
+  const paymentIncidents = un(/<comment\b[^>]*\btype="score"[^>]*>\s*([^<]+?)\s*<\/comment>/i, enTete)
+  const noteDepuis = un(/<date\b[^>]*\btype="since"[^>]*>\s*([^<]+?)\s*<\/date>/i, enTete)
+  const noteMaj = un(/<date\b[^>]*\btype="lastupdate"[^>]*>\s*([^<]+?)\s*<\/date>/i, enTete)
 
-  const riskClass = bloc.match(/<value\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/value>/i)?.[1]?.trim() ?? null
-  const riskComment = bloc.match(/<comment\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/comment>/i)?.[1]?.trim() ?? null
-  /* `<creditOpinion>` est un élément à part entière du rapport, et il ne dit pas la même chose que
-     le commentaire de classe de risque : c'est l'avis rédigé, quand il existe. */
-  const avisRedige = text.match(/<creditOpinion\b[^>]*>\s*([\s\S]*?)\s*<\/creditOpinion>/i)?.[1]
-    ?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || null
+  const scoreSecteur = un(/<value\b[^>]*\btype="score"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i, blocSecteur)?.replace(',', '.') ?? null
+  const classeRisqueSecteur = un(/<value\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/value>/i, blocSecteur)
 
-  const creditOpinion = avisRedige ? decodeXml(avisRedige) : riskComment
-    ? decodeXml(riskClass ? `${riskComment} (classe ${riskClass})` : riskComment)
-    : riskClass
-      ? `Classe ${riskClass}`
-      : null
+  /* L'AVIS DE CRÉDIT EST UN CONTENEUR, pas une phrase : `limit` est le plafond du dossier, `upTo`
+     l'encours conseillé aujourd'hui. Le lire en texte brut recrachait une soupe de dates et de
+     montants — c'est ce que William a vu à l'écran. */
+  const avis = text.match(/<creditOpinion\b[\s\S]*?<\/creditOpinion>/i)?.[0] ?? ''
+  const enTeteAvis = avis.split('<history')[0]
+  const encoursPlafond = un(/<limit\b[^>]*>\s*([\d.,]+)\s*<\/limit>/i, enTeteAvis)
+  const encoursConseille = un(/<upTo\b[^>]*>\s*([\d.,]+)\s*<\/upTo>/i, enTeteAvis)
 
-  const scoreComment = bloc.match(/<comment\b[^>]*\btype="score"[^>]*>\s*([^<]+?)\s*<\/comment>/i)?.[1]?.trim() ?? null
-  const paymentIncidents = scoreComment ? decodeXml(scoreComment) : null
-
-  /* L'encours conseillé se cherche dans TOUT le rapport et non dans le seul bloc de score : rien ne
-     dit qu'il y vive. Absent, il vaut `null` et l'écran n'en parle pas. */
-  const encoursConseille =
-    text.match(/<value\b[^>]*\btype="creditlimit"[^>]*>\s*([\d.,\s]+?)\s*<\/value>/i)?.[1]?.replace(/\s/g, '').replace(',', '.')
-    ?? null
-
-  /* Les blocs `<score>` suivants sont l'historique — le commentaire ci-dessus le disait déjà sans
-     que personne n'en tire parti. On garde les cinq plus récents, valeur et date quand elle existe. */
-  /* L'HISTORIQUE VIT DANS `<history>` / `<monitoring>`, et non dans les `<score>` du document —
-     il n'y en a que deux, dont la légende. Chaque entrée porte une note et une date. */
-  const historique: { valeur: string; date: string | null }[] = []
-  for (const m of evaluation.matchAll(/<(history|monitoring)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
-    const corps = m[2]
+  const historique: RapportRisque['historique'] = []
+  for (const m of blocStandard.matchAll(/<history\b[^>]*>([\s\S]*?)<\/history>/gi)) {
+    const corps = m[1]
     const valeur = corps.match(/<value\b[^>]*\btype="score"[^>]*>\s*(\d+(?:[.,]\d+)?)\s*<\/value>/i)?.[1]
     if (!valeur) continue
-    const date = corps.match(/<date\b[^>]*>\s*([^<]+?)\s*<\/date>/i)?.[1] ?? null
-    historique.push({ valeur: valeur.replace(',', '.'), date })
+    historique.push({
+      valeur: valeur.replace(',', '.'),
+      date: un(/<date\b[^>]*\btype="effective"[^>]*>\s*([^<]+?)\s*<\/date>/i, corps),
+      classe: un(/<value\b[^>]*\btype="riskclass"[^>]*>\s*([^<]+?)\s*<\/value>/i, corps),
+    })
     if (historique.length >= 6) break
   }
 
-  return { score, scale, creditOpinion, paymentIncidents, encoursConseille, historique }
+  const statut = un(/<currentStatus\b[^>]*>\s*([^<]+?)\s*<\/currentStatus>/i)
+  const statutType = un(/<currentStatus\b[^>]*\btype="([^"]+)"/i)
+  const dateCreation = un(/<foundation\b[^>]*>[\s\S]*?<date\b[^>]*\btype="creation"[^>]*>\s*([^<]+?)\s*<\/date>/i)
+  const capital = un(/<capitalInformation\b[^>]*>[\s\S]*?<capital\b[^>]*>\s*([\d.,]+)\s*<\/capital>/i)
+  const effectif = un(/<numberOfEmployees\b[^>]*>\s*([\d.,]+)\s*<\/numberOfEmployees>/i)
+
+  /* Le nombre d'établissements est une somme : le rapport le donne par département. */
+  let etablissements: string | null = null
+  const repartition = text.match(/<establishmentsBreakDown\b[\s\S]*?<\/establishmentsBreakDown>/i)?.[0]
+  if (repartition) {
+    let total = 0
+    for (const m of repartition.matchAll(/<value\b[^>]*>\s*(\d+)\s*<\/value>/gi)) total += Number(m[1])
+    if (total > 0) etablissements = String(total)
+  }
+
+  const dirigeants: DirigeantEllisphere[] = []
+  for (const m of text.matchAll(/<manager\b[^>]*>([\s\S]*?)<\/manager>/gi)) {
+    const corps = m[1]
+    const nom = un(/<fullName\b[^>]*>\s*([^<]+?)\s*<\/fullName>/i, corps)
+    if (!nom) continue
+    dirigeants.push({
+      nom,
+      role: un(/<role\b[^>]*\borigin="src"[^>]*>\s*([^<]+?)\s*<\/role>/i, corps)
+        ?? un(/<role\b[^>]*>\s*([^<]+?)\s*<\/role>/i, corps),
+      depuis: un(/<date\b[^>]*\btype="since"[^>]*>\s*([^<]+?)\s*<\/date>/i, corps),
+    })
+    if (dirigeants.length >= 4) break
+  }
+
+  /* LES ÉVÉNEMENTS PORTENT UNE GRAVITÉ — GREEN, ORANGE, RED. C'est elle qui décide de la couleur,
+     pas la date : une radiation en vert n'existe pas. */
+  const evenements: EvenementEllisphere[] = []
+  for (const m of text.matchAll(/<event\b[^>]*>([\s\S]*?)<\/event>/gi)) {
+    const corps = m[1]
+    const libelle = un(/<description\b[^>]*>\s*([^<]+?)\s*<\/description>/i, corps)
+    if (!libelle) continue
+    evenements.push({
+      libelle,
+      severite: un(/<severity\b[^>]*>\s*([^<]+?)\s*<\/severity>/i, corps),
+      date: un(/<date\b[^>]*\btype="effective"[^>]*>\s*([^<]+?)\s*<\/date>/i, corps),
+    })
+  }
+  /* Les plus graves d'abord, puis les plus récents : c'est dans cet ordre qu'on veut les lire. */
+  const rang = (s: string | null) => (s === 'RED' ? 0 : s === 'ORANGE' ? 1 : 2)
+  evenements.sort((a, b) => rang(a.severite) - rang(b.severite) || (b.date ?? '').localeCompare(a.date ?? ''))
+
+  return {
+    score, scale, classeRisque, libelleRisque,
+    creditOpinion: libelleRisque && classeRisque ? `${libelleRisque} (classe ${classeRisque})` : libelleRisque,
+    paymentIncidents, noteDepuis, noteMaj,
+    scoreSecteur, classeRisqueSecteur,
+    encoursConseille, encoursPlafond,
+    historique, statut, statutType, dateCreation, capital, etablissements, effectif,
+    dirigeants, evenements: evenements.slice(0, 6),
+  }
 }
 
 export async function getScoreBySiren(siren: string): Promise<EllisphereScore> {
-  // Chemin privilégié : rapport de risque complet, qui porte l'avis crédit et les points faibles.
+  // Chemin privilégié : rapport de risque complet, qui porte tout ce que la carte Ellipro affiche.
   try {
     const etablissement = await searchByIdentifier(siren)
     if (etablissement?.srcId) {
@@ -371,88 +451,37 @@ async function getScoreFromMonitoring(siren: string): Promise<EllisphereScore> {
 
   // La liste de surveillance ne porte ni avis crédit ni points faibles : ces deux champs
   // n'existent que dans le rapport de risque (voir getRiskReport).
-  if (!scoreNode) return { siren, score: null, scale: null, creditOpinion: null, paymentIncidents: null, encoursConseille: null, historique: [] }
+  if (!scoreNode) return {
+    siren, score: null, scale: null, classeRisque: null, libelleRisque: null, creditOpinion: null,
+    paymentIncidents: null, noteDepuis: null, noteMaj: null, scoreSecteur: null,
+    classeRisqueSecteur: null, encoursConseille: null, encoursPlafond: null, historique: [],
+    statut: null, statutType: null, dateCreation: null, capital: null, etablissements: null,
+    effectif: null, dirigeants: [], evenements: [],
+  }
 
   if (typeof scoreNode === 'object') {
     return {
-      siren,
+      ...{
+    siren, score: null, scale: null, classeRisque: null, libelleRisque: null, creditOpinion: null,
+    paymentIncidents: null, noteDepuis: null, noteMaj: null, scoreSecteur: null,
+    classeRisqueSecteur: null, encoursConseille: null, encoursPlafond: null, historique: [],
+    statut: null, statutType: null, dateCreation: null, capital: null, etablissements: null,
+    effectif: null, dirigeants: [], evenements: [],
+  },
       score: asText(scoreNode['#text'] ?? scoreNode),
       scale: (scoreNode['@_scale'] as string) ?? null,
-      creditOpinion: null,
-      paymentIncidents: null,
-      encoursConseille: null,
-      historique: [],
     }
   }
-  return { siren, score: String(scoreNode), scale: null, creditOpinion: null, paymentIncidents: null, encoursConseille: null, historique: [] }
+  return { ...{
+    siren, score: null, scale: null, classeRisque: null, libelleRisque: null, creditOpinion: null,
+    paymentIncidents: null, noteDepuis: null, noteMaj: null, scoreSecteur: null,
+    classeRisqueSecteur: null, encoursConseille: null, encoursPlafond: null, historique: [],
+    statut: null, statutType: null, dateCreation: null, capital: null, etablissements: null,
+    effectif: null, dirigeants: [], evenements: [],
+  }, score: String(scoreNode) }
 }
 
-
-/**
- * Consigne la structure d'un rapport — TEMPORAIRE, voir son appel.
- *
- * ON NE GARDE PAS LE RAPPORT ENTIER : les noms de balises et leurs occurrences, les valeurs de
- * `type=` (c'est là qu'est le sens : score, riskclass, creditlimit…), et 4 000 caractères d'extrait
- * pour lire la forme des valeurs. Assez pour décider quoi afficher, pas assez pour constituer une
- * copie du service.
- */
-async function consignerStructure(rapport: string): Promise<void> {
-  try {
-    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-    const cle = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!url || !cle) return
-
-    const balises: Record<string, number> = {}
-    for (const m of rapport.matchAll(/<([A-Za-z][\w:.-]*)\b/g)) {
-      balises[m[1]] = (balises[m[1]] ?? 0) + 1
-    }
-    const types: Record<string, number> = {}
-    for (const m of rapport.matchAll(/<(value|comment|indicator|item)\b[^>]*\btype="([^"]+)"/gi)) {
-      const cle2 = `${m[1].toLowerCase()}:${m[2]}`
-      types[cle2] = (types[cle2] ?? 0) + 1
-    }
-    const siren = rapport.match(/idName="SIREN"[^>]*>\s*(\d{9})/i)?.[1]
-      ?? rapport.match(/>(\d{9})</)?.[1]
-      ?? 'inconnu'
-
-    /* L'EXTRAIT DE 4 000 CARACTÈRES S'ARRÊTAIT AVANT LE SCORE : le rapport commence par l'identité,
-       et tout ce qui a de la valeur vient après. On prélève donc des SECTIONS nommées, choisies
-       dans l'inventaire des balises. */
-    const section = (nom: string, max = 4000): string | null => {
-      const m = rapport.match(new RegExp(`<${nom}\\b[\\s\\S]*?</${nom}>`, 'i'))
-      return m ? m[0].slice(0, max) : null
-    }
-
-    await fetch(`${url}/rest/v1/diagnostics_ellisphere`, {
-      method: 'POST',
-      headers: {
-        apikey: cle,
-        Authorization: `Bearer ${cle}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
-      },
-      body: JSON.stringify({
-        siren,
-        balises,
-        types_valeurs: types,
-        extrait: rapport.slice(0, 1200),
-        sections: {
-          assessmentData: section('assessmentData', 9000),
-          creditOpinion: section('creditOpinion', 2000),
-          currentStatus: section('currentStatus', 600),
-          foundation: section('foundation', 600),
-          capitalInformation: section('capitalInformation', 800),
-          numberOfEmployees: section('numberOfEmployees', 800),
-          workForce: section('workForce', 800),
-          financials: section('financials', 5000),
-          companyAppointments: section('companyAppointments', 2000),
-          establishmentsBreakDown: section('establishmentsBreakDown', 800),
-          evenement: section('event', 1200),
-          balisesScore: rapport.match(/<score\b[^>]*>/gi)?.slice(0, 4) ?? null,
-        },
-      }),
-    })
-  } catch {
-    /* Un diagnostic qui échoue ne doit surtout pas empêcher un score d'être rendu. */
-  }
-}
+/* LE DIAGNOSTIC DE STRUCTURE A ÉTÉ RETIRÉ LE 24/09/2026, sa lecture faite. Il a servi une journée à
+   comprendre ce que le rapport contient vraiment — et à trouver pourquoi quatre sociétés affichaient
+   toutes 10/10. Tout ce qui est extrait plus haut vient de cette lecture. Laisser un mouchard écrire
+   en production à chaque consultation ne se justifie plus. */

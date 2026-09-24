@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowRight, Building2, Check, Factory, Handshake, Home, Loader2, Search, ShieldCheck, Users, Zap,
+  ArrowRight, Building2, Check, Factory, Handshake, Home, Loader2, Search, Users, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ContactForm } from '@/components/contact/ContactForm'
+import { CarteEllipro } from '@/components/compte/CarteEllipro'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
 import {
   EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours,
@@ -14,7 +15,6 @@ import { useCreateCompte } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useEllisphereScore, useRechercheEllisphere, type EllisphereCompany } from '@/lib/data/ellisphere'
-import { palierScoreEllipro, scoreEnNombre } from '@/lib/scoreEllipro'
 import { cn } from '@/lib/utils'
 import type { Compte, TypeCompte } from '@/types/domain'
 
@@ -292,11 +292,6 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
     }
   }
 
-  /* Le palier du score affiché — rouge, jaune ou vert. Neutre tant qu'aucun score n'est rendu. */
-  const noteLue = scoreEnNombre(lireScore.data?.score)
-  const palier = palierScoreEllipro(noteLue ?? 0)
-  const historique = lireScore.data?.historique ?? []
-
   function fermer() {
     onFermer()
     if (compte) navigate(`/comptes/${compte.id}`)
@@ -546,136 +541,15 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 <Loader2 className="h-7 w-7 animate-spin text-km-green" />
                 <p className="text-[13px] font-semibold text-km-text">Interrogation d’Ellisphere…</p>
               </div>
+            ) : lireScore.data ? (
+              /* TOUTE LA FENÊTRE POUR LA CARTE. William : « je veux que toutes les infos que tu
+                 trouves pertinent à indiquer tiennent dans une grosse card Ellipro ». */
+              <CarteEllipro donnees={lireScore.data} nom={nom} />
             ) : (
-              <div className="grid min-h-0 flex-1 grid-cols-[236px_1fr] gap-[16px]">
-
-                {/* ── COLONNE 1 · LE CHIFFRE ET SA PLACE SUR L'ÉCHELLE ── */}
-                <div className={cn(
-                  'flex flex-col gap-[16px] rounded-[16px] border p-[18px]',
-                  noteLue == null ? 'border-km-line bg-km-bg/40' : cn(palier.bordureToken, palier.fondToken),
-                )}>
-                  <span className="text-[10.5px] font-bold uppercase tracking-[0.09em] text-km-faint">
-                    Score Ellipro
-                  </span>
-
-                  {noteLue == null ? (
-                    <p className="text-[12.5px] leading-snug text-km-muted">
-                      Ellisphere n’a pas rendu de note pour ce SIREN. Le compte se crée quand même ;
-                      la note se redemandera depuis sa fiche.
-                    </p>
-                  ) : (
-                    <>
-                      <div className="flex items-baseline gap-2">
-                        <span className={cn('font-mono text-[62px] font-extrabold leading-none tracking-[-0.05em]', palier.texteToken)}>
-                          {lireScore.data?.score}
-                        </span>
-                        <span className="font-mono text-[18px] font-bold text-km-faint">
-                          /{(lireScore.data?.scale ?? '0-10').split('-').pop()?.trim()}
-                        </span>
-                      </div>
-                      <span className={cn('text-[13px] font-bold uppercase tracking-[0.06em]', palier.texteToken)}>
-                        {palier.libelle}
-                      </span>
-
-                      {/* LA RÈGLE DES TROIS BANDES, DESSINÉE. Un chiffre seul ne dit pas s'il est
-                          proche d'une frontière ; la barre le montre d'un coup d'œil. */}
-                      <div className="flex flex-col gap-[6px]">
-                        <div className="relative h-[8px] w-full overflow-hidden rounded-full">
-                          <div className="absolute inset-0 flex">
-                            <span className="h-full w-[30%] bg-km-red/30" />
-                            <span className="h-full w-[40%] bg-km-amber/30" />
-                            <span className="h-full w-[30%] bg-km-green/30" />
-                          </div>
-                          <span
-                            className={cn('absolute top-0 h-full w-[3px] rounded-full', palier.bande === 'vert' ? 'bg-km-green' : palier.bande === 'jaune' ? 'bg-km-amber' : 'bg-km-red')}
-                            style={{ left: `calc(${Math.max(0, Math.min(100, (noteLue / 10) * 100))}% - 1.5px)` }}
-                          />
-                        </div>
-                        <div className="flex justify-between font-mono text-[9.5px] text-km-faint">
-                          <span>0</span><span>3</span><span>7</span><span>10</span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* L'HISTORIQUE : une note qui monte ne se lit pas comme une note qui descend. */}
-                  {historique.length > 1 && (
-                    <div className="mt-auto flex flex-col gap-[6px] border-t border-km-line-soft pt-[12px]">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-km-faint">Notes précédentes</span>
-                      <div className="flex flex-wrap items-center gap-[6px]">
-                        {historique.slice(1).map((h, i) => (
-                          <span key={`${h.valeur}-${i}`} className="inline-flex items-baseline gap-1 rounded-[7px] bg-white px-[7px] py-[3px]">
-                            <span className="font-mono text-[12px] font-bold text-km-muted">{h.valeur}</span>
-                            {h.date && <span className="text-[9.5px] text-km-faint">{h.date.slice(0, 7)}</span>}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── COLONNE 2 · CE QU'ELLISPHERE EN DIT, PUIS QUI C'EST ── */}
-                <div className="flex min-h-0 flex-col gap-[12px] overflow-y-auto pr-1">
-
-                  {lireScore.data?.creditOpinion && (
-                    <div className="flex flex-col gap-[6px] rounded-[14px] border border-km-line bg-white p-[15px]">
-                      <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Avis de crédit</span>
-                      <span className="text-[14px] font-semibold leading-snug text-km-text">{lireScore.data.creditOpinion}</span>
-                    </div>
-                  )}
-
-                  {lireScore.data?.paymentIncidents && (
-                    <div className="flex flex-col gap-[6px] rounded-[14px] border border-km-line bg-km-bg/40 p-[15px]">
-                      <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Points faibles relevés</span>
-                      <span className="text-[12.5px] leading-relaxed text-km-muted">{lireScore.data.paymentIncidents}</span>
-                    </div>
-                  )}
-
-                  {/* L'ENCOURS CONSEILLÉ EST LE CHIFFRE LE PLUS ACTIONNABLE DU RAPPORT : c'est ce
-                      qu'Ellisphere estime raisonnable de laisser courir. Il n'apparaît que si le
-                      rapport le porte. */}
-                  {lireScore.data?.encoursConseille && (
-                    <div className="flex items-center gap-[14px] rounded-[14px] border border-km-blue-soft bg-km-blue-soft/50 p-[15px]">
-                      <ShieldCheck className="h-[20px] w-[20px] shrink-0 text-km-blue" />
-                      <div className="flex min-w-0 flex-col">
-                        <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Encours conseillé</span>
-                        <span className="font-mono text-[20px] font-bold text-km-blue">
-                          {Number(lireScore.data.encoursConseille).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* QUI EST CETTE ENTREPRISE — tout vient de l'étape 2, sans un appel de plus. */}
-                  <div className="flex flex-col gap-[10px] rounded-[14px] border border-km-line bg-white p-[15px]">
-                    <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">L’entreprise</span>
-                    <span className="text-[15px] font-semibold leading-tight text-km-text">{nom}</span>
-                    <div className="grid grid-cols-2 gap-x-[14px] gap-y-[8px]">
-                      {[
-                        ['Typologie', type.libelle],
-                        ['Type de compte', type.consommateur ? 'Consommateur' : type.libelle],
-                        ['SIREN', siren || '—'],
-                        ['SIRET', siret || '—'],
-                        ['Code NAF', codeNaf || '—'],
-                        ['Activité', libelleApe || '—'],
-                      ].map(([cle, valeur]) => (
-                        <div key={cle} className="flex min-w-0 flex-col gap-[1px]">
-                          <span className="text-[9.5px] font-bold uppercase tracking-[0.07em] text-km-faint">{cle}</span>
-                          <span className={cn('truncate text-[12.5px] text-km-text', (cle === 'SIREN' || cle === 'SIRET' || cle === 'Code NAF') && 'font-mono')}>
-                            {valeur}
-                          </span>
-                        </div>
-                      ))}
-                      <div className="col-span-2 flex min-w-0 flex-col gap-[1px]">
-                        <span className="text-[9.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Adresse</span>
-                        <span className="truncate text-[12.5px] text-km-text">
-                          {[rue, codePostal, ville].filter(Boolean).join(', ') || '—'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <p className="rounded-[12px] border border-km-line bg-km-bg/40 px-[15px] py-[13px] text-[12.5px] leading-snug text-km-muted">
+                Ellisphere n’a rien rendu pour ce SIREN. Le compte se crée quand même ; la note se
+                redemandera depuis sa fiche.
+              </p>
             )}
 
             {erreur && (

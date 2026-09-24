@@ -1,19 +1,46 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { authHeader } from '@/lib/data/authHeader'
 
+export interface EvenementEllisphere {
+  libelle: string
+  /** GREEN, ORANGE ou RED, tel que le rapport le dit. */
+  severite: string | null
+  date: string | null
+}
+
+export interface DirigeantEllisphere {
+  nom: string
+  role: string | null
+  depuis: string | null
+}
+
+/**
+ * Ce que le rapport de risque Ellisphere contient — établi le 24/09/2026 en lisant un rapport réel,
+ * section par section. Rien ici n'est deviné. Voir `api/ellisphere/_client.ts`.
+ */
 export interface EllisphereScore {
   siren: string
   score: string | null
   scale: string | null
-  /** Classe de risque en clair, ex. « Risque moyen à élevé (classe C) ». Absent si seul le
-   * repli « liste de surveillance » a répondu (il ne porte que la note brute). */
+  classeRisque: string | null
+  libelleRisque: string | null
   creditOpinion: string | null
-  /** Points faibles / commentaire du score. Même réserve que creditOpinion. */
   paymentIncidents: string | null
-  /** L'encours conseillé, et les notes précédentes — tirés du même rapport, déjà payé. Absents
-   *  quand le rapport ne les porte pas : l'écran n'affiche alors rien à leur sujet. */
-  encoursConseille?: string | null
-  historique?: { valeur: string; date: string | null }[]
+  noteDepuis: string | null
+  noteMaj: string | null
+  scoreSecteur: string | null
+  classeRisqueSecteur: string | null
+  encoursConseille: string | null
+  encoursPlafond: string | null
+  historique: { valeur: string; date: string | null; classe: string | null }[]
+  statut: string | null
+  statutType: string | null
+  dateCreation: string | null
+  capital: string | null
+  etablissements: string | null
+  effectif: string | null
+  dirigeants: DirigeantEllisphere[]
+  evenements: EvenementEllisphere[]
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
