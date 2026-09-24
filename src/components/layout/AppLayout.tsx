@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { InstallPrompt } from '@/components/layout/InstallPrompt'
@@ -10,12 +10,41 @@ import { GmailBanner } from '@/components/layout/GmailBanner'
 import { SidebarProvider } from '@/lib/layout'
 import { TelephonieProvider } from '@/lib/telephonie'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
+import { useEstPartenaire } from '@/lib/data/roles'
 import { PaletteCommandes } from '@/components/layout/PaletteCommandes'
 import { estUneSaisie, ouvertureDemandee } from '@/lib/raccourci'
 import { cn } from '@/lib/utils'
 
 export function AppLayout() {
   const impersonating = Boolean(getImpersonationInfo())
+
+  /* ══════════════════════════════════════════════════════════════════════════════════════════
+   * L'ESPACE PARTENAIRE N'OUVRE PAS LES ÉCRANS DE KIWEE — 24/09/2026
+   * ══════════════════════════════════════════════════════════════════════════════════════════
+   *
+   * Naoëlle : « il n'est pas censé voir ni cockpit ni piste, affiche seulement ce dont il a besoin ».
+   *
+   * RETIRER L'ENTRÉE DU RAIL NE SUFFIT PAS. Éprouvé à l'écran : le rail était bien réduit à deux
+   * entrées, et la page d'accueil affichait quand même la vue d'ensemble de KiWee — « Appels à
+   * passer », « Pistes à relancer », « Charge à venir ». Des compteurs à zéro, mais des compteurs
+   * qui ne le regardent pas, et qui laissent croire que Kimatch est en panne.
+   *
+   * L'AIGUILLAGE VIT ICI ET NON DANS LES ROUTES : un seul point de passage, donc une seule chose à
+   * tenir à jour. Une route ajoutée demain sera couverte sans qu'on y pense — et l'oubli, dans ce
+   * sens-là, ouvrirait un écran interne à un externe.
+   *
+   * CE N'EST PAS LA SÉCURITÉ, et il ne faut pas s'y tromper : ce sont les policies qui protègent
+   * les données (migration 20260924143000). Ceci évite d'AFFICHER ce qui ne le concerne pas.
+   * ══════════════════════════════════════════════════════════════════════════════════════════ */
+  const estPartenaire = useEstPartenaire()
+  const { pathname } = useLocation()
+  /* CE QU'IL A LE DROIT D'OUVRIR. Tout le reste le ramène à ses recommandations — y compris la
+     racine, dont la vue d'ensemble ne parle que de KiWee. */
+  const ouvertAuPartenaire = [
+    '/recommandations', '/patrimoine', '/comptes', '/contacts', '/compteurs',
+    '/mandats', '/contrats', '/nouveautes', '/profil',
+  ]
+  const autorise = ouvertAuPartenaire.some((d) => pathname === d || pathname.startsWith(d + '/'))
 
   /* ══ LA PALETTE EST MONTÉE ICI, ET UNE SEULE FOIS ══
      Elle vivait dans la barre du haut, supprimée le 16/09/2026. `AppLayout` est ce qui reste de
@@ -51,6 +80,8 @@ export function AppLayout() {
     window.addEventListener('keydown', auClavier)
     return () => window.removeEventListener('keydown', auClavier)
   }, [palette])
+
+  if (estPartenaire && !autorise) return <Navigate to="/recommandations" replace />
 
   return (
     <SidebarProvider>

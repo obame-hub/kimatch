@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { Home, Building2, Sparkle, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebar } from '@/lib/layout'
+import { useEstPartenaire } from '@/lib/data/roles'
 
 // Destinations de premier niveau (Tâches retiré du menu — accessible via les objets liés
 // et le Tableau de bord). "Plus" est ajouté en dernier pour atteindre les autres sections.
@@ -18,12 +19,27 @@ const items = [
   { to: '/recommandations', label: 'Recos', icon: Sparkle, tint: 'text-amber-500' },
 ]
 
+/* ══ LA BARRE DU BAS SUIT LE MÊME CLOISONNEMENT — 24/09/2026 ══
+ *
+ * Naoëlle : « affiche seulement ce dont il a besoin ». Et sa règle de toujours : le mobile compte
+ * autant que le PC — une barre qui proposerait « Accueil » et « Comptes » à un partenaire ouvrirait
+ * sur téléphone ce que le rail ferme sur ordinateur.
+ *
+ * ACCUEIL SORT AUSSI : la vue d'ensemble compte les affaires de KiWee, les tâches du jour, le pipe.
+ * Une page de zéros ferait croire à une panne. */
+const itemsPartenaire = [
+  { to: '/recommandations', label: 'Recos', icon: Sparkle, end: false, tint: 'text-amber-500' },
+  { to: '/patrimoine', label: 'Patrimoine', icon: Building2, end: false, tint: 'text-sky-500' },
+]
+
 export function BottomNav() {
   const { toggle } = useSidebar()
+  const estPartenaire = useEstPartenaire()
+  const entrees = estPartenaire ? itemsPartenaire : items
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-km-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-      {items.map(({ to, label, icon: Icon, end, tint }) => (
+      {entrees.map(({ to, label, icon: Icon, end, tint }) => (
         <NavLink
           key={to}
           to={to}

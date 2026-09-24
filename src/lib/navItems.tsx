@@ -173,6 +173,44 @@ export const bottomNavItems: NavItem[] = [
 ]
 
 /**
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * L'ESPACE PARTENAIRE — 24/09/2026
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Naoëlle : « il n'est pas censé voir ni cockpit ni piste, affiche seulement ce dont il a besoin ».
+ * Michel, réunion du 24/09 : « faut pas qu'il accède aux paramètres cockpit tout ça ».
+ *
+ * ══ POURQUOI UNE LISTE À PART, ET NON UN FILTRE SUR CELLE DE L'ÉQUIPE ══
+ *
+ * Un filtre se raisonne à l'envers : il faut penser à retirer chaque nouvelle entrée, et l'oubli
+ * ouvre un écran interne à un externe. Ici, ce qui n'est pas écrit n'existe pas — ajouter demain
+ * une page « Marges » ne la fera pas apparaître chez le partenaire par inadvertance.
+ *
+ * ══ CE QU'IL Y TROUVE, ET RIEN D'AUTRE ══
+ *
+ * Michel : « il a accès à son patrimoine — comptes, contacts, compteurs, mandats, contrats,
+ * activité — et aux recommandations ». Les recommandations d'abord : c'est l'objet pour lequel il
+ * vient, « c'est juste pour faire une demande de recommandation ».
+ *
+ * PAS DE VUE D'ENSEMBLE : elle compte les affaires de KiWee, les tâches du jour, le pipe. Rien de
+ * tout cela ne le concerne, et une page de zéros ferait croire à une panne.
+ *
+ * LE RAIL N'EST PAS LA SÉCURITÉ. Ce sont les policies (migration 20260924143000) qui empêchent
+ * l'accès ; retirer une entrée du menu ne fait que cesser de la proposer. Quelqu'un qui taperait
+ * `/pistes` à la main tomberait sur une page vide, pas sur vos données.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+export const partenaireNavItems: NavItem[] = [
+  { to: '/recommandations', label: 'Mes recommandations', icon: Sparkle },
+  { to: '/patrimoine', label: 'Mon patrimoine', icon: Building2 },
+]
+
+/** Ce qu'un partenaire garde en bas du rail. Ni Support interne, ni Paramètres d'administration. */
+export const partenaireBottomNavItems: NavItem[] = [
+  { to: '/nouveautes', label: 'Nouveautés', icon: Megaphone },
+]
+
+/**
  * CE QUE LA RECHERCHE DOIT TROUVER, rail ou pas.
  *
  * Sortir une page du rail ne doit pas la rendre introuvable : la barre de recherche cherchait

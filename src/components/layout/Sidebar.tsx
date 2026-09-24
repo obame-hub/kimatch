@@ -4,9 +4,9 @@ import { ChevronUp, LogOut, ShieldCheck, User, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
-import { useIsAdmin, useMonProfil } from '@/lib/data/roles'
+import { useIsAdmin, useEstPartenaire, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
-import { navItems, cycleNavItems, productionNavItems, cockpitNavItems, bottomNavItems } from '@/lib/navItems'
+import { navItems, cycleNavItems, productionNavItems, cockpitNavItems, bottomNavItems, partenaireNavItems, partenaireBottomNavItems } from '@/lib/navItems'
 import { PanneauNotifications } from '@/components/layout/PanneauNotifications'
 import { useNotificationsNonLues } from '@/lib/data/notifications'
 import { Bell } from 'lucide-react'
@@ -220,6 +220,15 @@ export function Sidebar() {
   const [popupNouveautes, setPopupNouveautes] = useState(false)
   const [voletNotifications, setVoletNotifications] = useState(false)
   const isAdmin = useIsAdmin()
+  /* ══ L'ESPACE PARTENAIRE — 24/09/2026 ══
+   *
+   * Naoëlle : « il n'est pas censé voir ni cockpit ni piste, affiche seulement ce dont il a besoin
+   * et spécifie quelque part qu'on est sur l'espace partenaire ».
+   *
+   * LE RAIL N'EST PAS LA SÉCURITÉ, et il ne faut pas s'y tromper : ce sont les policies qui
+   * empêchent l'accès (migration 20260924143000). Retirer une entrée cesse de la proposer, rien de
+   * plus — quelqu'un qui taperait l'adresse à la main tomberait sur une page vide. */
+  const estPartenaire = useEstPartenaire()
   const { session } = useAuth()
   const { data: profil } = useMonProfil()
   // Support/Paramètres (et Administration pour les admins) sont séparés des objets métier
@@ -233,10 +242,17 @@ export function Sidebar() {
      porte le NOMBRE de publications non lues — un six sur pastille verte. Une notification qu'il
      faut ouvrir un menu pour voir n'est plus une notification : elle ne dit plus « va voir », elle
      attend qu'on la trouve. Les trois autres n'annoncent rien et se rangent sans rien perdre. */
-  const menuProfilItems: NavItem[] = isAdmin
-    ? [...bottomNavItems.filter((i) => i.to !== '/nouveautes'), { to: '/administration', label: 'Administration', icon: ShieldCheck }]
-    : bottomNavItems.filter((i) => i.to !== '/nouveautes')
-  const bottomItems: NavItem[] = bottomNavItems.filter((i) => i.to === '/nouveautes')
+  /* UN PARTENAIRE N'A NI SUPPORT INTERNE NI PARAMÈTRES : le premier ouvre nos demandes d'équipe,
+     les seconds des réglages qui ne le concernent pas. Il garde Nouveautés, qui lui annonce ce qui
+     change chez lui. */
+  const menuProfilItems: NavItem[] = estPartenaire
+    ? []
+    : isAdmin
+      ? [...bottomNavItems.filter((i) => i.to !== '/nouveautes'), { to: '/administration', label: 'Administration', icon: ShieldCheck }]
+      : bottomNavItems.filter((i) => i.to !== '/nouveautes')
+  const bottomItems: NavItem[] = estPartenaire
+    ? partenaireBottomNavItems
+    : bottomNavItems.filter((i) => i.to === '/nouveautes')
   // Les deux dégradés ne s'affichent que s'il reste quelque chose à voir de ce côté-là. Recalculés
   // au défilement, au redimensionnement, et quand le nombre d'entrées change — c'est ce dernier cas
   // qui compte : ajouter un objet ne doit rien casser.
@@ -305,7 +321,18 @@ export function Sidebar() {
           <img src={kiweePicto} alt="KiWee" className="h-[26px] w-[26px] shrink-0 object-contain" />
           <div className="min-w-0 flex-1">
             <p className="whitespace-nowrap font-display text-km-name font-bold leading-none tracking-[-0.02em] text-km-side-text">Kimatch</p>
-            <p className="mt-1 whitespace-nowrap text-km-tiny uppercase tracking-[0.08em] text-km-side-faint">Conseil énergie</p>
+            {/* ══ ON DIT OÙ L'ON EST — 24/09/2026 ══
+                Naoëlle : « spécifie quelque part qu'on est sur l'espace partenaire ».
+
+                SOUS LE NOM, ET NON DANS UN BANDEAU : c'est le seul endroit du rail qu'on lit à
+                chaque page sans le chercher, et un bandeau de plus mangerait la hauteur utile. Le
+                partenaire n'a pas à se demander s'il regarde ses données ou celles de KiWee. */}
+            <p className={cn(
+              'mt-1 whitespace-nowrap text-km-tiny uppercase tracking-[0.08em]',
+              estPartenaire ? 'font-bold text-km-amber' : 'text-km-side-faint',
+            )}>
+              {estPartenaire ? 'Espace partenaire' : 'Conseil énergie'}
+            </p>
           </div>
           <button
             type="button"
@@ -339,21 +366,32 @@ export function Sidebar() {
                 commercial » a été retiré le 31/08/2026 : sur onze entrées, trois titres donnaient
                 un rythme d'un titre pour trois lignes, et le rail se lisait comme une table des
                 matières. L'ordre des entrées, lui, ne change pas — il raconte toujours la chaîne. */}
-            <Rubrique>Pilotage</Rubrique>
-            {[...navItems, ...cycleNavItems].map((item) => (
-              <SidebarLink key={item.to} {...item} onClick={close} />
-            ))}
-            <div className="h-4" aria-hidden="true" />
-            <Rubrique>Production</Rubrique>
-            {productionNavItems.map((item) => (
-              <SidebarLink key={item.to} {...item} onClick={close} />
-            ))}
-            {/* LE COCKPIT, DERNIÈRE ENTRÉE DU RAIL, sans rubrique et détaché des autres : ce n'est
-                pas un objet de plus, c'est une façon de passer sa journée (voir `cockpitNavItems`). */}
-            <div className="h-4" aria-hidden="true" />
-            {cockpitNavItems.map((item) => (
-              <SidebarLink key={item.to} {...item} onClick={close} />
-            ))}
+            {estPartenaire ? (
+              /* DEUX ENTRÉES, ET C'EST TOUT. Michel, 24/09/2026 : « il a accès à son patrimoine et
+                 aux recommandations ». Les recommandations d'abord — c'est l'objet pour lequel il
+                 vient : « c'est juste pour faire une demande de recommandation ». */
+              partenaireNavItems.map((item) => (
+                <SidebarLink key={item.to} {...item} onClick={close} />
+              ))
+            ) : (
+              <>
+                <Rubrique>Pilotage</Rubrique>
+                {[...navItems, ...cycleNavItems].map((item) => (
+                  <SidebarLink key={item.to} {...item} onClick={close} />
+                ))}
+                <div className="h-4" aria-hidden="true" />
+                <Rubrique>Production</Rubrique>
+                {productionNavItems.map((item) => (
+                  <SidebarLink key={item.to} {...item} onClick={close} />
+                ))}
+                {/* LE COCKPIT, DERNIÈRE ENTRÉE DU RAIL, sans rubrique et détaché des autres : ce
+                    n'est pas un objet de plus, c'est une façon de passer sa journée. */}
+                <div className="h-4" aria-hidden="true" />
+                {cockpitNavItems.map((item) => (
+                  <SidebarLink key={item.to} {...item} onClick={close} />
+                ))}
+              </>
+            )}
           </nav>
           {bas && (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-gradient-to-t from-km-side-bas to-transparent" />

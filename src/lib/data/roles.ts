@@ -362,9 +362,35 @@ export function useCurrentAccess() {
   return useQuery({ queryKey: ['current-access'], queryFn: fetchCurrentAccess })
 }
 
+/**
+ * Le droit d'ouvrir l'administration.
+ *
+ * IL SE LIT SUR LE RÔLE, PLUS SUR SON NOM. La comparaison `code === 'ADMIN'` rendait ce droit non
+ * réglable : un rôle créé dans la page Rôles ne pouvait pas l'obtenir, et le retirer à ADMIN était
+ * impossible sans redéploiement. C'est une colonne depuis la migration 20260924103000.
+ *
+ * Le nom reste `useIsAdmin` : il est appelé à des dizaines d'endroits, et le renommer ferait un
+ * diff illisible pour un gain nul.
+ */
 export function useIsAdmin() {
   const { data } = useCurrentAccess()
-  return data?.roleCode === 'SUPER_ADMIN' || data?.roleCode === 'ADMIN'
+  return Boolean(data?.ouvreAdministration)
+}
+
+/**
+ * La personne connectée est-elle un partenaire externe ?
+ *
+ * Naoëlle, 24/09/2026 : « il n'est pas censé voir ni cockpit ni piste, affiche seulement ce dont il
+ * a besoin et spécifie quelque part qu'on est sur l'espace partenaire ».
+ *
+ * ON LIT `compte_partenaire_id` SUR LE PROFIL, et non le code du rôle : c'est ce rattachement qui
+ * fait foi pour les policies (`est_partenaire()` en base pose exactement la même question). Deux
+ * définitions différentes de « partenaire » — une pour l'écran, une pour la base — finiraient par
+ * diverger, et c'est le genre d'écart qui ouvre un accès sans que personne le voie.
+ */
+export function useEstPartenaire() {
+  const { data } = useMonProfil()
+  return Boolean(data?.compte_partenaire_id)
 }
 
 export interface MonProfil {
@@ -382,6 +408,14 @@ export interface MonProfil {
    * ajouter. Voir `emailAllo` ci-dessous.
    */
   email_allo: string | null
+  /**
+   * Le compte partenaire dont cette personne depend, quand elle est externe. Nul pour l'equipe.
+   *
+   * C'est ce rattachement qui declenche le cloisonnement (migration 20260924143000) : `useEstPartenaire`
+   * pose exactement la meme question que `est_partenaire()` en base, pour que l'ecran et les policies
+   * ne puissent pas diverger.
+   */
+  compte_partenaire_id: string | null
 }
 
 /**
@@ -401,7 +435,7 @@ async function fetchMonProfil(): Promise<MonProfil | null> {
   if (!utilisateur) return null
   const { data, error } = await supabase
     .from('profils')
-    .select('id, prenom, nom, email, photo_url, email_allo')
+    .select('id, prenom, nom, email, photo_url, email_allo, compte_partenaire_id')
     .eq('id', utilisateur.id)
     .maybeSingle()
   if (error || !data) return null
