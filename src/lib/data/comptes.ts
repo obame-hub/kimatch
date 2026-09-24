@@ -600,3 +600,78 @@ export function useDecompteClientsProspects(input: {
     },
   })
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LES CONDITIONS QUI DÉCIDENT SI UN FOURNISSEUR EST PROPOSÉ
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Naoëlle, 24/09/2026 : « il faut pouvoir modifier directement sur les fiches et pas juste en base,
+ * des modifications de champs inline ».
+ *
+ * Ces six critères sont ceux que `lib/eligibility.ts` consulte pendant la cotation : profils
+ * électricité, profils gaz, type de client, note Ellisphere minimale, délai de réponse, volume
+ * minimal. Ils vivaient en base sans être modifiables ailleurs qu'en SQL.
+ *
+ * ON ÉCRIT DANS `comptes_fournisseurs`, ET AUSSI DANS `comptes.limite_ellipro` pour la note : les
+ * deux colonnes portent la même valeur depuis longtemps, et la fiche lit la seconde. Les laisser
+ * diverger ferait afficher une note différente de celle qui décide.
+ */
+export interface ConditionsFournisseur {
+  segments?: string[]
+  tariffs?: string[]
+  targets?: string[]
+  min_ellipro_score?: number | null
+  response_delay_days?: number | null
+  min_consumption?: number | null
+}
+
+/**
+ * Découpe une saisie en codes.
+ *
+ * On accepte la virgule, l'espace et le point-virgule, parce que personne ne retient quel séparateur
+ * l'écran attend — et l'on met en majuscules, parce qu'un `c1` saisi vite ne doit pas créer un
+ * segment que le moteur ne reconnaîtra jamais.
+ */
+export function decouperCodes(saisie: string): string[] {
+  return saisie
+    .split(/[,;\s]+/)
+    .map((x) => x.trim().toUpperCase())
+    .filter(Boolean)
+}
+
+export async function majConditionsFournisseur(
+  compteId: string,
+  conditions: ConditionsFournisseur,
+): Promise<void> {
+  /* ══ UN `update`, ET NON UN `upsert` — ÉPROUVÉ LE 24/09/2026 ══
+   *
+   * J'avais écrit un `upsert`, pour couvrir le fournisseur qui n'aurait aucune ligne de conditions.
+   * La base l'a refusé : `comptes_fournisseurs_energie_check` exige qu'un fournisseur fournisse au
+   * moins l'électricité OU le gaz, et un `upsert` qui ne porte que `min_consumption` crée une ligne
+   * neuve avec les deux à `false`. Erreur 23514, et le champ semblait ne rien enregistrer.
+   *
+   * `compte_id` EST LA CLÉ PRIMAIRE : chaque fournisseur a au plus une ligne, et les 52 existent
+   * déjà (vérifié). Un `update` suffit donc, et il ne touche que les colonnes qu'on lui donne —
+   * donc il ne peut pas violer une contrainte portant sur d'autres. */
+  const { data, error } = await supabase
+    .from('comptes_fournisseurs')
+    .update(conditions)
+    .eq('compte_id', compteId)
+    .select('compte_id')
+  if (error) throw new Error(error.message)
+  /* ZÉRO LIGNE N'EST PAS UN SUCCÈS. Un fournisseur sans ligne de conditions, ou une écriture refusée
+     par les RLS, rendent 200 sans erreur — et l'écran afficherait la valeur saisie alors que rien
+     n'a bougé. C'est la leçon de la page Rôles, le même jour. */
+  if (!data || data.length === 0) {
+    throw new Error('Aucune condition enregistrée pour ce fournisseur : sa fiche doit d’abord être créée.')
+  }
+
+  if (conditions.min_ellipro_score !== undefined) {
+    const { error: e2 } = await supabase
+      .from('comptes')
+      .update({ limite_ellipro: conditions.min_ellipro_score })
+      .eq('id', compteId)
+    if (e2) throw new Error(e2.message)
+  }
+}

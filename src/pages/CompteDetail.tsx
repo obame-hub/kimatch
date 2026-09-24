@@ -39,6 +39,8 @@ import {
   useUpdateCompteField,
   useDeleteCompte,
   findCompteBySiret,
+  majConditionsFournisseur,
+  decouperCodes,
 } from '@/lib/data/comptes'
 import { useContactsParCompte } from '@/lib/data/contacts'
 import { useCompteursParCompte } from '@/lib/data/compteurs'
@@ -726,43 +728,132 @@ export default function CompteDetail() {
                         <p><span className="text-km-faint">Fournit :</span> {[compte.fournit_electricite && 'Électricité', compte.fournit_gaz && 'Gaz'].filter(Boolean).join(', ') || '—'}</p>
                         <p><span className="text-km-faint">Contact commercial :</span> {compte.contact_commercial_nom || '—'}</p>
                         <p><span className="text-km-faint">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
-                        <p><span className="text-km-faint">Limite Ellipro :</span> {compte.limite_ellipro ?? '—'}</p>
+                        {/* LA NOTE ELLISPHERE MINIMALE : le critère qui écarte le plus souvent, et
+                            celui qui bouge le plus d'un document à l'autre. */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Limite Ellipro :</span>
+                          <InlineField
+                            variant="number"
+                            label=""
+                            emptyLabel="non renseignée"
+                            unit=""
+                            value={compte.limite_ellipro ?? null}
+                            disabled={!canManage}
+                            onCommit={(v) =>
+                              majConditionsFournisseur(compte.id, { min_ellipro_score: v })
+                                .then(() => showToast(v == null ? '✓ Limite Ellipro retirée' : `✓ Limite Ellipro : ${v}`))
+                            }
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
+                          />
+                        </div>
                         {/* ══ LES CONDITIONS QUI DÉCIDENT SI ON PEUT LE CONSULTER — 24/09/2026 ══
                          *
-                         * Naoëlle : « mets à jour la disponibilité des fournisseurs en fonction de
-                         * ce document », puis « c'est en fonction des fournisseurs disponibles dans
-                         * notre processus quand les commerciaux doivent choisir ».
+                         * Naoëlle : « il faut pouvoir modifier directement sur les fiches et pas
+                         * juste en base, des modifications de champs inline ».
                          *
-                         * Ces cinq critères vivaient EN BASE SANS ÊTRE AFFICHÉS : `comptes_fournisseurs`
-                         * les portait déjà (segments, tariffs, targets, response_delay_days,
-                         * min_consumption), le formulaire de modification ne les touchait pas, et la
-                         * fiche n'en montrait aucun. On pouvait donc importer des conditions et ne
-                         * jamais s'apercevoir qu'elles étaient fausses.
+                         * CE SONT LES SIX CRITÈRES DU MOTEUR D'ÉLIGIBILITÉ (`lib/eligibility.ts`) :
+                         * ils décident si le fournisseur est proposé au commercial pendant la
+                         * cotation. Ils vivaient en base sans être ni affichés ni modifiables — on
+                         * pouvait donc écarter un fournisseur pendant des semaines sans jamais voir
+                         * pourquoi, ni pouvoir le corriger.
                          *
-                         * ON N'AFFICHE QUE CE QUI EST RENSEIGNÉ : une ligne « — » sur un fournisseur
-                         * qu'on n'a pas encore décrit n'apprend rien et allonge le bloc pour rien. */}
-                        {(compte.segments?.length ?? 0) > 0 && (
-                          <p><span className="text-km-faint">Profils électricité :</span> {compte.segments?.join(', ')}</p>
-                        )}
-                        {(compte.tariffs?.length ?? 0) > 0 && (
-                          <p><span className="text-km-faint">Profils gaz :</span> {compte.tariffs?.join(', ')}</p>
-                        )}
-                        {(compte.targets?.length ?? 0) > 0 && (
-                          <p><span className="text-km-faint">Type de client :</span> {compte.targets?.join(', ')}</p>
-                        )}
-                        {compte.response_delay_days != null && (
-                          <p>
-                            <span className="text-km-faint">Délai de réponse :</span>{' '}
-                            {/* ZÉRO JOUR SE DIT « INSTANTANÉ », comme dans le document : « 0 jour »
-                                se lit comme une valeur manquante. */}
-                            {compte.response_delay_days === 0
-                              ? 'Instantané'
-                              : `${compte.response_delay_days} jour${compte.response_delay_days > 1 ? 's' : ''}`}
-                          </p>
-                        )}
-                        {compte.min_consumption != null && (
-                          <p><span className="text-km-faint">Minimum annuel :</span> {compte.min_consumption} MWh</p>
-                        )}
+                         * TOUS AFFICHÉS, MÊME VIDES, contrairement à la première version : un
+                         * critère absent n'est pas neutre, il ÉCARTE le fournisseur — le moteur dit
+                         * « ne gère pas les segments » quand la liste est vide. Le cacher reviendrait
+                         * à masquer la cause du refus. */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Profils électricité :</span>
+                          <InlineField
+                            variant="text"
+                            label=""
+                            emptyLabel="aucun"
+                            value={(compte.segments ?? []).join(', ')}
+                            disabled={!canManage}
+                            onCommit={(v) =>
+                              majConditionsFournisseur(compte.id, {
+                                segments: decouperCodes(v),
+                              }).then(() => showToast('✓ Profils électricité enregistrés'))
+                            }
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Profils gaz :</span>
+                          <InlineField
+                            variant="text"
+                            label=""
+                            emptyLabel="aucun"
+                            value={(compte.tariffs ?? []).join(', ')}
+                            disabled={!canManage}
+                            onCommit={(v) =>
+                              majConditionsFournisseur(compte.id, {
+                                tariffs: decouperCodes(v),
+                              }).then(() => showToast('✓ Profils gaz enregistrés'))
+                            }
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Type de client :</span>
+                          <InlineField
+                            variant="text"
+                            label=""
+                            emptyLabel="aucun"
+                            value={(compte.targets ?? []).join(', ')}
+                            disabled={!canManage}
+                            onCommit={(v) =>
+                              majConditionsFournisseur(compte.id, {
+                                /* LES CIBLES NE SONT PAS DES CODES : « Syndic professionnel » porte
+                                   une espace. On découpe donc sur la virgule seule. */
+                                targets: v.split(',').map((x) => x.trim()).filter(Boolean),
+                              }).then(() => showToast('✓ Types de client enregistrés'))
+                            }
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Délai de réponse :</span>
+                          <InlineField
+                            variant="number"
+                            label=""
+                            emptyLabel="non renseigné"
+                            unit="j"
+                            value={compte.response_delay_days ?? null}
+                            disabled={!canManage}
+                            onCommit={(v) =>
+                              majConditionsFournisseur(compte.id, {
+                                response_delay_days: v,
+                              }).then(() =>
+                                showToast(v === 0 ? '✓ Délai : instantané' : `✓ Délai : ${v ?? '—'} jour(s)`),
+                              )
+                            }
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-km-faint">Minimum annuel :</span>
+                          <InlineField
+                            variant="number"
+                            label=""
+                            emptyLabel="aucun"
+                            unit="MWh"
+                            value={compte.min_consumption ?? null}
+                            disabled={!canManage}
+                            onCommit={(v) =>
+                              majConditionsFournisseur(compte.id, {
+                                min_consumption: v,
+                              }).then(() => showToast(v == null ? '✓ Aucun minimum' : `✓ Minimum : ${v} MWh`))
+                            }
+                            onSaved={() => undefined}
+                            onError={(err) => showToast(`Erreur : ${err.message}`)}
+                          />
+                        </div>
+
                         {/* ══ LA PART DE LA MARGE QUI REVIENT À KIWEE ══
                             William, 03/09/2026 : « non pas toujours par 2, et certains fournisseurs
                             on prend moins que ça ». Le taux était une constante dans le code depuis
