@@ -202,7 +202,9 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
   }, [etape, siren, lireScore])
 
   const resumes: Record<string, ResumeEtape | undefined> = {
-    type: { lignes: type ? [type.libelle, type.consommateur ? 'Consommateur' : type.libelle] : [] },
+    /* RIEN SOUS « TYPE DE COMPTE » TANT QUE RIEN N'EST CHOISI — demande de William : le rail ne
+       doit pas annoncer un choix qui n'a pas été fait. */
+    type: { lignes: type ? [type.libelle, ...(type.consommateur ? ['Consommateur'] : [])] : [] },
     entreprise: { lignes: [nom, siren].filter(Boolean) },
     score: { lignes: compte ? ['Compte créé'] : lireScore.data?.score ? [`Score ${lireScore.data.score}`] : [] },
     suite: {
@@ -211,6 +213,26 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
         compteursCrees.length ? `${compteursCrees.length} compteur${compteursCrees.length > 1 ? 's' : ''}` : '',
       ].filter(Boolean),
     },
+  }
+
+  /**
+   * ══ UN CLIC, PAS DEUX ══
+   *
+   * William, 24/09/2026 : « je veux économiser un maximum de clics. Quand je clique sur Syndic de
+   * copropriété, je veux que ça m'emmène directement sur la recherche Ellipro, pas besoin de
+   * cliquer sur suivant. »
+   *
+   * Le choix d'un type n'a pas besoin d'être confirmé : il n'y a rien à ajuster ensuite sur cet
+   * écran, et le rail montre aussitôt ce qui a été retenu. Un bouton « Continuer » ne servirait
+   * qu'à faire dire deux fois la même chose.
+   *
+   * ET C'EST RÉVERSIBLE : le bouton « Précédent » de l'étape suivante ramène ici, carte toujours
+   * cochée. C'est justement parce qu'on avance sans confirmer qu'il fallait que le retour soit
+   * partout — un mauvais choix se corrige en un clic, lui aussi.
+   */
+  function choisirType(t: TypeDeCompte) {
+    setType(t)
+    setEtape('entreprise')
   }
 
   function choisirEntreprise(c: EllisphereCompany) {
@@ -320,7 +342,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 </span>
                 <div className="grid grid-cols-3 gap-[11px]">
                   {TYPES.filter((t) => t.consommateur).map((t) => (
-                    <CarteType key={t.cle} type={t} choisi={type?.cle === t.cle} onChoisir={() => setType(t)} />
+                    <CarteType key={t.cle} type={t} choisi={type?.cle === t.cle} onChoisir={() => choisirType(t)} />
                   ))}
                 </div>
               </div>
@@ -330,24 +352,18 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 </span>
                 <div className="grid grid-cols-3 gap-[11px]">
                   {TYPES.filter((t) => !t.consommateur).map((t) => (
-                    <CarteType key={t.cle} type={t} choisi={type?.cle === t.cle} onChoisir={() => setType(t)} />
+                    <CarteType key={t.cle} type={t} choisi={type?.cle === t.cle} onChoisir={() => choisirType(t)} />
                   ))}
                 </div>
               </div>
             </div>
 
             <div className="mt-auto flex items-center gap-4 border-t border-km-line-soft pt-4">
-              {type && (
-                <span className="text-[11.5px] text-km-muted">
-                  Typologie <strong className="font-semibold text-km-text">{type.libelle}</strong>
-                  {type.consommateur && <> · type de compte <strong className="font-semibold text-km-text">Consommateur</strong></>}
-                </span>
-              )}
+              <span className="text-[11.5px] text-km-faint">
+                Un clic suffit : le choix vous emmène directement à la recherche.
+              </span>
               <span className="flex-1" />
               <Button variant="ghost" onClick={fermer}>Annuler</Button>
-              <Button disabled={!type} onClick={() => setEtape('entreprise')}>
-                Continuer <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
             </div>
           </>
         )}
@@ -447,7 +463,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 {type.sansSiren ? 'Aucun SIREN pour ce type — c’est normal.' : 'Vérifiez avant de continuer : ces champs viennent d’Ellisphere.'}
               </span>
               <span className="flex-1" />
-              <Button variant="ghost" onClick={() => setEtape('type')}>Retour</Button>
+              <Button variant="ghost" onClick={() => setEtape('type')}>Précédent</Button>
               <Button
                 disabled={!nom.trim() || (!type.sansSiren && siren.replace(/\D/g, '').length !== 9)}
                 onClick={() => setEtape('score')}
@@ -523,7 +539,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
 
             <div className="mt-auto flex items-center gap-3 border-t border-km-line-soft pt-4">
               <span className="flex-1" />
-              <Button variant="ghost" onClick={() => setEtape('entreprise')}>Retour</Button>
+              <Button variant="ghost" onClick={() => setEtape('entreprise')}>Précédent</Button>
               <Button disabled={creerCompte.isPending} onClick={() => void creer()}>
                 {creerCompte.isPending
                   ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Création…</>
