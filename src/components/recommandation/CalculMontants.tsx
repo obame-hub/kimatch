@@ -1,6 +1,7 @@
 import { InlineField } from '@/components/ui/inline-field'
 import { ExplicationCalcul } from '@/components/ui/explication-calcul'
 import type { MontantsRecommandation } from '@/lib/data/montantAffaire'
+import { champBase } from '@/lib/champBase'
 import { cn } from '@/lib/utils'
 import { euros } from '@/lib/euros'
 
@@ -87,7 +88,7 @@ function Ligne({
 }) {
   return (
     <div
-      title={champ ? `${champ} — nom de la colonne en base` : undefined}
+      {...(champ ? champBase(champ) : {})}
       className={cn(
         'flex items-baseline gap-2 py-[7px]',
         sousTotal && 'mt-0.5 border-t border-km-line pt-2.5',
@@ -368,7 +369,7 @@ export function CalculMontants({
           il dit « ce chiffre compte », pas « clique ici ». Une animation plus rapide, sur un écran
           qu'on garde ouvert, devient un tic nerveux. */}
       <div
-        title="recommandations.marge_nette_coeff — nom de la colonne en base"
+        {...champBase('recommandations.marge_nette_coeff')}
         className="animate-km-chatoie mt-2.5 flex items-center gap-3 rounded-km-md px-3.5 py-2.5"
         style={{
           background:

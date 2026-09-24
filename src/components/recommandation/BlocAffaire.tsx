@@ -3,6 +3,7 @@ import { InlineField } from '@/components/ui/inline-field'
 import type { PatchRecommandation } from '@/lib/data/recommandations'
 import { useMontantsRecommandation } from '@/lib/data/montantAffaire'
 import { CalculMontants } from '@/components/recommandation/CalculMontants'
+import { champBase } from '@/lib/champBase'
 import { cn } from '@/lib/utils'
 import { euros } from '@/lib/euros'
 
@@ -96,7 +97,7 @@ function LigneSaisie({ libelle, valeur, unite, onCommit, retour, explication, ch
   champ?: string
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1" title={champ ? `${champ} — nom de la colonne en base` : undefined}>
+    <div className="flex items-baseline justify-between gap-3 py-1" {...(champ ? champBase(champ) : {})}>
       <span className="flex items-center gap-1 text-km-body text-km-muted">
         {libelle}
         {explication}
@@ -119,7 +120,7 @@ function Ligne({ libelle, children, explication, champ }: {
   champ?: string
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1" title={champ ? `${champ} — nom de la colonne en base` : undefined}>
+    <div className="flex items-baseline justify-between gap-3 py-1" {...(champ ? champBase(champ) : {})}>
       <span className="flex items-center gap-1 text-km-body text-km-muted">
         {libelle}
         {explication}

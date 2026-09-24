@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, Building2, ChevronRight, Mail, Phone, User } from 'lucide-react'
+import { champBase } from '@/lib/champBase'
 import { cn } from '@/lib/utils'
 import { RattachementModifiable } from '@/components/ui/rattachement-modifiable'
 import { appelerNumero, numeroLisible } from '@/lib/telephonie'
@@ -214,7 +215,7 @@ export function HeroRecommandation({
           capsule verte au bas de la calculatrice, elle, est `recommandations.marge_nette_coeff`,
           la marge nette pondérée. Deux colonnes, deux sens. Le survol le dit désormais. */}
       <div
-        title="recommandations.montant — nom de la colonne en base"
+        {...champBase('recommandations.montant')}
         className="flex flex-col justify-center rounded-km-lg border border-km-green-line bg-km-green-tint px-[18px] py-[15px]"
       >
         <span className="text-km-tiny font-extrabold uppercase tracking-[0.09em] text-km-faint">
@@ -286,7 +287,10 @@ export function HeroRecommandation({
       {avecContrat && <HeroContrat contrats={contrats} />}
 
       {/* ─────────── 3 · LE CLIENT : COMPTE ET CONTACT ─────────── */}
-      <div className="flex min-h-[132px] flex-col justify-between gap-2.5 rounded-km-lg border border-km-line bg-white px-[15px] py-[13px]">
+      <div
+        {...champBase('recommandations.compte_id / contact_signataire_id')}
+        className="flex min-h-[132px] flex-col justify-between gap-2.5 rounded-km-lg border border-km-line bg-white px-[15px] py-[13px]"
+      >
         {/* Le compte : une ligne. « Autant le compte peut être une ligne, autant le contact doit
             avoir des boutons d'actions » (William, 18/09/2026).
 
