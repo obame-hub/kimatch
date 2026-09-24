@@ -109,6 +109,15 @@ export function HeroRecommandation({
    * rend `NaN` et le champ se referme sur l'ancienne valeur sans un mot — l'utilisateur croit avoir
    * enregistré. La classe des espaces couvre aussi l'insécable des copier-coller depuis un tableur.
    */
+  /* ══ UNE AFFAIRE SIGNÉE N'A PLUS BESOIN D'ÊTRE ESTIMÉE ══
+     William, 24/09/2026 : « quand et uniquement quand elle est acceptée, le héro montant doit être
+     remplacé par un autre héro qui montre la `marge_nette_coeff`. L'ancien héro reste en base
+     (montant estimé) mais il est simplement remplacé sur la vue par le vrai montant. »
+     `recommandations.montant` n'est ni effacé ni modifié : il continue d'alimenter le pipe et de
+     s'éditer depuis la calculatrice. Il cesse seulement d'occuper la place d'honneur, parce qu'une
+     estimation qui a trouvé sa réponse n'est plus la bonne chose à lire en premier. */
+  const estAcceptee = reco.finalite_cloture === 'ACCEPTEE'
+
   const [montantEnEdition, setMontantEnEdition] = useState(false)
   const [montantSaisi, setMontantSaisi] = useState('')
   const [montantEnCours, setMontantEnCours] = useState(false)
@@ -215,13 +224,28 @@ export function HeroRecommandation({
           capsule verte au bas de la calculatrice, elle, est `recommandations.marge_nette_coeff`,
           la marge nette pondérée. Deux colonnes, deux sens. Le survol le dit désormais. */}
       <div
-        {...champBase('recommandations.montant')}
+        {...champBase(estAcceptee ? 'recommandations.marge_nette_coeff' : 'recommandations.montant')}
         className="flex flex-col justify-center rounded-km-lg border border-km-green-line bg-km-green-tint px-[18px] py-[15px]"
       >
         <span className="text-km-tiny font-extrabold uppercase tracking-[0.09em] text-km-faint">
-          Montant de l'affaire
+          {estAcceptee ? 'Montant signé' : "Montant de l'affaire"}
         </span>
-        {montantEnEdition ? (
+        {estAcceptee ? (
+          /* ══ LE VRAI MONTANT, ET IL NE S'ÉDITE PAS ICI ══
+             `marge_nette_coeff` se calcule et se corrige dans la calculatrice, au bas de la fiche,
+             où l'on voit d'où il sort. Le rendre modifiable ici aussi donnerait deux endroits pour
+             le même chiffre — et deux endroits, c'est tôt ou tard deux valeurs. */
+          reco.marge_nette_coeff != null ? (
+            <div className="mt-1 flex items-baseline">
+              <span className="text-[38px] font-extrabold leading-none tracking-[-0.045em] text-km-green">
+                {formaterMontant(reco.marge_nette_coeff)}
+              </span>
+              <span className="ml-1 text-km-title font-bold text-km-green">€</span>
+            </div>
+          ) : (
+            <p className="mt-1.5 text-km-name font-bold text-km-faint">Non renseigné</p>
+          )
+        ) : montantEnEdition ? (
           <div className="mt-1 flex items-baseline gap-1">
             <input
               ref={champMontant}
@@ -277,9 +301,13 @@ export function HeroRecommandation({
           </div>
         )}
         <p className="mt-2 text-km-label text-km-muted">
-          {reco.montant != null
-            ? 'Estimé par le commercial'
-            : 'Aucun calcul ne peut le déduire — il se saisit'}
+          {estAcceptee
+            ? (reco.marge_nette_coeff != null
+                ? 'Montant définitif de l’affaire signée'
+                : 'À compléter dans le calcul, en bas de fiche')
+            : reco.montant != null
+              ? 'Estimé par le commercial'
+              : 'Aucun calcul ne peut le déduire — il se saisit'}
         </p>
       </div>
 
