@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useEllisphereScore } from '@/lib/data/ellisphere'
 import { useUpdateCompteScore } from '@/lib/data/comptes'
+import { palierScoreEllipro } from '@/lib/scoreEllipro'
 import { cn } from '@/lib/utils'
 
 type Etat =
@@ -13,13 +14,10 @@ type Etat =
   | { phase: 'error'; message: string }
   | { phase: 'done'; score: number | null; creditOpinion: string | null; paymentIncidents: string | null; synced: boolean }
 
-/** Paliers repris tels quels de Tools (`OpportuniteEllisphereScore.scoreTier`). */
-function palier(score: number) {
-  if (score >= 8) return { label: 'Excellent', from: 'from-emerald-500', to: 'to-teal-600', bg: 'from-emerald-500/10', ring: 'ring-emerald-500/30', text: 'text-emerald-700' }
-  if (score >= 6) return { label: 'Bon', from: 'from-lime-500', to: 'to-emerald-600', bg: 'from-lime-500/10', ring: 'ring-lime-500/30', text: 'text-lime-700' }
-  if (score >= 4) return { label: 'Moyen', from: 'from-amber-500', to: 'to-orange-600', bg: 'from-amber-500/10', ring: 'ring-amber-500/30', text: 'text-amber-700' }
-  return { label: 'Fragile', from: 'from-red-500', to: 'to-rose-600', bg: 'from-red-500/10', ring: 'ring-red-500/30', text: 'text-red-700' }
-}
+/* LES PALIERS ONT QUITTÉ CE FICHIER le 24/09/2026. Ils venaient de Tools et comptaient quatre
+   bandes ; William en a fixé trois — 0-2 rouge, 3-6 jaune, 7-10 vert — et le score se montre aussi
+   dans le parcours de création d'un compte. Une seule définition, dans `@/lib/scoreEllipro`, pour
+   qu'un même 6 ne soit pas vert ici et jaune là. */
 
 /**
  * Récupère la note Ellipro (par SIREN) et met à jour le score du compte, avant le lancement de
@@ -110,7 +108,7 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
     )
   }
 
-  const tier = palier(etat.score)
+  const tier = palierScoreEllipro(etat.score)
   const pct = Math.max(0, Math.min(100, (etat.score / 10) * 100))
 
   return (
@@ -134,7 +132,7 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
                 Score de solvabilité Ellipro
               </p>
               <Badge tone="neutral" className={cn('ml-auto shrink-0 text-km-xs font-semibold', tier.text)}>
-                {tier.label}
+                {tier.libelle}
               </Badge>
             </div>
             {etat.creditOpinion && <p className="mt-0.5 truncate text-xs font-medium text-km-text">{etat.creditOpinion}</p>}

@@ -14,6 +14,7 @@ import { useCreateCompte } from '@/lib/data/comptes'
 import { useSites } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useEllisphereScore, useRechercheEllisphere, type EllisphereCompany } from '@/lib/data/ellisphere'
+import { palierScoreEllipro, scoreEnNombre } from '@/lib/scoreEllipro'
 import { cn } from '@/lib/utils'
 import type { Compte, TypeCompte } from '@/types/domain'
 
@@ -291,6 +292,9 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
     }
   }
 
+  /* Le palier du score affiché — rouge, jaune ou vert. Neutre tant qu'aucun score n'est rendu. */
+  const palier = palierScoreEllipro(scoreEnNombre(lireScore.data?.score) ?? 0)
+
   function fermer() {
     onFermer()
     if (compte) navigate(`/comptes/${compte.id}`)
@@ -527,15 +531,25 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
               </div>
             ) : lireScore.data?.score ? (
               <div className="flex flex-col gap-[13px]">
-                <div className="flex items-center gap-[20px] rounded-[16px] border border-km-green-line bg-km-green-tint px-[22px] py-[20px]">
+                {/* LA COULEUR DIT LA BANDE, pas la nuance : rouge en dessous de 3, jaune jusqu'à 6,
+                    vert à partir de 7. C'est `palierScoreEllipro` qui tranche, et il tranche aussi
+                    pour la carte de la fiche compte. */}
+                <div className={cn(
+                  'flex items-center gap-[20px] rounded-[16px] border px-[22px] py-[20px]',
+                  palier.bordureToken, palier.fondToken,
+                )}>
                   <div className="flex flex-col">
                     <span className="text-[10.5px] font-bold uppercase tracking-[0.09em] text-km-faint">Score Ellipro</span>
-                    <span className="font-mono text-[46px] font-extrabold leading-none tracking-[-0.04em] text-km-green">
+                    <span className={cn(
+                      'font-mono text-[46px] font-extrabold leading-none tracking-[-0.04em]',
+                      palier.texteToken,
+                    )}>
                       {lireScore.data.score}
                     </span>
-                    {lireScore.data.scale && (
-                      <span className="mt-1 text-[11.5px] text-km-muted">sur {lireScore.data.scale}</span>
-                    )}
+                    <span className={cn('mt-1 text-[11.5px] font-semibold', palier.texteToken)}>
+                      {palier.libelle}
+                      {lireScore.data.scale && <span className="font-normal text-km-muted"> · sur {lireScore.data.scale}</span>}
+                    </span>
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-[6px]">
                     {lireScore.data.creditOpinion && (
