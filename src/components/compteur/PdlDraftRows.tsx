@@ -20,13 +20,10 @@ const SEGMENTS_ELEC = ['C1', 'C2', 'C3', 'C4', 'C5']
 const TENSIONS_ELEC = ['BT', 'HTA']
 const TARIFS_GAZ = ['T1', 'T2', 'T3', 'T4']
 const PROFILS_GAZ = ['P011', 'P012', 'P013', 'P014', 'P015', 'P016', 'P017', 'P018', 'P019']
-const CLASSES_PUISSANCE_ELEC: { key: string; label: string }[] = [
-  { key: 'pointe', label: 'PS POINTE (kVA)' },
-  { key: 'hph', label: 'PS HPH (kVA)' },
-  { key: 'hch', label: 'PS HCH (kVA)' },
-  { key: 'hpe', label: 'PS HPE (kVA)' },
-  { key: 'hce', label: 'PS HCE (kVA)' },
-]
+/* LES CINQ CLASSES DE PUISSANCE N'ONT PLUS DE LISTE ICI. William, 24/09/2026 : « les puissances ne
+   sont pas du tout obligatoires, donc inutile de les mettre dans le formulaire. » Elles ne sont
+   plus ni saisies ni exigées ; `puissanceParClasseKva` reste alimentée par l'extraction de facture,
+   et `buildDraftCharacteristics` écrit en base ce qu'elle y trouve, quelles que soient ses clés. */
 
 export interface PdlDraft {
   key: string
@@ -122,10 +119,12 @@ export function champsPdlManquants(d: PdlDraft, estElectricite: boolean, siteImp
     if (!d.segment) manquants.add('segment')
     if (!d.tension) manquants.add('tension')
     if (!d.typeUtilisationId) manquants.add('typeUtilisationId')
-    const classes = d.segment === 'C5' ? ['base'] : CLASSES_PUISSANCE_ELEC.map((c) => c.key)
-    for (const k of classes) {
-      if (!(d.puissanceParClasseKva[k] ?? '').trim()) manquants.add(`ps:${k}`)
-    }
+    /* ══ LES PUISSANCES NE SONT PLUS EXIGÉES — William, 24/09/2026 ══
+       « Les puissances ne sont pas du tout obligatoires, donc inutile de les mettre dans le
+       formulaire. » Elles quittent l'écran ET la liste des manques. `puissanceParClasseKva` reste
+       dans le brouillon : l'extraction de facture la remplit quand elle la trouve, et
+       `buildDraftCharacteristics` continue de l'écrire en base. Ce qui disparaît, c'est
+       l'obligation de la saisir à la main. */
   } else {
     if (!d.tarifDistribution) manquants.add('tarifDistribution')
     if (!d.profilConsommation) manquants.add('profilConsommation')
@@ -349,9 +348,13 @@ function Segments({ valeur, options, onChoisir }: {
  * devient une vraie cible de glisser-déposer, et le fichier ne sert plus seulement à lire : il est
  * attaché au compteur créé, dans ses fichiers.
  */
-function ZoneDepotFacture({ nomFichier, enCours, onFichier, desactive }: {
+function ZoneDepotFacture({ nomFichier, enCours, erreur, onFichier, desactive }: {
   nomFichier: string | null
   enCours: boolean
+  /** CE QUI A RATÉ, DIT À L'ÉCRAN. Le service répond « indisponible » avec un code 200 : sans cette
+   *  ligne, un dépôt sans effet passe pour un dépôt réussi, et c'est ce qui est arrivé à William le
+   *  24/09/2026. Une extraction qui échoue doit se voir, sinon on valide des champs vides. */
+  erreur: string | null
   onFichier: (f: File) => void
   desactive?: boolean
 }) {
@@ -389,6 +392,12 @@ function ZoneDepotFacture({ nomFichier, enCours, onFichier, desactive }: {
         <>
           <Loader2 className="h-[15px] w-[15px] animate-spin text-km-green" />
           <span className="text-[11.5px] font-semibold text-km-green">Lecture de la facture…</span>
+        </>
+      ) : erreur ? (
+        <>
+          <AlertTriangle className="h-[15px] w-[15px] text-km-red" />
+          <span className="max-w-full text-[11px] font-semibold leading-tight text-km-red">{erreur}</span>
+          <span className="text-[10.5px] text-km-muted">Le fichier reste joint — saisissez à la main</span>
         </>
       ) : nomFichier ? (
         <>
@@ -441,7 +450,7 @@ export function PdlDraftRows({
   siteImpose?: boolean
   responsableParDefautId?: string
   /** La facture déposée : son nom, l'état de sa lecture, et où la remettre. */
-  facture?: { nom: string | null; enCours: boolean; onFichier: (f: File) => void }
+  facture?: { nom: string | null; enCours: boolean; erreur: string | null; onFichier: (f: File) => void }
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -487,6 +496,7 @@ export function PdlDraftRows({
                 <ZoneDepotFacture
                   nomFichier={facture.nom}
                   enCours={facture.enCours}
+                  erreur={facture.erreur}
                   onFichier={facture.onFichier}
                   desactive={locked}
                 />
@@ -591,76 +601,30 @@ export function PdlDraftRows({
 
             {/* ══ ZONE 4 · CE QUE LE COMPTEUR EST ══ */}
             {d.typeEnergieId && estElectricite && (
-              <div className="flex flex-col gap-[13px]">
-                <div className="grid grid-cols-[5fr_2fr_3fr] gap-[13px]">
-                  <Champ intitule="Segment" requis>
+              <div className="grid grid-cols-[5fr_2fr_3fr] gap-[13px]">
+                <Champ intitule="Segment" requis>
+                  <Segments
+                    valeur={d.segment}
+                    options={SEGMENTS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
+                    onChoisir={(v) => onChange(d.key, { segment: v })}
+                  />
+                </Champ>
+                <Champ intitule="Tension" requis>
+                  <Segments
+                    valeur={d.tension}
+                    options={TENSIONS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
+                    onChoisir={(v) => onChange(d.key, { tension: v })}
+                  />
+                </Champ>
+                {utilisationsRef && utilisationsRef.length > 0 && (
+                  <Champ intitule="Utilisation" requis>
                     <Segments
-                      valeur={d.segment}
-                      options={SEGMENTS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
-                      onChoisir={(v) => onChange(d.key, { segment: v })}
+                      valeur={d.typeUtilisationId}
+                      options={utilisationsRef.map((u) => ({ valeur: u.id, libelle: u.code ?? u.libelle, titre: u.libelle }))}
+                      onChoisir={(v) => onChange(d.key, { typeUtilisationId: v })}
                     />
                   </Champ>
-                  <Champ intitule="Tension" requis>
-                    <Segments
-                      valeur={d.tension}
-                      options={TENSIONS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
-                      onChoisir={(v) => onChange(d.key, { tension: v })}
-                    />
-                  </Champ>
-                  {utilisationsRef && utilisationsRef.length > 0 && (
-                    <Champ intitule="Utilisation" requis>
-                      <Segments
-                        valeur={d.typeUtilisationId}
-                        options={utilisationsRef.map((u) => ({ valeur: u.id, libelle: u.code ?? u.libelle, titre: u.libelle }))}
-                        onChoisir={(v) => onChange(d.key, { typeUtilisationId: v })}
-                      />
-                    </Champ>
-                  )}
-                </div>
-
-                {/* Les puissances — exigées par les règles, voir l'en-tête. */}
-                {d.segment === 'C5' ? (
-                  <Champ intitule="PS Unique (kW)" requis className="max-w-[180px]">
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={d.puissanceParClasseKva.base ?? ''}
-                      onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, base: e.target.value } })}
-                      className={SAISIE_MONO}
-                    />
-                  </Champ>
-                ) : d.segment ? (
-                  <div className="flex items-end gap-[9px]">
-                    <div className="grid flex-1 grid-cols-5 gap-[9px]">
-                      {CLASSES_PUISSANCE_ELEC.map((c) => (
-                        <Champ key={c.key} intitule={c.label.replace('PS ', '').replace(' (kVA)', '')} requis>
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={d.puissanceParClasseKva[c.key] ?? ''}
-                            onChange={(e) => onChange(d.key, { puissanceParClasseKva: { ...d.puissanceParClasseKva, [c.key]: e.target.value } })}
-                            className={cn(SAISIE_MONO, 'px-[7px]')}
-                          />
-                        </Champ>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const source = d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? ''
-                        if (!source.trim()) return
-                        onChange(d.key, {
-                          puissanceParClasseKva: Object.fromEntries(CLASSES_PUISSANCE_ELEC.map((c) => [c.key, source])),
-                        })
-                      }}
-                      disabled={!(d.puissanceParClasseKva[CLASSES_PUISSANCE_ELEC[0].key] ?? '').trim()}
-                      title="Appliquer la valeur de POINTE à toutes les classes"
-                      className="shrink-0 rounded-[9px] border border-km-line px-[9px] py-[8px] text-[12px] font-semibold text-km-green hover:bg-km-bg disabled:text-km-faint"
-                    >
-                      ⇊
-                    </button>
-                  </div>
-                ) : null}
+                )}
               </div>
             )}
 

@@ -127,6 +127,7 @@ export function CreationCompteurDialog({
      aux fichiers du compteur créé ». On le garde donc jusqu'à la création, puis on le téléverse. */
   const [facture, setFacture] = useState<File | null>(null)
   const [factureEnCours, setFactureEnCours] = useState(false)
+  const [factureErreur, setFactureErreur] = useState<string | null>(null)
   /* Les compteurs déjà enregistrés dans cette session de saisie — voir `unParUn`. */
   const [dejaCrees, setDejaCrees] = useState<ChainedCompteur[]>([])
 
@@ -139,13 +140,22 @@ export function CreationCompteurDialog({
   /** Le geste complet du dépôt : garder le fichier pour le joindre, et le faire lire tout de suite. */
   async function deposerFacture(fichier: File) {
     setFacture(fichier)
+    setFactureErreur(null)
     setFactureEnCours(true)
     try {
       const resultat = await extraire.mutateAsync(fichier)
-      if (resultat.extracted) handleFactureExtraite(resultat.extracted)
-    } catch {
-      /* La lecture peut échouer — document illisible, service indisponible. Le fichier reste joint
-         au compteur, et les champs se saisissent à la main : on ne perd rien de ce qui a été fait. */
+      /* ══ LE SERVICE RÉPOND « INDISPONIBLE » AVEC UN CODE 200 ══
+         Clé Anthropic absente, document illisible : la réponse est un succès HTTP portant
+         `success: false`. `useExtractDocument` ne lève donc pas, et mon premier code se contentait
+         de ne rien faire — un dépôt sans effet passait pour un dépôt réussi. C'est ce qui est
+         arrivé à William le 24/09/2026. On regarde désormais le contenu, pas le code HTTP. */
+      if (resultat.extracted && Object.keys(resultat.extracted).length > 0) {
+        handleFactureExtraite(resultat.extracted)
+      } else {
+        setFactureErreur(resultat.error ?? 'Aucun champ n’a pu être lu dans ce document.')
+      }
+    } catch (e) {
+      setFactureErreur(e instanceof Error ? e.message : 'Lecture impossible.')
     } finally {
       setFactureEnCours(false)
     }
@@ -181,6 +191,7 @@ export function CreationCompteurDialog({
     setSubmitting(false)
     setCreatedCompteurs(null)
     setFacture(null)
+    setFactureErreur(null)
   }
 
   function patchDraft(key: string, patch: Partial<PdlDraft>) {
@@ -325,6 +336,7 @@ export function CreationCompteurDialog({
         setDejaCrees(tous)
         setDrafts([emptyPdlDraft(responsableParDefautId)])
             setFacture(null)
+        setFactureErreur(null)
         return
       }
       if (onCrees) onCrees(tous)
@@ -416,7 +428,7 @@ export function CreationCompteurDialog({
             existingCompteurs={compteurs ?? []}
             sites={sites}
             responsableParDefautId={responsableParDefautId}
-            facture={{ nom: facture?.name ?? null, enCours: factureEnCours, onFichier: (f) => void deposerFacture(f) }}
+            facture={{ nom: facture?.name ?? null, enCours: factureEnCours, erreur: factureErreur, onFichier: (f) => void deposerFacture(f) }}
           />
           <div className="flex items-center gap-2 border-t border-km-line pt-3">
             {/* ══ « AJOUTER UN COMPTEUR » ENREGISTRE CELUI-CI D'ABORD ══
