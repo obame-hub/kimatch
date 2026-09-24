@@ -44,7 +44,6 @@ const RecommandationDetail = lazy(() => chargerPage(() => import('@/pages/Recomm
 const Comptes = lazy(() => chargerPage(() => import('@/pages/Comptes')))
 const Patrimoine = lazy(() => chargerPage(() => import('@/pages/Patrimoine')))
 const Compteurs = lazy(() => chargerPage(() => import('@/pages/Compteurs')))
-const CompteCreate = lazy(() => chargerPage(() => import('@/pages/CompteCreate')))
 const CompteDetail = lazy(() => chargerPage(() => import('@/pages/CompteDetail')))
 const CompteurDetail = lazy(() => chargerPage(() => import('@/pages/CompteurDetail')))
 const Mandats = lazy(() => chargerPage(() => import('@/pages/Mandats')))
@@ -148,7 +147,14 @@ function App() {
           <Route path="/patrimoine" element={<Patrimoine />} />
           <Route path="/compteurs" element={<Compteurs />} />
           <Route path="/comptes" element={<Comptes />} />
-          <Route path="/comptes/nouveau" element={<CompteCreate />} />
+          {/* ══ L'ANCIENNE ADRESSE DE CRÉATION REDIRIGE ══
+              William, 24/09/2026 : « je veux que tous les boutons lancent ce process ». Le
+              parcours en fenêtre a remplacé l'assistant pleine page `CompteCreate`, supprimé le
+              même jour — deux formulaires pour le même objet finissent toujours par diverger.
+              L'adresse survit parce qu'elle est dans des marque-pages et des liens envoyés :
+              `?creer=1` ouvre le parcours par-dessus la liste. `replace` pour que « précédent »
+              ne ramène pas sur la redirection, ce qui boucle. */}
+          <Route path="/comptes/nouveau" element={<Navigate to="/comptes?creer=1" replace />} />
           <Route path="/comptes/:id" element={<CompteDetail />} />
           <Route path="/compteurs/:id" element={<CompteurDetail />} />
           <Route path="/mandats" element={<Mandats />} />

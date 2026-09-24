@@ -9,6 +9,7 @@ import { DocusignBanner } from '@/components/layout/DocusignBanner'
 import { GmailBanner } from '@/components/layout/GmailBanner'
 import { SidebarProvider } from '@/lib/layout'
 import { TelephonieProvider } from '@/lib/telephonie'
+import { CreationCompteProvider } from '@/lib/creationCompte'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
 import { useEstPartenaire } from '@/lib/data/roles'
 import { PaletteCommandes } from '@/components/layout/PaletteCommandes'
@@ -89,6 +90,11 @@ export function AppLayout() {
           navigation : un appel en cours ne peut pas être coupé parce qu'on change de page pour
           consulter la fiche du client qu'on a au bout du fil. */}
       <TelephonieProvider>
+      {/* LE PARCOURS DE CRÉATION D'UN COMPTE EST MONTÉ ICI, une fois pour les 36 écrans. William,
+          24/09/2026 : « je ne veux aucun bouton qui passe à la trappe ». Monté au-dessus de
+          l'`Outlet`, il s'ouvre par-dessus l'écran où l'on travaille au lieu d'y naviguer — voir
+          `src/lib/creationCompte.tsx`. */}
+      <CreationCompteProvider>
       <ImpersonationBanner />
       {/* En flux normal, contrairement au bandeau d'emprunt d'identité qui est en position fixe :
           les deux peuvent s'afficher ensemble sans se superposer, et celui-ci pousse le contenu au
@@ -178,6 +184,7 @@ export function AppLayout() {
       />
       <BottomNav />
       <InstallPrompt />
+      </CreationCompteProvider>
       </TelephonieProvider>
     </SidebarProvider>
   )

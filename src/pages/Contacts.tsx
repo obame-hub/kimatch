@@ -6,6 +6,7 @@ import { Plus, User, Star, AlertTriangle, CheckCircle2, UserCircle2, UserRound, 
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { HubCreation } from '@/components/compte/HubCreation'
+import { useCreerUnCompte } from '@/lib/creationCompte'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -397,6 +398,7 @@ function CreateContactDialog({ open, onClose, initialCompteId }: { open: boolean
  * reste : il porte le bouton de création et la phrase qui dit ce qu'est l'objet.
  */
 export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
+  const creerUnCompte = useCreerUnCompte()
   const { data: contacts, isLoading } = useContacts()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -446,7 +448,7 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
             <HubCreation
               onAction={(cle) => {
                 if (cle === 'contact') setShowCreate(true)
-                if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
+                if (cle === 'compte') creerUnCompte()
                 /* `?creer=1` ET NON `/compteurs` TOUT COURT : depuis le 10/09/2026 la liste des
                    compteurs porte le formulaire de création, et c'est ce paramètre qui l'ouvre.
                    Sans lui, le hub déposait sur une liste sans rien proposer. */

@@ -57,10 +57,15 @@ export function useOuvrirCreation(ouvrir: () => void) {
  * retrait de l'objet site en a fait le geste qui pose l'adresse.
  */
 export const OBJETS_CREABLES = [
-  /* La création d'un compte est un ÉCRAN à part entière — un parcours en plusieurs étapes — et non
-     un formulaire dans un dialogue. `direct: true` dit au menu d'y aller sans ajouter `?creer=1` :
-     le paramètre ne servirait à rien, l'écran EST le formulaire. */
-  { cle: 'compte', libelle: 'Compte', chemin: '/comptes/nouveau', touche: 'C', direct: true },
+  /* LE COMPTE EST LE SEUL À S'OUVRIR SUR PLACE, et c'est son parcours qui l'exige.
+     Les dix autres formulaires VIVENT dans l'écran de leur objet : y naviguer avec `?creer=1` est
+     le seul moyen de les atteindre. Celui du compte est une fenêtre modale autonome, montée dans
+     la coque — `surPlace: true` dit au menu de l'ouvrir par-dessus l'écran courant plutôt que d'y
+     conduire. Naviguer d'abord annulerait la décision de William du 23/09 : « ça donne plus
+     l'impression qu'un process se lance, et non pas un changement de page complet. »
+     Le chemin reste renseigné : c'est celui de la liste, et `?creer=1` y ouvre le même parcours
+     pour qui colle l'adresse. Voir `src/lib/creationCompte.tsx`. */
+  { cle: 'compte', libelle: 'Compte', chemin: '/comptes', touche: 'C', surPlace: true },
   /* PLUS DE « CRÉER UN SITE ». Retiré le 09/09/2026 avec l'objet lui-même : un site n'est plus
      quelque chose qu'on crée, c'est le regroupement d'adresse que la création d'un compteur
      produit toute seule. Proposer « Site » ici invitait à créer un dossier vide avant d'avoir le

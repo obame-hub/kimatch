@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { ArrowLeft, BadgeCheck, Building2, FileCheck2, MapPin, Pencil, Plus, Search, Target } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { HubCreation } from '@/components/compte/HubCreation'
+import { useCreerUnCompte } from '@/lib/creationCompte'
 import { ZoneATraiter } from '@/components/compte/ZoneATraiter'
 import { ZoneEnCours } from '@/components/compte/ZoneEnCours'
 import { ZonePortefeuille } from '@/components/compte/ZonePortefeuille'
@@ -116,6 +117,7 @@ type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'o
    la porte déjà. */
 
 export default function CompteDetail() {
+  const creerUnCompte = useCreerUnCompte()
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -225,8 +227,11 @@ export default function CompteDetail() {
   const [addRecoOpen, setAddRecoOpen] = useState(false)
   const [addOppOpen, setAddOppOpen] = useState(false)
 
-  // Ouvre automatiquement "Nouveau compteur" quand on arrive depuis l'étape "que faire
-  // maintenant ?" du wizard de création de compte (CompteCreate.tsx).
+  // Ouvre automatiquement « Nouveau compteur » pour qui arrive avec `?action=ajouter-compteur`.
+  // C'était le relais de l'assistant pleine page `CompteCreate`, supprimé le 24/09/2026 : son
+  // étape « que faire maintenant ? » déposait ici. Le parcours en fenêtre, lui, pose contacts et
+  // compteurs sans quitter la modale. Le paramètre reste : c'est un lien valable, et il ne coûte
+  // rien à qui ne l'emploie pas.
   useEffect(() => {
     if (searchParams.get('action') === 'ajouter-compteur') {
       setAddCompteurOpen(true)
@@ -544,7 +549,7 @@ export default function CompteDetail() {
                 : undefined,
             }}
             onAction={(cle) => {
-              if (cle === 'compte') navigate('/comptes', { state: { openCreate: true } })
+              if (cle === 'compte') creerUnCompte()
               if (cle === 'contact') setAddContactOpen(true)
               if (cle === 'compteur') setPdlMethodOpen(true)
               if (cle === 'mandat') setAddMandatOpen(true)

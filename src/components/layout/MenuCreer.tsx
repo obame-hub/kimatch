@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OBJETS_CREABLES } from '@/lib/ouvrirCreation'
+import { useCreerUnCompte } from '@/lib/creationCompte'
 
 /**
  * LE BOUTON « CRÉER », SUR TOUS LES ÉCRANS.
@@ -29,9 +30,13 @@ import { OBJETS_CREABLES } from '@/lib/ouvrirCreation'
  *
  * Effet de bord voulu : on arrive sur l'écran de l'objet qu'on vient de créer, donc on le voit
  * dans sa liste.
+ *
+ * SAUF LE COMPTE, DEPUIS LE 24/09/2026 : son parcours est une fenêtre montée dans la coque, qui
+ * s'ouvre par-dessus l'écran courant sans navigation. Voir `src/lib/creationCompte.tsx`.
  */
 export function MenuCreer() {
   const navigate = useNavigate()
+  const creerUnCompte = useCreerUnCompte()
   const [ouvert, setOuvert] = useState(false)
   const conteneur = useRef<HTMLDivElement>(null)
 
@@ -87,9 +92,11 @@ export function MenuCreer() {
               role="menuitem"
               onClick={() => {
                 setOuvert(false)
-                /* `direct` : l'écran EST le formulaire (la création d'un compte est un parcours
-                   en plusieurs étapes). Ajouter `?creer=1` n'y ouvrirait rien. */
-                navigate('direct' in o && o.direct ? o.chemin : `${o.chemin}?creer=1`)
+                /* `surPlace` : le parcours de création d'un compte est une fenêtre montée dans la
+                   coque, pas un formulaire d'écran. On l'ouvre là où l'on est — y naviguer
+                   d'abord ferait justement le « changement de page » que la fenêtre évite. */
+                if ('surPlace' in o && o.surPlace) creerUnCompte()
+                else navigate(`${o.chemin}?creer=1`)
               }}
               className="flex w-full items-center gap-2 px-3 py-[7px] text-left text-km-body text-km-text transition-colors hover:bg-km-green-soft hover:text-km-green"
             >

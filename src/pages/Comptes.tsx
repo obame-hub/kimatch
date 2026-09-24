@@ -21,12 +21,13 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ParcoursCreationCompte } from '@/components/compte/ParcoursCreationCompte'
 import { ListToolbar } from '@/components/ui/list-toolbar'
 import { MenuChoix } from '@/components/ui/menu-choix'
 import { SortableTh } from '@/components/ui/sortable-th'
 import { Tableau, TableauTete, TableauCorps, NomDeLigne } from '@/components/ui/tableau'
 import { useListeServeur } from '@/lib/useListeServeur'
+import { useCreerUnCompte } from '@/lib/creationCompte'
+import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 import { useState } from 'react'
 import type { TypeCompte } from '@/types/domain'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
@@ -72,9 +73,14 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
   const navigate = useNavigate()
   /* ══ LA CRÉATION D'UN COMPTE EST UNE FENÊTRE, PLUS UNE PAGE ══
      William, 24/09/2026 : le même vocabulaire que la conversion d'une piste — pop-up, rail
-     anthracite, étapes. La page `/comptes/nouveau` reste servie : elle est encore l'adresse que
-     portent les liens envoyés et les marque-pages. */
-  const [creationOuverte, setCreationOuverte] = useState(false)
+     anthracite, étapes.
+
+     LA FENÊTRE N'APPARTIENT PLUS À CET ÉCRAN : elle est montée dans la coque (`AppLayout`), pour
+     que les quatre boutons de création de Kimatch ouvrent le MÊME parcours sans navigation. Cet
+     écran n'en garde que la commande — et `?creer=1`, qui reste l'adresse partageable et qui est
+     celle vers laquelle l'ancienne `/comptes/nouveau` redirige. */
+  const creerUnCompte = useCreerUnCompte()
+  useOuvrirCreation(creerUnCompte)
   const [typeFilter, setTypeFilter] = useState('')
   const [statutFilter, setStatutFilter] = useState<FiltreStatut>('')
 
@@ -145,7 +151,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
           title="Comptes"
           description="Le compte représente la relation (client, fournisseur, partenaire) — la valeur se crée sur les sites qui lui sont rattachés."
           actions={(
-            <Button onClick={() => setCreationOuverte(true)}>
+            <Button onClick={creerUnCompte}>
               <Plus className="h-4 w-4" /> Nouveau compte
             </Button>
           )}
@@ -281,7 +287,6 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
           />
         </Card>
       </div>
-    {creationOuverte && <ParcoursCreationCompte onFermer={() => setCreationOuverte(false)} />}
     </div>
   )
 }
