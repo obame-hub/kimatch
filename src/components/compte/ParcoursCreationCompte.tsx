@@ -180,6 +180,13 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
      250 px ; une fois le choix fait elles n'ont plus rien à dire, et cette hauteur est exactement
      celle qui manquait aux champs. */
   const [choisie, setChoisie] = useState<EllisphereCompany | null>(null)
+  /* ══ LA LISTE NE VIT QUE SOUS LE CURSEUR ══
+     William, 24/09/2026 : « elle doit s'afficher uniquement si je clique dans la barre de
+     recherche. Après avoir sélectionné un résultat, elle doit se résorber. »
+     Deux verrous plutôt qu'un : le choix la referme, et le fait de quitter le champ aussi. Une
+     liste de suggestions qui reste ouverte après qu'on s'en est servi mange l'écran de ce qu'elle
+     vient justement de remplir. */
+  const [rechercheActive, setRechercheActive] = useState(false)
   const [nom, setNom] = useState('')
   const [siren, setSiren] = useState('')
   const [siret, setSiret] = useState('')
@@ -244,6 +251,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
 
   function choisirEntreprise(c: EllisphereCompany) {
     setChoisie(c)
+    setRechercheActive(false)
     setNom(c.raisonSociale || c.nomCommercial || '')
     setSiren(c.siren ?? '')
     setSiret(c.siret ?? '')
@@ -393,7 +401,11 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                   <input
                     autoFocus
                     value={recherche}
-                    onChange={(e) => setRecherche(e.target.value)}
+                    onChange={(e) => { setRecherche(e.target.value); setRechercheActive(true) }}
+                    onFocus={() => setRechercheActive(true)}
+                    /* Le délai laisse le clic sur une suggestion atteindre sa cible : sans lui, le
+                       `blur` referme la liste avant que le bouton ne reçoive l'événement. */
+                    onBlur={() => setTimeout(() => setRechercheActive(false), 150)}
                     placeholder="Raison sociale, SIREN ou SIRET…"
                     className={cn(SAISIE, 'py-[11px] pl-[36px] text-[14px]')}
                   />
@@ -408,7 +420,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                   </p>
                 )}
 
-                {terme.trim().length >= 3 && (resultats?.length ?? 0) > 0 && (
+                {rechercheActive && terme.trim().length >= 3 && (resultats?.length ?? 0) > 0 && (
                   <div className="max-h-[188px] overflow-y-auto rounded-[11px] border border-km-line bg-white">
                     {resultats!.map((c) => (
                       <button
@@ -429,7 +441,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                     ))}
                   </div>
                 )}
-                {terme.trim().length >= 3 && !chercheEnCours && (resultats?.length ?? 0) === 0 && !erreurRecherche && (
+                {rechercheActive && terme.trim().length >= 3 && !chercheEnCours && (resultats?.length ?? 0) === 0 && !erreurRecherche && (
                   <p className="text-[11.5px] text-km-faint">Aucune entreprise trouvée — complétez à la main ci-dessous.</p>
                 )}
               </div>
@@ -443,7 +455,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => { setChoisie(null); setRecherche(''); setTerme('') }}
+                  onClick={() => { setChoisie(null); setRecherche(''); setTerme(''); setRechercheActive(true) }}
                   className="shrink-0 rounded-[8px] border border-km-green-line bg-white px-[11px] py-[5px] text-[11.5px] font-semibold text-km-green hover:bg-km-bg"
                 >
                   Chercher une autre
