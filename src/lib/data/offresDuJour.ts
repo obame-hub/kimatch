@@ -55,17 +55,26 @@ export interface LigneOffre {
  * l'utilisateur qui affiche le dashboard, et uniquement au statut "En décision". Ça s'appellerait
  * désormais Pipe en décision. »
  *
- * LES DEUX SE MESURENT EN `montant` DEPUIS LE 24/09/2026 — le « Montant de l'affaire » de
- * l'encadré vert de la fiche. William, à qui je demandais d'arbitrer entre les deux colonnes :
- * « quel est le champ dans recommandation qui apparaît dans un encadré vert ? c'est celui-là
- * que je veux partout. » Ils lisaient jusque-là `marge_nette_coeff`, qui dit autre chose : sur
- * les 282 acceptées de 2026, la marge fait 763 576,15 € et le montant 442 845,33 €. Voir la
- * migration 20260924120000.
+ * CHACUN SA COLONNE, ET ELLES NE SONT PAS LA MÊME — William, 24/09/2026 :
+ *
+ *   MONTANT SIGNÉ .. `recommandations.marge_nette_coeff`, la capsule verte de la calculatrice.
+ *   PIPE ........... `recommandations.montant`, l'encadré vert du héros, cumulé sur les
+ *                    recommandations « Proposée » encore ouvertes.
+ *
+ * LES DEUX SONT VERTES SUR LA FICHE et s'appellent toutes deux « Montant » — c'est ce qui m'a
+ * fait me tromper le matin même, en basculant les deux sur `montant`. Le survol affiche
+ * désormais le nom de la colonne (`champBase`), précisément pour que ça n'arrive plus.
+ * Voir la migration 20260924140000.
  * L'ancien pipe lisait `versions_recommandation.gain_estime_annuel` — une colonne NULLE sur les
  * 1 565 versions actuelles de la base. Il affichait donc 0,00 € à tout le monde, et un zéro se lit
  * comme « je n'ai rien en cours », jamais comme « la colonne est vide ».
  *
- * LE PÉRIMÈTRE EST CELUI DE LA PAGE RECOMMANDATIONS, à la lettre : `colonne_travail` vaut
+ * LE PÉRIMÈTRE DU PIPE A CHANGÉ LE 24/09/2026. Il lisait `colonne_travail = 'EN_DECISION'`, une
+ * valeur qu'AUCUNE version ne porte : la tuile affichait 0,00 € à tout le monde depuis sa mise en
+ * service. Elle compte maintenant les recommandations PROPOSÉES et encore ouvertes — une version
+ * partie chez le client, un dossier pas encore clos. Ce qui suit décrit l'ancienne définition et
+ * se garde pour mémoire :
+ * L'ancien périmètre était celui de la page Recommandations, à la lettre : `colonne_travail` vaut
  * `EN_DECISION`. Ce n'est pas la même chose que « la version actuelle est en décision » — un
  * dossier dont le contrat est parti à la signature bascule en « En cours de contractualisation »,
  * et il n'a plus sa place dans une espérance puisque le client a dit oui. Quatre dossiers séparent
