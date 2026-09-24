@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField } from '@/components/ui/form'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
-import { ExtractDocumentButton } from '@/components/ui/document-extraction'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
 import {
   PdlDraftRows,
@@ -22,6 +21,8 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
+import { useTeleverserDocuments } from '@/lib/data/documents'
+import { useExtractDocument } from '@/lib/data/ocr'
 import { useCreateSite, useUpdateSitePartiel, normalizeTexte } from '@/lib/data/sites'
 import { toUpperFR } from '@/lib/textFormat'
 import { FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
@@ -35,7 +36,6 @@ export function CreationCompteurDialog({
   onClose,
   compte: compteImpose,
   sites,
-  methode = 'manuel',
   titre = 'Nouveau compteur',
   compteIdParDefaut,
   onSaved,
@@ -44,13 +44,16 @@ export function CreationCompteurDialog({
   responsableParDefautId,
   libelleValidation,
   sansCadre = false,
+  unParUn = false,
+  onCompteurCree,
 }: {
   open: boolean
   onClose: () => void
   /** Compte de rattachement. Absent depuis la liste des sites : un sélecteur est alors affiché. */
   compte?: Compte
   sites: Site[]
-  /** « extraction » affiche le dépôt de facture, qui pré-remplit l'adresse puis le brouillon PDL. */
+  /** Conservé pour les appelants : la zone de dépôt est désormais toujours visible dans le
+   *  formulaire, il n'y a plus de mode « extraction » à distinguer. */
   methode?: PdlMethode
   /** « Nouveau site » depuis la liste des sites — même parcours, autre intitulé. */
   titre?: string
@@ -78,6 +81,16 @@ export function CreationCompteurDialog({
   responsableParDefautId?: string
   /** Remplace « Créer le PDL » : le parcours de conversion crée un PÉRIMÈTRE, pas un PDL isolé. */
   libelleValidation?: string
+  /** ══ UN COMPTEUR À LA FOIS ══
+   *  William, 24/09/2026 : « si je clique sur "+ Ajouter un compteur", le premier compteur créé se
+   *  met dans la barre de gauche et l'écran revient à 0 pour la création du prochain — je ne veux
+   *  pas que de nouveaux champs apparaissent en dessous comme actuellement ».
+   *  Le bouton ENREGISTRE donc, puis vide le formulaire. C'est ce qui permet au tout de tenir sans
+   *  défilement : un compteur à l'écran, les précédents rangés dans le rail. */
+  unParUn?: boolean
+  /** Appelé pour CHAQUE compteur créé, dès sa création — c'est lui qui remplit le rail au fur et à
+   *  mesure, au lieu d'attendre la fin. */
+  onCompteurCree?: (compteur: ChainedCompteur) => void
   /** ══ RENDU SANS SA PROPRE FENÊTRE ══
    *  Le parcours de conversion a déjà la sienne, avec son rail à gauche : imbriquer un second
    *  `Dialog` dedans poserait un voile par-dessus le voile et une carte par-dessus la carte. On
@@ -100,6 +113,8 @@ export function CreationCompteurDialog({
   // Sert à compléter l'adresse d'un site retrouvé sans adresse — voir `resoudreSitePourDraft`.
   const majSitePartiel = useUpdateSitePartiel()
   const createCompteur = useCreateCompteur()
+  const televerser = useTeleverserDocuments()
+  const extraire = useExtractDocument()
 
   // Plus d'etape « adresse » ni d'ecran de desambiguisation : le site est un simple libelle saisi
   // dans le formulaire du PDL, resolu ou cree a l'enregistrement (decision William 06/08/2026).
@@ -108,7 +123,12 @@ export function CreationCompteurDialog({
   const [createdCompteurs, setCreatedCompteurs] = useState<ChainedCompteur[] | null>(null)
   // Champs de la facture extraits à l'étape adresse : ils servent l'adresse tout de suite, puis
   // le brouillon PDL une fois le site résolu.
-  const [champsFacture, setChampsFacture] = useState<Record<string, ExtractedField> | null>(null)
+  /* LE FICHIER DÉPOSÉ NE SERT PLUS SEULEMENT À LIRE. William, 24/09/2026 : « le fichier sera lié
+     aux fichiers du compteur créé ». On le garde donc jusqu'à la création, puis on le téléverse. */
+  const [facture, setFacture] = useState<File | null>(null)
+  const [factureEnCours, setFactureEnCours] = useState(false)
+  /* Les compteurs déjà enregistrés dans cette session de saisie — voir `unParUn`. */
+  const [dejaCrees, setDejaCrees] = useState<ChainedCompteur[]>([])
 
   const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
   // Tous les contacts du compte, rattachements indirects compris (William, 07/09/2026).
@@ -116,8 +136,22 @@ export function CreationCompteurDialog({
 
   /** Extraction depuis une facture : remplit l'adresse (étape en cours) et mémorise le reste pour
    * pré-remplir le brouillon PDL. On ne remplace jamais ce que l'utilisateur a déjà saisi. */
+  /** Le geste complet du dépôt : garder le fichier pour le joindre, et le faire lire tout de suite. */
+  async function deposerFacture(fichier: File) {
+    setFacture(fichier)
+    setFactureEnCours(true)
+    try {
+      const resultat = await extraire.mutateAsync(fichier)
+      if (resultat.extracted) handleFactureExtraite(resultat.extracted)
+    } catch {
+      /* La lecture peut échouer — document illisible, service indisponible. Le fichier reste joint
+         au compteur, et les champs se saisissent à la main : on ne perd rien de ce qui a été fait. */
+    } finally {
+      setFactureEnCours(false)
+    }
+  }
+
   function handleFactureExtraite(fields: Record<string, ExtractedField>) {
-    setChampsFacture(fields)
     const val = (k: string) => (fields[k]?.value == null ? '' : String(fields[k].value).trim())
     setDrafts((prev) =>
       prev.map((d, i) => {
@@ -146,7 +180,7 @@ export function CreationCompteurDialog({
     setDrafts([emptyPdlDraft(responsableParDefautId)])
     setSubmitting(false)
     setCreatedCompteurs(null)
-    setChampsFacture(null)
+    setFacture(null)
   }
 
   function patchDraft(key: string, patch: Partial<PdlDraft>) {
@@ -205,8 +239,8 @@ export function CreationCompteurDialog({
     return result.site
   }
 
-  async function handleSubmitPdl(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmitPdl(e: React.FormEvent | null, continuer = false) {
+    e?.preventDefault()
     setSubmitting(true)
     let created = 0
     let echecs = 0
@@ -249,6 +283,21 @@ export function CreationCompteurDialog({
         })
         patchDraft(d.key, { status: 'saved' })
         created += 1
+        /* LA FACTURE REJOINT LE COMPTEUR. Sans `await` bloquant l'enregistrement : le PDL est ce
+           qu'on est venu créer, le fichier est un enrichissement. Un échec de téléversement ne doit
+           pas faire croire que le compteur n'existe pas. */
+        if (facture) {
+          void televerser
+            .mutateAsync({
+              fichiers: [facture],
+              entite_type: 'compteur',
+              entite_id: result.compteur.id,
+              type_document_id: null,
+              type_document_libelle: 'Facture',
+            })
+            .catch(() => {})
+        }
+        onCompteurCree?.({ id: result.compteur.id, numero_pdl: result.compteur.numero_pdl, responsable_contact_id: result.compteur.responsable_contact_id ?? null })
         nouveaux.push({ id: result.compteur.id, numero_pdl: result.compteur.numero_pdl, responsable_contact_id: result.compteur.responsable_contact_id ?? null })
       } catch (err) {
         echecs += 1
@@ -269,8 +318,17 @@ export function CreationCompteurDialog({
        Le compte des échecs est tenu par la boucle elle-même : c'est la même information, prise là
        où elle est sûre. */
     if (echecs === 0 && nouveaux.length > 0) {
-      if (onCrees) onCrees(nouveaux)
-      else setCreatedCompteurs(nouveaux)
+      const tous = [...dejaCrees, ...nouveaux]
+      if (continuer) {
+        /* ON REPART À ZÉRO, en gardant la mémoire de ce qui a été créé : c'est le rail qui affiche
+           les précédents, pas ce formulaire. */
+        setDejaCrees(tous)
+        setDrafts([emptyPdlDraft(responsableParDefautId)])
+            setFacture(null)
+        return
+      }
+      if (onCrees) onCrees(tous)
+      else setCreatedCompteurs(tous)
     }
   }
 
@@ -339,28 +397,14 @@ export function CreationCompteurDialog({
 
       {compte && (
       <div className={cn(sansCadre && 'flex min-h-0 flex-1 flex-col')}>
-      <div className="mb-3 space-y-2">
-        {/* Dépôt de facture : ce que promettait « Extraction automatique » sans jamais l'ouvrir.
-            Proposé aussi en saisie manuelle -- ça ne coûte rien. */}
-        <ExtractDocumentButton
-          onExtracted={handleFactureExtraite}
-          label="Déposer une facture PDF ou un scan"
-          autoOpen={methode === 'extraction'}
-        />
-        {champsFacture && (
-          <p className="flex items-start gap-1.5 text-km-label text-km-green">
-            <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
-            Facture analysée — les champs reconnus sont pré-remplis ci-dessous. Vérifie-les.
-          </p>
-        )}
-      </div>
-
+      {/* LE BOUTON « DÉPOSER UNE FACTURE » A QUITTÉ LE HAUT DE L'ÉCRAN le 24/09/2026 : il est
+          devenu la zone de glisser-déposer de la première zone du formulaire, à côté du
+          responsable. Même moteur de lecture, une étape de moins. */}
       <form onSubmit={handleSubmitPdl} className={cn('space-y-4 overflow-y-auto pr-1', sansCadre ? 'min-h-0 flex-1' : 'max-h-[70vh]')}>
           <PdlDraftRows
             drafts={drafts}
             onChange={patchDraft}
             onRemove={(key) => setDrafts((prev) => prev.filter((d) => d.key !== key))}
-            onAdd={() => setDrafts((prev) => [...prev, emptyPdlDraft(responsableParDefautId)])}
             energies={energies}
             utilisationsRef={utilisationsRef}
             fournisseurs={fournisseurs}
@@ -372,14 +416,29 @@ export function CreationCompteurDialog({
             existingCompteurs={compteurs ?? []}
             sites={sites}
             responsableParDefautId={responsableParDefautId}
+            facture={{ nom: facture?.name ?? null, enCours: factureEnCours, onFichier: (f) => void deposerFacture(f) }}
           />
-          {draftsIncomplets && (
-            <p className="flex items-center gap-1.5 text-xs text-amber-700">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              Complète les champs marqués d'une astérisque : ils alimentent l'éligibilité fournisseur lors de la cotation.
-            </p>
-          )}
-          <div className="flex justify-end gap-2 border-t border-km-line pt-3">
+          <div className="flex items-center gap-2 border-t border-km-line pt-3">
+            {/* ══ « AJOUTER UN COMPTEUR » ENREGISTRE CELUI-CI D'ABORD ══
+                C'est ce qui range le précédent dans le rail et rend l'écran au suivant. Il obéit
+                donc aux mêmes conditions que l'enregistrement : un compteur incomplet ne se range
+                nulle part. */}
+            {unParUn && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={submitting || draftsIncomplets}
+                onClick={() => void handleSubmitPdl(null, true)}
+              >
+                <Plus className="h-3.5 w-3.5" /> Ajouter un compteur
+              </Button>
+            )}
+            {dejaCrees.length > 0 && (
+              <span className="text-km-label text-km-muted">
+                {dejaCrees.length} {dejaCrees.length > 1 ? 'compteurs enregistrés' : 'compteur enregistré'}
+              </span>
+            )}
+            <span className="flex-1" />
             <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Fermer</Button>
             <Button type="submit" disabled={submitting || draftsIncomplets || drafts.every((d) => d.status === 'saved')}>
               {libelleValidation ?? (drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL')}

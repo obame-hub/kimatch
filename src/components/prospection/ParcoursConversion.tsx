@@ -198,7 +198,10 @@ function RailParcours({ titre, reference, courante, sousTitre, resumes, note, on
       <div className="flex flex-1 flex-col gap-[3px]">
         {ETAPES.map((e, i) => {
           const etat = i < index ? 'faite' : i === index ? 'courante' : 'avenir'
-          const resume = etat === 'faite' ? resumes[e.cle] : undefined
+          /* LE RÉCAPITULATIF S'AFFICHE AUSSI SUR L'ÉTAPE EN COURS, et c'est nécessaire depuis que
+             le formulaire du périmètre repart à zéro à chaque compteur : sans lui, les compteurs
+             déjà enregistrés n'apparaîtraient nulle part, et on croirait les avoir perdus. */
+          const resume = etat === 'avenir' ? undefined : resumes[e.cle]
           const automatique = e.cle === 'opportunite' && etat === 'avenir'
 
           return (
@@ -527,7 +530,9 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
         <FenetreParcours onFermer={demanderSortie}>
           {rail({
             courante: 'perimetre',
-            sousTitre: 'Au moins un compteur',
+            sousTitre: compteurNumeros.length > 0
+              ? `${compteurNumeros.length} ${compteurNumeros.length > 1 ? 'compteurs enregistrés' : 'compteur enregistré'}`
+              : 'Au moins un compteur',
             note: { titre: "Sans compteur, pas d'opportunité", texte: "C'est le périmètre qui fait l'affaire." },
           })}
           <div className="flex min-w-0 flex-1 flex-col px-9 pb-[22px] pt-8">
@@ -541,11 +546,13 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
                 sites={sites ?? []}
                 responsableParDefautId={contactId ?? undefined}
                 libelleValidation="Créer le périmètre"
+                unParUn
+                /* CHAQUE COMPTEUR REJOINT LE RAIL DÈS SA CRÉATION, et non à la fin : c'est ce qui
+                   permet au formulaire de repartir à zéro sans qu'on ait l'impression d'avoir perdu
+                   le précédent. William, 24/09/2026. */
+                onCompteurCree={(c) => setCompteurNumeros((prev) => [...prev, c.numero_pdl])}
                 onSaved={() => { /* Le parcours annonce lui-même la suite. */ }}
-                onCrees={(compteurs) => {
-                  setCompteurNumeros(compteurs.map((c) => c.numero_pdl))
-                  ouvrirLOpportunite(compteurs.map((c) => c.id))
-                }}
+                onCrees={(compteurs) => ouvrirLOpportunite(compteurs.map((c) => c.id))}
               />
             ) : (
               /* Le compte vient de la liste, pas du résultat de la création : `useCreateCompte` l'y
