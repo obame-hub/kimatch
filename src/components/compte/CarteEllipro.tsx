@@ -132,8 +132,19 @@ export function CarteEllipro({ donnees, nom }: { donnees: EllisphereScore; nom: 
         )}
       </div>
 
-      {/* ══ LA GRILLE ══ */}
-      <div className="grid min-h-0 flex-1 grid-cols-3 grid-rows-[auto_1fr_auto] gap-[9px]">
+      {/* ══ LA GRILLE ══
+
+          William, 24/09/2026 : « le dernier bloc en bas ne rentre pas dans la fenêtre, autant le
+          supprimer ou l'intégrer dans le bloc Chiffres clés qui dispose de beaucoup d'espace
+          libre ».
+
+          LES ÉVÉNEMENTS DESCENDENT DANS LA COLONNE DE GAUCHE, sous les chiffres clés, au lieu de
+          prendre une rangée à eux sur toute la largeur. Ils ne débordent plus, et l'espace vide
+          sous les trois montants est enfin employé — deux problèmes que la même colonne règle.
+
+          ON NE LES SUPPRIME PAS : c'est le seul bloc qui puisse annoncer une procédure collective,
+          et l'apprendre après la signature coûte infiniment plus cher que la place qu'il prend. */}
+      <div className="grid min-h-0 flex-1 grid-cols-3 grid-rows-[auto_1fr] gap-[9px]">
 
         {donnees.paymentIncidents && (
           <Tuile titre="L’analyse d’Ellisphere" className="col-span-2">
@@ -149,12 +160,13 @@ export function CarteEllipro({ donnees, nom }: { donnees: EllisphereScore; nom: 
                 const v = scoreEnNombre(h.valeur) ?? 0
                 const p = palierScoreEllipro(v)
                 return (
-                  <div key={`${h.valeur}-${i}`} className="flex flex-1 flex-col items-center gap-[2px]">
+                  <div key={`${h.valeur}-${i}`} className="flex min-w-0 flex-1 flex-col items-center gap-[2px]">
                     <span
                       className={cn('w-full rounded-[2px]', p.bande === 'vert' ? 'bg-km-green' : p.bande === 'jaune' ? 'bg-km-amber' : 'bg-km-red')}
-                      style={{ height: `${Math.max(4, (v / max) * 28)}px` }}
+                      style={{ height: `${Math.max(4, (v / max) * 26)}px` }}
                     />
-                    <span className="font-mono text-[8px] text-km-faint">{h.date?.slice(2, 4) ?? ''}</span>
+                    {/* L'année seule se répétait — « 24 24 25 25 » : c'est le mois qui distingue. */}
+                    <span className="font-mono text-[8px] text-km-faint">{h.date?.slice(2, 7) ?? ''}</span>
                   </div>
                 )
               })}
@@ -162,33 +174,58 @@ export function CarteEllipro({ donnees, nom }: { donnees: EllisphereScore; nom: 
           </Tuile>
         )}
 
-        {comptes && (
-          <Tuile titre={`Chiffres clés · exercice ${comptes.exercices[0] ?? ''}`} className="col-span-2">
-            <div className="flex gap-[14px]">
-              {comptes.lignes.slice(0, 3).map((l) => (
-                <div key={l.code} className="flex min-w-0 flex-1 flex-col gap-[1px]">
-                  <span className="truncate text-[10px] text-km-faint">{l.nom}</span>
-                  <span className={cn(
-                    'font-mono text-[15px] font-extrabold leading-tight',
-                    (l.valeurs[0] ?? 0) < 0 ? 'text-km-red' : 'text-km-text',
-                  )}>
-                    {montant(l.valeurs[0])}
-                  </span>
-                  {l.code === 'KC01' && tendanceCa != null && (
-                    <span className={cn('text-[9.5px] font-semibold', tendanceCa >= 0 ? 'text-km-green' : 'text-km-red')}>
-                      {tendanceCa >= 0 ? '▲' : '▼'} {Math.abs(tendanceCa)} % sur {comptes.exercices.length} ans
+        {/* ── LA COLONNE DE GAUCHE : LES CHIFFRES, PUIS CE QUI S'EST PASSÉ ── */}
+        <div className="col-span-2 flex min-h-0 min-w-0 flex-col gap-[9px]">
+          {comptes && (
+            <Tuile titre={`Chiffres clés · exercice ${comptes.exercices[0] ?? ''}`}>
+              <div className="flex gap-[14px]">
+                {comptes.lignes.slice(0, 3).map((l) => (
+                  <div key={l.code} className="flex min-w-0 flex-1 flex-col gap-[1px]">
+                    <span className="truncate text-[10px] text-km-faint">{l.nom}</span>
+                    <span className={cn(
+                      'font-mono text-[15px] font-extrabold leading-tight',
+                      (l.valeurs[0] ?? 0) < 0 ? 'text-km-red' : 'text-km-text',
+                    )}>
+                      {montant(l.valeurs[0])}
                     </span>
-                  )}
-                  {l.code !== 'KC01' && l.valeurs[1] != null && (
-                    <span className="font-mono text-[9.5px] text-km-faint">{comptes.exercices[1]} · {montant(l.valeurs[1])}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </Tuile>
-        )}
+                    {l.code === 'KC01' && tendanceCa != null && (
+                      <span className={cn('text-[9.5px] font-semibold', tendanceCa >= 0 ? 'text-km-green' : 'text-km-red')}>
+                        {tendanceCa >= 0 ? '▲' : '▼'} {Math.abs(tendanceCa)} % sur {comptes.exercices.length} ans
+                      </span>
+                    )}
+                    {l.code !== 'KC01' && l.valeurs[1] != null && (
+                      <span className="font-mono text-[9.5px] text-km-faint">{comptes.exercices[1]} · {montant(l.valeurs[1])}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Tuile>
+          )}
 
-        <Tuile titre="La société">
+          {donnees.evenements.length > 0 && (
+            <Tuile titre="Événements légaux · les plus graves d’abord" className="min-h-0 flex-1">
+              <div className="flex min-h-0 flex-1 flex-col gap-[4px] overflow-hidden">
+                {donnees.evenements.slice(0, 4).map((e, i) => {
+                  const sev = SEVERITES[e.severite ?? 'GREEN'] ?? SEVERITES.GREEN
+                  return (
+                    <div key={`${e.libelle}-${i}`} className="flex items-center gap-[8px]">
+                      <span className={cn('inline-flex shrink-0 items-center gap-[4px] rounded-[5px] px-[6px] py-[1px] text-[9px] font-extrabold uppercase', sev.fond, sev.texte)}>
+                        {e.severite === 'RED' && <AlertTriangle className="h-[9px] w-[9px]" />}
+                        {sev.libelle}
+                      </span>
+                      <span className={cn('min-w-0 flex-1 truncate text-[11.5px]', e.severite === 'RED' ? 'font-semibold text-km-text' : 'text-km-text')}>
+                        {e.libelle}
+                      </span>
+                      {e.date && <span className="shrink-0 font-mono text-[10px] text-km-faint">{e.date}</span>}
+                    </div>
+                  )
+                })}
+              </div>
+            </Tuile>
+          )}
+        </div>
+
+        <Tuile titre="La société" className="min-h-0">
           <span className="truncate text-[12.5px] font-bold leading-tight text-km-text">{nom}</span>
           {donnees.statut && (
             <span className={cn(
@@ -212,34 +249,12 @@ export function CarteEllipro({ donnees, nom }: { donnees: EllisphereScore; nom: 
             ))}
             {donnees.dirigeants[0] && (
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[10px] text-km-faint">{donnees.dirigeants[0].role ?? 'Dirigeant'}</span>
+                <span className="shrink-0 text-[10px] text-km-faint">{donnees.dirigeants[0].role ?? 'Dirigeant'}</span>
                 <span className="truncate text-[11px] font-semibold text-km-text">{donnees.dirigeants[0].nom}</span>
               </div>
             )}
           </div>
         </Tuile>
-
-        {donnees.evenements.length > 0 && (
-          <Tuile titre="Événements légaux · les plus graves d’abord" className="col-span-3">
-            <div className="flex flex-col gap-[3px]">
-              {donnees.evenements.slice(0, 2).map((e, i) => {
-                const sev = SEVERITES[e.severite ?? 'GREEN'] ?? SEVERITES.GREEN
-                return (
-                  <div key={`${e.libelle}-${i}`} className="flex items-center gap-[8px]">
-                    <span className={cn('inline-flex shrink-0 items-center gap-[4px] rounded-[5px] px-[6px] py-[1px] text-[9px] font-extrabold uppercase', sev.fond, sev.texte)}>
-                      {e.severite === 'RED' && <AlertTriangle className="h-[9px] w-[9px]" />}
-                      {sev.libelle}
-                    </span>
-                    <span className={cn('min-w-0 flex-1 truncate text-[11.5px]', e.severite === 'RED' ? 'font-semibold text-km-text' : 'text-km-text')}>
-                      {e.libelle}
-                    </span>
-                    {e.date && <span className="shrink-0 font-mono text-[10px] text-km-faint">{e.date}</span>}
-                  </div>
-                )
-              })}
-            </div>
-          </Tuile>
-        )}
       </div>
     </div>
   )
