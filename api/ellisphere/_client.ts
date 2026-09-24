@@ -313,6 +313,8 @@ async function getRiskReport(srcId: string): Promise<RapportRisque | null> {
 
   /* ══ LE SCORE DE L'ENTREPRISE EST DANS `<assessmentData>` ══
      Le document porte aussi une légende de l'échelle ; c'est elle qui produisait le 10 universel. */
+  void consignerLesComptes(text)
+
   const evaluation = text.match(/<assessmentData\b[\s\S]*?<\/assessmentData>/i)?.[0] ?? ''
   const blocStandard = evaluation.match(/<score\b[^>]*\btype="standard"[^>]*>[\s\S]*?<\/score>/i)?.[0] ?? ''
   const blocSecteur = evaluation.match(/<score\b[^>]*\btype="sector"[^>]*>[\s\S]*?<\/score>/i)?.[0] ?? ''
@@ -481,7 +483,35 @@ async function getScoreFromMonitoring(siren: string): Promise<EllisphereScore> {
   }, score: String(scoreNode) }
 }
 
-/* LE DIAGNOSTIC DE STRUCTURE A ÉTÉ RETIRÉ LE 24/09/2026, sa lecture faite. Il a servi une journée à
+/**
+ * ══ UNE DERNIÈRE CAPTURE, ÉTROITE : LES COMPTES ANNUELS ══
+ *
+ * Tout le reste du rapport a été lu le 24/09/2026. Seuls les comptes manquaient : le premier
+ * rapport capturé était celui d'une société créée en 2021, qui n'en publie pas. Un syndic établi en
+ * aura, et c'est le dernier morceau qui manque à la carte Ellipro.
+ *
+ * ELLE NE GARDE QUE `<financials>` ET SES VOISINS — ni identité, ni dirigeants, ni événements :
+ * tout cela est déjà connu. Elle s'efface dès la lecture faite, comme la précédente.
+ */
+async function consignerLesComptes(rapport: string): Promise<void> {
+  try {
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+    const cle = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !cle) return
+    const comptes = rapport.match(/<financials\b[\s\S]*?<\/financials>/gi)?.slice(0, 2).join('\n') ?? null
+    if (!comptes) return
+    const siren = rapport.match(/idName="SIREN"[^>]*>\s*(\d{9})/i)?.[1] ?? 'inconnu'
+    await fetch(`${url}/rest/v1/diagnostics_ellisphere`, {
+      method: 'POST',
+      headers: { apikey: cle, Authorization: `Bearer ${cle}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ siren, sections: { financials: comptes.slice(0, 9000) } }),
+    })
+  } catch {
+    /* Un diagnostic qui échoue ne doit jamais empêcher un score d'être rendu. */
+  }
+}
+
+/* LE DIAGNOSTIC DE STRUCTURE COMPLET A ÉTÉ RETIRÉ LE 24/09/2026, sa lecture faite. Il a servi une journée à
    comprendre ce que le rapport contient vraiment — et à trouver pourquoi quatre sociétés affichaient
    toutes 10/10. Tout ce qui est extrait plus haut vient de cette lecture. Laisser un mouchard écrire
    en production à chaque consultation ne se justifie plus. */
