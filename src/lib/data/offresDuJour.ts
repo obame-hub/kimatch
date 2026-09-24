@@ -127,17 +127,37 @@ export function useOffresDuJour() {
 }
 
 /**
- * ══ LA PÉRIODE DU MONTANT SIGNÉ ══
+ * ══ LES DEUX FILTRES DU MONTANT SIGNÉ ══
  *
- * William, 15/09/2026 : « ajoute des filtres Jour / Mois / Trimestre / Année. Ne touche pas à la
- * valeur du pipe en décision situé en dessous. »
+ * William, 15/09/2026 pour la période, 24/09/2026 pour la portée : « ajoute un autre filtre à côté :
+ * Moi + Global. Le "Moi" est sélectionné par défaut […] Au clic sur Global, c'est TOUTES les
+ * recommandations acceptées qui sont comptabilisées. Les filtres doivent être cumulables. »
  *
- * Les périodes sont EN COURS et non glissantes — du 1er du mois à aujourd'hui, pas les trente
- * derniers jours. C'est la lecture d'un commercial : les objectifs se tiennent au mois et au
- * trimestre. Voir la migration 20260915140000 pour le détail.
+ * ILS SE CROISENT, ILS NE SE REMPLACENT PAS : une période ET une portée, quatre combinaisons de
+ * deux par trois. C'est pourquoi ce sont deux groupes de segments distincts et non six boutons.
+ *
+ * LES PÉRIODES SONT EN COURS et non glissantes — du 1er du mois à aujourd'hui, pas les trente
+ * derniers jours. C'est la lecture d'un commercial : les objectifs se tiennent au mois et à l'année.
+ * Voir les migrations 20260915140000 et 20260924091000.
+ *
+ * ══ LE TRIMESTRE A ÉTÉ RETIRÉ LE 24/09/2026 ══
+ *
+ * William : « supprime le filtre Trimestre, garde juste Jour + Mois + Année. » Le retirer d'ici
+ * suffit à ramener au défaut ceux qui l'avaient en mémoire : la relecture du `localStorage` vérifie
+ * la valeur contre cette liste. La fonction en base continue de l'accepter — une valeur périmée
+ * dans un navigateur ne doit pas blanchir un tableau de bord.
  */
-export const PERIODES_MONTANT = ['JOUR', 'MOIS', 'TRIMESTRE', 'ANNEE'] as const
+export const PERIODES_MONTANT = ['JOUR', 'MOIS', 'ANNEE'] as const
 export type PeriodeMontant = (typeof PERIODES_MONTANT)[number]
+
+/** Mes affaires, ou celles de toute l'équipe. */
+export const PORTEES_MONTANT = ['MOI', 'GLOBAL'] as const
+export type PorteeMontant = (typeof PORTEES_MONTANT)[number]
+
+/** « Moi » par défaut : un commercial ouvre son tableau de bord pour voir SON chiffre. */
+export const DEFAUT_PORTEE: PorteeMontant = 'MOI'
+
+export const LIBELLE_PORTEE: Record<PorteeMontant, string> = { MOI: 'Moi', GLOBAL: 'Global' }
 
 /**
  * CE QU'ON VOIT EN ARRIVANT, TANT QU'ON N'A RIEN CHOISI.
@@ -151,19 +171,30 @@ export type PeriodeMontant = (typeof PERIODES_MONTANT)[number]
  */
 export const DEFAUT_PERIODE: PeriodeMontant = 'MOIS'
 
-/** L'intitulé sous le montant : il doit dire la période, sinon le chiffre est ambigu. */
-export const LIBELLE_PERIODE: Record<PeriodeMontant, { onglet: string; phrase: string }> = {
-  JOUR: { onglet: 'Jour', phrase: 'mes affaires acceptées aujourd’hui' },
-  MOIS: { onglet: 'Mois', phrase: 'mes affaires acceptées ce mois-ci' },
-  TRIMESTRE: { onglet: 'Trimestre', phrase: 'mes affaires acceptées ce trimestre' },
-  ANNEE: { onglet: 'Année', phrase: 'mes affaires acceptées cette année' },
+/** L'intitulé sous le montant : il doit dire la période ET la portée, sinon le chiffre est ambigu. */
+export const LIBELLE_PERIODE: Record<PeriodeMontant, { onglet: string; quand: string }> = {
+  JOUR: { onglet: 'Jour', quand: 'aujourd’hui' },
+  MOIS: { onglet: 'Mois', quand: 'ce mois-ci' },
+  ANNEE: { onglet: 'Année', quand: 'cette année' },
 }
 
-export function useTotauxOffres(periode: PeriodeMontant = DEFAUT_PERIODE) {
+/**
+ * La phrase sous le montant.
+ *
+ * ELLE CHANGE AVEC LA PORTÉE, et c'est le point : « mes affaires acceptées ce mois-ci » sous un
+ * chiffre qui compte celles de toute l'équipe ferait croire à chacun qu'il a signé le total du
+ * cabinet. Le chiffre ne se défend pas tout seul, la phrase doit le qualifier.
+ */
+export function phraseMontant(periode: PeriodeMontant, portee: PorteeMontant): string {
+  const qui = portee === 'GLOBAL' ? 'toutes les affaires acceptées' : 'mes affaires acceptées'
+  return `${qui} ${LIBELLE_PERIODE[periode].quand}`
+}
+
+export function useTotauxOffres(periode: PeriodeMontant = DEFAUT_PERIODE, portee: PorteeMontant = DEFAUT_PORTEE) {
   const requete = useQuery({
-    // LA PÉRIODE ENTRE DANS LA CLÉ : sans elle, passer de « Mois » à « Année » rendrait le montant
-    // du mois depuis le cache, et l'écran annoncerait l'année en montrant autre chose.
-    queryKey: ['totaux-offres', periode],
+    // LES DEUX FILTRES ENTRENT DANS LA CLÉ : sans eux, passer de « Mois » à « Année » rendrait le
+    // montant du mois depuis le cache, et l'écran annoncerait l'année en montrant autre chose.
+    queryKey: ['totaux-offres', periode, portee],
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: false,
@@ -171,7 +202,7 @@ export function useTotauxOffres(periode: PeriodeMontant = DEFAUT_PERIODE) {
     // ferait clignoter un squelette gris sur un chiffre qu'on vient de lire.
     placeholderData: (precedent) => precedent,
     queryFn: async (): Promise<TotauxOffres> => {
-      const { data, error } = await supabase.rpc('compter_totaux_offres', { p_periode: periode })
+      const { data, error } = await supabase.rpc('compter_totaux_offres', { p_periode: periode, p_portee: portee })
       if (error) {
         if (absente(error.message)) return { pipeEnDecision: 0, nbEnDecision: 0, montantSigne: 0 }
         throw new Error(error.message)

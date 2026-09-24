@@ -4,7 +4,11 @@ import { TuileArgent, TuilesJournee } from '@/components/dashboard/TuilesDuJour'
 import { useMonProfil } from '@/lib/data/roles'
 import { useCartesDuJour } from '@/lib/data/cartesDuJour'
 import { OffresDuJour } from '@/components/dashboard/OffresDuJour'
-import { useOffresDuJour, useTotauxOffres, DEFAUT_PERIODE, PERIODES_MONTANT, type PeriodeMontant } from '@/lib/data/offresDuJour'
+import {
+  useOffresDuJour, useTotauxOffres,
+  DEFAUT_PERIODE, PERIODES_MONTANT, type PeriodeMontant,
+  DEFAUT_PORTEE, PORTEES_MONTANT, type PorteeMontant,
+} from '@/lib/data/offresDuJour'
 import { TachesDuJour } from '@/components/dashboard/TachesDuJour'
 import { useTachesDuJour, useChargeAVenir, depuisIso, PLAFOND_JOURNALIER } from '@/lib/data/tachesDuJour'
 import { AppelsNonLies } from '@/components/allo/AppelsNonLies'
@@ -160,7 +164,22 @@ export default function Dashboard() {
     // continuer de fonctionner, simplement sans mémoire.
     try { localStorage.setItem('km-periode-montant-signe', p) } catch { /* sans mémoire, tant pis */ }
   }
-  const { data: totaux, isLoading: totauxEnCours } = useTotauxOffres(periode)
+  /* LA PORTÉE SE RETIENT DE LA MÊME FAÇON, et sous sa propre clé : quelqu'un qui pilote l'équipe
+     au mois et quelqu'un qui suit son propre jour ne doivent pas se marcher dessus. Même garde à
+     la relecture — une valeur inconnue en mémoire ferait refuser l'appel par la fonction en base. */
+  const [portee, setPortee] = useState<PorteeMontant>(() => {
+    try {
+      const garde = localStorage.getItem('km-portee-montant-signe')
+      return PORTEES_MONTANT.includes(garde as PorteeMontant) ? (garde as PorteeMontant) : DEFAUT_PORTEE
+    } catch {
+      return DEFAUT_PORTEE
+    }
+  })
+  const choisirPortee = (p: PorteeMontant) => {
+    setPortee(p)
+    try { localStorage.setItem('km-portee-montant-signe', p) } catch { /* sans mémoire, tant pis */ }
+  }
+  const { data: totaux, isLoading: totauxEnCours } = useTotauxOffres(periode, portee)
   const { data: taches, isLoading: tachesEnCours } = useTachesDuJour()
   const { data: charge, isLoading: chargeEnCours } = useChargeAVenir()
 
@@ -261,7 +280,7 @@ export default function Dashboard() {
             <div className="grid auto-rows-min grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
               {/* La grande tuile ouvre la grille : deux colonnes, deux rangées. Les quatre
                   compteurs et la bande des opportunités se placent ensuite autour d'elle. */}
-              <TuileArgent totaux={totaux} chargement={totauxEnCours} periode={periode} onPeriode={choisirPeriode} />
+              <TuileArgent totaux={totaux} chargement={totauxEnCours} periode={periode} onPeriode={choisirPeriode} portee={portee} onPortee={choisirPortee} />
               <TuilesJournee nombres={cartes} chargement={cartesEnCours} />
             </div>
           </Zone>

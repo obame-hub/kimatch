@@ -26,12 +26,15 @@ import {
   sampleContratCreatedData,
   buildMandatSignedBlocks,
   sampleMandatSignedData,
+  buildDealGagneBlocks,
+  sampleDealGagneData,
 } from '@/lib/slackTemplates'
 
 const MODULE_LABELS: Record<SlackModule, string> = {
   compte: 'Nouveaux comptes',
   contrat: 'Nouveaux contrats',
   mandat: 'Mandats signés (+ synchro GRD auto)',
+  deal: 'Deals gagnés (recommandation acceptée)',
 }
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -132,7 +135,9 @@ function SlackModuleCard({ module }: { module: SlackModule }) {
         ? buildAccountCreatedBlocks(sampleAccountCreatedData())
         : module === 'contrat'
           ? buildContratCreatedBlocks(sampleContratCreatedData())
-          : buildMandatSignedBlocks(sampleMandatSignedData())
+          : module === 'deal'
+            ? buildDealGagneBlocks(sampleDealGagneData())
+            : buildMandatSignedBlocks(sampleMandatSignedData())
     const result = await sendTestSlackMessage(module, `:test_tube: [TEST] ${tpl.text}`, tpl.blocks)
     if (result.ok) {
       setFeedback(result.skipped ? 'Module désactivé ou pas de canal.' : 'Message envoyé sur Slack ✓')
@@ -211,6 +216,10 @@ export default function Parametres() {
             <SlackModuleCard module="compte" />
             <SlackModuleCard module="contrat" />
             <SlackModuleCard module="mandat" />
+            {/* William, 24/09/2026 : le canal « deals-gagnés ». Il arrive éteint et sans canal —
+                publier dans un canal que personne n'a choisi, c'est écrire au hasard dans tout
+                l'espace de travail. Le bouton « Tester » permet de vérifier avant d'allumer. */}
+            <SlackModuleCard module="deal" />
           </CardContent>
         </Card>
 

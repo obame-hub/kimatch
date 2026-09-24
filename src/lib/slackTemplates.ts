@@ -139,3 +139,83 @@ export function sampleContratCreatedData(): ContratCreatedSlackData {
     compteurs: [{ label: 'Parties communes', numeroPdl: 'PDL-30001245' }],
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   LE DEAL GAGNÉ
+   ════════════════════════════════════════════════════════════════════════════════════════════════
+
+   William, 24/09/2026 : « une fois qu'une opportunité est clôturée (Acceptée), un message de
+   félicitation doit être envoyé dans le canal Slack "deals-gagnés". Le plus important est de savoir
+   qui a signé (le propriétaire de la recommandation) ainsi que le champ montant présent sur la
+   recommandation. »
+
+   LES DEUX CHOSES IMPORTANTES SONT DANS LA PREMIÈRE LIGNE, celle que Slack montre en notification
+   et dans la liste des canaux : le nom et le montant. Tout le reste — le compte, la référence, le
+   lien — est du détail qu'on lit en ouvrant, et qui ne doit pas repousser l'essentiel hors du
+   résumé.
+
+   LE MONTANT PEUT MANQUER : 55 des 872 recommandations acceptées n'en portent aucun. On le dit
+   plutôt que d'écrire « 0,00 € », qui ferait passer une affaire signée pour une affaire nulle. */
+
+export interface DealGagneSlackData {
+  /** Le propriétaire de la recommandation — « qui a signé ». */
+  proprietaire: string | null
+  /** `recommandations.montant`, au centime. `null` quand il n'a jamais été renseigné. */
+  montant: number | null
+  recommandationNom: string
+  recommandationUrl?: string | null
+  reference?: string | null
+  compteNom?: string | null
+  compteUrl?: string | null
+}
+
+export function buildDealGagneBlocks(d: DealGagneSlackData) {
+  const qui = d.proprietaire?.trim() || 'Un commercial'
+  const combien = d.montant == null ? 'montant à renseigner' : eurosSlack(d.montant)
+  const text = `🎉 Deal gagné — ${qui} · ${combien}`
+
+  const detail: string[] = []
+  if (d.compteNom) detail.push(`• *Client :* ${link(d.compteNom, d.compteUrl)}`)
+  detail.push(`• *Affaire :* ${link(d.recommandationNom, d.recommandationUrl)}`)
+  if (d.reference) detail.push(`• *Référence :* \`${d.reference}\``)
+
+  const blocks: unknown[] = [
+    { type: 'context', elements: [{ type: 'mrkdwn', text: SEPARATOR_BAR }] },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `:tada: *${qui}* vient de signer\n*${combien}*` },
+    },
+    { type: 'section', text: { type: 'mrkdwn', text: detail.join('\n') } },
+  ]
+  if (d.recommandationUrl) {
+    blocks.push({
+      type: 'actions',
+      elements: [{ type: 'button', text: { type: 'plain_text', text: "Ouvrir l'affaire", emoji: true }, url: d.recommandationUrl, style: 'primary' }],
+    })
+  }
+  blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: SEPARATOR_BAR }] })
+  return { text, blocks }
+}
+
+/**
+ * Le montant, au centime, comme partout dans Kimatch.
+ *
+ * ÉCRIT ICI ET NON IMPORTÉ DE `euros.ts` : ce fichier de gabarits est aussi lu côté serveur, où
+ * l'espace fine insécable de la version écran passerait mal dans le résumé d'une notification
+ * Slack. Même règle — deux décimales, toujours — avec une espace ordinaire.
+ */
+function eurosSlack(v: number): string {
+  return `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+}
+
+export function sampleDealGagneData(): DealGagneSlackData {
+  return {
+    proprietaire: 'Matthieu Berthier',
+    montant: 18450.75,
+    recommandationNom: 'Renouvellement électricité — parties communes',
+    recommandationUrl: 'https://kimatch.fr/recommandations/demo',
+    reference: 'REC-2026-0412',
+    compteNom: 'Résidence Les Mimosas',
+    compteUrl: 'https://kimatch.fr/comptes/demo',
+  }
+}

@@ -3,7 +3,9 @@ import { supabase } from '@/lib/supabase'
 import { authHeader } from '@/lib/data/authHeader'
 import { relancer } from '@/lib/data/erreurLecture'
 
-export type SlackModule = 'compte' | 'contrat' | 'mandat'
+/** Les quatre canaux que Kimatch sait alimenter. `deal` est arrivé le 24/09/2026 avec les
+ *  félicitations de clôture — voir la migration `20260924090000`. */
+export type SlackModule = 'compte' | 'contrat' | 'mandat' | 'deal'
 
 export interface SlackSetting {
   module: SlackModule

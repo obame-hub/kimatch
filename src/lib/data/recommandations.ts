@@ -12,6 +12,8 @@ import type {
 import { fetchComptesVisibles, fetchMesComptes, filterVisibles } from '@/lib/data/visibility'
 import { fetchAllRows } from '@/lib/data/paginatedFetch'
 import { relancer } from '@/lib/data/erreurLecture'
+import { notifySlack } from '@/lib/data/slackSettings'
+import { buildDealGagneBlocks } from '@/lib/slackTemplates'
 
 interface RawRecommandation {
   id: string
@@ -1625,6 +1627,77 @@ async function appliquerSuiviApresPerte(recommandationId: string, suivi: SuiviAp
 }
 
 /**
+ * ══ LE DEAL GAGNÉ PART SUR SLACK, AU MOMENT MÊME DE LA CLÔTURE ══
+ *
+ * William, 24/09/2026 : « je veux que ce soit absolument immédiat dès la clôture en acceptée ».
+ *
+ * ── POURQUOI C'EST ICI ET NON DANS UN DÉCLENCHEUR EN BASE ──
+ *
+ * Un déclencheur PostgreSQL ne sait pas appeler Slack : il faudrait `pg_net`, qui n'est pas installé
+ * sur la base (extensions au 24/09 : plpgsql, pg_stat_statements, uuid-ossp, pgcrypto,
+ * supabase_vault, pg_trgm), et il faudrait y déposer le jeton Slack. C'est une extension de plus en
+ * production et un secret de plus en base, pour une notification.
+ *
+ * ICI, LE MESSAGE PART DANS LA FOULÉE DE L'ÉCRITURE — quelques centaines de millisecondes après le
+ * clic, avant même que la fenêtre de clôture ne se referme. C'est la mécanique de toutes les autres
+ * notifications Slack de Kimatch (compte, contrat, mandat), et elle a fait ses preuves.
+ *
+ * SA LIMITE, ET IL FAUT LA CONNAÎTRE : une clôture faite autrement que par cet écran — en SQL, par
+ * un import — n'envoie rien. `useCloturerRecommandation` est aujourd'hui le seul chemin de
+ * l'application, donc le cas ne se présente pas ; si un jour il fallait le couvrir, il faudrait
+ * passer par `pg_net` et le dire explicitement.
+ *
+ * ── ON RELIT PLUTÔT QUE DE FAIRE PASSER LES DONNÉES PAR L'APPELANT ──
+ *
+ * L'écran de clôture ne connaît que l'identifiant. Exiger de lui le propriétaire, le montant et le
+ * compte, c'est trois arguments de plus à tenir justes dans chaque appelant présent et à venir. Une
+ * lecture après l'écriture coûte un aller-retour et ne peut pas se désynchroniser.
+ *
+ * ── ET ELLE NE FAIT JAMAIS ÉCHOUER LA CLÔTURE ──
+ *
+ * `notifySlack` ne lève pas, et ce qui l'entoure non plus. Une affaire signée reste signée même si
+ * Slack est en panne : l'inverse — perdre une clôture parce qu'un message n'est pas parti — serait
+ * absurde.
+ */
+async function annoncerLeDealGagne(recommandationId: string): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from('recommandations')
+      .select('id, nom, reference, montant, compte_id, comptes(nom), proprietaire:profils!recommandations_proprietaire_id_fkey(prenom, nom)')
+      .eq('id', recommandationId)
+      .maybeSingle()
+    if (error || !data) return
+
+    const r = data as unknown as {
+      id: string
+      nom: string | null
+      reference: string | null
+      montant: number | null
+      compte_id: string | null
+      comptes: { nom: string } | { nom: string }[] | null
+      proprietaire: { prenom: string | null; nom: string | null } | { prenom: string | null; nom: string | null }[] | null
+    }
+    // Les jointures de PostgREST arrivent en objet ou en tableau selon la cardinalité déduite.
+    const premier = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
+    const proprietaire = premier(r.proprietaire)
+    const compte = premier(r.comptes)
+
+    const gabarit = buildDealGagneBlocks({
+      proprietaire: [proprietaire?.prenom, proprietaire?.nom].filter(Boolean).join(' ') || null,
+      montant: r.montant,
+      recommandationNom: r.nom || 'Affaire sans nom',
+      recommandationUrl: `${window.location.origin}/recommandations/${r.id}`,
+      reference: r.reference,
+      compteNom: compte?.nom ?? null,
+      compteUrl: r.compte_id ? `${window.location.origin}/comptes/${r.compte_id}` : null,
+    })
+    await notifySlack({ module: 'deal', text: gabarit.text, blocks: gabarit.blocks })
+  } catch {
+    /* Voir l'en-tête : une clôture réussie ne se défait pas parce qu'un message n'est pas parti. */
+  }
+}
+
+/**
  * Clôture d'une recommandation — le geste de la maquette « Fiche Opportunité ».
  *
  * Trois écritures d'un coup, et c'est justement pourquoi ça ne passe pas par l'édition en place :
@@ -1679,6 +1752,10 @@ export function useCloturerRecommandation() {
         })
         .eq('id', input.id)
       if (error) throw new Error(error.message)
+
+      /* SANS `await` : la félicitation ne doit pas retarder d'un aller-retour la fermeture de la
+         fenêtre de clôture. Elle part pendant que l'écran se remet à jour. */
+      if (input.finalite === 'ACCEPTEE') void annoncerLeDealGagne(input.id)
 
       /* LE SUIVI VIENT APRÈS, ET SÉPARÉMENT. La clôture est un fait acquis dès qu'elle est
          écrite ; si la création de l'opportunité échoue, on ne veut surtout pas que le commercial

@@ -4,8 +4,12 @@ import { CompteurAnime } from '@/components/dashboard/CompteurAnime'
 import type { CartesDuJour as Nombres } from '@/lib/data/cartesDuJour'
 import {
   LIBELLE_PERIODE,
+  LIBELLE_PORTEE,
   PERIODES_MONTANT,
+  PORTEES_MONTANT,
+  phraseMontant,
   type PeriodeMontant,
+  type PorteeMontant,
   type TotauxOffres,
 } from '@/lib/data/offresDuJour'
 import { cn } from '@/lib/utils'
@@ -112,12 +116,17 @@ export function TuileArgent({
   chargement,
   periode,
   onPeriode,
+  portee,
+  onPortee,
 }: {
   totaux: TotauxOffres | undefined
   chargement: boolean
   /** La période du MONTANT SIGNÉ seulement — le pipe est un encours et l'ignore. */
   periode: PeriodeMontant
   onPeriode: (p: PeriodeMontant) => void
+  /** Mes affaires ou celles de toute l'équipe. Le pipe l'ignore aussi : il reste mien. */
+  portee: PorteeMontant
+  onPortee: (p: PorteeMontant) => void
 }) {
   const signe = totaux?.montantSigne ?? 0
   const pipe = totaux?.pipeEnDecision ?? 0
@@ -144,28 +153,61 @@ export function TuileArgent({
         <span className="text-km-label font-bold uppercase tracking-[.1em] text-white/75">
           Montant signé
         </span>
-        <div
-          role="group"
-          aria-label="Période du montant signé"
-          className="ml-auto flex shrink-0 items-center gap-0.5 rounded-full bg-black/15 p-0.5"
-        >
-          {PERIODES_MONTANT.map((p) => {
-            const actif = p === periode
-            return (
-              <button
-                key={p}
-                type="button"
-                aria-pressed={actif}
-                onClick={() => onPeriode(p)}
-                className={cn(
-                  'rounded-full px-2 py-[3px] text-km-tiny font-bold transition-colors',
-                  actif ? 'bg-white text-[#0d7a5f] shadow-sm' : 'text-white/70 hover:bg-white/10 hover:text-white',
-                )}
-              >
-                {LIBELLE_PERIODE[p].onglet}
-              </button>
-            )
-          })}
+
+        {/* ══ DEUX GROUPES, PAS UN SEUL ══
+            Les filtres se croisent : une période ET une portée. Les fondre en une rangée de cinq
+            boutons ferait croire qu'ils s'excluent, et « Global » effacerait « Mois » à l'œil.
+            Le trait vertical entre les deux dit qu'on change de question. */}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <div
+            role="group"
+            aria-label="Période du montant signé"
+            className="flex items-center gap-0.5 rounded-full bg-black/15 p-0.5"
+          >
+            {PERIODES_MONTANT.map((p) => {
+              const actif = p === periode
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={actif}
+                  onClick={() => onPeriode(p)}
+                  className={cn(
+                    'rounded-full px-2 py-[3px] text-km-tiny font-bold transition-colors',
+                    actif ? 'bg-white text-[#0d7a5f] shadow-sm' : 'text-white/70 hover:bg-white/10 hover:text-white',
+                  )}
+                >
+                  {LIBELLE_PERIODE[p].onglet}
+                </button>
+              )
+            })}
+          </div>
+
+          <span aria-hidden className="h-4 w-px bg-white/25" />
+
+          <div
+            role="group"
+            aria-label="Portée du montant signé"
+            className="flex items-center gap-0.5 rounded-full bg-black/15 p-0.5"
+          >
+            {PORTEES_MONTANT.map((p) => {
+              const actif = p === portee
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={actif}
+                  onClick={() => onPortee(p)}
+                  className={cn(
+                    'rounded-full px-2 py-[3px] text-km-tiny font-bold transition-colors',
+                    actif ? 'bg-white text-[#0d7a5f] shadow-sm' : 'text-white/70 hover:bg-white/10 hover:text-white',
+                  )}
+                >
+                  {LIBELLE_PORTEE[p]}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
@@ -185,7 +227,7 @@ export function TuileArgent({
           />
         )}
       </span>
-      <span className="mt-1 text-km-body text-white/75">{LIBELLE_PERIODE[periode].phrase}</span>
+      <span className="mt-1 text-km-body text-white/75">{phraseMontant(periode, portee)}</span>
 
       {/* LE FILET SÉPARE DEUX NATURES, PAS DEUX CHIFFRES. Au-dessus le fait, en dessous
           l'espérance — voir l'en-tête. `mt-auto` le pousse au bas de la tuile quelle que soit la
