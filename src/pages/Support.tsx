@@ -62,7 +62,9 @@ function CreateDemandeDialog({ open, onClose }: { open: boolean; onClose: () => 
       auteurNom,
     })
 
-    const admins = (profilsAdmin ?? []).filter((p) => p.role_acces?.code === 'SUPER_ADMIN' || p.role_acces?.code === 'ADMIN')
+    /* QUI REÇOIT LE SUPPORT SE RÈGLE DANS LA PAGE RÔLES — 24/09/2026. C'était `code === 'ADMIN'`,
+       donc figé : on ne pouvait pas confier le support à un rôle dédié sans redéployer. */
+    const admins = (profilsAdmin ?? []).filter((p) => p.role_acces?.recoit_le_support)
     const sujet = `[Kimatch] Nouvelle ${type === 'bug' ? 'demande de bug' : "demande d'évolution"} — ${titre}`
     const corps = `${auteurNom} a signalé :\n\n${titre}\n\n${description || 'Pas de description.'}`
     await Promise.all(

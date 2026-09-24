@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Automatismes } from '@/components/administration/Automatismes'
 import { Corbeille } from '@/components/administration/Corbeille'
-import { DroitsReels } from '@/components/administration/DroitsReels'
+import { GestionRoles } from '@/components/administration/GestionRoles'
 import { GestionnaireObjets } from '@/components/administration/GestionnaireObjets'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
@@ -524,7 +524,7 @@ export default function Administration() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <DroitsReels /> : tab === 'acces' ? <AccesAutorisesTab /> : tab === 'automatismes' ? <Automatismes /> : tab === 'objets' ? <GestionnaireObjets /> : tab === 'corbeille' ? <Corbeille /> : <AssignationsTab />}
+            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <GestionRoles /> : tab === 'acces' ? <AccesAutorisesTab /> : tab === 'automatismes' ? <Automatismes /> : tab === 'objets' ? <GestionnaireObjets /> : tab === 'corbeille' ? <Corbeille /> : <AssignationsTab />}
           </CardContent>
         </Card>
       </div>

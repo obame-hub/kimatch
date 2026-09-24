@@ -182,13 +182,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const own = createClient(ownUrl, ownServiceRoleKey)
 
+  /* ══ LE DROIT SE LIT SUR LE RÔLE, PLUS SUR SON NOM — 24/09/2026 ══
+   *
+   * `code === 'ADMIN'` rendait ce contrôle non réglable : un rôle créé dans la page Rôles ne
+   * pouvait pas l'obtenir, et le retirer à ADMIN était impossible sans déploiement. C'est une
+   * colonne depuis la migration 20260924103000.
+   *
+   * ON REVÉRIFIE TOUJOURS CÔTÉ SERVEUR, avec la clé de service : le rôle envoyé par le navigateur
+   * ne prouve rien. C'est inchangé, et c'est l'essentiel de ce contrôle. */
   const { data: callerRoleRow } = await own
     .from('profils_roles_acces')
-    .select('role_acces:roles_acces(code)')
+    .select('role_acces:roles_acces(code, ouvre_administration)')
     .eq('profil_id', userData.user.id)
     .maybeSingle()
-  const callerCode = (callerRoleRow?.role_acces as unknown as { code: string } | null)?.code
-  if (callerCode !== 'ADMIN' && callerCode !== 'SUPER_ADMIN') {
+  const caller = callerRoleRow?.role_acces as unknown as { code: string; ouvre_administration: boolean } | null
+  if (!caller?.ouvre_administration) {
     res.status(403).json({ error: 'Réservé aux administrateurs' })
     return
   }

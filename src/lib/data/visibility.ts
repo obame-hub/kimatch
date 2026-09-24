@@ -68,14 +68,26 @@ async function calculerMesComptes(): Promise<string[] | null> {
   // visibles — une erreur d'authentification ne doit jamais élargir un périmètre.
   if (!utilisateur) return []
 
+  /* ══ LA VISIBILITÉ SE LIT SUR LE RÔLE, PLUS SUR SON NOM — 24/09/2026 ══
+   *
+   * `code === 'ADMIN' || code === 'SUPER_ADMIN'` rendait le périmètre NON RÉGLABLE : donner à un
+   * directeur la vue sur tout le portefeuille demandait un déploiement. C'est une colonne depuis la
+   * migration 20260924103000, et la page Rôles la règle.
+   *
+   * ON LIT LA COLONNE ET NON `useCurrentAccess` : ce module est appelé par onze autres, parfois
+   * avant que le cache d'accès ne soit rempli. Une lecture directe ne peut pas rendre `false` par
+   * accident — et ici, `false` élargirait le périmètre au lieu de le restreindre. */
   const { data: role } = await supabase
     .from('profils_roles_acces')
-    .select('role_acces:roles_acces(code)')
+    .select('role_acces:roles_acces(code, voit_tous_les_comptes)')
     .eq('profil_id', utilisateur.id)
     .maybeSingle()
-  const brut = (role as { role_acces: { code: string } | { code: string }[] | null } | null)?.role_acces
-  const code = (Array.isArray(brut) ? brut[0]?.code : brut?.code) ?? null
-  if (code === 'ADMIN' || code === 'SUPER_ADMIN') return null
+  const brut = (role as {
+    role_acces: { code: string; voit_tous_les_comptes: boolean }
+      | { code: string; voit_tous_les_comptes: boolean }[] | null
+  } | null)?.role_acces
+  const r = Array.isArray(brut) ? brut[0] : brut
+  if (r?.voit_tous_les_comptes) return null
 
   // `profils.id` EST l'identifiant du compte d'authentification, la jointure est donc directe.
   const lignes = await fetchAllRows<{ id: string }>('comptes', 'id', (q) =>

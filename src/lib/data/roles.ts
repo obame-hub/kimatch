@@ -10,6 +10,19 @@ export interface RoleAcces {
   description: string | null
   niveau_hierarchique: number
   actif: boolean
+  /* ══ LES QUATRE DROITS QUE LE RÔLE OUVRE VRAIMENT — 24/09/2026 ══
+   *
+   * Ils étaient écrits en dur à six endroits (`code === 'ADMIN'`), donc NON RÉGLABLES : créer un
+   * rôle « Directeur » qui voit tout le portefeuille demandait un déploiement. Ils vivent en base
+   * depuis la migration 20260924103000, et la page Rôles les règle.
+   *
+   * QUATRE, ET NON LES VINGT-QUATRE PERMISSIONS : on ne montre que ce qui est réellement appliqué
+   * quelque part. Les permissions ne sont lues par aucun écran ni aucune policy — les proposer au
+   * réglage referait le mensonge retiré le 23/09. */
+  voit_tous_les_comptes: boolean
+  ouvre_administration: boolean
+  supprime_tout: boolean
+  recoit_le_support: boolean
 }
 
 export interface PermissionRow {
@@ -35,14 +48,17 @@ export interface ProfilAdmin {
   nom: string
   email: string
   actif: boolean
-  role_acces: { id: string; code: string; libelle: string } | null
+  role_acces: { id: string; code: string; libelle: string; recoit_le_support: boolean } | null
   poste: { id: string; code: string; libelle: string } | null
 }
 
 async function fetchRolesAcces(): Promise<RoleAcces[]> {
   const { data, error } = await supabase
     .from('roles_acces')
-    .select('id, code, libelle, description, niveau_hierarchique, actif')
+    /* LES QUATRE CAPACITÉS FONT PARTIE DU RÔLE, donc elles se lisent ici. Les omettre laisserait
+       l'écran de gestion afficher quatre interrupteurs éteints sur un rôle qui ouvre tout — et
+       TypeScript ne le verrait pas, puisque PostgREST rend simplement moins de colonnes. */
+    .select('id, code, libelle, description, niveau_hierarchique, actif, voit_tous_les_comptes, ouvre_administration, supprime_tout, recoit_le_support')
     .order('niveau_hierarchique')
   if (error || !data) return []
   return data as unknown as RoleAcces[]
@@ -101,7 +117,7 @@ interface RawProfilAdmin {
 }
 interface RawProfilRoleAcces {
   profil_id: string
-  role_acces: { id: string; code: string; libelle: string } | null
+  role_acces: { id: string; code: string; libelle: string; recoit_le_support: boolean } | null
 }
 interface RawProfilPoste {
   profil_id: string
@@ -111,11 +127,11 @@ interface RawProfilPoste {
 async function fetchProfilsAdmin(): Promise<ProfilAdmin[]> {
   const [profilsRes, rolesRes, postesRes] = await Promise.all([
     supabase.from('profils').select('id, prenom, nom, email, actif').order('nom'),
-    supabase.from('profils_roles_acces').select('profil_id, role_acces:roles_acces(id, code, libelle)'),
+    supabase.from('profils_roles_acces').select('profil_id, role_acces:roles_acces(id, code, libelle, recoit_le_support)'),
     supabase.from('profils_postes').select('profil_id, poste:postes(id, code, libelle)'),
   ])
   if (profilsRes.error || !profilsRes.data) return []
-  const roleParProfil = new Map<string, { id: string; code: string; libelle: string }>()
+  const roleParProfil = new Map<string, { id: string; code: string; libelle: string; recoit_le_support: boolean }>()
   for (const r of (rolesRes.data ?? []) as unknown as RawProfilRoleAcces[]) {
     if (r.role_acces) roleParProfil.set(r.profil_id, r.role_acces)
   }
@@ -250,7 +266,15 @@ export function useToggleRolePermission() {
 export interface CurrentAccess {
   roleCode: string | null
   roleLibelle: string | null
+  /* CONSERVÉ MAIS INUTILISÉ POUR LE CONTRÔLE D'ACCÈS. Relevé le 24/09/2026 : aucun écran, aucune
+     fonction, aucune policy ne consulte ces permissions — les contrôles passent tous par le rôle.
+     On ne les retire pas d'ici, mais rien ne doit s'y fier. */
   permissions: Set<string>
+  /* ── Ce que le rôle ouvre vraiment, désormais réglable (migration 20260924103000) ── */
+  voitTousLesComptes: boolean
+  ouvreAdministration: boolean
+  supprimeTout: boolean
+  recoitLeSupport: boolean
 }
 
 // Cache de session pour le rôle et les permissions de l'utilisateur connecté.
@@ -293,16 +317,25 @@ export function fetchCurrentAccess(): Promise<CurrentAccess> {
 }
 
 async function calculerCurrentAccess(): Promise<CurrentAccess> {
-  const empty: CurrentAccess = { roleCode: null, roleLibelle: null, permissions: new Set() }
+  const empty: CurrentAccess = {
+    roleCode: null, roleLibelle: null, permissions: new Set(),
+    /* SANS RÔLE, AUCUN DROIT. Une session illisible ne doit jamais élargir un périmètre : c'est la
+       même précaution que `calculerMesComptes`, qui rend une liste vide plutôt que « tout ». */
+    voitTousLesComptes: false, ouvreAdministration: false, supprimeTout: false, recoitLeSupport: false,
+  }
   const utilisateur = await utilisateurCourant()
   if (!utilisateur) return empty
 
   const { data: roleRow } = await supabase
     .from('profils_roles_acces')
-    .select('role_acces:roles_acces(id, code, libelle)')
+    .select('role_acces:roles_acces(id, code, libelle, voit_tous_les_comptes, ouvre_administration, supprime_tout, recoit_le_support)')
     .eq('profil_id', utilisateur.id)
     .maybeSingle()
-  const roleAcces = roleRow?.role_acces as unknown as { id: string; code: string; libelle: string } | null
+  const roleAcces = roleRow?.role_acces as unknown as {
+    id: string; code: string; libelle: string
+    voit_tous_les_comptes: boolean; ouvre_administration: boolean
+    supprime_tout: boolean; recoit_le_support: boolean
+  } | null
   if (!roleAcces) return empty
 
   const { data: permRows } = await supabase
@@ -314,7 +347,15 @@ async function calculerCurrentAccess(): Promise<CurrentAccess> {
       .map((r) => r.permission?.code)
       .filter((c): c is string => !!c),
   )
-  return { roleCode: roleAcces.code, roleLibelle: roleAcces.libelle, permissions }
+  return {
+    roleCode: roleAcces.code,
+    roleLibelle: roleAcces.libelle,
+    permissions,
+    voitTousLesComptes: roleAcces.voit_tous_les_comptes,
+    ouvreAdministration: roleAcces.ouvre_administration,
+    supprimeTout: roleAcces.supprime_tout,
+    recoitLeSupport: roleAcces.recoit_le_support,
+  }
 }
 
 export function useCurrentAccess() {
