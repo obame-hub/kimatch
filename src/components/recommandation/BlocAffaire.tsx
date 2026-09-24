@@ -75,16 +75,28 @@ import { euros } from '@/lib/euros'
  * impossible pour en remplir un neuf : les champs à saisir étaient précisément ceux qui ne
  * s'affichaient pas. Dès qu'on peut écrire, tout se montre, vide compris.
  */
-function LigneSaisie({ libelle, valeur, unite, onCommit, retour, explication }: {
+function LigneSaisie({ libelle, valeur, unite, onCommit, retour, explication, champ }: {
   libelle: string
   valeur: number | null
   unite: string
   onCommit: (v: number | null) => Promise<void>
   retour: { onSaved: () => void; onError: (e: Error) => void }
   explication?: React.ReactNode
+  /** LA COLONNE QUI PORTE CE CHIFFRE, montrée au survol.
+   *
+   *  William, 24/09/2026 : « au survol de chaque champ, j'aimerais que tu m'indiques les noms API
+   *  du style `marge_nette_coeff`. Car ce nom est différent du libellé visible sur l'écran et j'ai
+   *  l'impression qu'on ne parle pas toujours de la même chose. »
+   *
+   *  IL A RAISON, ET LE CAS LE PLUS PIÉGEUX EST À DEUX BLOCS D'ICI : la fiche affiche DEUX choses
+   *  vertes appelées « Montant ». L'encadré du héros, c'est `recommandations.montant` — le montant
+   *  de l'affaire, saisi à la main. La capsule verte au bas de la calculatrice, c'est
+   *  `recommandations.marge_nette_coeff` — la marge nette pondérée. Deux colonnes, deux sens, deux
+   *  verts. Le survol est ce qui permet de les distinguer sans ouvrir la base. */
+  champ?: string
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1">
+    <div className="flex items-baseline justify-between gap-3 py-1" title={champ ? `${champ} — nom de la colonne en base` : undefined}>
       <span className="flex items-center gap-1 text-km-body text-km-muted">
         {libelle}
         {explication}
@@ -97,15 +109,17 @@ function LigneSaisie({ libelle, valeur, unite, onCommit, retour, explication }: 
   )
 }
 
-function Ligne({ libelle, children, explication }: {
+function Ligne({ libelle, children, explication, champ }: {
   libelle: string
   children: React.ReactNode
   /** L'infobulle « pourquoi ce chiffre », posée contre l'intitulé et non contre la valeur : c'est
       l'intitulé qu'on lit quand on ne comprend pas. */
   explication?: React.ReactNode
+  /** La colonne en base, au survol — voir `LigneSaisie`. */
+  champ?: string
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1">
+    <div className="flex items-baseline justify-between gap-3 py-1" title={champ ? `${champ} — nom de la colonne en base` : undefined}>
       <span className="flex items-center gap-1 text-km-body text-km-muted">
         {libelle}
         {explication}
@@ -189,32 +203,32 @@ export function BlocAffaire({ reco, peutModifier, majReco, signaler }: {
 
       <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
         <div>
-          {reco.fournisseur_nom && <Ligne libelle="Fournisseur retenu">{reco.fournisseur_nom}</Ligne>}
-          {reco.duree_mois != null && <Ligne libelle="Durée">{reco.duree_mois} mois</Ligne>}
+          {reco.fournisseur_nom && <Ligne libelle="Fournisseur retenu" champ="recommandations.fournisseur_compte_id">{reco.fournisseur_nom}</Ligne>}
+          {reco.duree_mois != null && <Ligne libelle="Durée" champ="recommandations.duree_mois">{reco.duree_mois} mois</Ligne>}
           {editable ? (
             <>
-              <LigneSaisie libelle="Volume contractuel" valeur={reco.volume_contractuel ?? null} unite="MWh"
+              <LigneSaisie libelle="Volume contractuel" champ="recommandations.volume_contractuel" valeur={reco.volume_contractuel ?? null} unite="MWh"
                 onCommit={(v) => majReco!({ volume_contractuel: v })} retour={retour} />
-              <LigneSaisie libelle="Budget ancienne offre" valeur={reco.budget_ancienne_offre ?? null} unite="€"
+              <LigneSaisie libelle="Budget ancienne offre" champ="recommandations.budget_ancienne_offre" valeur={reco.budget_ancienne_offre ?? null} unite="€"
                 onCommit={(v) => majReco!({ budget_ancienne_offre: v })} retour={retour} />
-              <LigneSaisie libelle="Budget nouvelle offre" valeur={reco.budget_nouvelle_offre ?? null} unite="€"
+              <LigneSaisie libelle="Budget nouvelle offre" champ="recommandations.budget_nouvelle_offre" valeur={reco.budget_nouvelle_offre ?? null} unite="€"
                 onCommit={(v) => majReco!({ budget_nouvelle_offre: v })} retour={retour} />
-              <LigneSaisie libelle="Différence annuelle" valeur={reco.difference_budgetaire ?? null} unite="€"
+              <LigneSaisie libelle="Différence annuelle" champ="recommandations.difference_budgetaire" valeur={reco.difference_budgetaire ?? null} unite="€"
                 onCommit={(v) => majReco!({ difference_budgetaire: v })} retour={retour} />
             </>
           ) : (
             <>
               {reco.volume_contractuel != null && (
-                <Ligne libelle="Volume contractuel">{reco.volume_contractuel.toLocaleString('fr-FR')} MWh</Ligne>
+                <Ligne libelle="Volume contractuel" champ="recommandations.volume_contractuel">{reco.volume_contractuel.toLocaleString('fr-FR')} MWh</Ligne>
               )}
               {reco.budget_ancienne_offre != null && (
-                <Ligne libelle="Budget ancienne offre">{euros(reco.budget_ancienne_offre)}</Ligne>
+                <Ligne libelle="Budget ancienne offre" champ="recommandations.budget_ancienne_offre">{euros(reco.budget_ancienne_offre)}</Ligne>
               )}
               {reco.budget_nouvelle_offre != null && (
-                <Ligne libelle="Budget nouvelle offre">{euros(reco.budget_nouvelle_offre)}</Ligne>
+                <Ligne libelle="Budget nouvelle offre" champ="recommandations.budget_nouvelle_offre">{euros(reco.budget_nouvelle_offre)}</Ligne>
               )}
               {reco.difference_budgetaire != null && (
-                <Ligne libelle="Différence annuelle">
+                <Ligne libelle="Différence annuelle" champ="recommandations.difference_budgetaire">
                   {/* Une différence négative est une BONNE nouvelle pour le client : il paie moins. */}
                   <span className={cn(economise ? 'text-km-green' : 'text-km-text')}>
                     {euros(reco.difference_budgetaire)}

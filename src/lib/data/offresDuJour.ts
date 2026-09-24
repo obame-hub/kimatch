@@ -55,7 +55,12 @@ export interface LigneOffre {
  * l'utilisateur qui affiche le dashboard, et uniquement au statut "En décision". Ça s'appellerait
  * désormais Pipe en décision. »
  *
- * LES DEUX SE MESURENT EN `marge_nette_coeff`, le montant qui fait foi pour une recommandation.
+ * LES DEUX SE MESURENT EN `montant` DEPUIS LE 24/09/2026 — le « Montant de l'affaire » de
+ * l'encadré vert de la fiche. William, à qui je demandais d'arbitrer entre les deux colonnes :
+ * « quel est le champ dans recommandation qui apparaît dans un encadré vert ? c'est celui-là
+ * que je veux partout. » Ils lisaient jusque-là `marge_nette_coeff`, qui dit autre chose : sur
+ * les 282 acceptées de 2026, la marge fait 763 576,15 € et le montant 442 845,33 €. Voir la
+ * migration 20260924120000.
  * L'ancien pipe lisait `versions_recommandation.gain_estime_annuel` — une colonne NULLE sur les
  * 1 565 versions actuelles de la base. Il affichait donc 0,00 € à tout le monde, et un zéro se lit
  * comme « je n'ai rien en cours », jamais comme « la colonne est vide ».

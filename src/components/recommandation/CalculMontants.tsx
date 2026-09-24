@@ -68,6 +68,7 @@ function Ligne({
   saisie,
   enregistre,
   precision,
+  champ,
 }: {
   operateur?: '−' | '='
   libelle: string
@@ -81,9 +82,12 @@ function Ligne({
   enregistre?: boolean
   /** Une précision discrète sous l'intitulé, en petit : le taux appliqué, la raison d'un zéro. */
   precision?: string | null
+  /** LA COLONNE QUI PORTE CE CHIFFRE, montrée au survol — voir `NOM_API` plus bas. */
+  champ?: string
 }) {
   return (
     <div
+      title={champ ? `${champ} — nom de la colonne en base` : undefined}
       className={cn(
         'flex items-baseline gap-2 py-[7px]',
         sousTotal && 'mt-0.5 border-t border-km-line pt-2.5',
@@ -191,6 +195,7 @@ export function CalculMontants({
 
       <Ligne
         libelle="Montant brut"
+        champ="recommandations.marge_brute"
         valeur={brut}
         enregistre={!calculAbouti && brut != null}
         saisie={
@@ -228,6 +233,7 @@ export function CalculMontants({
       <Ligne
         operateur="−"
         libelle="Commission intermédiaire pricing"
+        champ="recommandations.commission_intermediaire"
         valeur={brut == null ? null : cip}
         enregistre={!calculAbouti && commissionIntermediaire != null}
         precision={
@@ -279,6 +285,7 @@ export function CalculMontants({
       <Ligne
         operateur="="
         libelle="Chiffre d’affaires"
+        champ="recommandations.chiffre_affaires"
         valeur={chiffreAffaires}
         sousTotal
         enregistre={!calculAbouti && chiffreAffaires_ != null}
@@ -302,6 +309,7 @@ export function CalculMontants({
       <Ligne
         operateur="−"
         libelle="Commission apporteur d’affaires"
+        champ="recommandations.marge_apporteur"
         valeur={apporteur}
         precision={apporteur === 0 ? 'aucun apporteur sur ce dossier' : null}
         saisie={
@@ -332,6 +340,7 @@ export function CalculMontants({
       <Ligne
         operateur="="
         libelle="Montant net"
+        champ="recommandations.marge_nette"
         valeur={montantNet}
         sousTotal
         enregistre={!calculAbouti && montantNet != null}
@@ -359,6 +368,7 @@ export function CalculMontants({
           il dit « ce chiffre compte », pas « clique ici ». Une animation plus rapide, sur un écran
           qu'on garde ouvert, devient un tic nerveux. */}
       <div
+        title="recommandations.marge_nette_coeff — nom de la colonne en base"
         className="animate-km-chatoie mt-2.5 flex items-center gap-3 rounded-km-md px-3.5 py-2.5"
         style={{
           background:

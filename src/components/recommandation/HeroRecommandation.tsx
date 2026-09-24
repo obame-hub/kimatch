@@ -206,8 +206,17 @@ export function HeroRecommandation({
           : 'lg:grid-cols-[minmax(0,.75fr)_minmax(0,1fr)]',
       )}
     >
-      {/* ─────────── 1 · LE MONTANT ─────────── */}
-      <div className="flex flex-col justify-center rounded-km-lg border border-km-green-line bg-km-green-tint px-[18px] py-[15px]">
+      {/* ─────────── 1 · LE MONTANT ───────────
+
+          ATTENTION AU HOMONYME, et c'est lui qui a mis William en doute le 24/09/2026 : la fiche
+          affiche DEUX choses vertes appelées « Montant ». Celle-ci — l'encadré vert, « Montant de
+          l'affaire » — est `recommandations.montant`, saisie à la main par le commercial. La
+          capsule verte au bas de la calculatrice, elle, est `recommandations.marge_nette_coeff`,
+          la marge nette pondérée. Deux colonnes, deux sens. Le survol le dit désormais. */}
+      <div
+        title="recommandations.montant — nom de la colonne en base"
+        className="flex flex-col justify-center rounded-km-lg border border-km-green-line bg-km-green-tint px-[18px] py-[15px]"
+      >
         <span className="text-km-tiny font-extrabold uppercase tracking-[0.09em] text-km-faint">
           Montant de l'affaire
         </span>
