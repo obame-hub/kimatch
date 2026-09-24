@@ -38,7 +38,23 @@ export function useEllisphereScore() {
  * c'est lui qui rendra le score à l'étape suivante. Chercher ici, c'est chercher dans la même base
  * que celle qui notera l'entreprise.
  *
- * TROIS CARACTÈRES MINIMUM et une requête par frappe retenue 400 ms : chaque appel est facturé.
+ * ══ ELLE DOIT PARAÎTRE INSTANTANÉE ══
+ *
+ * William, 24/09/2026 : « la recherche Ellipro doit afficher des propositions beaucoup plus
+ * rapidement, presque sans temps de chargement ».
+ *
+ * L'aller-retour vers Ellisphere, lui, ne raccourcit pas : c'est leur service. Ce qui se corrige,
+ * c'est TOUT LE RESTE — et c'est presque tout le temps perçu :
+ *
+ *   · l'attente avant de partir passe de 400 ms à 150 ;
+ *   · les résultats précédents RESTENT à l'écran pendant que les suivants arrivent, au lieu de
+ *     laisser un vide puis un squelette. Une liste qui s'affine sous les doigts se lit comme
+ *     instantanée ; une liste qui disparaît à chaque lettre se lit comme lente, à durée égale ;
+ *   · une recherche déjà faite revient du cache sans aucun appel — et effacer une lettre est le
+ *     geste le plus courant qui soit.
+ *
+ * TROIS CARACTÈRES MINIMUM, et chaque appel reste facturé : c'est pourquoi l'attente descend à
+ * 150 ms et non à zéro.
  */
 export interface EllisphereCompany {
   raisonSociale: string | null
@@ -59,8 +75,12 @@ export function useRechercheEllisphere(terme: string) {
   return useQuery({
     queryKey: ['ellisphere', 'recherche', q],
     enabled: q.length >= 3,
-    staleTime: 5 * 60 * 1000,
+    /* Une heure : une raison sociale ne change pas dans la séance, et revenir en arrière dans sa
+       frappe ne doit jamais coûter un appel. */
+    staleTime: 60 * 60 * 1000,
     retry: false,
+    /* Ce qui était affiché le reste pendant que la suite arrive. */
+    placeholderData: (precedent) => precedent,
     queryFn: async (): Promise<EllisphereCompany[]> => {
       /* Un SIRET ou un SIREN se cherche par identifiant, un nom par raison sociale : l'API a deux
          portes, et se tromper de porte ne rend rien. */

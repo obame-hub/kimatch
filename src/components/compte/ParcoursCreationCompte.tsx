@@ -174,6 +174,12 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
   const [recherche, setRecherche] = useState('')
   const [terme, setTerme] = useState('')
   const { data: resultats, isFetching: chercheEnCours, error: erreurRecherche } = useRechercheEllisphere(terme)
+  /* L'ENTREPRISE RETENUE FAIT SE RÉTRACTER LA RECHERCHE. William, 24/09/2026 : « quand je clique
+     sur un résultat, la barre de résultat se rétracte, me permettant d'avoir accès à l'ensemble des
+     champs pré-remplis sans avoir besoin de scroller ». La barre et sa liste occupent près de
+     250 px ; une fois le choix fait elles n'ont plus rien à dire, et cette hauteur est exactement
+     celle qui manquait aux champs. */
+  const [choisie, setChoisie] = useState<EllisphereCompany | null>(null)
   const [nom, setNom] = useState('')
   const [siren, setSiren] = useState('')
   const [siret, setSiret] = useState('')
@@ -189,9 +195,10 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
   const [contactsCrees, setContactsCrees] = useState<string[]>([])
   const [compteursCrees, setCompteursCrees] = useState<string[]>([])
 
-  // La frappe se calme avant de partir : chaque appel Ellisphere est facturé.
+  /* 150 ms, et non 400 : assez pour ne pas tirer un appel facturé à chaque lettre, assez peu pour
+     que la liste ait l'air de suivre les doigts. Voir `useRechercheEllisphere`. */
   useEffect(() => {
-    const t = setTimeout(() => setTerme(recherche), 400)
+    const t = setTimeout(() => setTerme(recherche), 150)
     return () => clearTimeout(t)
   }, [recherche])
 
@@ -236,6 +243,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
   }
 
   function choisirEntreprise(c: EllisphereCompany) {
+    setChoisie(c)
     setNom(c.raisonSociale || c.nomCommercial || '')
     setSiren(c.siren ?? '')
     setSiret(c.siret ?? '')
@@ -378,7 +386,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
 
             {/* UN SYNDIC BÉNÉVOLE N'A PAS DE SIREN : le chercher dans Ellisphere ne rendrait rien,
                 et facturerait l'appel. On saisit son nom et son adresse, c'est tout ce qui existe. */}
-            {!type.sansSiren && (
+            {!type.sansSiren && !choisie && (
               <div className="mb-[16px] flex flex-col gap-[8px]">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-[12px] top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-km-faint" />
@@ -424,6 +432,22 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 {terme.trim().length >= 3 && !chercheEnCours && (resultats?.length ?? 0) === 0 && !erreurRecherche && (
                   <p className="text-[11.5px] text-km-faint">Aucune entreprise trouvée — complétez à la main ci-dessous.</p>
                 )}
+              </div>
+            )}
+
+            {choisie && (
+              <div className="mb-[16px] flex items-center gap-[11px] rounded-[11px] border border-km-green-line bg-km-green-tint px-[13px] py-[10px]">
+                <Check className="h-[15px] w-[15px] shrink-0 text-km-green" />
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-km-text">
+                  Repris d’Ellisphere — <strong className="font-semibold">{choisie.raisonSociale || choisie.nomCommercial}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setChoisie(null); setRecherche(''); setTerme('') }}
+                  className="shrink-0 rounded-[8px] border border-km-green-line bg-white px-[11px] py-[5px] text-[11.5px] font-semibold text-km-green hover:bg-km-bg"
+                >
+                  Chercher une autre
+                </button>
               </div>
             )}
 
