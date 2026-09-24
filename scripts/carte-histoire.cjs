@@ -37,7 +37,11 @@ const { execFileSync } = require('child_process')
 const RACINE = path.resolve(__dirname, '..')
 const MIGRATIONS = path.join(RACINE, 'supabase', 'migrations')
 
-const git = (args, maxBuffer = 8 * 1024 * 1024) =>
+/* HUIT MÉGAOCTETS NE SUFFISENT PLUS — 24/09/2026. `git log` de ce dépôt dépasse désormais cette
+ * taille, et `execFileSync` échoue alors sur ENOBUFS : un message obscur, qui laissait croire à une
+ * panne de la carte alors que le schéma allait très bien. On passe à 64 Mo — assez loin pour que la
+ * question ne revienne pas avant longtemps. */
+const git = (args, maxBuffer = 64 * 1024 * 1024) =>
   execFileSync('git', args, { cwd: RACINE, encoding: 'utf8', maxBuffer })
 
 /** Le SQL sans ses commentaires. Ce dépôt commente en citant du SQL : les lire serait s'inventer des colonnes. */
