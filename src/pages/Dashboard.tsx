@@ -315,7 +315,7 @@ export default function Dashboard() {
                 la rangée se cale sur le montant signé — deux lignes de texte — et écrase la
                 matrice. */}
             {vueServiceClient ? (
-              <div className="grid grid-cols-1 items-stretch gap-2.5 lg:min-h-[186px] lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
+              <div className="grid grid-cols-1 items-stretch gap-2.5 lg:min-h-[230px] lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
                 <TuileArgent sansPipe totaux={totaux} chargement={totauxEnCours} periode={periode} onPeriode={choisirPeriode} portee={portee} onPortee={choisirPortee} />
                 <ChargeLarge jours={chargeLarge} chargement={chargeLargeEnCours} jourChoisi={jourChoisi} onChoisirJour={setJourChoisi} />
               </div>

@@ -155,6 +155,10 @@ export function TuileArgent({
       className={cn(
         'animate-km-card-rise relative flex flex-col overflow-hidden rounded-[20px] px-[18px] py-4 text-white shadow-[0_14px_34px_-20px_rgba(13,122,95,.55)]',
         !sansPipe && 'sm:col-span-2 lg:row-span-2',
+        /* SANS LE PIPE, LA TUILE SE CENTRE. Le pipe et son filet occupaient le bas ; sans eux, le
+           montant restait collé en haut d'une tuile désormais haute de 230 px, avec un vide
+           dessous. Centré, il tient le milieu de la tuile comme la matrice tient la sienne. */
+        sansPipe && 'justify-center',
       )}
       style={{ background: 'linear-gradient(152deg,#199b78 0%,#0d7a5f 55%,#0a5F4A 100%)' }}
     >
