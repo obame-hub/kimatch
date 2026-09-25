@@ -1,0 +1,69 @@
+{
+  "contexte": "Kimatch, le CRM de KiWee Energie. Depot : C:/Users/nghou/kiwee-os. React 18 + TypeScript + Vite + Tailwind + Supabase. Branche master. Reponds en francais, ton direct, sans flatterie.",
+
+  "probleme": "A la fin d'un appel telephonique (Allo), une modale doit s'ouvrir pour demander a quel objet rattacher l'appel : opportunite, recommandation, requete ou piste. ELLE NE S'OUVRE JAMAIS. Trois tentatives de correction ont deja echoue. Naoelle, 23/09/2026 : 'arrete de pousser des choses sans tester, verifie avant de supposer a chaque fois, fais tout toi-meme'.",
+
+  "avant_toute_chose": {
+    "consigne": "Lis INTEGRALEMENT ces fichiers avant d'ecrire une seule ligne de code. Ne suppose rien de leur contenu.",
+    "fichiers": [
+      "src/components/allo/DemandeRattachement.tsx",
+      "src/components/allo/LierAppel.tsx",
+      "src/components/allo/AppelsNonLies.tsx",
+      "src/lib/data/liensAppel.ts",
+      "src/lib/data/appelEnCours.ts",
+      "src/lib/data/roles.ts (fonctions emailAllo et useMonProfil)",
+      "src/lib/telephonie.tsx (c'est la que <DemandeRattachement /> est monte)",
+      "le webhook Allo dans api/ qui ecrit appels_en_cours et interactions"
+    ]
+  },
+
+  "cause_probable_a_reverifier_soi_meme": {
+    "resume": "Le garde `enLigne` dans DemandeRattachement.tsx empeche la modale de s'afficher.",
+    "code_fautif": "const enLigne = Boolean(appelEnCours && !appelEnCours.termine_le && Date.now() - new Date(appelEnCours.demarre_le).getTime() < 15 * 60 * 1000)",
+    "puis": "if (!ouvert || !dernier || enLigne) return null",
+    "mesure_faite_le_23_09_2026": "La table appels_en_cours contient 10 lignes avec termine_le IS NULL : une de 3 minutes, une de 6, deux de 17, et une datant du 22 septembre (1364 minutes). Allo n'envoie pas call.completed de maniere fiable.",
+    "consequence": "Pendant une prospection il y a presque toujours un appel 'en cours' de moins de 15 minutes en base. enLigne est donc vrai en permanence et la modale ne s'ouvre jamais.",
+    "second_defaut": "enLigne ne verifie meme pas que l'appel en cours concerne le MEME correspondant que l'interaction qu'on propose de rattacher. Un appel fantome d'un autre contact suffit a tout bloquer.",
+    "consigne": "NE PAS FAIRE CONFIANCE A CE DIAGNOSTIC. Le reverifier soi-meme par une requete sur la base avant de corriger quoi que ce soit."
+  },
+
+  "ce_qui_marche_deja_et_qu_il_ne_faut_pas_casser": [
+    "Le filtre se fait sur l'ADRESSE ALLO via emailAllo(profil), et non sur le profil Kimatch. Naoelle opere le compte Allo de William (w.goupil@kiwee-energie.fr), donc ses appels portent auteur_profil_id = celui de William. Sept membres chez Allo, dix profils actifs dans Kimatch.",
+    "La requete borne date_interaction par le haut avec .lte(now) : une interaction datee du 16/11/2026 existe en base et serait sinon toujours 'le dernier appel'.",
+    "La modale surveille l'APPARITION d'une interaction non rattachee (sondage toutes les 10 s), et non le passage 'en cours' vers 'termine' qui n'arrive pas toujours.",
+    "Un useRef empeche la modale de se rouvrir toutes les 10 secondes sur un appel deja ecarte."
+  ],
+
+  "travail_non_commite_en_cours": "src/components/allo/LierAppel.tsx est modifie dans le repertoire de travail mais NON POUSSE : la barre de bascules par categorie et la liste plate de 10 lignes ont ete remplacees par des sections depliantes (accordeon, toutes fermees au depart, une seule ouverte a la fois). Naoelle trouvait la modale trop grande. npm run build et eslint passent, mais ce n'a jamais ete verifie a l'ecran. Verifier puis pousser, ou repartir de la.",
+
+  "a_faire_dans_l_ordre": [
+    "1. Verifier soi-meme en base l'etat de appels_en_cours et de interactions, avec un script node lisant .env.local.",
+    "2. Corriger le garde enLigne : soit le supprimer, soit n'ignorer que l'appel en cours correspondant au MEME contact ou compte que l'interaction proposee.",
+    "3. Tester a l'ecran avec Playwright AVANT de pousser. Le script scripts/.essai-rattachement.cjs existe deja : il ouvre Kimatch avec une session magic-link et dit si la modale est presente. Exiger une PREUVE POSITIVE, c'est-a-dire la modale visible sur la capture. Jamais 'pas d'erreur donc ca marche'.",
+    "4. Regarder la capture PNG produite, ne pas se contenter de la sortie texte.",
+    "5. Traiter la cause racine : les appels restes 'en cours' pour toujours. Soit le webhook les cloture, soit une requete ou un trigger les ferme au-dela d'un delai."
+  ],
+
+  "regles_de_travail_non_negociables": {
+    "git": "git fetch avant d'editer, git pull --rebase avant de pousser, npm run croisement avant chaque push. Travailler sur master, pas de branche. Commit et push sans demander la permission.",
+    "verification": "npm run build est le SEUL controle de compilation valable. Aussi npx vitest run et npx eslint src/ api/ --quiet. Lancer npm run carte:verifier APRES AVOIR ECRIT UNE REQUETE : une colonne inexistante rend un ecran INVISIBLE, pas casse. Ne jamais affirmer qu'une donnee est absente sans une requete ciblee.",
+    "migrations": "Ecrire le SQL dans supabase/migrations/AAAAMMJJHHMMSS_titre.sql ; c'est NAOELLE qui l'applique avec node scripts/appliquer-migration.cjs <horodatage>. NE JAMAIS EXECUTER DE DDL SOI-MEME. Essayer d'abord avec node .essai-migration.cjs <horodatage>, qui annule a la fin. Chaque migration porte un GARDE-FOU qui teste le FUTUR. Toute table creee par migration nait avec RLS actif et ZERO policy.",
+    "documentation": "Toute table ou colonne creee doit porter un COMMENT ON : c'est ce qui alimente la page Administration > Objets.",
+    "nouveautes": "Toute livraison s'annonce avec node scripts/publier-nouveaute.cjs <fichier.json>, avec la VRAIE date de livraison (celle du commit) et le bon type parmi CORRECTION, NOUVEAUTE, AMELIORATION, INTEGRATION, MAINTENANCE, ANNONCE. Redige pour des commerciaux.",
+    "pieges_connus": [
+      "Sur Vercel, tout ce qui suit res.send() peut ne jamais s'executer.",
+      "lpad(x, 3, '0') tronque.",
+      "Les sequences ne sont pas transactionnelles.",
+      "now() ne bouge pas dans une transaction : utiliser clock_timestamp().",
+      "Ne jamais remplir une date metier avec now()."
+    ],
+    "methode": "Ne jamais dire que c'est bon sans l'avoir vu a l'ecran. Ne jamais confondre 'aucune erreur visible' et 'ca marche'. Dire ce qui a ete verifie et ce qui ne l'a pas ete. Nommer la cause, pas le symptome. Ne jamais deduire le prenom d'une personne depuis son adresse email.",
+    "tout_depuis_kimatch": "Pas d'extension navigateur, pas de navigateur impose. Le mobile compte autant que le PC."
+  },
+
+  "acces": {
+    "base": "Les cles sont dans .env.local : VITE_SUPABASE_URL et SUPABASE_SECRET_KEY. On peut lire la base directement par fetch sur /rest/v1/.",
+    "playwright": "Installe. ADRESSE_CAPTURE dans .env.local donne l'adresse a utiliser pour le magic-link.",
+    "serveur_dev": "npm run dev"
+  }
+}
