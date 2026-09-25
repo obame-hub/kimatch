@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'crypto'
 function requireEnv(name: string): string {
   const v = process.env[name]
   if (!v) throw new Error(`${name} non configurée`)
@@ -38,16 +39,75 @@ const ORIGINES_AUTORISEES = [
 ]
 const ORIGINE_PAR_DEFAUT = 'https://kimatch.fr'
 
-/** `state` = identifiant du profil + origine de départ, pour revenir sur le domaine d'où
- * l'utilisateur a lancé la connexion. Sans ça le callback renvoyait tout le monde sur
- * kiwee-os.vercel.app, même en partant de kimatch.fr. */
-export function encodeState(profilId: string, origine: string | undefined): string {
-  const sure = origine && ORIGINES_AUTORISEES.includes(origine) ? origine : ORIGINE_PAR_DEFAUT
-  return `${profilId}|${sure}`
+/** La clé secrète de l'application scelle le `state`. Elle est déjà indispensable au flot et ne
+ *  quitte jamais le serveur : aucun secret supplémentaire à gérer. Même choix que DocuSign. */
+function secretHmac(): string {
+  return requireEnv('GMAIL_CLIENT_SECRET')
 }
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * `state` = profil + origine + horodatage, SCELLÉ PAR UN HMAC — 25/09/2026
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * ══ CE QUE LE `state` EN CLAIR PERMETTAIT ══
+ *
+ * Il valait `${profilId}|${origine}`, sans signature. Il transite par Google et revient par l'URL :
+ * il est donc entièrement sous le contrôle de celui qui lance la connexion.
+ *
+ * N'importe quel utilisateur connecté remplaçait l'identifiant par celui d'un collègue, autorisait
+ * SON PROPRE compte Google, et `callback.ts` écrivait ses jetons dans `profils_gmail_tokens` à la
+ * ligne de ce collègue — avec la clé de service, donc sans qu'aucune policy n'intervienne.
+ *
+ * Conséquences, les deux sens confondus :
+ *   · `gmail/send.ts` envoie ensuite les mails du collègue DEPUIS la boîte de l'attaquant
+ *   · `gmail/rapatrier.ts` ramène dans Kimatch le contenu de la boîte de l'attaquant, au nom du
+ *     collègue — ou, le jeton étant remplacé, prive le collègue de ses propres réponses
+ *
+ * ══ LE DÉFAUT ÉTAIT CONNU ET ÉCRIT DANS LE DÉPÔT ══
+ *
+ * `api/docusign/_oauth.ts` le décrit mot pour mot depuis sa création : « sans elle, n'importe qui
+ * pourrait forger un `state` portant l'identifiant d'un collègue […] C'est le défaut du `state` en
+ * clair du flot Gmail, NON CORRIGÉ LÀ-BAS ». On applique ici la correction qui existait à côté.
+ *
+ * ══ L'HORODATAGE, EN PLUS DE LA SIGNATURE ══
+ *
+ * Une signature seule rend le `state` infalsifiable, pas non rejouable : un `state` capturé dans un
+ * historique de navigation vaudrait indéfiniment. Quinze minutes suffisent largement à un écran de
+ * consentement Google, et périment ce qui traîne.
+ */
+export function encodeState(profilId: string, origine: string | undefined): string {
+  const sure = origine && ORIGINES_AUTORISEES.includes(origine) ? origine : ORIGINE_PAR_DEFAUT
+  const charge = `${profilId}|${sure}|${Date.now()}`
+  const signature = createHmac('sha256', secretHmac()).update(charge).digest('base64url')
+  return `${Buffer.from(charge).toString('base64url')}.${signature}`
+}
+
+/** Un `state` non signé, mal signé ou vieux de plus de quinze minutes ne rend AUCUN profil : le
+ *  callback redirige alors vers une erreur au lieu d'écrire des jetons. */
 export function decodeState(state: string | undefined): { profilId?: string; appUrl: string } {
-  const [profilId, origine] = (state ?? '').split('|')
+  const parDefaut = { appUrl: ORIGINE_PAR_DEFAUT }
+  if (!state || !state.includes('.')) return parDefaut
+
+  const [chargeB64, signature] = state.split('.')
+  let charge: string
+  try {
+    charge = Buffer.from(chargeB64, 'base64url').toString('utf8')
+  } catch {
+    return parDefaut
+  }
+
+  /* `timingSafeEqual` plutôt que `===` : comparer deux signatures caractère par caractère laisse
+     mesurer, par le temps de réponse, combien de caractères sont justes. */
+  const attendue = createHmac('sha256', secretHmac()).update(charge).digest('base64url')
+  const a = Buffer.from(signature ?? '')
+  const b = Buffer.from(attendue)
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return parDefaut
+
+  const [profilId, origine, horodatage] = charge.split('|')
+  const age = Date.now() - Number(horodatage ?? 0)
+  if (!Number.isFinite(age) || age < 0 || age > 15 * 60 * 1000) return parDefaut
+
   const appUrl = origine && ORIGINES_AUTORISEES.includes(origine) ? origine : ORIGINE_PAR_DEFAUT
   return { profilId: profilId || undefined, appUrl }
 }

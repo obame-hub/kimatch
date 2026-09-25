@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { randomBytes } from 'node:crypto'
-import { exigerSession } from '../_auth.js'
+import { exigerSession, exigerAcces } from '../_auth.js'
 import { admin } from './_boite.js'
 
 /**
@@ -50,6 +50,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Une piste ou une opportunité est requise.' })
     return
   }
+
+  /* ══ LA FICHE DOIT ÊTRE LA SIENNE — 25/09/2026 ══
+     `exigerSession` dit QUI appelle ; `admin()` juste en dessous porte la clé de service et passe
+     au-dessus des policies. Entre les deux, l'identifiant vient du corps de la requête : n'importe
+     quel utilisateur connecté ouvrait donc une boîte de dépôt sur la fiche d'un collègue — et si
+     une boîte y était déjà ouverte, la fonction LUI RENDAIT LE JETON EXISTANT, celui envoyé au
+     vrai client. `valider.ts` écrit ensuite documents, interactions et notifications sur cette
+     fiche, toujours en clé de service.
+     On relit donc la fiche avec le jeton de l'appelant : ce sont les policies qui répondent. */
+  const cible0 = opportuniteId
+    ? { table: 'opportunites', id: opportuniteId }
+    : { table: 'pistes', id: pisteId as string }
+  if (!(await exigerAcces(utilisateur, cible0.table, cible0.id, res))) return
 
   /* LE DESTINATAIRE EST LE PROPRIÉTAIRE DE L'ENREGISTREMENT, pas celui qui clique. Même règle que
      les tâches depuis le 22/09 : une facture arrive dans le portefeuille de quelqu'un, et ce

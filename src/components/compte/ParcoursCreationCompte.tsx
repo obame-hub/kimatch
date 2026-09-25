@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight, Building2, Check, Factory, Handshake, Home, Loader2, Search, Users, Zap,
@@ -11,7 +11,8 @@ import {
   EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours,
   type EtapeParcours, type ResumeEtape,
 } from '@/components/parcours/Parcours'
-import { useCreateCompte } from '@/lib/data/comptes'
+import { useCreateCompte, useComptesRattachables } from '@/lib/data/comptes'
+import { useContactsParCompte } from '@/lib/data/contacts'
 import { useSites } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useEllisphereScore, useRechercheEllisphere, type EllisphereCompany } from '@/lib/data/ellisphere'
@@ -197,6 +198,21 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
   const [codePostal, setCodePostal] = useState('')
   const [ville, setVille] = useState('')
 
+  /* ── LE PARTENAIRE D'ORIGINE, demandé à l'étape 3 (voir le commentaire à l'écran) ── */
+  const [vientDunPartenaire, setVientDunPartenaire] = useState(false)
+  const [partenaireId, setPartenaireId] = useState('')
+  const [contactPartenaireId, setContactPartenaireId] = useState('')
+  const [creerContactPartenaire, setCreerContactPartenaire] = useState(false)
+  /* LA MÊME SOURCE QUE LA FICHE COMPTE. `IdentiteCard` liste les partenaires exactement ainsi :
+     deux façons de répondre à « qui sont les partenaires ? » finiraient par diverger. */
+  const { data: comptesRattachables } = useComptesRattachables()
+  const partenaires = useMemo(
+    () => (comptesRattachables ?? []).filter((c) => c.type_compte === 'partenaire'),
+    [comptesRattachables],
+  )
+  const { data: contactsDuPartenaire = [] } = useContactsParCompte(partenaireId || undefined)
+  const partenaireChoisi = partenaires.find((p) => p.id === partenaireId) ?? null
+
   /* Étape 3 — le score, puis le compte créé. */
   const [compte, setCompte] = useState<Compte | null>(null)
   const [suite, setSuite] = useState<'choix' | 'contact' | 'compteur'>('choix')
@@ -284,6 +300,11 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
         libelleApe: libelleApe.trim() || null,
         scoreEllipro: lireScore.data?.score ?? null,
         scoreElliproScale: lireScore.data?.scale ?? null,
+        /* LE PARTENAIRE PART AVEC LE COMPTE, en une seule écriture. Le rattacher après coup, c'est
+           ne jamais le rattacher : la preuve en est les 0 comptes renseignés sur 2 779 quand le
+           champ n'existait que dans un dialogue. */
+        apporteurPartenaireId: vientDunPartenaire && partenaireId ? partenaireId : null,
+        contactPartenaireId: vientDunPartenaire && contactPartenaireId ? contactPartenaireId : null,
       })
       setCompte(cree)
       setEtape('suite')
@@ -527,9 +548,142 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
 
             CE QUI MANQUE NE LAISSE PAS DE TROU : encours ou historique absents, leur bloc ne
             s'affiche pas. Un rapport pauvre donne un écran plus court, jamais un écran cassé. */}
-        {etape === 'score' && type && (
+        {/* CRÉER LE CONTACT MANQUANT SANS QUITTER LE PARCOURS.
+            Naoëlle : « si le contact n'existe pas, il faut donner la possibilité de le créer ».
+            Sortir d'ici pour aller le créer ailleurs, c'est perdre le compte en cours de saisie —
+            la recherche Ellisphere, le score, tout serait à refaire. */}
+        {etape === 'score' && creerContactPartenaire && partenaireChoisi && (
+          <>
+            <EnTeteEtape numero={3} total={4} titre={`Un contact chez ${partenaireChoisi.nom}`} />
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <ContactForm
+                compteId={partenaireChoisi.id}
+                compteNom={partenaireChoisi.nom}
+                segment="Partenaire"
+                submitLabel="Créer le contact"
+                onCreated={(ct) => {
+                  setContactPartenaireId(ct.id)
+                  setCreerContactPartenaire(false)
+                }}
+                onCancel={() => setCreerContactPartenaire(false)}
+              />
+            </div>
+          </>
+        )}
+
+        {etape === 'score' && type && !creerContactPartenaire && (
           <>
             <EnTeteEtape numero={3} total={4} titre="Ce qu’Ellisphere dit de cette entreprise" />
+
+            {/* ════════ CE COMPTE VIENT-IL D'UN PARTENAIRE ? ════════
+
+                Naoëlle, 25/09/2026 : « il faudrait ajouter au moment de la création de compte,
+                dans tous les formulaires de création de compte, une option qui spécifie si ce
+                compte doit être créé pour un partenaire ou géré par un partenaire ».
+
+                ══ POURQUOI ICI, ET PAS À L'ÉTAPE 1 NI À L'ÉTAPE 4 ══
+
+                À l'étape 1, un clic suffit et emmène directement à la recherche : y ajouter une
+                question casserait ce mouvement. À l'étape 4, le compte est DÉJÀ créé — et un
+                rattachement qui vient après coup ne se fait pas : la colonne `apporteur_partenaire_id`
+                existait depuis des mois, modifiable dans un dialogue, et affichait 0 compte
+                renseigné sur 2 779. Un champ qu'il faut aller chercher ne se remplit jamais.
+
+                Ici, le compte n'est pas encore écrit : le partenaire part AVEC lui, en une seule
+                écriture, et la question se pose au moment où le commercial connaît la réponse.
+
+                ══ CE QUE LE RATTACHEMENT OUVRE, ET CE QU'IL NE CHANGE PAS ══
+
+                `comptes_du_partenaire()` reconnaît `apporteur_partenaire_id` : le compte entre
+                donc dans le périmètre du partenaire, qui le verra dans SON patrimoine.
+
+                Pour les commerciaux, RIEN NE CHANGE : le compte reste un compte ordinaire, dans
+                toutes les listes, sans filtre ni écran à part. Naoëlle : « même si ces comptes
+                sont gérés et à la propriété d'un partenaire, que nos propres commerciaux puissent
+                le voir dans tous les comptes ». C'est le cas — le rattachement AJOUTE un lecteur,
+                il n'en retire aucun. Vérifié à l'écran avant livraison. */}
+            {partenaires.length > 0 && (
+              <div className="mb-[14px] rounded-[12px] border border-km-line bg-km-bg/40 p-[14px]">
+                <label className="flex cursor-pointer items-start gap-[10px]">
+                  <input
+                    type="checkbox"
+                    checked={vientDunPartenaire}
+                    onChange={(e) => {
+                      setVientDunPartenaire(e.target.checked)
+                      if (!e.target.checked) { setPartenaireId(''); setContactPartenaireId('') }
+                    }}
+                    className="mt-[2px] h-[15px] w-[15px] shrink-0 accent-km-green"
+                  />
+                  <span className="flex flex-col gap-[2px]">
+                    <span className="text-[13px] font-semibold text-km-text">
+                      Ce compte vient d’un partenaire
+                    </span>
+                    <span className="text-[11.5px] leading-snug text-km-faint">
+                      Il apparaîtra dans son espace, en plus de rester visible pour toute l’équipe.
+                    </span>
+                  </span>
+                </label>
+
+                {vientDunPartenaire && (
+                  <div className="mt-[12px] flex flex-col gap-[10px] border-t border-km-line-soft pt-[12px]">
+                    <div className="flex flex-col gap-[4px]">
+                      <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">
+                        Lequel
+                      </span>
+                      <select
+                        value={partenaireId}
+                        onChange={(e) => { setPartenaireId(e.target.value); setContactPartenaireId('') }}
+                        className="h-[32px] rounded-[8px] border border-km-line bg-white px-[9px] text-[13px] text-km-text outline-none focus:border-km-green"
+                      >
+                        <option value="">choisir un partenaire…</option>
+                        {partenaires.map((p) => (
+                          <option key={p.id} value={p.id}>{p.nom}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* LE CONTACT CHEZ CE PARTENAIRE — qui suit l'affaire de leur côté.
+                        S'il n'existe pas encore, on le crée sans quitter le parcours : sortir
+                        d'ici pour aller créer un contact, c'est perdre le compte en cours. */}
+                    {partenaireId && (
+                      <div className="flex flex-col gap-[4px]">
+                        <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">
+                          Qui le suit, chez eux
+                        </span>
+                        {contactsDuPartenaire.length > 0 ? (
+                          <div className="flex items-center gap-[8px]">
+                            <select
+                              value={contactPartenaireId}
+                              onChange={(e) => setContactPartenaireId(e.target.value)}
+                              className="h-[32px] flex-1 rounded-[8px] border border-km-line bg-white px-[9px] text-[13px] text-km-text outline-none focus:border-km-green"
+                            >
+                              <option value="">aucun pour l’instant</option>
+                              {contactsDuPartenaire.map((ct) => (
+                                <option key={ct.id} value={ct.id}>
+                                  {ct.prenom} {ct.nom}{ct.fonction ? ` — ${ct.fonction}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <Button variant="ghost" onClick={() => setCreerContactPartenaire(true)}>
+                              Nouveau
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-[8px]">
+                            <span className="flex-1 text-[11.5px] leading-snug text-km-faint">
+                              Ce partenaire n’a encore aucun contact.
+                            </span>
+                            <Button variant="ghost" onClick={() => setCreerContactPartenaire(true)}>
+                              En créer un
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {type.sansSiren ? (
               <p className="rounded-[12px] border border-km-line bg-km-bg/40 px-[15px] py-[13px] text-[12.5px] leading-snug text-km-muted">
@@ -564,10 +718,20 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
               </span>
               <span className="flex-1" />
               <Button variant="ghost" onClick={() => setEtape('entreprise')}>Précédent</Button>
-              <Button disabled={creerCompte.isPending} onClick={() => void creer()}>
+              {/* COCHÉ MAIS PAS RENSEIGNÉ : ON N'AVANCE PAS.
+                  Laisser créer le compte ici l'écrirait SANS partenaire, alors que le commercial
+                  vient d'affirmer qu'il en a un — et il faudrait retourner sur la fiche pour
+                  réparer, c'est-à-dire ne jamais le faire. Le bouton dit ce qui manque. */}
+              <Button
+                disabled={creerCompte.isPending || (vientDunPartenaire && !partenaireId)}
+                title={vientDunPartenaire && !partenaireId ? 'Choisissez le partenaire, ou décochez.' : undefined}
+                onClick={() => void creer()}
+              >
                 {creerCompte.isPending
                   ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Création…</>
-                  : 'Créer le compte'}
+                  : vientDunPartenaire && !partenaireId
+                    ? 'Choisissez le partenaire'
+                    : 'Créer le compte'}
               </Button>
             </div>
           </>

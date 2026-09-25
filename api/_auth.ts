@@ -133,3 +133,89 @@ export async function refuserLesPartenaires(
 
   return false
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * L'OBJET DEMANDÉ EST-IL LE SIEN ? — 25/09/2026
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * ══ LE MOTIF QUI REVIENT ══
+ *
+ * Plusieurs fonctions suivent la même forme : elles vérifient la SESSION, prennent ensuite la CLÉ
+ * DE SERVICE, et travaillent sur un identifiant venu du CORPS DE LA REQUÊTE. Les trois pas sont
+ * justifiés séparément — et ensemble ils annulent tout contrôle d'accès, parce que la clé de
+ * service désactive les policies une ligne après que la session a été vérifiée.
+ *
+ * Mesuré ce jour :
+ *
+ *     depot/ouvrir      un `pisteId` quelconque ouvre une boîte de dépôt sur la fiche d'autrui —
+ *                       et si une boîte est déjà ouverte, il REND LE JETON EXISTANT
+ *     cockpit/conseil   des `interactions` arbitraires reçoivent un `sentiment` écrit par l'IA
+ *     docusign/send     un `mandatId` ou `contratId` quelconque part en signature
+ *
+ * Ce n'est pas une faille partenaire : un commercial de KiWee agit de même sur le dossier d'un
+ * collègue. `refuserLesPartenaires` n'y suffit donc pas — c'est un contrôle D'APPARTENANCE qui
+ * manque, pas un garde de périmètre.
+ *
+ * ══ COMMENT ON RÉPOND SANS RECOPIER LA RÈGLE ══
+ *
+ * On relit la ligne AVEC LE JETON DE L'APPELANT, jamais avec la clé de service. Les policies
+ * répondent alors comme elles le feraient dans l'application : si elles ne montrent pas la ligne,
+ * `PostgREST` ne rend rien, et l'on refuse. Aucune règle d'accès n'est réécrite ici — c'est
+ * précisément ce qui évite qu'une seconde version diverge de la première.
+ *
+ * ══ CE QUE CE GARDE FERME, ET CE QU'IL NE FERME PAS ══
+ *
+ * Il vaut exactement ce que valent les policies, ni plus ni moins. Mesuré le 25/09/2026 :
+ *
+ *     un partenaire   -> mandat, contrat, piste, interaction de KiWee   REFUSÉ
+ *     un commercial   -> les mêmes                                      PASSE
+ *
+ * Chez KiWee, les policies laissent tout commercial voir les dossiers de ses collègues : c'est un
+ * choix d'organisation, une petite équipe où chacun reprend les affaires des autres. Ce garde ferme
+ * donc la porte aux EXTERNES, pas entre collègues.
+ *
+ * Le jour où l'on voudra cloisonner l'équipe par portefeuille, il n'y aura RIEN à changer ici : il
+ * suffira de resserrer les policies, et ces trois points d'entrée suivront d'eux-mêmes. C'est la
+ * raison d'être de cette forme.
+ */
+export async function exigerAcces(
+  utilisateur: UtilisateurAuthentifie,
+  table: string,
+  id: string,
+  res: VercelResponse,
+): Promise<boolean> {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) {
+    res.status(500).json({ error: 'Supabase non configuré côté serveur' })
+    return false
+  }
+
+  const reponse = await fetch(
+    `${supabaseUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&select=id&limit=1`,
+    {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: utilisateur.authHeader,
+      },
+    },
+  )
+
+  if (!reponse.ok) {
+    /* EN CAS DE DOUTE, ON REFUSE. Laisser passer sur une panne rouvrirait exactement ce que ce
+       contrôle ferme, et l'écriture, elle, se ferait bien. */
+    res.status(503).json({ error: 'Vérification des droits indisponible. Réessayez dans un instant.' })
+    return false
+  }
+
+  const lignes = (await reponse.json()) as unknown[]
+  if (!Array.isArray(lignes) || lignes.length === 0) {
+    /* 404 ET NON 403 : dire « interdit » confirmerait que cet identifiant existe. On ne renseigne
+       pas sur ce qu'on protège. */
+    res.status(404).json({ error: 'Introuvable.' })
+    return false
+  }
+
+  return true
+}
