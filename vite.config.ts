@@ -200,7 +200,14 @@ function servirApiEnLocal() {
                 return
               }
 
-              const module = await serveur.ssrLoadModule(`.${chemin}.ts`)
+              /* ══ `index.ts` D'UN DOSSIER, COMME EN PRODUCTION — 25/09/2026 ══
+                 Vercel résout `/api/partenaire` vers `api/partenaire/index.ts`. Ici on cherchait
+                 seulement `api/partenaire.ts`, et la route répondait « Does the file exist? » alors
+                 que le fichier existait bien. Un routeur local qui ne se comporte pas comme la
+                 production fait chercher un défaut là où il n'y en a pas. */
+              const module = await serveur
+                .ssrLoadModule(`.${chemin}.ts`)
+                .catch(() => serveur.ssrLoadModule(`.${chemin}/index.ts`))
               const gestionnaire = module.default as ((q: unknown, r: unknown) => unknown) | undefined
               if (typeof gestionnaire !== 'function') {
                 reponse.status(500).json({ error: `\`${chemin}\` n'exporte pas de gestionnaire par défaut.` })
