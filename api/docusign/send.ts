@@ -109,10 +109,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     /* UNE SEULE FONCTION POUR LES TROIS ENTRÉES. `documentUrl` seul devient une liste d'un
        élément : le chemin rétro-compatible n'est plus un cas à part qu'on oublie de corriger. */
+    /* ══ LE SEAU EST PRIVÉ : ON TÉLÉCHARGE, ON NE VA PAS CHERCHER L'ADRESSE ══
+     *
+     * William, 25/09/2026 : « Impossible d'envoyer via DocuSign. J'ai l'erreur : Impossible de
+     * récupérer "…Contrat_Gaz_-_Prix_fixe.pdf" (400) ».
+     *
+     * Les documents sont enregistrés avec une adresse de la forme
+     * `/storage/v1/object/public/documents/<chemin>`, mais le seau `documents` n'est PAS public :
+     * un `fetch` dessus ne rend pas le fichier. C'est le même défaut que celui qui empêchait tout
+     * téléchargement dans l'écran le 25/09 au matin, et qui bloquait les pièces jointes des mails.
+     * Il restait ici, sur le chemin le plus coûteux : l'envoi à la signature.
+     *
+     * ON NE SIGNE PAS, ON LIT EN DIRECT. Contrairement au navigateur, cette fonction porte la clé
+     * de service : elle demande le fichier au stockage plutôt que de passer par une URL. Le
+     * préfixe attendu reste le garde-fou — on ne télécharge que ce qui vient de notre stockage.
+     *
+     * UNE ADRESSE ÉTRANGÈRE RESTE SERVIE PAR `fetch` : les appelants qui passent une URL signée,
+     * ou un document hébergé ailleurs, continuent de fonctionner. */
+    const PREFIXE = `${process.env.VITE_SUPABASE_URL ?? ''}/storage/v1/object/public/documents/`
+
     async function telecharger(url: string, nomParDefaut: string) {
-      const pdfRes = await fetch(url)
-      if (!pdfRes.ok) throw new Error(`Impossible de récupérer « ${nomParDefaut} » (${pdfRes.status})`)
-      const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
+      let pdfBuffer: Buffer
+
+      const stockage = clientAdmin()
+      if (stockage && PREFIXE.length > '/storage/v1/object/public/documents/'.length && url.startsWith(PREFIXE)) {
+        const chemin = decodeURIComponent(url.slice(PREFIXE.length))
+        const { data, error } = await stockage.storage.from('documents').download(chemin)
+        if (error || !data) {
+          throw new Error(
+            `Impossible de récupérer « ${nomParDefaut} » : ${error?.message ?? 'fichier absent du stockage'}`,
+          )
+        }
+        pdfBuffer = Buffer.from(await data.arrayBuffer())
+      } else {
+        const pdfRes = await fetch(url)
+        if (!pdfRes.ok) throw new Error(`Impossible de récupérer « ${nomParDefaut} » (${pdfRes.status})`)
+        pdfBuffer = Buffer.from(await pdfRes.arrayBuffer())
+      }
+
       if (!pdfBuffer.length) throw new Error(`Le document « ${nomParDefaut} » est vide`)
       return { pdfBase64: pdfBuffer.toString('base64'), fileName: nomParDefaut }
     }
