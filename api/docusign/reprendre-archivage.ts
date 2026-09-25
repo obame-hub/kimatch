@@ -103,14 +103,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('entite_id', id)
           .in('nom', LIBELLES_COMBINES)
 
-        const url = process.env.VITE_SUPABASE_URL as string
-        const prefixe = `${url}/storage/v1/object/public/documents/`
+        /* Le marqueur, pas le domaine — voir `_archivage.ts`. */
+        const prefixe = '/storage/v1/object/public/documents/'
         let supprimes = 0
         for (const doc of (anciens ?? []) as { id: string; url: string | null }[]) {
-          if (doc.url?.startsWith(prefixe)) {
+          if (doc.url?.includes(prefixe)) {
             // Par le client, comme le dépôt : un `fetch` à la main ne pose que `Authorization`, que
             // le stockage refuse depuis le passage aux clés de nouvelle génération.
-            await admin.storage.from('documents').remove([doc.url.slice(prefixe.length)])
+            await admin.storage.from('documents').remove([decodeURIComponent(doc.url.slice(doc.url.indexOf(prefixe) + prefixe.length))])
           }
           await admin.from('documents').delete().eq('id', doc.id)
           supprimes += 1

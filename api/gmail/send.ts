@@ -57,6 +57,7 @@ interface SendBody {
   recommandationId?: string
   mandatId?: string
   contratId?: string
+  suiviContratId?: string
   /**
    * Les fichiers à joindre, désignés par leur adresse dans le stockage — jamais par leur contenu.
    * Voir le commentaire de la boucle de téléchargement plus bas pour la raison.
@@ -176,13 +177,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
    * 25 Mo, message compris. L'écran l'annonce avant l'envoi, mais l'écran peut être contourné et
    * les tailles annoncées peuvent mentir : on recompte sur ce qu'on a réellement téléchargé.
    */
-  const prefixeStockage = `${supabaseUrl}/storage/v1/object/public/documents/`
+  /* LE MARQUEUR, PAS LE DOMAINE. Comparer à `${supabaseUrl}/storage/…` suppose que la variable
+     existe, qu'elle soit identique au caractère près et que l'adresse porte le même hôte : trois
+     suppositions dont l'échec est SILENCIEUX. C'est ce qui a coûté un aller-retour sur DocuSign le
+     25/09/2026. Le marqueur est dans l'adresse, ou il n'y est pas. */
+  const MARQUEUR_STOCKAGE = '/storage/v1/object/public/documents/'
   const LIMITE_GMAIL = 25 * 1024 * 1024
   const piecesJointes: { filename: string; mimeType: string; contenu: string }[] = []
   let totalOctets = 0
 
   for (const p of body.piecesJointes ?? []) {
-    if (!p?.url || !p.url.startsWith(prefixeStockage)) {
+    const coupe = p?.url ? p.url.indexOf(MARQUEUR_STOCKAGE) : -1
+    if (!p?.url || coupe < 0) {
       res.status(400).json({ error: `Pièce jointe refusée : « ${p?.nom ?? '?'} » ne vient pas du stockage de Kimatch.` })
       return
     }
@@ -192,7 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
        contrairement au navigateur, rien ne sert de signer — ce client porte la clé de service et
        lit le fichier en direct. Le préfixe validé juste au-dessus reste le garde-fou : il
        garantit que l'on ne télécharge que des fichiers de notre propre stockage. */
-    const cheminDansLeBucket = decodeURIComponent(p.url.slice(prefixeStockage.length))
+    const cheminDansLeBucket = decodeURIComponent(p.url.slice(coupe + MARQUEUR_STOCKAGE.length))
     const { data: fichier, error: erreurFichier } = await supabase.storage
       .from('documents')
       .download(cheminDansLeBucket)
@@ -295,7 +301,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
    * concernés — un document de la fiche, lui, a sa propre vie.
    */
   const aNettoyer = (body.piecesJointes ?? [])
-    .map((p) => p.url.slice(prefixeStockage.length))
+    .map((p) => {
+      const i = p.url.indexOf(MARQUEUR_STOCKAGE)
+      return i < 0 ? '' : decodeURIComponent(p.url.slice(i + MARQUEUR_STOCKAGE.length))
+    })
     .filter((chemin) => chemin.startsWith('emails/'))
   if (aNettoyer.length > 0) {
     try {
@@ -349,6 +358,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       site_id: body.siteId ?? null,
       recommandation_id: body.recommandationId ?? null,
       mandat_id: body.mandatId ?? null,
+      /* Le dossier d'où l'on a écrit. Sans lui, le volet d'activité d'un suivi de contrat — qui
+         filtre sur cette colonne — reste muet sur un mail pourtant parti de sa fiche. */
+      suivi_contrat_id: body.suiviContratId ?? null,
       date_interaction: new Date().toISOString(),
       sens: 'SORTANT',
       objet: body.subject.slice(0, 500),

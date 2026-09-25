@@ -303,12 +303,12 @@ export async function retirerDocumentsEnvoyes(admin: Admin, mandatId: string): P
   const prefixe = `${url}/storage/v1/object/public/documents/`
 
   for (const doc of envoyes as { id: string; url: string | null }[]) {
-    if (doc.url?.startsWith(prefixe)) {
+    if (doc.url?.includes(prefixe)) {
       // MÊME RAISON QUE POUR LE DÉPÔT : un `fetch` à la main ne pose que l'en-tête `Authorization`,
       // que le stockage refuse depuis le passage aux clés de nouvelle génération. Ici l'échec était
       // encore plus silencieux — il était avalé par un `.catch()` — et laissait des PDF orphelins
       // dans le seau.
-      await admin.storage.from('documents').remove([doc.url.slice(prefixe.length)])
+      await admin.storage.from('documents').remove([decodeURIComponent(doc.url.slice(doc.url.indexOf(prefixe) + prefixe.length))])
     }
     await admin.from('documents').delete().eq('id', doc.id)
   }
