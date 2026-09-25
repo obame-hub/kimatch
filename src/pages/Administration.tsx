@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog, Building2, Cog, Database } from 'lucide-react'
+import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog, Building2, Cog, Database, KeyRound } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +7,7 @@ import { Automatismes } from '@/components/administration/Automatismes'
 import { Corbeille } from '@/components/administration/Corbeille'
 import { GestionRoles } from '@/components/administration/GestionRoles'
 import { AccesPartenaires } from '@/components/administration/AccesPartenaires'
+import { ClesApiPartenaires } from '@/components/administration/ClesApiPartenaires'
 import { GestionnaireObjets } from '@/components/administration/GestionnaireObjets'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
@@ -38,7 +39,7 @@ import { useRefreshSandbox } from '@/lib/data/sandboxRefresh'
 import { RefreshCw, ExternalLink } from 'lucide-react'
 import { useSandboxLastRefresh } from '@/lib/data/sandboxRefresh'
 
-type Tab = 'utilisateurs' | 'permissions' | 'acces' | 'assignations' | 'automatismes' | 'objets' | 'corbeille'
+type Tab = 'utilisateurs' | 'permissions' | 'acces' | 'clesApi' | 'assignations' | 'automatismes' | 'objets' | 'corbeille'
 
 // Gere depuis l'admin de la PROD (comme la page "Sandbox" d'un org Salesforce) : infos + bouton
 // d'actualisation qui recopie les dernieres donnees de prod dans la sandbox. Clonage/suppression
@@ -453,6 +454,21 @@ export default function Administration() {
             <Mail className="h-4 w-4" />
             Accès autorisés
           </button>
+          {/* LES CLÉS D'API ONT LEUR PROPRE ONGLET, et non une ligne de plus sous « Accès autorisés ».
+              Les deux ouvrent un accès, mais pas le même : là une session Kimatch pour un humain,
+              ici une clé pour un programme, sur deux ressources en lecture seule. Les mêler ferait
+              croire qu'un partenaire a le choix entre les deux — il n'a que la seconde. */}
+          <button
+            type="button"
+            onClick={() => setTab('clesApi')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
+              tab === 'clesApi' ? 'bg-kiwi-500/15 text-km-green' : 'text-km-muted hover:bg-km-bg',
+            )}
+          >
+            <KeyRound className="h-4 w-4" />
+            API partenaires
+          </button>
           <button
             type="button"
             onClick={() => setTab('assignations')}
@@ -527,7 +543,7 @@ export default function Administration() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <GestionRoles /> : tab === 'acces' ? <AccesAutorisesTab /> : tab === 'automatismes' ? <Automatismes /> : tab === 'objets' ? <GestionnaireObjets /> : tab === 'corbeille' ? <Corbeille /> : <AssignationsTab />}
+            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <GestionRoles /> : tab === 'acces' ? <AccesAutorisesTab /> : tab === 'clesApi' ? <ClesApiPartenaires /> : tab === 'automatismes' ? <Automatismes /> : tab === 'objets' ? <GestionnaireObjets /> : tab === 'corbeille' ? <Corbeille /> : <AssignationsTab />}
           </CardContent>
         </Card>
       </div>
