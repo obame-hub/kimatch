@@ -1,19 +1,23 @@
 import { useMemo, useState } from 'react'
 import {
-  Building2, ChevronDown, FileText, Gauge, Mail, MailCheck, MailOpen, MailQuestion, MailX,
-  NotebookPen, Phone, PhoneOff, Play,
+  Building2, ChevronDown, ExternalLink, FileText, Gauge, Mail, MailCheck, MailOpen, MailQuestion,
+  MailX, NotebookPen, Phone, PhoneOff, Play,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { dureeLisible, LIBELLE_ISSUE, LIBELLE_QUALIFICATION } from '@/lib/data/appelEnCours'
 import { jourLocalISO } from '@/lib/heureTache'
 import {
+  SEGMENTS_COMPTE,
   useEcrireNote,
   useFilActivite,
+  useMajSocieteSprint,
   usePoserValence,
+  type ChampSocieteSprint,
   type EvenementFil,
   type FicheDetaillee,
   type LignePipe,
 } from '@/lib/data/cockpit'
+import { ChampSprint } from '@/components/cockpit/ChampSprint'
 import type { Valence } from '@/lib/santeRelation'
 import { HerosFil } from '@/components/cockpit/HerosFil'
 
@@ -730,12 +734,47 @@ function Perimetre({ ligne, fiche }: { ligne: LignePipe; fiche: FicheDetaillee |
 /**
  * William, 22/09/2026 : « Société, SIREN, SIRET, Code NAF, Libellé, Site internet, Adresse. »
  *
- * TOUT EST MODIFIABLE, comme partout ailleurs dans le sprint — sauf quand la fiche n'a pas encore
- * de compte : la piste porte alors ces valeurs en propre et l'écriture irait au mauvais endroit.
- * On les affiche en lecture plutôt que de proposer un champ qui ne s'enregistrerait pas.
+ * ══ TOUT EST MODIFIABLE, ET ÇA NE L'ÉTAIT PAS (25/09/2026) ══
+ *
+ * William : « dans Cockpit, pendant un sprint, sur le volet de droite dans l'onglet Société, il
+ * faut que tous les champs soient modifiables. » Le commentaire qui tenait cette place l'affirmait
+ * déjà — il annonçait une intention, pas l'écran : les huit lignes étaient en lecture seule.
+ *
+ * C'est pourtant ici que ces valeurs sont le plus souvent fausses ET le plus facilement corrigées :
+ * au téléphone, l'interlocuteur dit son vrai nom d'enseigne, son adresse, parfois son SIRET.
+ *
+ * ══ TROIS CHOIX D'ÉCRAN ══
+ *
+ * L'ADRESSE S'OUVRE EN TROIS CHAMPS — rue, code postal, ville — au lieu de la ligne composée qui
+ * s'affichait. Une ligne fabriquée à partir de trois colonnes ne peut pas se réécrire : il aurait
+ * fallu deviner où couper « 12 rue des Lilas, 75011 Paris », et se tromper une fois sur trois.
+ *
+ * LE SEGMENT EST CELUI DU COMPTE, et c'est un changement d'affichage assumé : la ligne montrait
+ * jusqu'ici le segment de la piste quand il existait, qui masquait celui du compte. Un champ qui
+ * affiche une valeur et en écrit une autre est un piège ; cet onglet s'appelle « Société », il dit
+ * donc la société.
+ *
+ * SANS COMPTE, RIEN N'EST MODIFIABLE : la piste porte alors ces valeurs en propre et l'écriture
+ * irait au mauvais endroit.
  */
 function Societe({ fiche }: { fiche: FicheDetaillee | undefined }) {
   const c = fiche?.compte
+  const majSociete = useMajSocieteSprint()
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  /* UNE ÉCRITURE QUI ÉCHOUE DOIT SE VOIR. Sans ce garde, une promesse rejetée disparaîtrait dans
+     la console et le champ reviendrait à sa valeur d'avant sans un mot — on recommencerait en
+     croyant avoir mal cliqué. */
+  const corriger = (champ: ChampSocieteSprint) => async (valeur: string) => {
+    if (!c) return
+    setErreur(null)
+    try {
+      await majSociete.mutateAsync({ compteId: c.id, champ, valeur })
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : 'La correction n’a pas pu être enregistrée.')
+    }
+  }
+
   if (!c) {
     return (
       <Vide
@@ -745,18 +784,31 @@ function Societe({ fiche }: { fiche: FicheDetaillee | undefined }) {
     )
   }
 
-  const adresse = [c.rue, [c.code_postal, c.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')
   return (
-    <dl className="overflow-hidden rounded-km border border-km-side-line">
-      <Ligne libelle="Société" valeur={c.nom} />
-      <Ligne libelle="SIREN" valeur={c.siren} mono />
-      <Ligne libelle="SIRET" valeur={c.siret} mono />
-      <Ligne libelle="Code NAF" valeur={c.code_naf} mono />
-      <Ligne libelle="Libellé" valeur={c.libelle_ape} />
-      <Ligne libelle="Site internet" valeur={c.site_web} lien />
-      <Ligne libelle="Adresse" valeur={adresse || null} />
-      <Ligne libelle="Segment" valeur={fiche?.segment ?? c.segment} />
-    </dl>
+    <>
+      <dl className="overflow-hidden rounded-km border border-km-side-line">
+        <Ligne libelle="Société" valeur={c.nom} onCommit={corriger('nom')} />
+        <Ligne libelle="SIREN" valeur={c.siren} mono onCommit={corriger('siren')} />
+        <Ligne libelle="SIRET" valeur={c.siret} mono onCommit={corriger('siret')} />
+        <Ligne libelle="Code NAF" valeur={c.code_naf} mono onCommit={corriger('code_naf')} />
+        <Ligne libelle="Libellé" valeur={c.libelle_ape} onCommit={corriger('libelle_ape')} />
+        <Ligne libelle="Site internet" valeur={c.site_web} lien onCommit={corriger('site_web')} />
+        <Ligne libelle="Rue" valeur={c.rue} onCommit={corriger('rue')} />
+        <Ligne libelle="Code postal" valeur={c.code_postal} mono onCommit={corriger('code_postal')} />
+        <Ligne libelle="Ville" valeur={c.ville} onCommit={corriger('ville')} />
+        <LigneChoix
+          libelle="Segment"
+          valeur={c.segment}
+          options={SEGMENTS_COMPTE}
+          onCommit={corriger('segment')}
+        />
+      </dl>
+      {erreur && (
+        <p className="mt-2 rounded-km border border-km-side-red/40 bg-km-side-red/10 px-3 py-2 text-km-body text-km-side-red">
+          {erreur}
+        </p>
+      )}
+    </>
   )
 }
 
@@ -764,15 +816,77 @@ function Societe({ fiche }: { fiche: FicheDetaillee | undefined }) {
    LES PETITES PIÈCES
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
 
-function Ligne({ libelle, valeur, mono, lien }: { libelle: string; valeur: string | null; mono?: boolean; lien?: boolean }) {
+function Ligne({ libelle, valeur, mono, lien, onCommit }: {
+  libelle: string
+  valeur: string | null
+  mono?: boolean
+  lien?: boolean
+  /** Absent : la ligne reste en lecture, comme avant. */
+  onCommit?: (v: string) => Promise<void> | void
+}) {
   const url = lien && valeur ? (valeur.startsWith('http') ? valeur : `https://${valeur}`) : null
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-km-side-line px-3.5 py-2.5 text-km-body last:border-b-0">
       <dt className="shrink-0 text-km-side-muted">{libelle}</dt>
-      <dd className={cn('min-w-0 break-words text-right font-semibold text-km-side-text', mono ? 'font-mono' : '')}>
-        {url
-          ? <a href={url} target="_blank" rel="noreferrer" className="text-km-side-green hover:underline">{valeur}</a>
-          : valeur || <span className="font-normal text-km-side-faint">—</span>}
+      <dd className={cn('flex min-w-0 items-baseline justify-end gap-1.5 break-words text-right font-semibold text-km-side-text', mono ? 'font-mono' : '')}>
+        {/* LE LIEN SURVIT À LA MODIFICATION : un site web qu'on ne pourrait plus ouvrir parce qu'il
+            est devenu modifiable serait un échange perdant. La flèche part vers le site, le texte
+            ouvre le champ. */}
+        {url && (
+          <a href={url} target="_blank" rel="noreferrer" title={`Ouvrir ${valeur}`} className="shrink-0 text-km-side-green hover:underline">
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+        {onCommit ? (
+          <ChampSprint
+            valeur={valeur}
+            onCommit={onCommit}
+            ariaLabel={libelle.toLowerCase()}
+            mono={mono}
+            className={cn('text-km-body font-semibold', mono && 'font-mono')}
+          />
+        ) : url ? (
+          <a href={url} target="_blank" rel="noreferrer" className="text-km-side-green hover:underline">{valeur}</a>
+        ) : (
+          valeur || <span className="font-normal text-km-side-faint">—</span>
+        )}
+      </dd>
+    </div>
+  )
+}
+
+/**
+ * La même ligne, pour une valeur qui se choisit dans une liste fermée.
+ *
+ * Le segment n'est pas du texte libre : six valeurs le portent en base, et une septième saisie à la
+ * main ne serait comptée nulle part — ni dans les filtres, ni dans les rapports. Le menu natif est
+ * volontaire : au téléphone, il s'ouvre et se referme en un geste, sans rien à viser.
+ */
+function LigneChoix({ libelle, valeur, options, onCommit }: {
+  libelle: string
+  valeur: string | null
+  options: readonly string[]
+  onCommit: (v: string) => Promise<void> | void
+}) {
+  /* La valeur en place est gardée dans la liste même si elle n'est pas canonique : sans cela le
+     menu s'afficherait sur une autre valeur, et le premier choix écraserait celle d'origine sans
+     que personne ne l'ait demandé. */
+  const liste = valeur && !options.includes(valeur) ? [valeur, ...options] : options
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-km-side-line px-3.5 py-2.5 text-km-body last:border-b-0">
+      <dt className="shrink-0 text-km-side-muted">{libelle}</dt>
+      <dd className="min-w-0">
+        <select
+          aria-label={libelle.toLowerCase()}
+          value={valeur ?? ''}
+          onChange={(e) => void onCommit(e.target.value)}
+          className="w-full cursor-pointer rounded-km-sm border border-transparent bg-transparent px-1 py-0.5 text-right text-km-body font-semibold text-km-side-text outline-none transition-colors hover:border-km-side-line focus:border-km-side-green"
+        >
+          <option value="" className="bg-km-side text-km-side-faint">—</option>
+          {liste.map((o) => (
+            <option key={o} value={o} className="bg-km-side text-km-side-text">{o}</option>
+          ))}
+        </select>
       </dd>
     </div>
   )

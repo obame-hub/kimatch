@@ -1453,3 +1453,65 @@ export function useOuvrirDepot() {
     },
   })
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * CORRIGER LA SOCIÉTÉ PENDANT L'APPEL
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 25/09/2026 : « dans Cockpit, pendant un sprint, sur le volet de droite dans l'onglet
+ * Société, il faut que tous les champs soient modifiables. »
+ *
+ * ══ POURQUOI UNE MUTATION À PART ══
+ *
+ * `useMajFicheSprint` écrit sur la PERSONNE — la piste ou le contact. L'onglet Société écrit sur le
+ * COMPTE, une autre table, et les deux ne peuvent pas se confondre : renommer une société n'est pas
+ * corriger l'orthographe d'un prénom entendu au téléphone, cela change ce que voit toute l'équipe.
+ *
+ * ══ LA FICHE DU SPRINT DOIT SE RELIRE, PAS SEULEMENT LA LISTE DES COMPTES ══
+ *
+ * `useUpdateCompteField` existe et fait la même écriture, mais il n'invalide que `['comptes']`. La
+ * fiche ouverte à droite vit sous `['cockpit', 'fiche', …]` : sans l'invalider, on verrait la
+ * valeur corrigée revenir à l'ancienne au premier rafraîchissement — le genre de chose qui fait
+ * douter d'un enregistrement qui a pourtant eu lieu.
+ *
+ * ══ CE QUI SE VIDE, ET CE QUI NE PEUT PAS ══
+ *
+ * Toutes ces colonnes acceptent NULL, sauf `nom` : la base le refuse, et un compte sans nom
+ * n'apparaîtrait nulle part. Effacer le champ est donc refusé, avec la raison, plutôt qu'écrit puis
+ * rejeté par une erreur de contrainte que personne ne saurait lire.
+ */
+export type ChampSocieteSprint =
+  | 'nom' | 'siren' | 'siret' | 'code_naf' | 'libelle_ape'
+  | 'site_web' | 'rue' | 'code_postal' | 'ville' | 'segment'
+
+/** Ce que le segment vaut en base, du plus courant au plus rare — mesuré le 25/09/2026. */
+export const SEGMENTS_COMPTE = [
+  'Entreprise',
+  'Syndic professionnel',
+  'Syndic non professionnel',
+  'Fournisseur',
+  'Partenaire',
+  'Courtier',
+] as const
+
+export function useMajSocieteSprint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ compteId, champ, valeur }: { compteId: string; champ: ChampSocieteSprint; valeur: string }) => {
+      const v = valeur.trim() || null
+      if (champ === 'nom' && !v) {
+        throw new Error('Le nom de la société ne peut pas être vide.')
+      }
+      const { error } = await supabase
+        .from('comptes')
+        .update({ [champ]: v, date_modification: new Date().toISOString() })
+        .eq('id', compteId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['cockpit'] })
+      void qc.invalidateQueries({ queryKey: ['comptes'] })
+    },
+  })
+}
