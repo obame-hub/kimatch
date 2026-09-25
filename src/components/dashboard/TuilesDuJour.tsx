@@ -118,9 +118,18 @@ export function TuileArgent({
   onPeriode,
   portee,
   onPortee,
+  sansPipe,
 }: {
   totaux: TotauxOffres | undefined
   chargement: boolean
+  /**
+   * Le service client ne suit pas de pipe.
+   *
+   * William, 25/09/2026 : « garde la card avec le montant signé et les filtres mais supprime pour
+   * lui la vision du pipe ». Une espérance de chiffre d'affaires ne lui dit rien sur son travail —
+   * et un chiffre qu'on ne peut pas faire bouger, affiché tous les matins, devient du bruit.
+   */
+  sansPipe?: boolean
   /** La période du MONTANT SIGNÉ seulement — le pipe est un encours et l'ignore. */
   periode: PeriodeMontant
   onPeriode: (p: PeriodeMontant) => void
@@ -236,11 +245,14 @@ export function TuileArgent({
       {/* LE FILET SÉPARE DEUX NATURES, PAS DEUX CHIFFRES. Au-dessus le fait, en dessous
           l'espérance — voir l'en-tête. `mt-auto` le pousse au bas de la tuile quelle que soit la
           hauteur que la rangée lui donne. */}
-      <span aria-hidden className="mt-auto block h-px bg-white/20" />
+      {!sansPipe && <span aria-hidden className="mt-auto block h-px bg-white/20" />}
 
+      {!sansPipe && (
       <span className="mt-3 truncate text-km-label font-bold uppercase tracking-[.1em] text-white/65">
         Pipe en décision
       </span>
+      )}
+      {!sansPipe && (
       <span className="mt-1.5 flex items-center">
         {chargement ? (
           <span className="block h-[22px] w-28 animate-pulse rounded-km bg-white/20" />
@@ -254,13 +266,16 @@ export function TuileArgent({
           />
         )}
       </span>
+      )}
       {/* LE DÉCOMPTE VIENT DE LA MÊME REQUÊTE QUE LA SOMME. Il affichait auparavant le nombre
           d'offres DU JOUR — donc un autre ensemble que le montant juste au-dessus. Deux chiffres
           côte à côte qui ne parlent pas du même périmètre finissent par être lus comme s'ils le
           faisaient. */}
+      {!sansPipe && (
       <span className="mt-0.5 truncate text-km-label text-white/60">
         {chargement ? '—' : `${nb} étude${nb > 1 ? 's' : ''} chez le client`}
       </span>
+      )}
     </div>
   )
 }

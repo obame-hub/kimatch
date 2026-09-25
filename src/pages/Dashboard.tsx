@@ -11,6 +11,16 @@ import {
 } from '@/lib/data/offresDuJour'
 import { TachesDuJour } from '@/components/dashboard/TachesDuJour'
 import { useTachesDuJour, useChargeAVenir, depuisIso, PLAFOND_JOURNALIER } from '@/lib/data/tachesDuJour'
+import { useVueServiceClient } from '@/lib/data/roles'
+import { useChargeLargeur } from '@/lib/data/serviceClient'
+import { ChargeLarge } from '@/components/dashboard/ChargeLarge'
+import { ZoneRequetes, ZoneFidelisation } from '@/components/dashboard/ZonesServiceClient'
+
+/**
+ * M+6 EN JOURS CALENDAIRES. Six mois valent entre 181 et 184 jours selon le mois de départ ; 185
+ * les couvre tous sans jamais dépasser. La fonction en base ne garde ensuite que les jours ouvrés.
+ */
+const JOURS_M_PLUS_6 = 185
 import { AppelsNonLies } from '@/components/allo/AppelsNonLies'
 import { cn } from '@/lib/utils'
 
@@ -183,6 +193,16 @@ export default function Dashboard() {
   const { data: taches, isLoading: tachesEnCours } = useTachesDuJour()
   const { data: charge, isLoading: chargeEnCours } = useChargeAVenir()
 
+  /* LE RÔLE DÉCIDE DE CE QU'ON VOIT. Il se lit sur un réglage, jamais sur le nom du rôle — voir
+     `useVueServiceClient`. La charge large n'est demandée que pour ceux qui la regardent. */
+  const vueServiceClient = useVueServiceClient()
+  const { data: chargeLarge, isLoading: chargeLargeEnCours } = useChargeLargeur(
+    vueServiceClient ? JOURS_M_PLUS_6 : 0,
+  )
+  /* LE JOUR SUR LEQUEL LES DEUX TABLEAUX SONT ARRÊTÉS. `null` = tout ce qui est ouvert. Il vit ici,
+     et non dans la matrice : c'est le seul endroit d'où les deux zones le voient. */
+  const [jourChoisi, setJourChoisi] = useState<string | null>(null)
+
   // « vendredi 11 septembre 2026 » — la date complète, à côté du prénom.
   const dateDuJour = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -277,24 +297,57 @@ export default function Dashboard() {
             titre="Ma journée"
             synthese={syntheseJournee}
           >
-            <div className="grid auto-rows-min grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
-              {/* La grande tuile ouvre la grille : deux colonnes, deux rangées. Les quatre
-                  compteurs et la bande des opportunités se placent ensuite autour d'elle. */}
-              <TuileArgent totaux={totaux} chargement={totauxEnCours} periode={periode} onPeriode={choisirPeriode} portee={portee} onPortee={choisirPortee} />
-              <TuilesJournee nombres={cartes} chargement={cartesEnCours} />
-            </div>
+            {/* ══ DEUX JOURNÉES DIFFÉRENTES, SELON LE MÉTIER ══
+                William, 25/09/2026 : « garde la card avec le montant signé et les filtres mais
+                supprime pour lui la vision du pipe […] les 5 cards à droite du montant doivent
+                disparaître et être remplacées par le composant Charge à venir ».
+
+                Le service client ne suit pas un pipe et n'a pas d'offres à produire : les cinq
+                compteurs de la rangée — appels, mails, propositions, pistes, dossiers — décrivent
+                le travail d'un commercial. À leur place, ce qu'il regarde vraiment : sa charge, sur
+                six mois au lieu de dix jours. */}
+            {vueServiceClient ? (
+              <div className="grid auto-rows-min grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                <TuileArgent sansPipe totaux={totaux} chargement={totauxEnCours} periode={periode} onPeriode={choisirPeriode} portee={portee} onPortee={choisirPortee} />
+                <ChargeLarge jours={chargeLarge} chargement={chargeLargeEnCours} jourChoisi={jourChoisi} onChoisirJour={setJourChoisi} />
+              </div>
+            ) : (
+              <div className="grid auto-rows-min grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
+                {/* La grande tuile ouvre la grille : deux colonnes, deux rangées. Les quatre
+                    compteurs et la bande des opportunités se placent ensuite autour d'elle. */}
+                <TuileArgent totaux={totaux} chargement={totauxEnCours} periode={periode} onPeriode={choisirPeriode} portee={portee} onPortee={choisirPortee} />
+                <TuilesJournee nombres={cartes} chargement={cartesEnCours} />
+              </div>
+            )}
           </Zone>
 
-          {/* ══════ 02 · OFFRES DU JOUR ══════ */}
-          <Zone
-            teinte={ZONES.offres}
-            titre="Offres du jour"
-            synthese={syntheseOffres}
-          >
-            <OffresDuJour lignes={offres} chargement={offresEnCours} />
-          </Zone>
+          {/* ══════ 02 · LES DEUX ZONES DU SERVICE CLIENT ══════
+              William, 25/09/2026 : « ensuite tu dois me créer 2 zones en full largeur ». Elles
+              prennent la place des offres du jour, qui décrivent un travail de commercial —
+              propositions envoyées, études chez le client — dont le service client n'a pas la
+              charge. */}
+          {vueServiceClient ? (
+            <>
+              <ZoneRequetes jour={jourChoisi} />
+              <ZoneFidelisation jour={jourChoisi} />
+            </>
+          ) : (
+            <Zone
+              teinte={ZONES.offres}
+              titre="Offres du jour"
+              synthese={syntheseOffres}
+            >
+              <OffresDuJour lignes={offres} chargement={offresEnCours} />
+            </Zone>
+          )}
 
-          {/* ══════ 03 · TÂCHES DU JOUR ══════ */}
+          {/* ══════ 03 · TÂCHES DU JOUR ══════
+              William, 25/09/2026 : « tous les autres blocs doivent être masqués, car inutiles pour
+              Fabien ». Ce bloc reprend la matrice de charge sur dix jours et la liste des tâches du
+              jour — deux choses que sa vue porte déjà, en mieux : la charge sur six mois, et deux
+              tableaux qui la détaillent au clic. Le garder afficherait la même journée deux fois,
+              à deux échelles différentes. */}
+          {!vueServiceClient && (
           <Zone
             teinte={ZONES.taches}
             titre="Tâches du jour"
@@ -314,6 +367,7 @@ export default function Dashboard() {
               <AppelsNonLies />
             </div>
           </Zone>
+          )}
         </div>
       </div>
     </div>

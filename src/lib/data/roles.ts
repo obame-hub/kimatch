@@ -273,6 +273,8 @@ export interface CurrentAccess {
   /* ── Ce que le rôle ouvre vraiment, désormais réglable (migration 20260924103000) ── */
   voitTousLesComptes: boolean
   ouvreAdministration: boolean
+  /** Ce rôle voit la vue d'ensemble du service client au lieu de celle des commerciaux. */
+  vueServiceClient: boolean
   supprimeTout: boolean
   recoitLeSupport: boolean
 }
@@ -322,19 +324,20 @@ async function calculerCurrentAccess(): Promise<CurrentAccess> {
     /* SANS RÔLE, AUCUN DROIT. Une session illisible ne doit jamais élargir un périmètre : c'est la
        même précaution que `calculerMesComptes`, qui rend une liste vide plutôt que « tout ». */
     voitTousLesComptes: false, ouvreAdministration: false, supprimeTout: false, recoitLeSupport: false,
+    vueServiceClient: false,
   }
   const utilisateur = await utilisateurCourant()
   if (!utilisateur) return empty
 
   const { data: roleRow } = await supabase
     .from('profils_roles_acces')
-    .select('role_acces:roles_acces(id, code, libelle, voit_tous_les_comptes, ouvre_administration, supprime_tout, recoit_le_support)')
+    .select('role_acces:roles_acces(id, code, libelle, voit_tous_les_comptes, ouvre_administration, supprime_tout, recoit_le_support, vue_service_client)')
     .eq('profil_id', utilisateur.id)
     .maybeSingle()
   const roleAcces = roleRow?.role_acces as unknown as {
     id: string; code: string; libelle: string
     voit_tous_les_comptes: boolean; ouvre_administration: boolean
-    supprime_tout: boolean; recoit_le_support: boolean
+    supprime_tout: boolean; recoit_le_support: boolean; vue_service_client: boolean
   } | null
   if (!roleAcces) return empty
 
@@ -353,6 +356,7 @@ async function calculerCurrentAccess(): Promise<CurrentAccess> {
     permissions,
     voitTousLesComptes: roleAcces.voit_tous_les_comptes,
     ouvreAdministration: roleAcces.ouvre_administration,
+    vueServiceClient: roleAcces.vue_service_client,
     supprimeTout: roleAcces.supprime_tout,
     recoitLeSupport: roleAcces.recoit_le_support,
   }
@@ -590,4 +594,20 @@ export function useRemoveProfilAutorise() {
     },
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-autorises'] }) },
   })
+}
+
+/**
+ * La personne connectée voit-elle la vue d'ensemble du service client ?
+ *
+ * William, 25/09/2026 : « ces réformes de vue d'ensemble doivent uniquement être visibles pour les
+ * utilisateurs avec le rôle "Service client" ».
+ *
+ * ELLE SE LIT SUR UN RÉGLAGE, PAS SUR LE NOM DU RÔLE. `roleCode === 'SERVICE_CLIENT'` marcherait
+ * aujourd'hui — Fabien est seul à le porter — et cesserait le jour où quelqu'un crée « Service
+ * client Nord » ou renomme celui-ci. C'est exactement la correction apportée à `useIsAdmin` le
+ * 24/09/2026, quand `code === 'ADMIN'` rendait le droit d'administrer non réglable.
+ */
+export function useVueServiceClient() {
+  const { data } = useCurrentAccess()
+  return Boolean(data?.vueServiceClient)
 }
