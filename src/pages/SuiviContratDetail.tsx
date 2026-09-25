@@ -1,25 +1,23 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Building2, FileText, Gauge, LifeBuoy, MapPin, Plus, ShieldCheck, User } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, LifeBuoy } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
 import { FriseStatut } from '@/components/opportunite/FriseStatut'
-import { EntityLink } from '@/components/ui/entity-link'
-import { InlineField } from '@/components/ui/inline-field'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
-import { DialogNouvelleTache } from '@/components/tache/DialogNouvelleTache'
+import { CartesRattachements } from '@/components/suivi/CartesRattachements'
+import { CheckListSuivi } from '@/components/suivi/CheckListSuivi'
+import { useRattachementsSuivi } from '@/lib/data/rattachementsSuivi'
 import { useGoBack } from '@/lib/useGoBack'
 import { useCanManage } from '@/lib/data/roles'
 import { useActionsParSuiviContrat } from '@/lib/data/actions'
 import { useInteractionsParSuiviContrat } from '@/lib/data/interactions'
 import { useDocumentsParEntites } from '@/lib/data/documents'
 import {
-  useSuiviContrat, useEtapesSuivi, useMajEtapeSuivi, useMajChampSuivi,
+  useSuiviContrat, useEtapesSuivi, useMajEtapeSuivi,
   SANTE_LIBELLE, SANTE_TONE,
 } from '@/lib/data/suivisContrats'
-import { cn } from '@/lib/utils'
 
 /**
  * FICHE SUIVI DE CONTRAT.
@@ -62,41 +60,8 @@ const ETAPES_ORDRE = [
   'CLOTURE',
 ]
 
-function dateLisible(v: string | null | undefined) {
-  return v ? new Date(v).toLocaleDateString('fr-FR') : '—'
-}
-
-/** Une ligne de l'onglet Rattachements, avec navigation directe vers l'objet. */
-function Rattachement({ icone: Icone, libelle, valeur, to }: {
-  icone: typeof Building2
-  libelle: string
-  valeur: string | null
-  to?: string
-}) {
-  return (
-    <div className="flex items-start gap-2.5 py-1.5">
-      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-km-soft text-km-muted">
-        <Icone className="h-3 w-3" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-km-label uppercase tracking-wide text-km-faint">{libelle}</p>
-        {valeur ? (
-          to ? (
-            <EntityLink to={to}>{valeur}</EntityLink>
-          ) : (
-            <p className="truncate text-km-body font-bold text-km-text">{valeur}</p>
-          )
-        ) : (
-          <p className="text-km-body text-km-faint">non renseigné</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
 export default function SuiviContratDetail() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const goBack = useGoBack('/suivis-contrats')
   const canManage = useCanManage()
 
@@ -105,11 +70,15 @@ export default function SuiviContratDetail() {
   const { data: actions } = useActionsParSuiviContrat(id)
   const { data: interactions } = useInteractionsParSuiviContrat(id)
   const { data: documents } = useDocumentsParEntites(id ? [id] : undefined)
+  /* Tout ce que l'onglet Rattachements affiche — lu pour CE suivi seulement, et à part de
+     `useSuiviContrat` pour que la liste des 1 583 suivis n'en paie rien. */
+  const { data: rattachements } = useRattachementsSuivi({
+    suiviId: id,
+    contratId: suivi?.contrat_id,
+    contactId: suivi?.contact_principal_id,
+  })
   const majEtape = useMajEtapeSuivi()
-  const majChamp = useMajChampSuivi()
 
-  const [tacheOuverte, setTacheOuverte] = useState(false)
-  const [onglet, setOnglet] = useState<'suivi' | 'rattachements'>('suivi')
   const [toast, setToast] = useState<string | null>(null)
   function signaler(m: string) {
     setToast(m)
@@ -229,29 +198,19 @@ export default function SuiviContratDetail() {
         />
       </div>
 
-      {/* La barre d'onglets reprend la grille du contenu : la seconde cellule commence exactement
-          là où commence le volet, et son filet gauche tombe au pixel sur le sien. Même forme que la
-          fiche Recommandation, qui sert de référence depuis le 07/09/2026. */}
+      {/* ══ PLUS D'ONGLETS ══
+          William, 25/09/2026 : « finalement j'aimerais que tout s'affiche dans un seul onglet, donc
+          plus besoin d'afficher des onglets ». Deux onglets pour deux contenus qui tiennent l'un
+          sous l'autre imposaient un clic pour savoir CE QUE l'autre contenait — et sur un dossier
+          qu'on ouvre justement pour vérifier où il en est, c'est le clic de trop.
+
+          La barre reste, vidée de ses boutons : elle portait aussi le titre du volet d'activité, et
+          c'est elle qui fait tomber son filet gauche au pixel sur celui du volet. */}
       <div className="grid flex-none grid-cols-1 border-b border-km-line bg-white lg:grid-cols-fiche-activite">
-        <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto px-4 pt-2.5 sm:px-6">
-        {([
-          { cle: 'suivi' as const, libelle: 'Suivi' },
-          { cle: 'rattachements' as const, libelle: 'Rattachements' },
-        ]).map((item) => (
-          <button
-            key={item.cle}
-            type="button"
-            onClick={() => setOnglet(item.cle)}
-            className={cn(
-              'border-b-2 px-3 pb-2 pt-1.5 text-km-body transition-colors',
-              onglet === item.cle
-                ? 'border-km-green font-bold text-km-text'
-                : 'border-transparent font-medium text-km-muted hover:text-km-text',
-            )}
-          >
-            {item.libelle}
-          </button>
-        ))}
+        <div className="flex min-w-0 items-center px-4 py-2.5 sm:px-6">
+          <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Le dossier
+          </span>
         </div>
         <div className="hidden items-center border-b-2 border-km-suivi px-3 lg:flex">
           <span className="truncate text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
@@ -266,182 +225,28 @@ export default function SuiviContratDetail() {
           sur la fiche compte le 15/09/2026 et sur la fiche piste le 16/09 — voir leur commentaire
           pour le raisonnement complet. Latent ici tant que le contenu tient dans l'écran. */}
       <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden lg:grid-cols-fiche-activite">
-        {/* Contenu de l'onglet Rattachements. */}
-        <div className={cn('col-start-1 row-start-1 flex min-h-0 flex-col gap-3 overflow-y-auto bg-km-bg/60 p-4 sm:p-5', onglet !== 'rattachements' && 'hidden')}>
-          <Card className="p-3.5">
-            <p className="mb-1 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-              Rattachements
-            </p>
-            <Rattachement
-              icone={FileText}
-              libelle="Contrat"
-              valeur={suivi.contrat_reference || 'sans référence'}
-              to={`/contrats/${suivi.contrat_id}`}
-            />
-            <Rattachement
-              icone={Building2}
-              libelle="Compte"
-              valeur={suivi.compte_nom}
-              to={suivi.compte_id ? `/comptes/${suivi.compte_id}` : undefined}
-            />
-            <Rattachement
-              icone={MapPin}
-              libelle="Site"
-              valeur={suivi.site_nom}
-              to={suivi.site_id ? `/sites/${suivi.site_id}` : undefined}
-            />
-            <Rattachement
-              icone={User}
-              libelle="Contact principal"
-              valeur={suivi.contact_principal_nom || null}
-              to={suivi.contact_principal_id ? `/contacts/${suivi.contact_principal_id}` : undefined}
-            />
-            <Rattachement
-              icone={Gauge}
-              libelle="Fournisseur"
-              valeur={suivi.fournisseur_nom}
-              to={suivi.fournisseur_compte_id ? `/comptes/${suivi.fournisseur_compte_id}` : undefined}
-            />
-            {suivi.recommandation_id && (
-              <Rattachement
-                icone={ShieldCheck}
-                libelle="Recommandation d'origine"
-                valeur="ouvrir le dossier"
-                to={`/recommandations/${suivi.recommandation_id}`}
-              />
-            )}
-          </Card>
-
-          <Card className="p-3.5">
-            <p className="mb-2 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-              Le contrat
-            </p>
-            <p className="text-km-body text-km-muted">
-              Début : <span className="font-bold text-km-text">{dateLisible(suivi.date_debut)}</span>
-            </p>
-            <p className="text-km-body text-km-muted">
-              Échéance : <span className="font-bold text-km-text">{dateLisible(suivi.date_fin)}</span>
-            </p>
-            {suivi.jours_avant_echeance != null && (
-              <p className={cn('mt-1 text-km-label', suivi.jours_avant_echeance < 0 ? 'font-bold text-km-red' : 'text-km-faint')}>
-                {suivi.jours_avant_echeance < 0
-                  ? `Dépassée depuis ${-suivi.jours_avant_echeance} jours`
-                  : `Dans ${suivi.jours_avant_echeance} jours`}
-              </p>
-            )}
-            <p className="mt-2 border-t border-km-line pt-2 text-km-label text-km-faint">
-              Suivi ouvert le {dateLisible(suivi.date_ouverture)}
-              {suivi.date_cloture && ` · clos le ${dateLisible(suivi.date_cloture)}`}
-            </p>
-          </Card>
-        </div>
-
-        {/* ══ CENTRE ══ */}
-        <div className={cn('col-start-1 row-start-1 overflow-y-auto bg-km-bg p-4 sm:p-5', onglet === 'rattachements' && 'hidden')}>
+        {/* ══ LE DOSSIER, D'UN SEUL TENANT ══
+            Les rattachements ouvrent la page : c'est ce qu'on vient lire. Le suivi proprement dit —
+            prochaine action, check-list, santé — suit en dessous. */}
+        <div className="col-start-1 row-start-1 overflow-y-auto bg-km-bg p-4 pb-6 sm:p-5 sm:pb-8">
           <div className="flex flex-col gap-3.5">
-            {/* LA PROCHAINE ACTION, SON RESPONSABLE ET SON ÉCHÉANCE (§ 9). */}
-            <Card className="p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-                  Prochaine action
-                </p>
-                {canManage && (
-                  <button
-                    type="button"
-                    onClick={() => setTacheOuverte(true)}
-                    className="inline-flex items-center gap-1 text-km-label font-bold text-indigo-600 hover:underline"
-                  >
-                    <Plus className="h-3 w-3" /> Nouvelle tâche
-                  </button>
-                )}
-              </div>
-              {suivi.prochaine_action ? (
-                <>
-                  <p className="text-km-body font-bold text-km-text">{suivi.prochaine_action}</p>
-                  <p className="text-km-label text-km-muted">
-                    {suivi.prochain_responsable || 'sans responsable'}
-                    {suivi.prochaine_echeance && ` · pour le ${dateLisible(suivi.prochaine_echeance)}`}
-                  </p>
-                </>
-              ) : (
-                <p className="text-km-body text-km-faint">
-                  Aucune action ouverte. {suivi.etape_finalite}
-                </p>
-              )}
-              {(suivi.actions_en_retard > 0 || suivi.requetes_en_retard > 0) && (
-                <p className="mt-2 border-t border-km-line pt-2 text-km-label font-bold text-km-red">
-                  {suivi.actions_en_retard > 0 && `${suivi.actions_en_retard} action(s) en retard`}
-                  {suivi.actions_en_retard > 0 && suivi.requetes_en_retard > 0 && ' · '}
-                  {suivi.requetes_en_retard > 0 && `${suivi.requetes_en_retard} requête(s) en retard`}
-                </p>
-              )}
-            </Card>
+            {/* LA CHECK-LIST OUVRE LA PAGE. William, 25/09/2026 : « j'aimerais qu'elle soit tout
+                en haut et en mode horizontal ». C'est ce que Fabien vient poser en premier quand il
+                a fait un geste, et ce qu'il vient lire pour savoir ce qui reste. */}
+            <CheckListSuivi suiviId={suivi.id} peutModifier={canManage} />
 
-            <Card className="p-4">
-              <p className="mb-2 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-                Suivi du dossier
-              </p>
-              <InlineField
-                variant="longtext"
-                label="Commentaire"
-                emptyLabel="aucun"
-                value={suivi.commentaire ?? ''}
-                onCommit={(v: string) =>
-                  majChamp.mutateAsync({ id: suivi.id, patch: { commentaire: v.trim() || null } })
-                }
-                onSaved={() => signaler('✓ Enregistré')}
-                onError={(e: Error) => signaler(e.message)}
+            {rattachements ? (
+              <CartesRattachements
+                data={rattachements}
+                suiviId={suivi.id}
+                contratId={suivi.contrat_id}
+                compteId={suivi.compte_id}
+                compteNom={suivi.compte_nom}
               />
-              {/* LA SANTÉ FORCÉE EST L'EXCEPTION DÉCLARÉE. Elle l'emporte sur le calcul, donc elle
-                  doit dire pourquoi : une santé rouge sans motif relance la question à chaque
-                  lecture, et personne ne saura s'il faut la lever. */}
-              <div className="mt-3 border-t border-km-line pt-2">
-                <p className="mb-1 text-km-label text-km-faint">
-                  Santé calculée : <span className="font-bold text-km-text">{SANTE_LIBELLE[suivi.sante]}</span>
-                  {suivi.sante_forcee && ' — forcée à la main'}
-                </p>
-                {suivi.sante_forcee && (
-                  <p className="text-km-label text-km-muted">
-                    Motif : {suivi.motif_sante_forcee || 'non précisé'}
-                  </p>
-                )}
-              </div>
-            </Card>
+            ) : (
+              <p className="text-km-body text-km-faint">Lecture des rattachements…</p>
+            )}
 
-            <Card className="p-4">
-              <p className="mb-2 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
-                Ce qui est ouvert
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-2xl font-bold tracking-tight text-km-text">{suivi.actions_ouvertes}</p>
-                  <p className="text-km-label text-km-muted">
-                    action{suivi.actions_ouvertes > 1 ? 's' : ''} à faire
-                  </p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold tracking-tight text-km-text">{suivi.requetes_ouvertes}</p>
-                  <p className="text-km-label text-km-muted">
-                    requête{suivi.requetes_ouvertes > 1 ? 's' : ''} ouverte{suivi.requetes_ouvertes > 1 ? 's' : ''}
-                  </p>
-                </div>
-              </div>
-              {suivi.requetes_ouvertes > 0 && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/requetes')}
-                  className="mt-2 text-km-label font-bold text-indigo-600 hover:underline"
-                >
-                  Voir les requêtes du contrat →
-                </button>
-              )}
-              {documentsDuSuivi.length > 0 && (
-                <p className="mt-2 border-t border-km-line pt-2 text-km-label text-km-muted">
-                  {documentsDuSuivi.length} document{documentsDuSuivi.length > 1 ? 's' : ''} rattaché
-                  {documentsDuSuivi.length > 1 ? 's' : ''}
-                </p>
-              )}
-            </Card>
           </div>
         </div>
 
@@ -475,22 +280,6 @@ export default function SuiviContratDetail() {
         </div>
       </div>
 
-      {tacheOuverte && (
-        <DialogNouvelleTache
-          open
-          onClose={() => setTacheOuverte(false)}
-          signaler={signaler}
-          rattachement={{
-            suivi_contrat_id: suivi.id,
-            site_id: suivi.site_id,
-            site_nom: suivi.site_nom ?? '',
-            contact_id: suivi.contact_principal_id,
-            contact_nom: suivi.contact_principal_nom,
-            compte_id: suivi.compte_id ?? null,
-            objet_nom: suivi.compte_nom ?? '',
-          }}
-        />
-      )}
 
       {toast && (
         <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-km bg-ink-800 px-3.5 py-2 text-km-body text-white shadow-lg">

@@ -107,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
        les traduire n'aurait servi à rien. */
     const { data: fils } = await admin
       .from('interactions')
-      .select('fil_discussion, piste_id, contact_id, compte_id')
+      .select('fil_discussion, piste_id, contact_id, compte_id, suivi_contrat_id')
       .or(`auteur_profil_id.eq.${jeton.profil_id},proprietaire_id.eq.${jeton.profil_id}`)
       .not('fil_discussion', 'is', null)
       /* ══ SEULS LES FILS GMAIL, ET C'EST UN PIÈGE QU'IL A FALLU VOIR ══
@@ -130,7 +130,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     /* Un fil peut porter plusieurs interactions ; on garde le rattachement de la plus récente,
        c'est celui qui décrit le mieux où en est la conversation. */
-    const parFil = new Map<string, { piste_id: string | null; contact_id: string | null; compte_id: string | null }>()
+    const parFil = new Map<string, {
+      piste_id: string | null
+      contact_id: string | null
+      compte_id: string | null
+      suivi_contrat_id: string | null
+    }>()
     for (const l of fils ?? []) {
       const f = l.fil_discussion as string
       if (!parFil.has(f)) {
@@ -138,6 +143,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           piste_id: l.piste_id as string | null,
           contact_id: l.contact_id as string | null,
           compte_id: l.compte_id as string | null,
+          /* ══ LA RÉPONSE REVIENT SUR LE DOSSIER D'OÙ LA QUESTION EST PARTIE ══
+             William, 25/09/2026 : « les réponses que l'on recevra à nos mails également ». Le
+             volet d'activité d'un suivi de contrat ne lit que `suivi_contrat_id` : sans cet
+             héritage, notre mail y apparaissait et la réponse du client, non. */
+          suivi_contrat_id: l.suivi_contrat_id as string | null,
         })
       }
     }
@@ -234,6 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           piste_id: contexte.piste_id,
           contact_id: contexte.contact_id,
           compte_id: contexte.compte_id,
+          suivi_contrat_id: contexte.suivi_contrat_id,
           /* PAS D'AUTEUR : personne chez KiWee n'a écrit ce message. Y mettre le commercial ferait
              dire à l'historique qu'il a envoyé ce que le client a écrit. Le propriétaire, lui, dit
              qui suit l'échange — et ça, c'est vrai. */

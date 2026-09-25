@@ -163,6 +163,8 @@ export function PropositionCommerciale({
           </span>
           <LienDocument
             url={proposition.url}
+            nom={proposition.nom}
+            nomFichier={proposition.nom_fichier}
             titre={`Ouvrir ${proposition.nom_fichier || proposition.nom}`}
             className="min-w-0 max-w-[280px] text-left"
           >

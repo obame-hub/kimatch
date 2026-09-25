@@ -81,6 +81,8 @@ export function PropositionsFournisseur({
           <FileText className="h-3 w-3 shrink-0 text-km-red" />
           <LienDocument
             url={d.url}
+            nom={d.nom}
+            nomFichier={d.nom_fichier}
             titre={d.nom_fichier || d.nom}
             className="max-w-[160px] truncate hover:text-km-green hover:underline"
           >

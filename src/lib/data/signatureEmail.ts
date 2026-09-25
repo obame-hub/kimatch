@@ -101,6 +101,8 @@ export interface EnvoiEmail {
   recommandationId?: string
   mandatId?: string
   contratId?: string
+  /** Voir `ContexteEmail.suiviContratId` : c'est lui qui ramène l'échange dans le volet du suivi. */
+  suiviContratId?: string
   /** Les pièces jointes, déjà déposées dans le stockage — on n'envoie que leur adresse. */
   piecesJointes?: PieceJointe[]
 }

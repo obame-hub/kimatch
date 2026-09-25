@@ -1,48 +1,45 @@
 import { useState, type ReactNode } from 'react'
-import { Loader2 } from 'lucide-react'
-import { urlOuvrableDocument } from '@/lib/data/documents'
-import { cn } from '@/lib/utils'
+import { FenetreApercu } from '@/components/document/FenetreApercu'
 
 /**
- * Un lien vers un document du bucket privé.
+ * Un lien vers un document du seau privé : il l'OUVRE, il ne le télécharge pas.
  *
- * Il ne peut pas être un `<a href>` : l'adresse à ouvrir n'existe qu'une fois signée, et signer
- * exige un aller-retour. Le clic signe puis ouvre — voir `urlOuvrableDocument` pour la raison
- * pour laquelle l'adresse n'est pas signée une fois pour toutes en base.
+ * Il ne peut pas être un `<a href>` : le seau est privé, l'adresse enregistrée ne s'ouvre pas telle
+ * quelle, et surtout le navigateur ENREGISTRE au lieu d'afficher devant un `application/octet-stream`
+ * — le type des 6 454 documents repris de Salesforce. Cliquer sur le nom d'une proposition
+ * commerciale pour la lire déclenchait donc un téléchargement.
  *
- * L'ÉCHEC SE VOIT. Un lien qui ne fait rien au clic est la pire des pannes : on reclique, on
- * recharge, on finit par croire le fichier perdu. Le message prend la place du lien.
+ * William, 25/09/2026 : « quand je veux visualiser un fichier, ouvre une popup avec la
+ * visualisatrice ». Le clic ouvre `FenetreApercu`, qui rend le document dans Kimatch et garde le
+ * téléchargement à un bouton de là.
  */
-export function LienDocument({ url, className, titre, children }: {
+export function LienDocument({ url, className, titre, nom, nomFichier, children }: {
   url: string
   className?: string
   titre?: string
+  /** Le nom affiché en tête de l'aperçu ; à défaut, le texte du lien. */
+  nom?: string
+  nomFichier?: string | null
   children: ReactNode
 }) {
-  const [enCours, setEnCours] = useState(false)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  async function ouvrir() {
-    if (enCours) return
-    setEnCours(true)
-    setErreur(null)
-    try {
-      const adresse = await urlOuvrableDocument(url)
-      window.open(adresse, '_blank', 'noopener')
-    } catch (e) {
-      setErreur(e instanceof Error ? e.message : 'Ce fichier n’a pas pu être ouvert.')
-    } finally {
-      setEnCours(false)
-    }
-  }
-
-  if (erreur) {
-    return <span className="text-[11.5px] text-km-red" title={erreur}>{erreur}</span>
-  }
+  const [ouvert, setOuvert] = useState(false)
 
   return (
-    <button type="button" title={titre} onClick={() => void ouvrir()} className={cn(className, enCours && 'opacity-60')}>
-      {enCours ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : children}
-    </button>
+    <>
+      <button type="button" title={titre} onClick={() => setOuvert(true)} className={className}>
+        {children}
+      </button>
+      {ouvert && (
+        <FenetreApercu
+          document={{
+            id: url,
+            nom: nom ?? titre ?? 'Document',
+            nom_fichier: nomFichier ?? null,
+            url,
+          }}
+          onFermer={() => setOuvert(false)}
+        />
+      )}
+    </>
   )
 }

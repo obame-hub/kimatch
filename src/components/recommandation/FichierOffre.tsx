@@ -80,6 +80,8 @@ export function FichierOffre({
           <FileText className="h-3 w-3 shrink-0 text-km-red" />
           <LienDocument
             url={d.url}
+            nom={d.nom}
+            nomFichier={d.nom_fichier}
             titre={`${d.nom} — ouvrir`}
             className="truncate text-km-body font-semibold text-km-text hover:underline"
           >

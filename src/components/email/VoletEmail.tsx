@@ -219,6 +219,7 @@ export function VoletEmail() {
         recommandationId: etat.contexte.recommandationId,
         mandatId: etat.contexte.mandatId,
         contratId: etat.contexte.contratId,
+        suiviContratId: etat.contexte.suiviContratId,
         piecesJointes: brouillon.piecesJointes,
       })
       volet.fermer()

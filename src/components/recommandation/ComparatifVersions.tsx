@@ -155,6 +155,8 @@ export function ComparatifVersions({
           return (
             <LienDocument
               url={doc.url}
+              nom={doc.nom}
+              nomFichier={doc.nom_fichier}
               titre={`Ouvrir ${doc.nom_fichier || doc.nom} — déposée le ${new Date(doc.date_creation).toLocaleDateString('fr-FR')}`}
               className="inline-flex max-w-full items-center gap-1 truncate text-km-label font-bold text-km-green hover:underline"
             >

@@ -66,6 +66,15 @@ export interface ContexteEmail {
   recommandationId?: string
   mandatId?: string
   contratId?: string
+  /**
+   * Le suivi de contrat d'où le mail part.
+   *
+   * William, 25/09/2026, sur la fiche de suivi : les échanges lancés depuis la card du contact
+   * doivent revenir dans le volet d'activité de CE suivi — et ce volet ne lit que les interactions
+   * portant `suivi_contrat_id`. Sans ce champ, le mail se consignait sur le contact et le compte,
+   * donc partout sauf là où on venait de cliquer.
+   */
+  suiviContratId?: string
   /** Le fil Gmail, quand on répond à une conversation existante. */
   threadId?: string
   /**

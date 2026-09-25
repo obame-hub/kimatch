@@ -298,6 +298,63 @@ interface Reconnu {
  * instantanée pendant que le téléphone sonne, et la règle est la même ici, sur la carte d'appel et
  * au clic-pour-appeler — trois endroits qui divergeraient s'ils l'écrivaient chacun.
  */
+/**
+ * ══ L'ÉCRAN D'OÙ L'APPEL EST PARTI ══
+ *
+ * William, 25/09/2026 : « je veux absolument que tu rattaches l'appel au suivi ».
+ *
+ * La reconnaissance du numéro dit QUI est au bout du fil ; elle ne dit pas SUR QUEL DOSSIER on
+ * travaillait. Le volet d'activité d'un suivi de contrat, lui, ne lit que les interactions portant
+ * `suivi_contrat_id` : sans ce lien, un appel lancé depuis la fiche de suivi se consignait sur le
+ * contact et le compte, et restait invisible là où on venait de cliquer.
+ *
+ * L'écran pose donc une intention au clic (`appels_contexte`), et on la retrouve ici par le seul
+ * fil qui relie les deux bouts : le numéro, et le moment.
+ *
+ * ── LA FENÊTRE EST DISSYMÉTRIQUE, ET C'EST VOULU ──
+ *
+ * L'intention PRÉCÈDE toujours l'appel — on clique, puis ça sonne. On accepte donc quinze minutes
+ * avant le début de l'appel (le temps qu'un poste décroche, qu'une ligne sonne longtemps) et deux
+ * minutes après, pour absorber les écarts d'horloge entre le navigateur et Allô. Une fenêtre
+ * symétrique de trente minutes rattacherait au dossier un appel reçu juste avant le clic.
+ *
+ * ── ELLE SE CONSOMME ──
+ *
+ * Une intention sert UNE FOIS. Sans cela, appeler deux fois le même gestionnaire dans la journée
+ * rangerait le second appel dans le dossier du premier.
+ */
+async function contexteDeLAppel(
+  admin: Admin, numero: string | null | undefined, demarre: string,
+): Promise<{ suivi_contrat_id: string } | null> {
+  const fin = dixDerniers(numero)
+  if (fin.length < 9) return null
+  const t = new Date(demarre).getTime()
+
+  const { data, error } = await admin
+    .from('appels_contexte')
+    .select('id, suivi_contrat_id')
+    .eq('numero_normalise', fin)
+    .is('consomme_le', null)
+    .gte('date_creation', new Date(t - 15 * 60 * 1000).toISOString())
+    .lte('date_creation', new Date(t + 2 * 60 * 1000).toISOString())
+    .order('date_creation', { ascending: false })
+    .limit(1)
+
+  if (error) {
+    /* Aucun échec muet : sans ce journal, un rattachement qui cesse de fonctionner ne se voit que
+       le jour où quelqu'un remarque que son volet d'activité est vide. L'appel, lui, continue de
+       s'écrire — le contexte est un bonus, jamais une condition. */
+    console.error('[allo webhook] contexte appel illisible', error)
+    return null
+  }
+
+  const trouve = (data as { id: string; suivi_contrat_id: string }[] | null)?.[0]
+  if (!trouve) return null
+
+  await admin.from('appels_contexte').update({ consomme_le: new Date().toISOString() }).eq('id', trouve.id)
+  return { suivi_contrat_id: trouve.suivi_contrat_id }
+}
+
 async function reconnaitre(admin: Admin, numero: string | null | undefined): Promise<Reconnu> {
   const fin = dixDerniers(numero)
   if (fin.length < 9) return { contact_id: null, compte_id: null, piste_id: null }
@@ -523,6 +580,9 @@ async function terminer(
     numero_correspondant: numero ?? null,
     auteur_profil_id: await profilPour(admin, email),
     ...reconnu,
+    /* Le dossier d'où l'on a cliqué, quand il y en a un. Posé APRÈS `reconnu` : il ajoute un lien,
+       il n'en remplace aucun — l'appel reste rattaché au contact et au compte. */
+    ...(await contexteDeLAppel(admin, numero, demarre) ?? {}),
   }
 
   /* ══ PAS D'`upsert` ICI, ET C'EST UNE ERREUR QUE J'AVAIS DÉJÀ FAITE ══
