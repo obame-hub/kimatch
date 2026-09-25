@@ -434,7 +434,7 @@ export function useIdentiteAppel(appel: AppelEnCours | null | undefined) {
 
       if (appel.contact_id) {
         const { data } = await supabase
-          .from('contacts').select('civilite, prenom, nom, compte:comptes(nom)')
+          .from('contacts').select('civilite, prenom, nom, compte:comptes!contacts_compte_id_fkey(nom)')
           .eq('id', appel.contact_id).maybeSingle()
         if (data) {
           const d = data as unknown as { civilite: string | null; prenom: string | null; nom: string | null; compte: { nom: string } | { nom: string }[] | null }

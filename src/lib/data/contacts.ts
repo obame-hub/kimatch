@@ -82,7 +82,14 @@ async function fetchContacts(compteId?: string, contactId?: string): Promise<Con
         // ajoutees par migration et peuvent ne pas encore exister en prod au moment du deploiement
         // -- un select nomme sur une colonne absente ferait echouer la requete (400) pour TOUS les
         // contacts (voir le meme choix dans referenceTables.ts).
-        '*, compte:comptes(nom), canal_communication:types_canaux_communication(libelle), proprietaire:profils!contacts_proprietaire_id_fkey(prenom, nom)',
+        /* ══ LE COMPTE SE NOMME PAR SA CONTRAINTE ══
+           Depuis la migration du 25/09/2026 qui pose `comptes.contact_partenaire_id`, il existe
+           DEUX clés étrangères entre `contacts` et `comptes`. Un embed `comptes(nom)` nu est alors
+           refusé par PostgREST (PGRST201), et l'erreur emporte TOUTE la lecture : plus un seul
+           contact nulle part — « Aucun contact signataire » sur les recommandations, « Personne ne
+           peut recevoir ce contrat » sur DocuSign. C'est le même piège que celui qui avait fait
+           taire le message Slack « deal gagné » le 24/09. */
+        '*, compte:comptes!contacts_compte_id_fkey(nom), canal_communication:types_canaux_communication(libelle), proprietaire:profils!contacts_proprietaire_id_fkey(prenom, nom)',
         // Le contact dont c'est le compte principal est repris meme s'il n'apparait dans aucune
         // table de liaison : c'est le cas des contacts crees avant la migration du 13/08.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

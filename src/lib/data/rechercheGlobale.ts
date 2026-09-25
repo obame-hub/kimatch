@@ -90,7 +90,7 @@ async function chercher(query: string): Promise<SearchEntry[]> {
          pendant des semaines. */
       ['reference', 'reference_precedente', 'societe', 'contact_nom', 'prenom', 'nom', 'email', 'telephone'],
     ).limit(PAR_FAMILLE),
-    appliquer(supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes(nom)'), listeMots, ['nom', 'prenom', 'email', 'telephone']).limit(PAR_FAMILLE),
+    appliquer(supabase.from('contacts').select('id, prenom, nom, email, telephone, compte:comptes!contacts_compte_id_fkey(nom)'), listeMots, ['nom', 'prenom', 'email', 'telephone']).limit(PAR_FAMILLE),
     /* ══ LE COMPTEUR SE CHERCHE AUSSI PAR SON SITE ════════════════════════════════════════════
        Naoëlle, 09/09/2026 : « si par exemple un commercial recherche un site qui s'appelle SDC
        Plaisance, il le retrouvera dans le libellé de site du compteur qui lui était attribué ? »

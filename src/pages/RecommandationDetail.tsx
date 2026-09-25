@@ -73,7 +73,7 @@ import {
   FALLBACK_TYPES_DOCUMENTS,
   FALLBACK_TYPES_INTERACTIONS,
 } from '@/lib/referenceFallbacks'
-import type { VersionRecommandation, Optimisation } from '@/types/domain'
+import type { Contact, VersionRecommandation, Optimisation } from '@/types/domain'
 import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
 import { useDeclarerCompteCourant } from '@/lib/creationContact'
 
@@ -367,19 +367,45 @@ export default function RecommandationDetail() {
 
   const versionActive = reco?.versions.find((v) => v.version_actuelle) ?? reco?.versions[0] ?? null
   /**
-   * ══ ON N'INVENTE PLUS DE SIGNATAIRE ══
+   * ══ LE SIGNATAIRE SE LIT SUR LA RECOMMANDATION, PAS DANS UNE AUTRE REQUÊTE ══
    *
-   * La dernière branche était `?? contacts[0]` : faute de signataire, la fiche montrait LE PREMIER
-   * CONTACT DU COMPTE, dans l'ordre où la requête l'avait rendu, comme s'il l'était. 123
-   * recommandations sur 1 797 n'ont pas de signataire : autant de fiches qui affirmaient quelque
-   * chose de faux, et sur lesquelles désigner le bon contact ne changeait rien à l'écran quand il
-   * se trouvait déjà être ce premier-là.
+   * William, 25/09/2026, en majuscules : « J'AI AUCUN MOYEN DE RENSEIGNER EVA DA SILVA COMME
+   * CONTACT SIGNATAIRE ». Vérification faite en base : `contact_signataire_id` portait DÉJÀ
+   * l'identifiant d'Eva. Le clic avait fonctionné. C'est l'écran qui ne savait pas le montrer.
    *
-   * `contact_principal` reste un repli légitime — c'est un fait du contact, pas un hasard de tri.
+   * Il cherchait le signataire dans `contacts`, la liste des contacts du compte — une SECONDE
+   * requête, qui en enchaîne cinq (contacts_comptes, sites, contacts_sites, puis les contacts et
+   * leurs rattachements). Tant qu'elle n'a pas abouti, ou si elle échoue, `find` ne rend rien : la
+   * fiche affiche « Aucun contact signataire » et propose de désigner quelqu'un qui l'est déjà.
+   *
+   * Or la recommandation SAIT qui signe : `fetchRecommandations` lit la jointure
+   * `contacts!recommandations_contact_signataire_id_fkey` et en rapporte le nom, l'email et le
+   * téléphone. La donnée était là, sur la ligne qu'on venait d'afficher.
+   *
+   * On la prend donc À LA SOURCE, et `contacts` ne sert plus qu'à enrichir ce qu'on a déjà — ou à
+   * proposer un repli quand aucun signataire n'est désigné.
+   *
+   * `contact_principal` reste ce repli : c'est un fait du contact, pas un hasard de tri. L'ancienne
+   * dernière branche, `?? contacts[0]`, montrait LE PREMIER CONTACT DU COMPTE comme s'il signait —
+   * faux sur les 123 recommandations sans signataire.
    */
-  const contactPrincipal =
-    contacts?.find((c) => c.id === reco?.contact_signataire_id)
-    ?? (reco?.contact_signataire_id ? undefined : contacts?.find((c) => c.contact_principal))
+  const contactPrincipal = useMemo<Contact | undefined>(() => {
+    if (!reco?.contact_signataire_id) return contacts?.find((c) => c.contact_principal)
+
+    const complet = contacts?.find((c) => c.id === reco.contact_signataire_id)
+    if (complet) return complet
+
+    /* La liste n'est pas là, ou ne le porte pas : on rend ce que la recommandation en sait. Les
+       champs absents restent vides — mieux vaut une fiche partielle et vraie qu'un « aucun ». */
+    const [prenom, ...reste] = (reco.contact_signataire_nom ?? '').trim().split(/\s+/)
+    return {
+      id: reco.contact_signataire_id,
+      prenom: prenom ?? '',
+      nom: reste.join(' '),
+      email: reco.contact_signataire_email,
+      telephone: reco.contact_signataire_telephone,
+    } as Contact
+  }, [reco?.contact_signataire_id, reco?.contact_signataire_nom, reco?.contact_signataire_email, reco?.contact_signataire_telephone, contacts])
 
   /**
    * Ordre des onglets : « Commande du client » d'abord tant que le dossier est au Diagnostic et pas
