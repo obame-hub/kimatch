@@ -16,6 +16,7 @@
  */
 const { chromium } = require('playwright')
 const fs = require('fs')
+const { connecter } = require('./.session-locale.cjs')
 
 const env = (c) => {
   const l = fs.readFileSync('.env.local', 'utf8').split(/\r?\n/).find((x) => x.startsWith(c + '='))
@@ -43,111 +44,143 @@ const a = (chemin, m, b) =>
   const cree = {}
   const nav = await chromium.launch({ headless: true })
   try {
-    // ── LES RESTES D'UN ESSAI PRÉCÉDENT ──
     await a('comptes?nom=like.ZZZ PARCOURS*', 'DELETE')
     await a('contacts?nom=like.ZZZ PARCOURS*', 'DELETE')
 
     // ── UN PARTENAIRE ET SON CONTACT, POUR AVOIR QUELQUE CHOSE À CHOISIR ──
-    cree.part = (await (await a('comptes', 'POST',
-      { nom: 'ZZZ PARCOURS PARTENAIRE', type_compte_id: TP })).json())[0].id
+    /* DEUX COLONNES DISENT LE TYPE, ET L'ECRAN LIT LA SECONDE.
+       `type_compte_id` pointe la table de reference ; `type_compte` est la colonne texte, et
+       c'est elle que `useComptesRattachables` filtre. N'ecrire que l'identifiant cree un compte
+       parfaitement valide... qui n'apparait dans aucune liste deroulante. */
+    cree.part = (await (await a('comptes', 'POST', {
+      nom: 'ZZZ PARCOURS PARTENAIRE', type_compte_id: TP, type_compte: 'partenaire', actif: true,
+    })).json())[0].id
     cree.ct = (await (await a('contacts', 'POST', {
       nom: 'ZZZ PARCOURS', prenom: 'Referent', compte_id: cree.part, actif: true,
     })).json())[0].id
 
-    // ── ON SE CONNECTE COMME UN COMMERCIAL ──
-    const co = (await (await a("profils?email=like.*@kiwee-energie.fr&actif=eq.true&select=email&limit=1")).json())[0]
     const page = await nav.newPage()
-    const lr = await (await fetch(U + '/auth/v1/admin/generate_link', {
-      method: 'POST', headers: H,
-      body: JSON.stringify({ type: 'magiclink', email: co.email, options: { redirect_to: BASE } }),
-    })).json()
-    await page.goto(lr.properties ? lr.properties.action_link : lr.action_link,
-      { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await page.waitForTimeout(4000)
+    const co = (await (await a(
+      'profils?email=like.*@kiwee-energie.fr&actif=eq.true&select=email&limit=1')).json())[0]
+    await connecter(page, co.email, BASE)
 
     console.log('')
     console.log('   connecte : ' + co.email)
     console.log('')
     console.log('══ LE PARCOURS, A L ECRAN ══')
 
-    // ── ÉTAPE 1 · le type ──
     await page.goto(BASE + '/comptes', { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await page.waitForTimeout(2500)
+    await page.waitForTimeout(3000)
 
-    // Le bouton de création : on le cherche par son libellé, pas par une classe.
-    const ouvrir = page.getByRole('button', { name: /cr[ée]er|nouveau compte|\+/i }).first()
-    await ouvrir.click({ timeout: 15000 })
-    await page.waitForTimeout(1500)
+    // ── ÉTAPE 1 · le type ──
+    await page.getByRole('button', { name: 'Nouveau compte' }).first().click({ timeout: 20000 })
+    await page.waitForTimeout(1800)
+    dire(true, 'le parcours s ouvre')
 
-    const carteEntreprise = page.getByText('Entreprise', { exact: true }).first()
-    await carteEntreprise.click({ timeout: 15000 })
-    await page.waitForTimeout(1500)
-    dire(true, 'etape 1 : le type « Entreprise » est choisi')
+    await page.getByText('Entreprise', { exact: true }).first().click({ timeout: 20000 })
+    await page.waitForTimeout(2000)
+    dire(true, 'etape 1 : « Entreprise » est choisi')
 
-    // ── ÉTAPE 2 · le nom, sans passer par Ellisphere ──
-    const champNom = page.locator('input').filter({ hasNot: page.locator('[type=checkbox]') }).first()
-    await champNom.fill('')
-    await champNom.type('ZZZ PARCOURS CLIENT', { delay: 20 })
-    await page.waitForTimeout(600)
+    // ── ÉTAPE 2 · le nom, saisi à la main (sans Ellisphere) ──
+    /* LES CHAMPS SONT DANS LA MODALE, pas dans la page :  tout court attrape la barre de
+       recherche des comptes, qui reste derriere le voile et intercepte le clic.
+       Le PREMIER champ est la recherche Ellisphere ; le SECOND est le nom. */
+    /* ON REPERE LE CHAMP PAR SON INTITULE, pas par sa position.
+       `Champ` place le libelle et l'input en FRERES dans le meme div :
+           <div><span>SIREN</span><input/></div>
+       Mon premier reperage remontait d'un niveau de trop et visait le champ voisin — le nom
+       partait dans « Libelle APE », et le bouton restait desactive a juste titre. Le produit
+       n'avait rien de casse ; c'est le test qui cherchait au mauvais endroit.
 
-    const suivant = page.getByRole('button', { name: /suivant|continuer|score/i }).first()
-    if (await suivant.count()) { await suivant.click({ timeout: 10000 }); await page.waitForTimeout(2500) }
+       ON FRAPPE AU CLAVIER plutot que `fill()` : React n'entend pas toujours l'evenement d'un
+       remplissage direct, et l'etat du composant reste vide alors que l'ecran montre le texte. */
+    const indexDuChamp = (libelle) => page.evaluate((l) => {
+      const entrees = Array.from(document.querySelectorAll('input'))
+      return entrees.findIndex((e) => {
+        const avant = e.previousElementSibling
+        return avant && avant.textContent.trim() === l
+      })
+    }, libelle)
+
+    const iNom = await indexDuChamp('Raison sociale')
+    const iSiren = await indexDuChamp('SIREN')
+    dire(iNom >= 0 && iSiren >= 0, 'les champs Raison sociale et SIREN sont trouves',
+      'nom=' + iNom + ' siren=' + iSiren)
+
+    await page.locator('input').nth(iNom).click()
+    await page.keyboard.type('ZZZ PARCOURS CLIENT', { delay: 20 })
+    /* UN SIREN DE 9 CHIFFRES EST EXIGE pour une entreprise, et c'est voulu : le bouton reste
+       desactive sans lui. Le test respecte la regle au lieu de la contourner. */
+    await page.locator('input').nth(iSiren).click()
+    await page.keyboard.type('123456789', { delay: 20 })
+    await page.waitForTimeout(1000)
+
+    const suivant = page.getByRole('button', { name: /continuer|suivant/i }).first()
+    await suivant.click({ timeout: 20000 })
+    await page.waitForTimeout(3500)
     dire(true, 'etape 2 : le nom est saisi')
 
-    // ── ÉTAPE 3 · LA CASE PARTENAIRE, ce qu'on vient d'ajouter ──
+    // ── ÉTAPE 3 · LA CASE PARTENAIRE ──
     const laCase = page.getByText('Ce compte vient d’un partenaire').first()
     const vue = await laCase.count()
     dire(vue > 0, 'etape 3 : la case « Ce compte vient d un partenaire » est a l ecran',
       vue > 0 ? '' : '*** ABSENTE ***')
 
     if (vue > 0) {
-      await laCase.click({ timeout: 10000 })
-      await page.waitForTimeout(900)
+      await laCase.click({ timeout: 15000 })
+      await page.waitForTimeout(1200)
 
-      // Le bouton doit maintenant DIRE ce qui manque, plutot que de laisser creer sans partenaire.
-      const boutonAvant = await page.getByRole('button', { name: /choisissez le partenaire/i }).count()
-      dire(boutonAvant > 0, 'coche sans partenaire : le bouton dit ce qui manque',
-        boutonAvant > 0 ? '' : '*** on peut creer sans choisir ***')
+      /* COCHÉ MAIS PAS RENSEIGNÉ : le bouton doit DIRE ce qui manque, plutôt que de laisser créer
+         un compte sans partenaire alors qu'on vient d'affirmer qu'il en a un. */
+      const avant = await page.getByRole('button', { name: /choisissez le partenaire/i }).count()
+      dire(avant > 0, 'coche sans partenaire : le bouton dit ce qui manque',
+        avant > 0 ? '' : '*** on peut creer sans choisir ***')
 
-      // On choisit le partenaire, puis le contact.
       const listes = page.locator('select')
       await listes.nth(0).selectOption({ label: 'ZZZ PARCOURS PARTENAIRE' })
-      await page.waitForTimeout(1600)
+      await page.waitForTimeout(2000)
       dire(true, 'le partenaire est choisi')
 
-      const nbListes = await listes.count()
-      if (nbListes > 1) {
+      const nb = await listes.count()
+      if (nb > 1) {
         const options = await listes.nth(1).locator('option').allTextContents()
         const ligne = options.find((o) => o.includes('Referent'))
         dire(Boolean(ligne), 'ses contacts sont proposes', ligne || '*** aucun contact propose ***')
-        if (ligne) { await listes.nth(1).selectOption({ label: ligne }); await page.waitForTimeout(700) }
+        if (ligne) {
+          await listes.nth(1).selectOption({ label: ligne })
+          await page.waitForTimeout(900)
+        }
       } else {
         dire(false, 'ses contacts sont proposes', '*** la liste des contacts n apparait pas ***')
       }
 
-      // On cree.
       const creerBtn = page.getByRole('button', { name: /^cr[ée]er le compte$/i }).first()
       dire(await creerBtn.count() > 0, 'le bouton « Creer le compte » est revenu')
-      await creerBtn.click({ timeout: 15000 })
-      await page.waitForTimeout(5000)
+      /* ON LAISSE L'ANIMATION FINIR. Le panneau se replie apres le choix du contact, et pendant
+         ce mouvement un div parent intercepte le clic — Playwright reessaie puis abandonne.
+         `scrollIntoViewIfNeeded` attend que l'element soit stable ; le clic passe ensuite. */
+      await page.waitForTimeout(1500)
+      await creerBtn.scrollIntoViewIfNeeded({ timeout: 15000 })
+      await creerBtn.click({ timeout: 25000, force: true })
+      await page.waitForTimeout(7000)
     }
 
-    // ── CE QUI EST REELLEMENT ECRIT EN BASE ──
+    // ── CE QUI EST RÉELLEMENT ÉCRIT ──
     console.log('')
-    console.log('══ CE QUI EST ECRIT ══')
+    console.log('══ CE QUI EST ECRIT EN BASE ══')
     const ecrit = (await (await a(
-      'comptes?nom=like.ZZZ PARCOURS CLIENT*&select=id,nom,apporteur_partenaire_id,contact_partenaire_id')).json())[0]
+      'comptes?nom=like.ZZZ PARCOURS CLIENT*' +
+      '&select=id,nom,apporteur_partenaire_id,contact_partenaire_id')).json())[0]
     dire(Boolean(ecrit), 'le compte est cree', ecrit ? ecrit.nom : '*** introuvable ***')
+
     if (ecrit) {
       cree.client = ecrit.id
       dire(ecrit.apporteur_partenaire_id === cree.part, 'il porte son partenaire',
         ecrit.apporteur_partenaire_id === cree.part ? 'oui' : '*** ' + ecrit.apporteur_partenaire_id + ' ***')
       dire(ecrit.contact_partenaire_id === cree.ct, 'il porte le referent chez eux',
         ecrit.contact_partenaire_id === cree.ct ? 'oui' : '*** ' + ecrit.contact_partenaire_id + ' ***')
-    }
 
-    // ── LES DEUX CONSEQUENCES ──
-    if (ecrit) {
+      // ── LES DEUX CONSÉQUENCES ──
       console.log('')
       console.log('══ QUI LE VOIT ══')
       const { Client } = require('pg')
@@ -159,7 +192,6 @@ const a = (chemin, m, b) =>
       await db.connect()
       await db.query('begin')
       try {
-        // ① LE PARTENAIRE le voit-il dans son espace ?
         const up = (await db.query(
           'select p.id from profils p ' +
           'join profils_roles_acces pra on pra.profil_id = p.id ' +
@@ -173,7 +205,6 @@ const a = (chemin, m, b) =>
         dire(Number(vuPart) === 1, 'le partenaire voit ce compte dans son espace',
           Number(vuPart) === 1 ? 'oui' : '*** NON — le rattachement n ouvre rien ***')
 
-        // ② LES COMMERCIAUX le voient-ils toujours ?
         const uc = (await db.query(
           "select p.id, p.email from profils p " +
           "join profils_roles_acces pra on pra.profil_id = p.id " +

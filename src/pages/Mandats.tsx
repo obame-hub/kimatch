@@ -166,7 +166,7 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
 
   const { data: monProfil } = useMonProfil()
 
-  const { perimetre, setPerimetre } = usePerimetre('mandats')
+  const { perimetre, setPerimetre, sansBascule } = usePerimetre('mandats')
 
   const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
 
@@ -190,7 +190,7 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte ou une référence…" count={liste.total}>
-          <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes mandats" libelleTous="Tous les mandats" />
+          {!sansBascule && <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes mandats" libelleTous="Tous les mandats" />}
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
             <option value="">Tous les statuts</option>
             {statuts.map((s) => <option key={s.id} value={s.code}>{s.libelle}</option>)}

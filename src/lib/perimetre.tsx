@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { fetchMonPortefeuille, filtrerMesElements } from '@/lib/data/visibility'
-import { useMonProfil } from '@/lib/data/roles'
+import { useMonProfil, useEstPartenaire } from '@/lib/data/roles'
 
 /**
  * « MES OBJETS » OU « TOUS LES OBJETS », sur chaque liste de l'application.
@@ -39,6 +39,24 @@ const PREFIXE = 'kimatch-perimetre-'
 export function usePerimetre(cle: string) {
   const cleStockage = PREFIXE + cle
 
+  /* ══ UN PARTENAIRE N'A PAS DE « MIENS » — 25/09/2026 ══
+   *
+   * La bascule filtre sur `proprietaire_id`, c'est-à-dire le commercial de KiWee qui suit l'objet.
+   * Un partenaire n'est propriétaire de rien : le défaut « les miens » vidait donc SIX de ses sept
+   * onglets — Comptes, Contacts, Compteurs, Mandats, Contrats, Documents.
+   *
+   * Éprouvé à l'écran le 25/09 : la base lui rendait bien ses deux comptes, l'écran n'en montrait
+   * aucun. De quoi conclure que le rattachement n'avait pas marché, alors qu'il avait parfaitement
+   * marché.
+   *
+   * CE QU'IL VOIT EST DÉJÀ SON PÉRIMÈTRE : les policies s'en sont chargées, et il ne verra jamais
+   * autre chose. « Tous » veut donc dire « les siens » pour lui — la bascule n'aurait rien à
+   * trancher, et chaque écran la masque.
+   *
+   * LA CORRECTION VIT ICI, et non dans les six pages : une septième liste ajoutée demain héritera
+   * du bon défaut sans qu'on y pense. */
+  const estPartenaire = useEstPartenaire()
+
   const [perimetre, setPerimetreEtat] = useState<Perimetre>(() => {
     // Le stockage peut lever (navigation privée, cookies bloqués) : un écran ne doit pas rester
     // blanc pour un réglage d'affichage.
@@ -59,7 +77,17 @@ export function usePerimetre(cle: string) {
 
   const setPerimetre = useCallback((valeur: Perimetre) => setPerimetreEtat(valeur), [])
 
-  return { perimetre, setPerimetre, seulementLesMiens: perimetre === 'moi' }
+  /* Pour un partenaire, on rend « tous » quoi que porte le stockage : il a pu visiter Kimatch
+     avant son rattachement, et un « moi » resté en mémoire lui viderait ses listes. */
+  const effectif: Perimetre = estPartenaire ? 'tous' : perimetre
+
+  return {
+    perimetre: effectif,
+    setPerimetre,
+    seulementLesMiens: effectif === 'moi',
+    /** Vrai quand la bascule n'a rien à trancher : chaque écran la masque alors. */
+    sansBascule: estPartenaire,
+  }
 }
 
 /** Mon portefeuille : les comptes dont je suis propriétaire, et leurs sites. */
@@ -99,7 +127,7 @@ export function usePerimetreListe<T>(
     siteId?: (item: T) => string | null | undefined
   },
 ) {
-  const { perimetre, setPerimetre } = usePerimetre(cle)
+  const { perimetre, setPerimetre, sansBascule } = usePerimetre(cle)
   const { data: monProfil } = useMonProfil()
   const { data: portefeuille } = useMonPortefeuille()
 
@@ -119,6 +147,8 @@ export function usePerimetreListe<T>(
     visibles: perimetre === 'moi' ? miens : elements,
     nbMiens: miens?.length,
     nbTous: elements?.length,
+    /** Vrai pour un partenaire : la bascule n'a rien à trancher, l'écran la masque. */
+    sansBascule,
   }
 }
 

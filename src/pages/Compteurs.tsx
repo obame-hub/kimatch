@@ -117,7 +117,7 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
     setLimite(TRANCHE_INITIALE)
   }, [recherche, filtre, tri, sens, energie])
 
-  const { perimetre, setPerimetre } = usePerimetre('compteurs')
+  const { perimetre, setPerimetre, sansBascule } = usePerimetre('compteurs')
   const { data: portefeuille } = useMonPortefeuille()
   const liste = useCompteursListe({
     recherche, filtre, tri, sens, limite, energie,
@@ -216,12 +216,14 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
             placeholder="Rechercher un PDL ou un emplacement…"
             count={total}
           >
-            <BasculePerimetre
-              valeur={perimetre}
-              onChange={setPerimetre}
-              libelleMien="Mes compteurs"
-              libelleTous="Tous les compteurs"
-            />
+            {!sansBascule && (
+              <BasculePerimetre
+                valeur={perimetre}
+                onChange={setPerimetre}
+                libelleMien="Mes compteurs"
+                libelleTous="Tous les compteurs"
+              />
+            )}
           </ListToolbar>
         </div>
 
