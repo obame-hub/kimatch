@@ -126,7 +126,6 @@ export function ContratWizard({
     () => contactsRattaches(contacts, reco.compte_id),
     [contacts, reco.compte_id],
   )
-  const compteCible = comptes?.find((c) => c.id === reco.compte_id)
 
   // Fournisseurs proposés : ceux réellement consultés dans la cotation. C'est ce qui fait qu'un
   // « choix unique » se produit vraiment (quand une seule offre a été retenue). À défaut de
@@ -504,7 +503,6 @@ export function ContratWizard({
               allContacts={contacts ?? []}
               accountId={reco.compte_id}
               accountNom={reco.compte_nom}
-              segment={compteCible?.segment}
             />
             <div className="rounded-lg border border-km-line bg-km-bg p-3 text-xs text-km-muted">
               <p><span className="text-km-faint">Fournisseur :</span> <span className="font-medium">{fournisseur?.nom}</span></p>

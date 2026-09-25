@@ -29,6 +29,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/form'
 import { cn } from '@/lib/utils'
 import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
+import { useDeclarerCompteCourant } from '@/lib/creationContact'
 
 /**
  * FICHE PISTE.
@@ -67,6 +68,8 @@ export default function PisteDetail() {
   const canManage = useCanManage()
 
   const { data: piste, isLoading } = usePiste(id)
+  /* Le compte de cette fiche, pour que « Créer › Contact » parte avec le bon client. */
+  useDeclarerCompteCourant(piste?.compte_id, piste?.societe)
 
   /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
      L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */

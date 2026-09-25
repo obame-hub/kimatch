@@ -10,6 +10,7 @@ import { GmailBanner } from '@/components/layout/GmailBanner'
 import { SidebarProvider } from '@/lib/layout'
 import { TelephonieProvider } from '@/lib/telephonie'
 import { CreationCompteProvider } from '@/lib/creationCompte'
+import { CreationContactProvider } from '@/lib/creationContact'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
 import { useEstPartenaire } from '@/lib/data/roles'
 import { PaletteCommandes } from '@/components/layout/PaletteCommandes'
@@ -95,6 +96,7 @@ export function AppLayout() {
           l'`Outlet`, il s'ouvre par-dessus l'écran où l'on travaille au lieu d'y naviguer — voir
           `src/lib/creationCompte.tsx`. */}
       <CreationCompteProvider>
+      <CreationContactProvider>
       <ImpersonationBanner />
       {/* En flux normal, contrairement au bandeau d'emprunt d'identité qui est en position fixe :
           les deux peuvent s'afficher ensemble sans se superposer, et celui-ci pousse le contenu au
@@ -184,6 +186,7 @@ export function AppLayout() {
       />
       <BottomNav />
       <InstallPrompt />
+      </CreationContactProvider>
       </CreationCompteProvider>
       </TelephonieProvider>
     </SidebarProvider>

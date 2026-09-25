@@ -111,3 +111,50 @@ export function ancienRoleDepuisRoles(roles: readonly string[]): string | null {
   if (roles.includes('CONSEIL_SYNDICAL')) return 'Conseil syndical'
   return null
 }
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LES DEUX FAMILLES QU'UN COMPTEUR DISTINGUE
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 25/09/2026 : « un contact "Membre CS" c'est important notamment pour rendre éligible
+ * dans l'affiliation CS à un compteur de ne proposer que des Membres CS et non pas des contacts
+ * classiques, et inversement pour le responsable. »
+ *
+ * Un compteur a DEUX fentes, et elles ne veulent pas dire la même chose :
+ *
+ *   · `responsable_contact_id`        le gestionnaire du cabinet — celui qui décide et qui signe
+ *   · `contact_conseil_syndical_id`   le relais côté copropriété — un copropriétaire élu
+ *
+ * Les mélanger n'est pas une faute de saisie sans conséquence : c'est le relais du conseil syndical
+ * qui fait la différence entre un compteur « couvert » et un compteur qu'un concurrent peut
+ * emporter avec le cabinet, et c'est sur lui que reposent les relances et l'emailing.
+ *
+ * LE CHOIX EST EXCLUSIF, et c'est pour cela qu'un seul prédicat suffit : une personne est membre du
+ * conseil syndical, ou elle ne l'est pas. La base garantit d'ailleurs qu'elle ne peut pas occuper
+ * les deux fentes du même compteur (contrainte du 13/09/2026).
+ */
+
+/** Vrai pour un membre du conseil syndical — choisi à la création, ou relais d'un compteur. */
+export function estMembreConseilSyndical(contact: { roles?: readonly string[] | null }): boolean {
+  return (contact.roles ?? []).includes('CONSEIL_SYNDICAL')
+}
+
+/**
+ * Les contacts qu'une fente de compteur accepte.
+ *
+ * `dejaChoisi` EST TOUJOURS GARDÉ, même s'il ne passe pas le filtre. Sans cela, un compteur dont le
+ * responsable se trouve aussi être membre du conseil syndical — il y en a, la contrainte ne
+ * l'interdit que sur le même compteur — afficherait un champ VIDE, et le premier enregistrement
+ * effacerait la valeur sans que personne ne l'ait demandé. C'est le piège déjà rencontré sur la
+ * civilité le 14/09/2026, et il se referme exactement de la même façon.
+ */
+export function contactsPourLaFente<T extends { id: string; roles?: readonly string[] | null }>(
+  contacts: T[],
+  fente: 'responsable' | 'conseilSyndical',
+  dejaChoisi?: string | null,
+): T[] {
+  return contacts.filter((c) => {
+    if (dejaChoisi && c.id === dejaChoisi) return true
+    return fente === 'conseilSyndical' ? estMembreConseilSyndical(c) : !estMembreConseilSyndical(c)
+  })
+}

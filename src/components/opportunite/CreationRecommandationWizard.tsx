@@ -825,7 +825,6 @@ export function CreateRecommandationDialog({
                   allContacts={contacts ?? []}
                   accountId={compteId}
                   accountNom={compteCible?.nom}
-                  segment={compteCible?.segment}
                 />
 
                 {/* Récapitulatif du contact retenu — la carte de rappel de Tools. */}

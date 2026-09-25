@@ -675,3 +675,49 @@ export async function majConditionsFournisseur(
     if (e2) throw new Error(e2.message)
   }
 }
+
+/**
+ * ══ CHERCHER UN COMPTE PAR SON NOM, SANS LIRE LA TABLE ══
+ *
+ * Le parcours de création d'un contact arrive presque toujours avec son compte DÉJÀ connu — celui
+ * de la fiche d'où l'on est parti. La recherche ne sert qu'au cas restant : changer ce rattachement,
+ * ou partir du menu « Créer » global, qui ne sait rien.
+ *
+ * ELLE NE PEUT DONC PAS PASSER PAR `useComptes()`. Lire 2 782 comptes et leurs quatre jointures
+ * pour alimenter une liste de dix lignes est exactement le coût mesuré le 12/09/2026 sur la fiche
+ * compte : 2,8 s. Ici : trois colonnes, vingt lignes au plus, une requête.
+ *
+ * TROIS CARACTÈRES MINIMUM, comme la recherche Ellisphere — en deçà, `ilike '%a%'` ramène la moitié
+ * de la table et ne dit rien à personne. Le résultat précédent reste affiché pendant que le suivant
+ * arrive : une liste qui s'affine sous les doigts se lit comme instantanée, une liste qui disparaît
+ * à chaque lettre se lit comme lente, à durée égale.
+ */
+export interface CompteTrouve {
+  id: string
+  nom: string
+  ville: string | null
+  segment: string | null
+}
+
+export function useRechercheComptes(terme: string) {
+  const q = terme.trim()
+  return useQuery({
+    queryKey: ['comptes', 'recherche', q],
+    enabled: q.length >= 3,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (precedent) => precedent,
+    queryFn: async (): Promise<CompteTrouve[]> => {
+      const { data, error } = await supabase
+        .from('comptes')
+        .select('id, nom, ville, segment')
+        .ilike('nom', `%${q}%`)
+        .order('nom')
+        .limit(20)
+      if (error) {
+        console.error('useRechercheComptes', error)
+        throw new Error(error.message)
+      }
+      return (data ?? []) as CompteTrouve[]
+    },
+  })
+}

@@ -10,6 +10,7 @@ import { useEnvoiMandat } from '@/lib/data/envoiMandat'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_COURTIERS_MANDAT } from '@/lib/referenceFallbacks'
 import { connectDocusign } from '@/lib/data/docusign'
+import { useCreerUnContact } from '@/lib/creationContact'
 import { cn } from '@/lib/utils'
 import type { Compteur } from '@/types/domain'
 
@@ -56,13 +57,11 @@ function bucketEcheance(iso: string | null | undefined): Echeance {
 
 export function MandatWizard({
   compteId,
-  onClose,
   onCree,
   contactInitialId,
   compteursInitiaux,
 }: {
   compteId: string
-  onClose: () => void
   /** Appelé après création, avant la redirection vers DocuSign. */
   onCree?: (mandatId: string) => void
   /**
@@ -86,6 +85,7 @@ export function MandatWizard({
 
 
   const [etape, setEtape] = useState(1)
+  const creerUnContact = useCreerUnContact()
   const [contactId, setContactId] = useState(contactInitialId ?? '')
   const [compteurIds, setCompteurIds] = useState<string[]>(compteursInitiaux ?? [])
   const [dureeMois, setDureeMois] = useState<number>(DUREE_DEFAUT)
@@ -318,10 +318,22 @@ export function MandatWizard({
             </div>
           )}
 
-          {contactsDuCompte.length > 0 && (
+          {/* ══ CE BOUTON FERMAIT LE WIZARD SANS RIEN CRÉER ══
+              Jusqu'au 24/09/2026, « Créer un nouveau contact » appelait `onClose` : la fenêtre
+              disparaissait, le mandat en cours était perdu, et l'utilisateur se retrouvait sur la
+              fiche sans le moindre formulaire de contact. Il ouvre désormais le parcours, qui rend
+              le contact créé — et qui devient aussitôt le signataire choisi.
+              Il s'affiche même quand le compte n'a AUCUN contact : c'est justement le cas où l'on
+              en a le plus besoin, et l'encadré ambré juste au-dessus le dit sans rien proposer. */}
+          {compte && (
             <button
               type="button"
-              onClick={onClose}
+              onClick={() =>
+                creerUnContact({
+                  compte: { id: compte.id, nom: compte.nom },
+                  onCree: (contact) => setContactId(contact.id),
+                })
+              }
               className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-km-line py-2.5 text-xs font-semibold text-km-muted transition-colors hover:bg-km-bg"
             >
               <UserPlus className="h-3.5 w-3.5" /> Créer un nouveau contact

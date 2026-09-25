@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OBJETS_CREABLES } from '@/lib/ouvrirCreation'
 import { useCreerUnCompte } from '@/lib/creationCompte'
+import { useCreerUnContact } from '@/lib/creationContact'
 
 /**
  * LE BOUTON « CRÉER », SUR TOUS LES ÉCRANS.
@@ -31,12 +32,14 @@ import { useCreerUnCompte } from '@/lib/creationCompte'
  * Effet de bord voulu : on arrive sur l'écran de l'objet qu'on vient de créer, donc on le voit
  * dans sa liste.
  *
- * SAUF LE COMPTE, DEPUIS LE 24/09/2026 : son parcours est une fenêtre montée dans la coque, qui
- * s'ouvre par-dessus l'écran courant sans navigation. Voir `src/lib/creationCompte.tsx`.
+ * SAUF LE COMPTE ET LE CONTACT, DEPUIS LE 24/09/2026 : leurs parcours sont des fenêtres montées
+ * dans la coque, qui s'ouvrent par-dessus l'écran courant sans navigation. Voir
+ * `src/lib/creationCompte.tsx` et `src/lib/creationContact.tsx`.
  */
 export function MenuCreer() {
   const navigate = useNavigate()
   const creerUnCompte = useCreerUnCompte()
+  const creerUnContact = useCreerUnContact()
   const [ouvert, setOuvert] = useState(false)
   const conteneur = useRef<HTMLDivElement>(null)
 
@@ -95,8 +98,12 @@ export function MenuCreer() {
                 /* `surPlace` : le parcours de création d'un compte est une fenêtre montée dans la
                    coque, pas un formulaire d'écran. On l'ouvre là où l'on est — y naviguer
                    d'abord ferait justement le « changement de page » que la fenêtre évite. */
-                if ('surPlace' in o && o.surPlace) creerUnCompte()
-                else navigate(`${o.chemin}?creer=1`)
+                if ('surPlace' in o && o.surPlace) {
+                  /* Le contact part avec le compte que l'écran courant a déclaré — c'est tout
+                     l'objet de `useDeclarerCompteCourant`. */
+                  if (o.cle === 'contact') creerUnContact()
+                  else creerUnCompte()
+                } else navigate(`${o.chemin}?creer=1`)
               }}
               className="flex w-full items-center gap-2 px-3 py-[7px] text-left text-km-body text-km-text transition-colors hover:bg-km-green-soft hover:text-km-green"
             >

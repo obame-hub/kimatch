@@ -424,7 +424,6 @@ export function CreationCompteurDialog({
             allContacts={contacts ?? []}
             compteId={compte!.id}
             compteNom={compte!.nom}
-            compteSegment={compte!.segment}
             existingCompteurs={compteurs ?? []}
             sites={sites}
             responsableParDefautId={responsableParDefautId}

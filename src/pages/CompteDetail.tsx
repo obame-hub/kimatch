@@ -4,6 +4,7 @@ import { ArrowLeft, BadgeCheck, Building2, FileCheck2, MapPin, Pencil, Plus, Sea
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { useCreerUnCompte } from '@/lib/creationCompte'
+import { useCreerUnContact, useDeclarerCompteCourant } from '@/lib/creationContact'
 import { ZoneATraiter } from '@/components/compte/ZoneATraiter'
 import { ZoneEnCours } from '@/components/compte/ZoneEnCours'
 import { ZonePortefeuille } from '@/components/compte/ZonePortefeuille'
@@ -20,8 +21,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { DialogSuppression } from '@/components/ui/dialog-suppression'
-import { Sheet } from '@/components/ui/sheet'
-import { ContactForm } from '@/components/contact/ContactForm'
 import { PdlMethodSheet, type PdlMethode } from '@/components/compteur/PdlMethodSheet'
 import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { DialogCreationOpportunite } from '@/pages/Opportunites'
@@ -118,10 +117,14 @@ type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'o
 
 export default function CompteDetail() {
   const creerUnCompte = useCreerUnCompte()
+  const creerUnContact = useCreerUnContact()
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: compte, isLoading: compteEnCours } = useCompte(id)
+  /* Le menu « Créer » de la barre du haut ne sait pas sur quelle fiche il est posé. Cette ligne
+     le lui dit, pour qu'un contact créé d'ici parte avec le bon client. */
+  useDeclarerCompteCourant(compte?.id, compte?.nom)
 
   /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
      L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
@@ -222,7 +225,6 @@ export default function CompteDetail() {
   const [addCompteurOpen, setAddCompteurOpen] = useState(false)
   const [pdlMethodOpen, setPdlMethodOpen] = useState(false)
   const [pdlMethode, setPdlMethode] = useState<PdlMethode>('manuel')
-  const [addContactOpen, setAddContactOpen] = useState(false)
   const [addMandatOpen, setAddMandatOpen] = useState(false)
   const [addRecoOpen, setAddRecoOpen] = useState(false)
   const [addOppOpen, setAddOppOpen] = useState(false)
@@ -550,7 +552,7 @@ export default function CompteDetail() {
             }}
             onAction={(cle) => {
               if (cle === 'compte') creerUnCompte()
-              if (cle === 'contact') setAddContactOpen(true)
+              if (cle === 'contact') creerUnContact({ compte: { id: compte.id, nom: compte.nom } })
               if (cle === 'compteur') setPdlMethodOpen(true)
               if (cle === 'mandat') setAddMandatOpen(true)
               if (cle === 'opportunite') setAddOppOpen(true)
@@ -619,7 +621,10 @@ export default function CompteDetail() {
               compteId={compte.id}
               compteNom={compte.nom}
               segment={compte.segment ?? null}
-              onNouveauContact={() => navigate('/contacts', { state: { openCreateForCompteId: compte.id } })}
+              /* AVANT, CE BOUTON QUITTAIT LA FICHE pour la liste des contacts, en lui passant
+                 le compte dans un état de navigation. Le parcours s'ouvre par-dessus l'onglet, et
+                 le compte de la fiche y est déjà renseigné. */
+              onNouveauContact={() => creerUnContact({ compte: { id: compte.id, nom: compte.nom } })}
             />
           )}
 
@@ -1263,27 +1268,6 @@ export default function CompteDetail() {
 
       {/* Contact : panneau latéral (reste sur la fiche compte, comme l'écran de session
           post-création dans Tools) -- on ne quitte jamais la page. */}
-      <Sheet
-        open={addContactOpen}
-        onClose={() => setAddContactOpen(false)}
-        title="Ajouter un contact"
-        description={`Rattaché à ${compte.nom}`}
-      >
-        {/* Un Sheet masque son contenu sans le demonter : sans cette condition, le formulaire
-            chargeait la table contacts entiere a chaque fiche compte. */}
-        {addContactOpen && (
-          <ContactForm
-            compteId={compte.id}
-            compteNom={compte.nom}
-            segment={compte.segment}
-            onCancel={() => setAddContactOpen(false)}
-            onCreated={(contact) => {
-              setAddContactOpen(false)
-              showToast(`✓ ${contact.prenom} ${contact.nom} ajouté`)
-            }}
-          />
-        )}
-      </Sheet>
 
       {/* Wizard en quatre étapes, comme Tools. Monté conditionnellement et non caché par le
           Dialog : un Sheet/Dialog masque son contenu sans démonter le composant, dont les hooks
@@ -1297,7 +1281,7 @@ export default function CompteDetail() {
       >
         {addMandatOpen && (
           <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">
-            <MandatWizard compteId={compte.id} onClose={() => setAddMandatOpen(false)} />
+            <MandatWizard compteId={compte.id} />
           </WizardConnectionGate>
         )}
       </Dialog>

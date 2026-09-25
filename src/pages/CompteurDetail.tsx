@@ -40,6 +40,8 @@ import { useGoBack } from '@/lib/useGoBack'
 import type { Compteur, Consommation } from '@/types/domain'
 import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
 import { MenuCreer } from '@/components/layout/MenuCreer'
+import { useCreerUnContact, useDeclarerCompteCourant } from '@/lib/creationContact'
+import { contactsPourLaFente } from '@/lib/contactRoles'
 
 const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
 const TYPE_VALEUR_OPTIONS = ['MESUREE', 'ESTIMEE', 'CORRIGEE']
@@ -490,6 +492,8 @@ export default function CompteurDetail() {
      l'ancienne, ce qui a rendu la panne invisible pendant cinq jours.
      Le repli sur le site ne sert que le temps du chargement du compteur. */
   const { data: compteDuCompteur } = useCompte(compteur?.compte_id ?? siteDuCompteur?.compte_id)
+  /* Le compte de cette fiche, pour que « Créer › Contact » parte avec le bon client. */
+  useDeclarerCompteCourant(compteDuCompteur?.id, compteDuCompteur?.nom)
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
   const { data: recommandations } = useRecommandationsListe()
@@ -1026,6 +1030,8 @@ export default function CompteurDetail() {
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <ChampContactCompteur
                       libelle="Responsable"
+                      fente="responsable"
+                      compte={compte ? { id: compte.id, nom: compte.nom } : null}
                       contactId={compteur.responsable_contact_id ?? null}
                       contactNom={compteur.responsable_contact_nom ?? null}
                       contactsDuCompte={contactsDuCompte}
@@ -1037,6 +1043,8 @@ export default function CompteurDetail() {
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <ChampContactCompteur
                       libelle="Contact conseil syndical"
+                      fente="conseilSyndical"
+                      compte={compte ? { id: compte.id, nom: compte.nom } : null}
                       contactId={compteur.contact_conseil_syndical_id ?? null}
                       contactNom={compteur.contact_conseil_syndical_nom ?? null}
                       contactsDuCompte={contactsDuCompte}
@@ -1306,6 +1314,8 @@ export default function CompteurDetail() {
  */
 function ChampContactCompteur({
   libelle,
+  fente,
+  compte,
   contactId,
   contactNom,
   contactsDuCompte,
@@ -1314,19 +1324,53 @@ function ChampContactCompteur({
   onToast,
 }: {
   libelle: string
+  /** Laquelle des deux fentes du compteur : elles n'acceptent pas les mêmes gens. */
+  fente: 'responsable' | 'conseilSyndical'
+  compte: { id: string; nom: string } | null
   contactId: string | null
   contactNom: string | null
-  contactsDuCompte: { id: string; prenom: string; nom: string }[]
+  contactsDuCompte: { id: string; prenom: string; nom: string; roles?: readonly string[] | null }[]
   modifiable: boolean
   onCommit: (valeur: string | null) => Promise<void>
   onToast: (message: string) => void
 }) {
+  const creerUnContact = useCreerUnContact()
+  const eligibles = contactsPourLaFente(contactsDuCompte, fente, contactId)
   if (!modifiable) {
     if (!contactId) return null
     return (
       <p>
         <span className="text-km-faint">{libelle} :</span>{' '}
         <EntityLink to={`/contacts/${contactId}`}>{contactNom}</EntityLink>
+      </p>
+    )
+  }
+
+  /* ══ UNE LISTE VIDE DOIT PROPOSER LA SORTIE, PAS UN « AUCUN » MUET ══
+     Le filtre a une conséquence immédiate : un cabinet dont aucun contact n'est encore membre du
+     conseil syndical ne verra plus personne dans cette liste. Sans ce chemin, l'écran serait un
+     cul-de-sac — une liste vide et rien à faire. Le parcours s'ouvre avec le bon type déjà choisi,
+     et le contact créé vient directement occuper la fente. */
+  if (eligibles.length === 0 && !contactId && compte) {
+    return (
+      <p className="flex flex-wrap items-baseline gap-x-1.5">
+        <span className="text-km-faint">{libelle} :</span>
+        <span className="text-km-faint">
+          {fente === 'conseilSyndical' ? 'aucun membre du conseil syndical sur ce compte' : 'aucun contact sur ce compte'}
+        </span>
+        <button
+          type="button"
+          onClick={() =>
+            creerUnContact({
+              compte,
+              type: fente === 'conseilSyndical' ? 'membreCS' : 'contact',
+              onCree: (c) => { void onCommit(c.id) },
+            })
+          }
+          className="rounded-km-sm border border-dashed border-km-line px-1.5 py-0.5 text-km-name text-km-faint transition-colors hover:border-km-green hover:text-km-green"
+        >
+          ＋ {fente === 'conseilSyndical' ? 'Créer un membre CS' : 'Créer un contact'}
+        </button>
       </p>
     )
   }
@@ -1365,7 +1409,7 @@ function ChampContactCompteur({
       lien={contactId ? `/contacts/${contactId}` : undefined}
       options={[
         { value: '', label: 'Aucun' },
-        ...contactsDuCompte.map((c) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
+        ...eligibles.map((c) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
       ]}
       onCommit={(v) => onCommit(v || null)}
       onSaved={() => onToast('✓ enregistré')}

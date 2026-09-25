@@ -98,7 +98,7 @@ export function CreateMandatDialog({
 
       {open && compteId && (
         <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">
-          <MandatWizard compteId={compteId} onClose={() => { setCompteId(''); onClose() }} />
+          <MandatWizard compteId={compteId} />
         </WizardConnectionGate>
       )}
     </Dialog>

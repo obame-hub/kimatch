@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Check, ChevronDown, Plus, Search, User, UserPlus, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Sheet } from '@/components/ui/sheet'
-import { ContactForm } from '@/components/contact/ContactForm'
+import { useCreerUnContact } from '@/lib/creationContact'
+import { contactsPourLaFente } from '@/lib/contactRoles'
 import { cn } from '@/lib/utils'
 import type { Contact } from '@/types/domain'
 
@@ -28,28 +27,48 @@ function joinNameParts(...parts: (string | null | undefined)[]): string {
 export function ContactPicker({
   value,
   onChange,
-  accountContacts,
-  allContacts,
+  accountContacts: accountContactsBruts,
+  allContacts: allContactsBruts,
+  fente,
   loading,
   accountId,
   accountNom,
-  segment,
   /** Aucun compte rattaché : seule la recherche globale est proposée (comme `noAccount` de Tools). */
   noAccount,
 }: {
   value: string
   onChange: (contactId: string, contact: Contact | null) => void
   accountContacts: Contact[]
+  /**
+   * La fente de compteur que ce sélecteur remplit, quand c'en est une.
+   *
+   * William, 25/09/2026 : « rendre éligible dans l'affiliation CS à un compteur de ne proposer que
+   * des Membres CS et non pas des contacts classiques, et inversement pour le responsable ».
+   *
+   * Absente — le signataire d'un contrat, l'interlocuteur d'une recommandation —, tous les contacts
+   * restent proposés : ces rôles-là n'ont rien à voir avec le conseil syndical.
+   */
+  fente?: 'responsable' | 'conseilSyndical'
   /** Tous les contacts du CRM -- alimente l'onglet « Autre contact ». */
   allContacts: Contact[]
   loading?: boolean
   accountId?: string | null
   accountNom?: string
-  segment?: string | null
   noAccount?: boolean
 }) {
+  const creerUnContact = useCreerUnContact()
+
+  /* Le contact déjà choisi reste proposé quoi qu'il arrive : voir `contactsPourLaFente`. Sans cela
+     le sélecteur s'afficherait vide sur une valeur pourtant enregistrée. */
+  const accountContacts = useMemo(
+    () => (fente ? contactsPourLaFente(accountContactsBruts, fente, value) : accountContactsBruts),
+    [accountContactsBruts, fente, value],
+  )
+  const allContacts = useMemo(
+    () => (fente ? contactsPourLaFente(allContactsBruts, fente, value) : allContactsBruts),
+    [allContactsBruts, fente, value],
+  )
   const [open, setOpen] = useState(false)
-  const [createOpen, setCreateOpen] = useState(false)
   const [tab, setTab] = useState<'linked' | 'global'>(noAccount ? 'global' : 'linked')
   const [linkedSearch, setLinkedSearch] = useState('')
   const [globalSearch, setGlobalSearch] = useState('')
@@ -235,7 +254,19 @@ export function ContactPicker({
                 variant="ghost"
                 size="sm"
                 className="h-8 w-full justify-start gap-2 text-xs"
-                onClick={() => { setOpen(false); setCreateOpen(true) }}
+                onClick={() => {
+                  setOpen(false)
+                  /* LE CONTACT REVIENT SÉLECTIONNÉ. Ce sélecteur est toujours posé dans un
+                     formulaire en cours — une recommandation, un contrat, un compteur : créer sans
+                     rendre le contact obligerait à rouvrir la liste pour l'y trouver. */
+                  creerUnContact({
+                    compte: accountId ? { id: accountId, nom: accountNom ?? '' } : null,
+                    /* Le parcours s'ouvre sur le bon type : créer un contact ordinaire depuis la
+                       fente du conseil syndical rendrait quelqu'un qui n'y serait pas éligible. */
+                    type: fente === 'conseilSyndical' ? 'membreCS' : fente ? 'contact' : undefined,
+                    onCree: (contact) => { setDernierChoisi(contact); onChange(contact.id, contact) },
+                  })
+                }}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Créer un nouveau contact
@@ -261,30 +292,6 @@ export function ContactPicker({
         </div>
       )}
 
-      {canCreate &&
-        createPortal(
-          <Sheet
-            open={createOpen}
-            onClose={() => setCreateOpen(false)}
-            title="Ajouter un contact"
-            description={accountNom ? `Rattaché à ${accountNom}` : undefined}
-          >
-            {createOpen && (
-              <ContactForm
-                compteId={accountId as string}
-                compteNom={accountNom ?? ''}
-                segment={segment}
-                onCancel={() => setCreateOpen(false)}
-                onCreated={(contact) => {
-                  setCreateOpen(false)
-                  setDernierChoisi(contact)
-                  onChange(contact.id, contact)
-                }}
-              />
-            )}
-          </Sheet>,
-          document.body,
-        )}
     </div>
   )
 }

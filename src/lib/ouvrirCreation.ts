@@ -84,7 +84,12 @@ export const OBJETS_CREABLES = [
      compteur qui pose désormais le libellé de site, l'adresse et le groupe d'adresse (déclencheur
      `trg_compteur_herite_de_son_site`, migration 20260910140000). */
   { cle: 'compteur', libelle: 'Compteur', chemin: '/compteurs', touche: 'L' },
-  { cle: 'contact', libelle: 'Contact', chemin: '/contacts', touche: 'T' },
+  /* LE CONTACT A REJOINT LE COMPTE LE 24/09/2026, et pour une raison de plus que lui : son
+     parcours part du compte de l'écran où l'on se trouve. Naviguer vers /contacts d'abord
+     effacerait précisément ce qu'il faut garder — William : « en fonction de la page depuis
+     laquelle je lance le process, il faudra lier ce nouveau contact au compte lié à
+     l'enregistrement d'origine ». Voir `src/lib/creationContact.tsx`. */
+  { cle: 'contact', libelle: 'Contact', chemin: '/contacts', touche: 'T', surPlace: true },
   { cle: 'piste', libelle: 'Piste', chemin: '/pistes', touche: 'P' },
   { cle: 'opportunite', libelle: 'Opportunité', chemin: '/opportunites', touche: 'O' },
   { cle: 'recommandation', libelle: 'Recommandation', chemin: '/recommandations', touche: 'R' },

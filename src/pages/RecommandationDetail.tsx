@@ -75,6 +75,7 @@ import {
 } from '@/lib/referenceFallbacks'
 import type { VersionRecommandation, Optimisation } from '@/types/domain'
 import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
+import { useDeclarerCompteCourant } from '@/lib/creationContact'
 
 /**
  * Fiche Recommandation — portage de la maquette « Fiche Recommandation.dc.html » de William.
@@ -128,6 +129,8 @@ export default function RecommandationDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: reco } = useRecommandation(id)
+  /* Le compte de cette fiche, pour que « Créer › Contact » parte avec le bon client. */
+  useDeclarerCompteCourant(reco?.compte_id, reco?.compte_nom)
 
   /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
      L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */

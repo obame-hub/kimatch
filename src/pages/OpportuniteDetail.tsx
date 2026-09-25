@@ -45,6 +45,7 @@ import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { cn } from '@/lib/utils'
 import type { Opportunite } from '@/types/domain'
 import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
+import { useDeclarerCompteCourant } from '@/lib/creationContact'
 
 /**
  * La fiche Opportunité, d'après la maquette « Fiche Opportunite » du 23/08/2026.
@@ -67,6 +68,8 @@ export default function OpportuniteDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: opportunite, isLoading } = useOpportunite(id)
+  /* Le compte de cette fiche, pour que « Créer › Contact » parte avec le bon client. */
+  useDeclarerCompteCourant(opportunite?.compte_id, opportunite?.compte_nom)
 
   /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
      L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
@@ -973,7 +976,6 @@ export default function OpportuniteDetail() {
               compteId={opportunite.compte_id}
               contactInitialId={opportunite.contact_id ?? undefined}
               compteursInitiaux={couverture.manquants.length > 0 ? couverture.manquants : opportunite.compteur_ids}
-              onClose={() => setMandatOuvert(false)}
               onCree={() => signaler('✓ Mandat créé — ouverture de DocuSign')}
             />
           </WizardConnectionGate>

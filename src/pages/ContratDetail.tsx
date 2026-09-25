@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils'
 import type { Contact, Contrat, DocumentItem, TarifContratCompteur } from '@/types/domain'
 import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
 import { MenuCreer } from '@/components/layout/MenuCreer'
+import { useDeclarerCompteCourant } from '@/lib/creationContact'
 
 /**
  * ══ ENREGISTRER UNE SIGNATURE FAITE HORS DE KIMATCH ══
@@ -470,6 +471,8 @@ export default function ContratDetail() {
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: contrat } = useContrat(id)
+  /* Le compte de cette fiche, pour que « Créer › Contact » parte avec le bon client. */
+  useDeclarerCompteCourant(contrat?.compte_id, contrat?.compte_nom)
 
   /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
      L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */

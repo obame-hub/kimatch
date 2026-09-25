@@ -9,6 +9,7 @@ import { useCreateContact } from '@/lib/data/contacts'
 import { useAssignCompteurContact } from '@/lib/data/compteurs'
 import type { Contact } from '@/types/domain'
 import { cn } from '@/lib/utils'
+import { contactsPourLaFente } from '@/lib/contactRoles'
 import { toTitleCaseFR, toUpperFR } from '@/lib/textFormat'
 import type { CompteurRelais } from '@/lib/data/relaisConseilSyndical'
 
@@ -89,9 +90,21 @@ export function DialogDesignerRelais({
     [compteurs],
   )
 
-  // Le responsable du compteur ne peut pas être son propre relais — voir l'en-tête.
+  /* ══ QUI PEUT ÊTRE RELAIS ══
+     Deux filtres, et ils ne disent pas la même chose :
+
+     · le RESPONSABLE du compteur ne peut pas être son propre relais — voir l'en-tête, c'est la
+       contrainte du 13/09/2026 ;
+     · seuls les MEMBRES DU CONSEIL SYNDICAL sont proposés, depuis le 25/09/2026. William : « rendre
+       éligible dans l'affiliation CS à un compteur de ne proposer que des Membres CS ». Cette fente
+       désigne un copropriétaire élu, pas un gestionnaire de cabinet, et c'est d'elle que dépend le
+       fait qu'un compteur soit couvert ou reprenable par un concurrent.
+
+     Le mode « créer » juste à côté reste la sortie quand la liste est vide — et il crée bien un
+     membre du conseil syndical, puisque c'est la fente qu'il remplit. */
   const candidats = useMemo(
-    () => contacts.filter((c) => c.id !== compteur?.responsable_contact_id),
+    () => contactsPourLaFente(contacts, 'conseilSyndical', compteur?.relais_contact_id ?? null)
+      .filter((c) => c.id !== compteur?.responsable_contact_id),
     [contacts, compteur],
   )
 

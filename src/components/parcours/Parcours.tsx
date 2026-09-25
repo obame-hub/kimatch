@@ -228,3 +228,79 @@ export function EnTeteEtape({ numero, total, titre }: { numero: number; total: n
 export function PanneauParcours({ children }: { children: ReactNode }) {
   return <div className="flex min-w-0 flex-1 flex-col px-9 pb-[22px] pt-8">{children}</div>
 }
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LES TROIS PRIMITIVES DE SAISIE DES PARCOURS
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Elles sont nées dans le formulaire PDL le 23/09/2026, quand William a demandé « améliore le
+ * design des toggles pour rendre la valeur sélectionnée plus lisible » et, le même jour, la fin
+ * des champs ambrés : « je ne veux pas de couleur jaune pour les champs obligatoires ».
+ *
+ * ELLES REMONTENT ICI PARCE QU'UN SECOND PARCOURS LES DEMANDE — celui du contact. Les recopier
+ * aurait produit deux jeux de classes à faire vivre en parallèle, et c'est exactement la raison
+ * pour laquelle `PdlDraftRows` a été restylé sur place plutôt que copié : deux formulaires en
+ * parallèle finissent toujours par diverger. Le déplacement est à l'identique, au pixel près.
+ */
+
+/** Le champ de saisie de tous les parcours. */
+export const SAISIE =
+  'w-full rounded-[9px] border border-km-line bg-white px-[11px] py-[8px] text-[13px] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)] disabled:bg-km-soft'
+
+/** Sa variante pour ce qui se lit chiffre par chiffre : un PDL, un SIREN, un numéro. */
+export const SAISIE_MONO =
+  'w-full rounded-[9px] border border-km-line bg-white px-[11px] py-[8px] font-mono text-[12.5px] text-km-text outline-none transition-shadow focus:border-km-green focus:shadow-[0_0_0_3px_rgba(13,122,95,.12)] disabled:bg-km-soft'
+
+/** L'intitulé au-dessus d'un champ. L'astérisque dit l'obligation — aucune couleur ne la dit. */
+export function Champ({ intitule, requis, children, className }: {
+  intitule: string
+  requis?: boolean
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn('flex min-w-0 flex-col gap-[5px]', className)}>
+      <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">
+        {intitule}
+        {requis && <span className="text-km-muted"> *</span>}
+      </span>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Segments : la valeur retenue en vert plein, jamais en ambre.
+ *
+ * `obligatoire` interdit le second clic qui déselectionne. Un choix binaire qui a toujours une
+ * réponse — M. ou Mme, contact ou membre du conseil syndical — ne doit pas pouvoir revenir au
+ * vide : le vide n'y veut rien dire, et il rendrait le bouton de validation inactif sans que
+ * l'écran puisse dire pourquoi.
+ */
+export function Segments({ valeur, options, onChoisir, obligatoire }: {
+  valeur: string
+  options: { valeur: string; libelle: string; titre?: string }[]
+  onChoisir: (v: string) => void
+  obligatoire?: boolean
+}) {
+  return (
+    <div className="flex gap-[2px] rounded-[9px] border border-km-line bg-km-soft p-[3px]">
+      {options.map((o) => (
+        <button
+          key={o.valeur}
+          type="button"
+          title={o.titre}
+          onClick={() => onChoisir(o.valeur === valeur && !obligatoire ? '' : o.valeur)}
+          className={cn(
+            'flex-1 rounded-[6px] px-[5px] py-[6px] text-[12px] transition-colors',
+            o.valeur === valeur
+              ? 'bg-km-green font-bold text-white'
+              : 'font-medium text-km-muted hover:bg-white hover:text-km-text',
+          )}
+        >
+          {o.libelle}
+        </button>
+      ))}
+    </div>
+  )
+}

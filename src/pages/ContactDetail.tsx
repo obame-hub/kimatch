@@ -42,6 +42,7 @@ import { optionsCivilite } from '@/lib/civilite'
 import { cn } from '@/lib/utils'
 import type { Contact } from '@/types/domain'
 import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
+import { useDeclarerCompteCourant } from '@/lib/creationContact'
 
 /* LES CIVILITÉS VIENNENT DE `@/lib/civilite`, et non d'une liste écrite ici.
    La base range en « Monsieur » / « Madame » depuis la migration 20260914180000 ; cette liste
@@ -57,6 +58,8 @@ export default function ContactDetail() {
   // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
   // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: contact } = useContact(id)
+  /* Le compte de cette fiche, pour que « Créer › Contact » parte avec le bon client. */
+  useDeclarerCompteCourant(contact?.compte_id, contact?.compte_nom)
 
   /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
      L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */

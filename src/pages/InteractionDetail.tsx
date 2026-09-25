@@ -14,6 +14,7 @@ import { useCanManage, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useGoBack } from '@/lib/useGoBack'
 import { useSuppression } from '@/lib/useSuppression'
 import { InteractionSentence } from '@/lib/interactionSentence'
+import { useDeclarerCompteCourant } from '@/lib/creationContact'
 
 const SENS_OPTIONS = [
   { value: '', label: '—' },
@@ -29,6 +30,8 @@ export default function InteractionDetail() {
      « Interaction introuvable » pour tout ce qui sortait de la fenêtre récente. Constaté par Naoëlle
      le 08/09/2026 sur un appel de l'après-midi. */
   const { data: interaction, isLoading } = useInteraction(id)
+  /* Le compte de cette fiche, pour que « Créer › Contact » parte avec le bon client. */
+  useDeclarerCompteCourant(interaction?.compte_id, interaction?.compte_nom)
   const deleteInteraction = useDeleteInteraction()
   const goBack = useGoBack('/interactions')
 
