@@ -310,8 +310,12 @@ export default function Dashboard() {
                 UN QUART, TROIS QUARTS : « le montant signé est une card qui prend 25 % de la
                 largeur, les autres 75 % doivent être utilisés par le composant de charge à
                 venir ». */}
+            {/* `items-stretch` ET UNE HAUTEUR FRANCHE : la charge a besoin de place pour ses cases
+                de 62 px, leurs étiquettes de mois et sa barre de défilement. Sans hauteur imposée,
+                la rangée se cale sur le montant signé — deux lignes de texte — et écrase la
+                matrice. */}
             {vueServiceClient ? (
-              <div className="grid auto-rows-min grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
+              <div className="grid grid-cols-1 items-stretch gap-2.5 lg:min-h-[186px] lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
                 <TuileArgent sansPipe totaux={totaux} chargement={totauxEnCours} periode={periode} onPeriode={choisirPeriode} portee={portee} onPortee={choisirPortee} />
                 <ChargeLarge jours={chargeLarge} chargement={chargeLargeEnCours} jourChoisi={jourChoisi} onChoisirJour={setJourChoisi} />
               </div>

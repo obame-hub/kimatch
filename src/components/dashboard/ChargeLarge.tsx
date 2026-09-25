@@ -79,7 +79,7 @@ export function ChargeLarge({ jours, chargement, jourChoisi, onChoisirJour }: {
   }, [cases])
 
   return (
-    <section className="flex flex-col overflow-hidden rounded-[20px] bg-[#1B211D] px-4 pb-3 pt-3 shadow-[0_14px_34px_-22px_rgba(10,20,16,.8)]">
+    <section className="flex h-full min-w-0 flex-col overflow-hidden rounded-[20px] bg-[#1B211D] px-4 pb-3 pt-3 shadow-[0_14px_34px_-22px_rgba(10,20,16,.8)]">
       <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-km-name font-semibold text-white">Charge à venir</h3>
         <span className="text-km-label text-white/45">jusqu’à six mois · jours ouvrés</span>
@@ -109,7 +109,7 @@ export function ChargeLarge({ jours, chargement, jourChoisi, onChoisirJour }: {
       ) : cases.length === 0 ? (
         <p className="py-6 text-km-body text-white/50">Aucune tâche planifiée sur les six prochains mois.</p>
       ) : (
-        <div className="relative mt-2.5">
+        <div className="relative mt-auto pt-2.5">
           <div
             ref={piste}
             onScroll={mesurer}

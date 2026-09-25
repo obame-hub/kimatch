@@ -144,7 +144,18 @@ export function TuileArgent({
 
   return (
     <div
-      className="animate-km-card-rise relative flex flex-col overflow-hidden rounded-[20px] px-[18px] py-4 text-white shadow-[0_14px_34px_-20px_rgba(13,122,95,.55)] sm:col-span-2 lg:row-span-2"
+      /* ══ LES DEUX `span` NE VALENT QUE DANS LA GRILLE DE SIX ══
+         `sm:col-span-2 lg:row-span-2` place cette tuile dans la grille des commerciaux, où elle
+         occupe deux colonnes sur six et deux rangées. Dans la vue du service client, qui n'a que
+         DEUX colonnes, `col-span-2` lui fait prendre toute la largeur — et la charge à venir, qui
+         devait être à côté, tombe à la ligne suivante dans un quart de la place.
+         C'est exactement ce que William a vu le 25/09/2026 : « montant et charge à venir doivent
+         être sur la même ligne ». Les `span` appartiennent donc à la grille qui les emploie, pas
+         à la tuile. */
+      className={cn(
+        'animate-km-card-rise relative flex flex-col overflow-hidden rounded-[20px] px-[18px] py-4 text-white shadow-[0_14px_34px_-20px_rgba(13,122,95,.55)]',
+        !sansPipe && 'sm:col-span-2 lg:row-span-2',
+      )}
       style={{ background: 'linear-gradient(152deg,#199b78 0%,#0d7a5f 55%,#0a5F4A 100%)' }}
     >
       {/* ══ LE TITRE ET LES DEUX FILTRES SUR UNE SEULE LIGNE ══
