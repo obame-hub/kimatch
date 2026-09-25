@@ -80,12 +80,16 @@ export function RattachementModifiable({
   }, [ouvert])
 
   const terme = recherche.trim().toLowerCase()
+  /* ══ LA LISTE ÉTAIT COUPÉE À SIX ══
+     William, 25/09/2026 : « impossible de sélectionner un contact principal […] je dois pouvoir
+     choisir parmi TOUS les contacts du compte rattaché ». Sur un cabinet qui compte trente
+     gestionnaires, la personne cherchée n'était tout simplement pas dans la liste — et rien ne
+     disait qu'il en manquait vingt-quatre. On les rend toutes, et la liste défile. */
   const filtrees = options
     .filter((o) => !terme || `${o.libelle} ${o.sousLibelle ?? ''}`.toLowerCase().includes(terme))
     /* L'ACTUEL EN TÊTE : on doit pouvoir ouvrir la liste, regarder, et refermer sans rien
        changer. S'il se perdait au milieu des autres, le sélecteur inviterait à cliquer ailleurs. */
     .sort((a, b) => (a.id === valeurId ? -1 : b.id === valeurId ? 1 : 0))
-    .slice(0, 6)
 
   return (
     <div ref={boite} className={cn('group/rattach relative', className)}>
@@ -99,7 +103,13 @@ export function RattachementModifiable({
             'absolute right-[3px] top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded-km-sm border border-km-line bg-white px-[7px] py-[2px] text-km-label font-bold text-km-muted transition-opacity',
             'hover:border-km-green-line hover:bg-km-green-soft hover:text-km-green',
             'focus-visible:opacity-100 group-focus-within/rattach:opacity-100 group-hover/rattach:opacity-100',
-            ouvert ? 'border-km-green-line bg-km-green-soft text-km-green opacity-100' : 'opacity-0',
+            /* ══ IL RESTE VISIBLE TANT QUE RIEN N'EST RATTACHÉ ══
+               Le bouton s'effaçait toujours jusqu'au survol. C'est juste quand une valeur est là —
+               il ne doit pas encombrer ce qu'on vient lire. Mais quand il n'y en a AUCUNE, c'est
+               exactement le moment où il faut agir, et un bouton invisible sous un « Aucun contact
+               signataire » ne se trouve qu'en promenant la souris au hasard. */
+            ouvert ? 'border-km-green-line bg-km-green-soft text-km-green opacity-100'
+              : valeurId ? 'opacity-0' : 'border-km-green-line bg-km-green-soft text-km-green opacity-100',
           )}
         >
           <Pencil className="h-[11px] w-[11px]" />
@@ -120,10 +130,15 @@ export function RattachementModifiable({
             />
             {legende && <span className="shrink-0 text-km-tiny text-km-faint">{legende}</span>}
           </div>
-          {filtrees.length === 0 ? (
-            <p className="px-2.5 py-2 text-km-body text-km-faint">Aucun résultat.</p>
+          {/* Trois états qui n'ont rien à voir, et qu'un unique « Aucun résultat » confondait :
+              la liste est vide, ou c'est la recherche qui ne trouve rien. */}
+          {options.length === 0 ? (
+            <p className="px-2.5 py-2 text-km-body text-km-faint">Rien à proposer ici.</p>
+          ) : filtrees.length === 0 ? (
+            <p className="px-2.5 py-2 text-km-body text-km-faint">Rien ne correspond à « {recherche.trim()} ».</p>
           ) : (
-            filtrees.map((o) => (
+            <div className="max-h-[260px] overflow-y-auto">
+            {filtrees.map((o) => (
               <button
                 key={o.id}
                 type="button"
@@ -140,7 +155,8 @@ export function RattachementModifiable({
                   </span>
                 )}
               </button>
-            ))
+            ))}
+            </div>
           )}
           {onCreer && (
             <button

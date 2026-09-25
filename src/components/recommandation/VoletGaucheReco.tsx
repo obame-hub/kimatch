@@ -72,23 +72,40 @@ function initiales(nom: string): string {
  * contact né d'un seul mot tapé dans une barre de recherche est un doublon de plus dans une table
  * qui en compte déjà 3 380. Le lien se fait vers un contact existant.
  */
+/**
+ * ══ IL PROPOSAIT CINQ CONTACTS SUR TRENTE ══
+ *
+ * William, 25/09/2026 : « impossible de sélectionner un contact principal […] je dois pouvoir
+ * choisir parmi TOUS les contacts du compte rattaché ».
+ *
+ * `.slice(0, 5)` coupait la liste à cinq. Sur un cabinet qui compte trente gestionnaires, la
+ * personne cherchée n'y était tout simplement pas — et rien ne disait qu'il en manquait. La liste
+ * est désormais entière et défile ; le compte des cachés n'a plus lieu d'être puisqu'il n'y en a
+ * plus.
+ *
+ * ELLE DIT AUSSI CE QU'ELLE ATTEND. Trois états se ressemblaient à l'écran et n'ont rien à voir :
+ * la liste charge encore, le compte n'a aucun contact, ou la recherche ne trouve rien. Les
+ * confondre sous un unique « Aucun résultat » fait cliquer dans le vide en croyant l'outil cassé.
+ */
 function Selecteur({
   ouvert,
   onBasculer,
   options,
   onChoisir,
   placeholder,
+  enCours,
 }: {
   ouvert: boolean
   onBasculer: () => void
   options: { id: string; libelle: string }[]
   onChoisir: (id: string) => void
   placeholder: string
+  /** La liste n'est pas encore arrivée : on le dit, au lieu d'annoncer qu'elle est vide. */
+  enCours?: boolean
 }) {
   const [recherche, setRecherche] = useState('')
   const filtrees = options
     .filter((o) => !recherche || o.libelle.toLowerCase().includes(recherche.toLowerCase()))
-    .slice(0, 5)
 
   if (!ouvert) {
     return (
@@ -122,19 +139,26 @@ function Selecteur({
             className="min-w-0 flex-1 border-0 bg-transparent text-km-body text-km-text outline-none placeholder:text-km-faint"
           />
         </div>
-        {filtrees.length === 0 ? (
-          <p className="px-2 py-2 text-km-body text-km-faint">Aucun résultat.</p>
+        {enCours ? (
+          <p className="px-2 py-2 text-km-body text-km-faint">Lecture des contacts du compte…</p>
+        ) : options.length === 0 ? (
+          <p className="px-2 py-2 text-km-body text-km-faint">Ce compte n’a aucun contact.</p>
+        ) : filtrees.length === 0 ? (
+          <p className="px-2 py-2 text-km-body text-km-faint">Aucun contact ne correspond à « {recherche} ».</p>
         ) : (
-          filtrees.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => { onChoisir(o.id); setRecherche('') }}
-              className="block w-full truncate rounded-km-sm px-2 py-1.5 text-left text-km-body font-semibold text-km-text hover:bg-km-bg"
-            >
-              {o.libelle}
-            </button>
-          ))
+          /* LA LISTE ENTIÈRE, QUI DÉFILE. Elle était coupée à cinq — voir l'en-tête. */
+          <div className="max-h-[220px] overflow-y-auto">
+            {filtrees.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => { onChoisir(o.id); setRecherche('') }}
+                className="block w-full truncate rounded-km-sm px-2 py-1.5 text-left text-km-body font-semibold text-km-text hover:bg-km-bg"
+              >
+                {o.libelle}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </>
@@ -162,6 +186,7 @@ export function RattachementsReco({
   reco,
   compte,
   contacts,
+  contactsEnCours,
   compteurs,
   documents,
   contactPrincipal,
@@ -178,6 +203,8 @@ export function RattachementsReco({
   reco: Recommandation
   compte: Compte | null | undefined
   contacts: Contact[]
+  /** Vrai tant que la liste des contacts du compte n'est pas arrivée. */
+  contactsEnCours?: boolean
   /** Objets et documents liés présentés dans l'onglet Rattachements de la recommandation. */
   compteurs: Compteur[]
   documents: { id: string; nom: string; type_document: string | null }[]
@@ -286,9 +313,10 @@ export function RattachementsReco({
             <Selecteur
               ouvert={selecteurOuvert === 'contact'}
               onBasculer={() => setSelecteurOuvert((v) => (v === 'contact' ? null : 'contact'))}
-              options={contacts.map((c) => ({ id: c.id, libelle: `${c.prenom} ${c.nom}`.trim() }))}
+              options={contacts.map((c) => ({ id: c.id, libelle: [`${c.prenom ?? ''} ${c.nom}`.trim(), c.fonction].filter(Boolean).join(' · ') }))}
               onChoisir={(id) => { onMajContactSignataire(id); setSelecteurOuvert(null) }}
               placeholder="Rechercher un contact du compte…"
+              enCours={contactsEnCours}
             />
           )}
           {contactPrincipal && (

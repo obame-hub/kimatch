@@ -366,10 +366,20 @@ export default function RecommandationDetail() {
   }, [reco, versionAfficheeId])
 
   const versionActive = reco?.versions.find((v) => v.version_actuelle) ?? reco?.versions[0] ?? null
+  /**
+   * ══ ON N'INVENTE PLUS DE SIGNATAIRE ══
+   *
+   * La dernière branche était `?? contacts[0]` : faute de signataire, la fiche montrait LE PREMIER
+   * CONTACT DU COMPTE, dans l'ordre où la requête l'avait rendu, comme s'il l'était. 123
+   * recommandations sur 1 797 n'ont pas de signataire : autant de fiches qui affirmaient quelque
+   * chose de faux, et sur lesquelles désigner le bon contact ne changeait rien à l'écran quand il
+   * se trouvait déjà être ce premier-là.
+   *
+   * `contact_principal` reste un repli légitime — c'est un fait du contact, pas un hasard de tri.
+   */
   const contactPrincipal =
     contacts?.find((c) => c.id === reco?.contact_signataire_id)
-    ?? contacts?.find((c) => c.contact_principal)
-    ?? contacts?.[0]
+    ?? (reco?.contact_signataire_id ? undefined : contacts?.find((c) => c.contact_principal))
 
   /**
    * Ordre des onglets : « Commande du client » d'abord tant que le dossier est au Diagnostic et pas
