@@ -334,3 +334,67 @@ export function useDeleteDocument() {
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['documents'] }) },
   })
 }
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+ * OUVRIR UN DOCUMENT — LE BUCKET EST PRIVÉ, L'URL ENREGISTRÉE NE L'EST PAS
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 25/09/2026, sur une proposition commerciale : « impossible de télécharger […] j'ai
+ * l'erreur {"statusCode":"404","error":"Bucket not found","code":"NoSuchBucket"} ».
+ *
+ * ── CE QUI SE PASSAIT ─────────────────────────────────────────────────────────────────────────
+ *
+ * Le bucket `documents` est PRIVÉ. Or chaque dépôt enregistre dans `documents.url` une adresse de
+ * la forme `/storage/v1/object/public/documents/<chemin>`, et les écrans la posaient telle quelle
+ * dans un `href`. Supabase répond à une lecture publique sur un bucket privé comme si le bucket
+ * n'existait pas — d'où ce « NoSuchBucket » qui laisse croire à une donnée perdue alors que le
+ * fichier est bien là, au bon endroit.
+ *
+ * CE N'ÉTAIT PAS UN CAS ISOLÉ : au 25/09/2026, 19 685 des 19 688 documents actifs portent une
+ * adresse de ce type. Aucun document de Kimatch n'était téléchargeable.
+ *
+ * ── POURQUOI ON NE REND PAS LE BUCKET PUBLIC ──────────────────────────────────────────────────
+ *
+ * Ce serait une ligne, et ce serait la mauvaise. Ce bucket contient les mandats signés, les
+ * contrats, les factures et les rapports de consultation de nos clients : public, chacun de ces
+ * fichiers serait lisible par quiconque connaît — ou devine — son adresse, sans aucune connexion.
+ * On signe donc à la demande, comme le fait déjà l'onglet Nouveautés (`htmlPublication.ts`).
+ *
+ * L'ADRESSE EN BASE N'EST PAS RÉÉCRITE, et c'est volontaire : une URL signée EXPIRE. La remplacer
+ * en base par une adresse valable une heure produirait 19 685 liens morts le lendemain. La colonne
+ * garde donc le chemin — sous une forme d'URL — et la signature se fait au moment du clic.
+ */
+
+const MARQUEUR_PUBLIC = '/storage/v1/object/public/documents/'
+
+/** Le chemin dans le bucket, extrait d'une adresse enregistrée. `null` si ce n'en est pas une. */
+export function cheminDansLeBucket(url: string | null | undefined): string | null {
+  if (!url) return null
+  const i = url.indexOf(MARQUEUR_PUBLIC)
+  if (i < 0) return null
+  /* Le chemin a été encodé en entrant dans l'URL — un nom de fichier contient des espaces et des
+     accents. `createSignedUrl` attend le chemin BRUT, celui de `storage.objects.name`. */
+  return decodeURIComponent(url.slice(i + MARQUEUR_PUBLIC.length))
+}
+
+/**
+ * L'adresse à ouvrir pour un document, signée si elle en a besoin.
+ *
+ * Une heure de validité : le temps de lire un contrat de vingt pages et d'en ouvrir trois autres,
+ * sans qu'un lien copié dans une conversation reste valable indéfiniment.
+ *
+ * Ce qui n'est pas un document de ce bucket — un avatar, une adresse externe — ressort inchangé :
+ * la fonction peut donc s'appliquer partout sans avoir à savoir d'où vient l'adresse.
+ */
+export async function urlOuvrableDocument(url: string): Promise<string> {
+  const chemin = cheminDansLeBucket(url)
+  if (!chemin) return url
+  const { data, error } = await supabase.storage.from('documents').createSignedUrl(chemin, 3600)
+  if (error || !data?.signedUrl) {
+    /* Aucun échec muet : sans ce message, le clic ne fait rien et l'on croit l'application figée. */
+    throw new Error(
+      `Ce fichier n’a pas pu être ouvert : ${error?.message ?? 'lien de téléchargement indisponible'}.`,
+    )
+  }
+  return data.signedUrl
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Download, ExternalLink, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { urlOuvrableDocument } from '@/lib/data/documents'
 
 /** Type MIME déduit de l'extension du fichier. */
 function typeMime(nom: string): string | null {
@@ -33,11 +34,33 @@ function typeMime(nom: string): string | null {
  *
  * L'ouverture en nouvel onglet reste proposée à côté : elle est plus confortable pour lire un
  * contrat de vingt pages, et c'est l'habitude actuelle.
+ *
+ * ══ L'ADRESSE EST SIGNÉE AVANT D'ÊTRE LUE (25/09/2026) ══
+ *
+ * Le commentaire ci-dessus affirmait « le bucket est public ». Il ne l'est pas, et c'est ce qui
+ * rendait tout aperçu impossible : Supabase répondait « NoSuchBucket » à chaque lecture. Les trois
+ * chemins de ce composant — le `fetch` de l'aperçu et les deux boutons — passent donc par
+ * `urlOuvrableDocument`. Voir la note dans `src/lib/data/documents.ts`.
  */
 export function ApercuDocument({ url, nomFichier }: { url: string; nomFichier: string }) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [chargement, setChargement] = useState(true)
+  const [ouverture, setOuverture] = useState(false)
+
+  /* Les deux boutons signent au clic plutôt qu'au chargement : une signature posée à l'affichage
+     aurait déjà vieilli d'une heure quand on clique enfin, sur une fiche restée ouverte. */
+  async function ouvrirDansUnOnglet() {
+    if (ouverture) return
+    setOuverture(true)
+    try {
+      window.open(await urlOuvrableDocument(url), '_blank', 'noopener')
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : 'Ce fichier n’a pas pu être ouvert.')
+    } finally {
+      setOuverture(false)
+    }
+  }
 
   const mime = typeMime(nomFichier || url)
 
@@ -51,7 +74,7 @@ export function ApercuDocument({ url, nomFichier }: { url: string; nomFichier: s
 
     async function charger() {
       try {
-        const reponse = await fetch(url)
+        const reponse = await fetch(await urlOuvrableDocument(url))
         if (!reponse.ok) throw new Error(`Le fichier n'a pas pu être récupéré (${reponse.status}).`)
         const donnees = await reponse.blob()
         if (annule) return
@@ -74,11 +97,11 @@ export function ApercuDocument({ url, nomFichier }: { url: string; nomFichier: s
 
   const actions = (
     <div className="flex flex-wrap gap-2">
-      <Button type="button" size="sm" variant="outline" onClick={() => window.open(url, '_blank', 'noopener')}>
+      <Button type="button" size="sm" variant="outline" disabled={ouverture} onClick={() => void ouvrirDansUnOnglet()}>
         <ExternalLink className="h-3.5 w-3.5" />
         Ouvrir dans un onglet
       </Button>
-      <Button type="button" size="sm" variant="ghost" onClick={() => window.open(url, '_blank', 'noopener')}>
+      <Button type="button" size="sm" variant="ghost" disabled={ouverture} onClick={() => void ouvrirDansUnOnglet()}>
         <Download className="h-3.5 w-3.5" />
         Télécharger
       </Button>

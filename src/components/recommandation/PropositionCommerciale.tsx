@@ -4,6 +4,7 @@ import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/docum
 import { useOuvrirEmail } from '@/lib/voletEmail'
 import { cn } from '@/lib/utils'
 import type { Contact, Recommandation, VersionRecommandation } from '@/types/domain'
+import { LienDocument } from '@/components/document/LienDocument'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -160,12 +161,10 @@ export function PropositionCommerciale({
           <span className="flex h-[30px] w-[25px] shrink-0 items-center justify-center rounded border border-km-red-line bg-km-red-soft text-km-tiny font-extrabold text-km-red">
             PDF
           </span>
-          <a
-            href={proposition.url}
-            target="_blank"
-            rel="noreferrer"
-            title={`Ouvrir ${proposition.nom_fichier || proposition.nom}`}
-            className="min-w-0 max-w-[280px]"
+          <LienDocument
+            url={proposition.url}
+            titre={`Ouvrir ${proposition.nom_fichier || proposition.nom}`}
+            className="min-w-0 max-w-[280px] text-left"
           >
             <span className="block truncate text-km-body font-bold text-km-text hover:text-km-green hover:underline">
               {proposition.nom_fichier || proposition.nom}
@@ -174,7 +173,7 @@ export function PropositionCommerciale({
               déposée le {new Date(proposition.date_creation).toLocaleDateString('fr-FR')}
               {proposition.auteur ? ` par ${proposition.auteur}` : ''}
             </span>
-          </a>
+          </LienDocument>
           {peutModifier && (
             <button
               type="button"

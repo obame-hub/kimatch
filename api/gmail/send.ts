@@ -186,12 +186,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(400).json({ error: `Pièce jointe refusée : « ${p?.nom ?? '?'} » ne vient pas du stockage de Kimatch.` })
       return
     }
-    const reponse = await fetch(p.url)
-    if (!reponse.ok) {
-      res.status(502).json({ error: `Pièce jointe « ${p.nom} » introuvable (${reponse.status}). Rien n'a été envoyé.` })
+    /* ══ LE BUCKET EST PRIVÉ : ON TÉLÉCHARGE, ON NE VA PAS CHERCHER L'ADRESSE ══
+       L'adresse enregistrée est de la forme `/object/public/documents/…`, mais le bucket ne l'est
+       pas : un `fetch` dessus recevait « NoSuchBucket », et AUCUNE pièce jointe ne partait. Ici,
+       contrairement au navigateur, rien ne sert de signer — ce client porte la clé de service et
+       lit le fichier en direct. Le préfixe validé juste au-dessus reste le garde-fou : il
+       garantit que l'on ne télécharge que des fichiers de notre propre stockage. */
+    const cheminDansLeBucket = decodeURIComponent(p.url.slice(prefixeStockage.length))
+    const { data: fichier, error: erreurFichier } = await supabase.storage
+      .from('documents')
+      .download(cheminDansLeBucket)
+    if (erreurFichier || !fichier) {
+      res.status(502).json({
+        error: `Pièce jointe « ${p.nom} » introuvable (${erreurFichier?.message ?? 'fichier absent'}). Rien n'a été envoyé.`,
+      })
       return
     }
-    const octets = Buffer.from(await reponse.arrayBuffer())
+    const octets = Buffer.from(await fichier.arrayBuffer())
     totalOctets += octets.length
     if (totalOctets > LIMITE_GMAIL) {
       res.status(413).json({

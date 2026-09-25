@@ -4,6 +4,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { ChevronLeft, ChevronRight, Download, ExternalLink, Loader2, Maximize2, Minus, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CadreVide } from '@/components/mandat/ListeFichiers'
+import { urlOuvrableDocument } from '@/lib/data/documents'
 
 /**
  * ══ LIRE UN PDF DANS KIMATCH, SANS OUVRIR D'ONGLET ══
@@ -54,6 +55,13 @@ const ZOOM_MIN = 0.5
 const ZOOM_MAX = 2.5
 
 export function VisionneusePdf({ url, nomFichier }: { url: string; nomFichier: string }) {
+  /* ══ L'ADRESSE EST SIGNÉE UNE FOIS, À L'OUVERTURE (25/09/2026) ══
+     Le bucket `documents` est privé : l'adresse enregistrée en base ne se lit pas telle quelle, et
+     pdf.js recevait « NoSuchBucket » au lieu d'un PDF. Ici, contrairement aux boutons d'aperçu, la
+     signature se fait AU MONTAGE et sert aux trois usages du composant — le rendu, le lien de
+     secours et les deux boutons de la barre : ils doivent tous désigner le même fichier, et une
+     visionneuse ouverte n'est pas laissée des heures sans être rechargée. */
+  const [urlSignee, setUrlSignee] = useState<string | null>(null)
   const [document_, setDocument] = useState<PDFDocumentProxy | null>(null)
   const [page, setPage] = useState(1)
   const [zoom, setZoom] = useState(1)
@@ -66,14 +74,28 @@ export function VisionneusePdf({ url, nomFichier }: { url: string; nomFichier: s
   const zoneRendu = useRef<HTMLDivElement>(null)
   const tacheRendu = useRef<{ cancel: () => void } | null>(null)
 
+  useEffect(() => {
+    let annule = false
+    setUrlSignee(null)
+    urlOuvrableDocument(url)
+      .then((signee) => { if (!annule) setUrlSignee(signee) })
+      .catch((e: unknown) => {
+        if (annule) return
+        setErreur(e instanceof Error ? e.message : 'Ce document n’a pas pu être ouvert.')
+        setChargement(false)
+      })
+    return () => { annule = true }
+  }, [url])
+
   // ── Chargement du document ──
   useEffect(() => {
+    if (!urlSignee) return
     let annule = false
     setChargement(true)
     setErreur(null)
     setPage(1)
 
-    const tache = pdfjs.getDocument({ url, withCredentials: false })
+    const tache = pdfjs.getDocument({ url: urlSignee, withCredentials: false })
     tache.promise
       .then((doc) => {
         // `tache.destroy()` du nettoyage suffit à libérer le document : `PDFDocumentProxy`
@@ -90,7 +112,7 @@ export function VisionneusePdf({ url, nomFichier }: { url: string; nomFichier: s
       annule = true
       void tache.destroy()
     }
-  }, [url])
+  }, [urlSignee])
 
   // ── Rendu de la page courante ──
   const rendre = useCallback(async () => {
@@ -174,7 +196,7 @@ export function VisionneusePdf({ url, nomFichier }: { url: string; nomFichier: s
         <p className="text-km-body font-bold text-km-text">Ce document n’a pas pu être ouvert</p>
         <p className="max-w-[42ch] text-km-label leading-relaxed text-km-muted">{erreur}</p>
         <a
-          href={url}
+          href={urlSignee ?? url}
           target="_blank"
           rel="noreferrer"
           className="mt-1 inline-flex items-center gap-1.5 rounded-km border border-km-line bg-white px-2.5 py-1 text-km-label font-semibold text-km-muted hover:border-km-green hover:text-km-green"
@@ -244,10 +266,10 @@ export function VisionneusePdf({ url, nomFichier }: { url: string; nomFichier: s
 
         <span className="mx-1 h-4 w-px bg-km-line" />
 
-        <a href={url} target="_blank" rel="noreferrer" className={boutonBarre} title="Ouvrir dans un onglet">
+        <a href={urlSignee ?? url} target="_blank" rel="noreferrer" className={boutonBarre} title="Ouvrir dans un onglet">
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
-        <a href={url} download={nomFichier} className={boutonBarre} title="Télécharger">
+        <a href={urlSignee ?? url} download={nomFichier} className={boutonBarre} title="Télécharger">
           <Download className="h-3.5 w-3.5" />
         </a>
       </div>

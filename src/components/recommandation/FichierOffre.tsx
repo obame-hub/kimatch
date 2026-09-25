@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Paperclip, FileText, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDocumentsParEntites, useTeleverserDocuments, useDeleteDocument } from '@/lib/data/documents'
+import { LienDocument } from '@/components/document/LienDocument'
 
 /**
  * La grille de prix reçue du fournisseur, attachée à SON offre.
@@ -77,15 +78,13 @@ export function FichierOffre({
           className="inline-flex max-w-full items-center gap-1.5 rounded-km-sm border border-km-line-soft bg-white px-1.5 py-0.5"
         >
           <FileText className="h-3 w-3 shrink-0 text-km-red" />
-          <a
-            href={d.url}
-            target="_blank"
-            rel="noreferrer"
-            title={`${d.nom} — ouvrir`}
+          <LienDocument
+            url={d.url}
+            titre={`${d.nom} — ouvrir`}
             className="truncate text-km-body font-semibold text-km-text hover:underline"
           >
             {d.nom}
-          </a>
+          </LienDocument>
           {peutModifier && (
             <button
               type="button"

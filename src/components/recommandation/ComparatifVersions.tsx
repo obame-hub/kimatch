@@ -5,6 +5,7 @@ import type { DocumentItem, Recommandation, VersionRecommandation, OffreFourniss
 import { prixMoyenMWh } from '@/lib/prixOffre'
 import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 import { euros, montantAvecUnite } from '@/lib/euros'
+import { LienDocument } from '@/components/document/LienDocument'
 
 /**
  * Comparatif des versions — le tableau central de l'onglet Recommandation.
@@ -152,16 +153,14 @@ export function ComparatifVersions({
           const doc = propositionDe(v)
           if (!doc) return null
           return (
-            <a
-              href={doc.url}
-              target="_blank"
-              rel="noreferrer"
-              title={`Ouvrir ${doc.nom_fichier || doc.nom} — déposée le ${new Date(doc.date_creation).toLocaleDateString('fr-FR')}`}
+            <LienDocument
+              url={doc.url}
+              titre={`Ouvrir ${doc.nom_fichier || doc.nom} — déposée le ${new Date(doc.date_creation).toLocaleDateString('fr-FR')}`}
               className="inline-flex max-w-full items-center gap-1 truncate text-km-label font-bold text-km-green hover:underline"
             >
               <FileText className="h-3 w-3 shrink-0" />
               <span className="truncate">{doc.nom_fichier || doc.nom}</span>
-            </a>
+            </LienDocument>
           )
         },
       },

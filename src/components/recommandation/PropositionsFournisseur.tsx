@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { FileText, Loader2, Plus, X } from 'lucide-react'
 import { useDeleteDocument, useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
+import { LienDocument } from '@/components/document/LienDocument'
 
 /**
  * ══════════ LES PROPOSITIONS REÇUES D'UN FOURNISSEUR ══════════
@@ -78,15 +79,13 @@ export function PropositionsFournisseur({
           className="group/fich inline-flex items-center gap-1.5 rounded-km-sm border border-km-line bg-white px-2 py-[3px] text-km-label text-km-muted"
         >
           <FileText className="h-3 w-3 shrink-0 text-km-red" />
-          <a
-            href={d.url}
-            target="_blank"
-            rel="noreferrer"
-            title={d.nom_fichier || d.nom}
+          <LienDocument
+            url={d.url}
+            titre={d.nom_fichier || d.nom}
             className="max-w-[160px] truncate hover:text-km-green hover:underline"
           >
             {d.nom_fichier || d.nom}
-          </a>
+          </LienDocument>
           {peutModifier && (
             <button
               type="button"
