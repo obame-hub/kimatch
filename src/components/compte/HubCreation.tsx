@@ -14,7 +14,8 @@ import { useEffect, useRef, useState } from 'react'
  * l'animation d'entrée qui anime `opacity` et `transform`.
  */
 
-/** Les six créations, dans l'ordre et avec les tracés SVG de la maquette. */
+/** Les six créations, dans l'ordre et avec les tracés SVG de la maquette. « Site » en est parti
+ *  le 25/09/2026 — voir la note à sa place. */
 const ACTIONS = [
   {
     cle: 'compte',
@@ -24,14 +25,16 @@ const ACTIONS = [
     fond: '#e9eff6',
     d: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 11h.01M15 11h.01',
   },
-  {
-    cle: 'site',
-    label: 'Nouveau site',
-    indice: 'Copropriété, siège, usine',
-    couleur: '#0d7a5f',
-    fond: '#eaf4f0',
-    d: 'M12 21s-7-4.8-7-10.7a7 7 0 0 1 14 0C19 16.2 12 21 12 21zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
-  },
+  /* PLUS DE « NOUVEAU SITE ». William, 25/09/2026 : « tu dois supprimer le bouton Nouveau site
+     puisqu'on n'utilise plus l'objet site (uniquement compteur) ».
+
+     L'entrée avait survécu au retrait de l'objet lui-même, le 09/09/2026 — le menu « Créer » de la
+     barre du haut l'avait perdue le jour même (voir `OBJETS_CREABLES`), ce hub-ci l'avait gardée.
+     Elle ne faisait d'ailleurs RIEN : aucun des deux écrans qui montent ce hub ne traitait la clé
+     `site`, donc cliquer dessus fermait le menu et s'arrêtait là.
+
+     Ce qu'elle proposait de créer se crée en créant un COMPTEUR : c'est lui qui pose le libellé de
+     site, l'adresse et le groupe d'adresse (déclencheur `trg_compteur_herite_de_son_site`). */
   {
     cle: 'contact',
     label: 'Nouveau contact',
@@ -100,14 +103,14 @@ export function HubCreation({
 
   /* ══ LES TOUCHES DU HUB SONT PARTIES (16/09/2026) ══
      William : « oublie les raccourcis clavier […] la navigation se fera au clic uniquement ».
-     « C » ouvrait ce menu, puis A/S/T/M/O/R/D déclenchaient ses sept lignes. Jamais utilisées en
+     « C » ouvrait ce menu, puis A/S/T/M/O/R/D déclenchaient ses lignes. Jamais utilisées en
      production, et coûteuses : c'est à cause de « R », partagé avec la relance de la fiche compte,
      qu'il fallait faire remonter l'état d'ouverture au parent (`onOuvertChange`) pour arbitrer deux
      écouteurs sur `window` — deux écouteurs ne peuvent pas s'arbitrer autrement que par leur ordre
      d'attachement. Ce fil de dépendances disparaît avec les touches.
 
      ÉCHAP RESTE, et ce n'est pas un raccourci : c'est la sortie d'un panneau ouvert, au même titre
-     que le clic à l'extérieur. Les sept créations rejoindront la palette de recherche. */
+     que le clic à l'extérieur. Les créations rejoindront la palette de recherche. */
   useEffect(() => {
     if (!ouvert) return
     function surEchap(e: KeyboardEvent) {
