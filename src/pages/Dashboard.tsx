@@ -305,9 +305,13 @@ export default function Dashboard() {
                 Le service client ne suit pas un pipe et n'a pas d'offres à produire : les cinq
                 compteurs de la rangée — appels, mails, propositions, pistes, dossiers — décrivent
                 le travail d'un commercial. À leur place, ce qu'il regarde vraiment : sa charge, sur
-                six mois au lieu de dix jours. */}
+                six mois au lieu de dix jours.
+
+                UN QUART, TROIS QUARTS : « le montant signé est une card qui prend 25 % de la
+                largeur, les autres 75 % doivent être utilisés par le composant de charge à
+                venir ». */}
             {vueServiceClient ? (
-              <div className="grid auto-rows-min grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+              <div className="grid auto-rows-min grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
                 <TuileArgent sansPipe totaux={totaux} chargement={totauxEnCours} periode={periode} onPeriode={choisirPeriode} portee={portee} onPortee={choisirPortee} />
                 <ChargeLarge jours={chargeLarge} chargement={chargeLargeEnCours} jourChoisi={jourChoisi} onChoisirJour={setJourChoisi} />
               </div>

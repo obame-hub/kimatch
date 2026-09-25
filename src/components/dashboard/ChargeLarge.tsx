@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react'
+import { CaseJour, MOIS_COURTS } from '@/components/dashboard/MatriceCharge'
+import { depuisIso } from '@/lib/data/tachesDuJour'
 import { cn } from '@/lib/utils'
 
 /**
@@ -7,32 +9,26 @@ import { cn } from '@/lib/utils'
  * LA CHARGE À VENIR, SUR SIX MOIS
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
- * William, 25/09/2026 : « les 5 cards à droite du montant doivent disparaître et être remplacées
- * par le composant "Charge à venir". Ce composant doit prendre toute la place et ainsi proposer
- * plus de jours que pour les commerciaux. Ce composant est slidable afin de visualiser les jours
- * futurs (limite à M+6). »
+ * William, 25/09/2026 : « reprends la même logique que sur l'autre vue d'ensemble, avec des cards
+ * correspondant au jour, un remplissage et le nombre à l'intérieur. Adapte-le juste à cette
+ * nouvelle largeur. »
  *
- * ══ POURQUOI PAS `MatriceCharge` ══
+ * ══ LA CASE EST CELLE DE LA MATRICE, PAS UNE COPIE ══
  *
- * La matrice des commerciaux tient dans une colonne étroite, à hauteur imposée, sur dix jours
- * ouvrés. Ses proportions viennent de là : « réduis à 10 jours ouvrés », parce qu'à quinze les
- * vignettes tombaient à 65 px et qu'il fallait les déchiffrer.
+ * `CaseJour` vient de `MatriceCharge`. Ses quatre paliers de couleur, son trait de plafond, sa
+ * jauge qui monte depuis le bas : tout cela a été réglé à l'écran le 11/09/2026, après un « trop
+ * de couleurs, ça complexifie la lecture ». Deux jauges à accorder auraient fini par diverger.
  *
- * Ici la contrainte s'inverse — toute la largeur, cent quatre-vingts jours — et rien de ce qui
- * faisait la matrice ne s'y transpose. Un composant qui aurait servi les deux aurait porté deux
- * jeux de proportions et un drapeau pour choisir entre eux.
+ * ══ CE QUI CHANGE, C'EST LA DISPOSITION ══
  *
- * ══ LE MOIS EST LE REPÈRE, PAS LE JOUR ══
- *
- * Sur six mois, une suite de cent quatre-vingts colonnes datées ne se lit pas. Les jours restent
- * les barres — c'est la charge réelle — mais ce sont les MOIS qui portent les étiquettes et les
- * séparateurs. On cherche « quand ai-je de la place en janvier », pas « combien le 14 ».
+ * La matrice des commerciaux range dix jours en deux lignes de cinq — une ligne, une semaine. Sur
+ * cent quatre-vingts jours, ce pliage n'a plus de sens : il ferait dix-huit lignes. Ici les cases
+ * défilent sur UNE ligne, groupées par mois, et c'est le mois qui porte l'étiquette. On cherche
+ * « où ai-je de la place en janvier », pas « quelle semaine ».
  */
 
-const HAUTEUR_BARRE = 58
-
-/** Au-delà, la journée est saturée — le même seuil que la matrice des commerciaux. */
-const SATURATION = 70
+const LARGEUR_CASE = 46
+const HAUTEUR_CASE = 62
 
 export function ChargeLarge({ jours, chargement, jourChoisi, onChoisirJour }: {
   jours: { jour: string; taches: number }[] | undefined
@@ -45,7 +41,7 @@ export function ChargeLarge({ jours, chargement, jourChoisi, onChoisirJour }: {
   const [reste, setReste] = useState({ gauche: false, droite: false })
 
   const cases = useMemo(() => jours ?? [], [jours])
-  const max = useMemo(() => Math.max(SATURATION, ...cases.map((c) => c.taches)), [cases])
+  const total = cases.reduce((s, c) => s + c.taches, 0)
 
   /* Le voile n'apparaît que s'il y a vraiment quelque chose au-delà : promettre du contenu qui
      n'existe pas est pire que de ne rien promettre. */
@@ -65,40 +61,38 @@ export function ChargeLarge({ jours, chargement, jourChoisi, onChoisirJour }: {
   }, [mesurer, cases])
 
   function glisser(sens: -1 | 1) {
-    piste.current?.scrollBy({ left: sens * 360, behavior: 'smooth' })
+    piste.current?.scrollBy({ left: sens * LARGEUR_CASE * 7, behavior: 'smooth' })
   }
 
   /* Les jours groupés par mois : c'est le mois qui porte l'étiquette et la frontière. */
   const parMois = useMemo(() => {
-    const groupes: { cle: string; libelle: string; jours: typeof cases }[] = []
-    for (const c of cases) {
-      const d = new Date(`${c.jour}T12:00:00`)
+    const groupes: { cle: string; libelle: string; jours: { jour: string; taches: number; rang: number }[] }[] = []
+    cases.forEach((c, rang) => {
+      const d = depuisIso(c.jour)
       const cle = `${d.getFullYear()}-${d.getMonth()}`
       const dernier = groupes[groupes.length - 1]
-      if (dernier?.cle === cle) dernier.jours.push(c)
-      else groupes.push({ cle, libelle: d.toLocaleDateString('fr-FR', { month: 'long' }), jours: [c] })
-    }
+      const entree = { ...c, rang }
+      if (dernier?.cle === cle) dernier.jours.push(entree)
+      else groupes.push({ cle, libelle: MOIS_COURTS[d.getMonth()], jours: [entree] })
+    })
     return groupes
   }, [cases])
 
-  const total = cases.reduce((s, c) => s + c.taches, 0)
-
   return (
-    <section className="relative flex flex-col overflow-hidden rounded-[20px] bg-[#1B211D] px-4 pb-4 pt-3 shadow-[0_14px_34px_-22px_rgba(10,20,16,.8)]">
+    <section className="flex flex-col overflow-hidden rounded-[20px] bg-[#1B211D] px-4 pb-3 pt-3 shadow-[0_14px_34px_-22px_rgba(10,20,16,.8)]">
       <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-km-name font-semibold text-white">Charge à venir</h3>
         <span className="text-km-label text-white/45">jusqu’à six mois · jours ouvrés</span>
         <span className="flex-1" />
         {/* LE RETOUR EST TOUJOURS VISIBLE quand un jour est choisi. Sans lui, la seule façon de
-            revenir à la vue complète serait de retrouver la barre exacte sur laquelle on a cliqué,
-            parmi cent quatre-vingts. */}
+            revenir à la vue complète serait de retrouver la case exacte parmi cent quatre-vingts. */}
         {jourChoisi ? (
           <button
             type="button"
             onClick={() => onChoisirJour(null)}
             className="inline-flex items-center gap-1.5 rounded-km-pill bg-white/15 px-2.5 py-1 text-km-label font-semibold text-white transition-colors hover:bg-white/25"
           >
-            {new Date(`${jourChoisi}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+            {depuisIso(jourChoisi).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
             <X className="h-3 w-3" strokeWidth={2.6} />
           </button>
         ) : (
@@ -109,30 +103,34 @@ export function ChargeLarge({ jours, chargement, jourChoisi, onChoisirJour }: {
       </div>
 
       {chargement ? (
-        <p className="flex items-center gap-2 py-8 text-km-body text-white/50">
+        <p className="flex items-center gap-2 py-6 text-km-body text-white/50">
           <Loader2 className="h-4 w-4 animate-spin" /> Lecture de la charge…
         </p>
       ) : cases.length === 0 ? (
-        <p className="py-8 text-km-body text-white/50">Aucune tâche planifiée sur les six prochains mois.</p>
+        <p className="py-6 text-km-body text-white/50">Aucune tâche planifiée sur les six prochains mois.</p>
       ) : (
-        <div className="relative mt-3">
+        <div className="relative mt-2.5">
           <div
             ref={piste}
             onScroll={mesurer}
-            className="flex items-end gap-4 overflow-x-auto pb-1 [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar]:h-1.5"
+            className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar]:h-1.5"
           >
             {parMois.map((mois, iMois) => (
-              <div key={mois.cle} className={cn('flex shrink-0 flex-col gap-1.5', iMois > 0 && 'border-l border-white/10 pl-4')}>
-                <div className="flex items-end gap-[3px]" style={{ height: HAUTEUR_BARRE }}>
+              <div key={mois.cle} className={cn('flex shrink-0 flex-col gap-1.5', iMois > 0 && 'border-l border-white/10 pl-3')}>
+                <div className="flex gap-1.5" style={{ height: HAUTEUR_CASE }}>
                   {mois.jours.map((c) => (
-                    <BarreJour
-                      key={c.jour}
-                      jour={c.jour}
-                      taches={c.taches}
-                      max={max}
-                      choisi={c.jour === jourChoisi}
-                      onChoisir={() => onChoisirJour(c.jour === jourChoisi ? null : c.jour)}
-                    />
+                    <div key={c.jour} className="shrink-0" style={{ width: LARGEUR_CASE }}>
+                      <CaseJour
+                        jour={c.jour}
+                        taches={c.taches}
+                        /* L'ANIMATION EN CASCADE S'ARRÊTE À LA PREMIÈRE QUINZAINE. À 45 ms par case
+                           et cent quatre-vingts cases, le rideau durerait huit secondes ; au-delà
+                           de ce qui est visible au premier regard, tout monte ensemble. */
+                        rang={Math.min(c.rang, 14)}
+                        choisi={c.jour === jourChoisi}
+                        onChoisir={() => onChoisirJour(c.jour === jourChoisi ? null : c.jour)}
+                      />
+                    </div>
                   ))}
                 </div>
                 <span className="truncate text-km-micro font-bold uppercase tracking-[0.08em] text-white/40">
@@ -144,10 +142,10 @@ export function ChargeLarge({ jours, chargement, jourChoisi, onChoisirJour }: {
 
           {reste.gauche && (
             <>
-              <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-[#1B211D] to-transparent" />
+              <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-[#1B211D] to-transparent" />
               <button
                 type="button" onClick={() => glisser(-1)} aria-label="Voir les jours précédents"
-                className="absolute left-0 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20"
+                className="absolute left-0 top-[31px] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20"
               >
                 <ChevronLeft className="h-4 w-4" strokeWidth={2.4} />
               </button>
@@ -155,10 +153,10 @@ export function ChargeLarge({ jours, chargement, jourChoisi, onChoisirJour }: {
           )}
           {reste.droite && (
             <>
-              <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-[#1B211D] to-transparent" />
+              <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[#1B211D] to-transparent" />
               <button
                 type="button" onClick={() => glisser(1)} aria-label="Voir les jours suivants"
-                className="absolute right-0 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20"
+                className="absolute right-0 top-[31px] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20"
               >
                 <ChevronRight className="h-4 w-4" strokeWidth={2.4} />
               </button>
@@ -167,55 +165,5 @@ export function ChargeLarge({ jours, chargement, jourChoisi, onChoisirJour }: {
         </div>
       )}
     </section>
-  )
-}
-
-/**
- * Un jour, une barre.
- *
- * LA HAUTEUR PORTE LA CHARGE, la couleur ne fait que signaler la saturation — même partage que la
- * matrice des commerciaux depuis qu'elle a abandonné le dégradé. Un jour vide garde un trait de
- * deux pixels : sans lui, une semaine creuse ressemblerait à une semaine absente.
- */
-function BarreJour({ jour, taches, max, choisi, onChoisir }: {
-  jour: string
-  taches: number
-  max: number
-  choisi: boolean
-  onChoisir: () => void
-}) {
-  const d = new Date(`${jour}T12:00:00`)
-  const hauteur = taches === 0 ? 2 : Math.max(4, Math.round((taches / max) * HAUTEUR_BARRE))
-  const sature = taches >= SATURATION
-
-  /* UN JOUR VIDE N'EST PAS CLIQUABLE : arrêter les tableaux sur une journée sans tâche ne
-     donnerait qu'un écran vide, et le chemin du retour serait à retrouver. */
-  const cliquable = taches > 0
-
-  return (
-    <button
-      type="button"
-      disabled={!cliquable}
-      onClick={onChoisir}
-      aria-pressed={choisi}
-      title={
-        `${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} — ${taches} tâche${taches > 1 ? 's' : ''}`
-        + (cliquable ? (choisi ? ' — cliquer pour revenir à tout' : ' — cliquer pour n’afficher que ce jour') : '')
-      }
-      /* La zone de clic monte sur toute la hauteur de la rangée : viser une barre de 4 px de haut
-         serait impossible. La barre, elle, garde sa hauteur au bas de ce rectangle. */
-      style={{ height: HAUTEUR_BARRE }}
-      className={cn('group flex w-[7px] shrink-0 items-end', cliquable ? 'cursor-pointer' : 'cursor-default')}
-    >
-      <span
-        style={{ height: hauteur }}
-        className={cn(
-          'w-full rounded-[2px] transition-all',
-          taches === 0 ? 'bg-white/12' : sature ? 'bg-km-side-red' : 'bg-km-side-green',
-          choisi && 'ring-2 ring-white ring-offset-1 ring-offset-[#1B211D]',
-          cliquable && !choisi && 'group-hover:brightness-125',
-        )}
-      />
-    </button>
   )
 }

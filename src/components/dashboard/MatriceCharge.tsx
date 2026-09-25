@@ -85,7 +85,7 @@ const PALIERS = [
   { seuil: Infinity, haut: '#B04A3E', bas: '#8E3A30' },
 ] as const
 
-function niveau(nombre: number) {
+export function niveau(nombre: number) {
   const t = Math.min(1, nombre / PLAFOND_JOURNALIER)
   const depasse = nombre > PLAFOND_JOURNALIER
   const p = PALIERS.find((x) => (depasse ? false : t < x.seuil)) ?? PALIERS[PALIERS.length - 1]
@@ -98,9 +98,9 @@ function niveau(nombre: number) {
   }
 }
 
-const JOURS_COURTS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
-const JOURS_LONGS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.']
-const MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+export const JOURS_COURTS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
+export const JOURS_LONGS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.']
+export const MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
 
 /**
  * ══ LES JAUGES MONTENT, ELLES N'APPARAISSENT PAS ══
@@ -112,7 +112,7 @@ const MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 
  * LE DÉCALAGE DE 45 MS PAR CASE fait la différence entre dix barres qui montent ensemble — un
  * rideau — et dix barres qui se remplissent l'une après l'autre, de lundi à vendredi.
  */
-function useMontee(rang: number) {
+export function useMontee(rang: number) {
   const [monte, setMonte] = useState(false)
   useEffect(() => {
     const image = requestAnimationFrame(() => setMonte(true))
@@ -121,16 +121,42 @@ function useMontee(rang: number) {
   return { monte, delai: `${rang * 45}ms` }
 }
 
-function Case({ jour, taches, rang }: { jour: string; taches: number; rang: number }) {
+/**
+ * La case d'une journée : la jauge, la date, le nombre.
+ *
+ * ELLE EST EXPORTÉE DEPUIS LE 25/09/2026, pour la vue d'ensemble du service client. William :
+ * « reprends la même logique que sur l'autre vue d'ensemble, avec des cards correspondant au jour,
+ * un remplissage et le nombre à l'intérieur ». La recopier aurait donné deux jauges à accorder —
+ * et c'est exactement le raisonnement qui a valu quatre paliers de couleur plutôt qu'un dégradé :
+ * une règle, un seul endroit.
+ *
+ * `choisi` et `onChoisir` servent la vue large, où cliquer un jour filtre les tableaux du dessous.
+ * Absents, la case reste ce qu'elle était : un indicateur, sans geste.
+ */
+export function CaseJour({ jour, taches, rang, choisi, onChoisir }: {
+  jour: string
+  taches: number
+  rang: number
+  choisi?: boolean
+  onChoisir?: () => void
+}) {
   const d = depuisIso(jour)
   const n = niveau(taches)
   const { monte, delai } = useMontee(rang)
-  const infobulle = `${JOURS_LONGS[d.getDay()]} ${d.getDate()} ${MOIS_COURTS[d.getMonth()]} — ${taches} tâche${taches > 1 ? 's' : ''} prévue${taches > 1 ? 's' : ''}${n.depasse ? `, au-delà de l’objectif de ${PLAFOND_JOURNALIER}` : ''}`
+  const cliquable = Boolean(onChoisir) && taches > 0
+  const infobulle = `${JOURS_LONGS[d.getDay()]} ${d.getDate()} ${MOIS_COURTS[d.getMonth()]} — ${taches} tâche${taches > 1 ? 's' : ''} prévue${taches > 1 ? 's' : ''}${n.depasse ? `, au-delà de l’objectif de ${PLAFOND_JOURNALIER}` : ''}${cliquable ? (choisi ? ' — cliquer pour revenir à tout' : ' — cliquer pour n’afficher que ce jour') : ''}`
+
+  const Balise = cliquable ? 'button' : 'div'
 
   return (
-    <div
+    <Balise
+      {...(cliquable ? { type: 'button' as const, onClick: onChoisir, 'aria-pressed': choisi } : {})}
       title={infobulle}
-      className="relative flex min-h-0 items-center justify-center overflow-hidden rounded-[10px] bg-[#262E29] transition-transform duration-200 hover:-translate-y-px"
+      className={cn(
+        'relative flex min-h-0 items-center justify-center overflow-hidden rounded-[10px] bg-[#262E29] transition-transform duration-200 hover:-translate-y-px',
+        cliquable && 'cursor-pointer',
+        choisi && 'ring-2 ring-white',
+      )}
     >
       {/* LA JAUGE MONTE DEPUIS LE BAS, DERRIÈRE TOUT LE RESTE. Sa hauteur dit la charge, sa
           couleur dit la tension — voir l'en-tête. */}
@@ -164,9 +190,12 @@ function Case({ jour, taches, rang }: { jour: string; taches: number; rang: numb
       )}>
         {taches}
       </span>
-    </div>
+    </Balise>
   )
 }
+
+/** L'ancien nom, gardé pour la matrice des commerciaux juste en dessous. */
+const Case = CaseJour
 
 export function MatriceCharge({
   jours,
