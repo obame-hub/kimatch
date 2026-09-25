@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { listChannels } from './_client.js'
-import { exigerSession } from '../_auth.js'
+import { exigerSession, refuserLesPartenaires } from '../_auth.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -10,6 +10,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const utilisateur = await exigerSession(req, res)
   if (!utilisateur) return
+
+  /* UNE SESSION VALIDE N'EST PAS UN DROIT D'ACCES — 25/09/2026.
+     La liste des canaux Slack de KiWee, dont les canaux prives, n'a rien a faire chez un externe. */
+  if (await refuserLesPartenaires(utilisateur, res)) return
 
   try {
     const result = await listChannels()

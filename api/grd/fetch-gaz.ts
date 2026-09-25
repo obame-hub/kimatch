@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { fetchGazData } from './_client.js'
-import { exigerSession } from '../_auth.js'
+import { exigerSession, refuserLesPartenaires } from '../_auth.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -10,6 +10,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const utilisateur = await exigerSession(req, res)
   if (!utilisateur) return
+
+  /* UNE SESSION VALIDE N'EST PAS UN DROIT D'ACCES — 25/09/2026.
+     Le GRD repond avec le contrat de KiWee : sans ce garde, n'importe quel point de livraison
+     livrait ses donnees a un externe connecte. */
+  if (await refuserLesPartenaires(utilisateur, res)) return
 
   const pce = typeof req.body?.pce === 'string' ? req.body.pce.trim() : undefined
   const codePostal = typeof req.body?.codePostal === 'string' ? req.body.codePostal.trim() : undefined

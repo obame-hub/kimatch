@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { fetchElecData } from './_client.js'
-import { exigerSession } from '../_auth.js'
+import { exigerSession, refuserLesPartenaires } from '../_auth.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -10,6 +10,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const utilisateur = await exigerSession(req, res)
   if (!utilisateur) return
+
+  /* UNE SESSION VALIDE N'EST PAS UN DROIT D'ACCES — 25/09/2026.
+     Enedis repond avec le certificat de KiWee : sans ce garde, n'importe quel PDL de France
+     livrait ses donnees de comptage a un externe connecte. */
+  if (await refuserLesPartenaires(utilisateur, res)) return
 
   const pdlId = typeof req.body?.pdlId === 'string' ? req.body.pdlId.trim() : undefined
   if (!pdlId) {

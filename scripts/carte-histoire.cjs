@@ -37,12 +37,24 @@ const { execFileSync } = require('child_process')
 const RACINE = path.resolve(__dirname, '..')
 const MIGRATIONS = path.join(RACINE, 'supabase', 'migrations')
 
-/* HUIT MÉGAOCTETS NE SUFFISENT PLUS — 24/09/2026. `git log` de ce dépôt dépasse désormais cette
- * taille, et `execFileSync` échoue alors sur ENOBUFS : un message obscur, qui laissait croire à une
- * panne de la carte alors que le schéma allait très bien. On passe à 64 Mo — assez loin pour que la
- * question ne revienne pas avant longtemps. */
-const git = (args, maxBuffer = 64 * 1024 * 1024) =>
-  execFileSync('git', args, { cwd: RACINE, encoding: 'utf8', maxBuffer })
+/* LA TAILLE DU `git log -p` GRANDIT VITE, ET ENOBUFS NE LE DIT PAS.
+ *
+ * `execFileSync` échoue sur ENOBUFS dès que la sortie dépasse `maxBuffer` : un message obscur, qui
+ * laisse croire à une panne de la carte alors que le schéma va très bien.
+ *
+ *     24/09/2026   8 Mo ne suffisent plus   -> 64 Mo, « la question ne reviendra pas de sitôt »
+ *     25/09/2026   elle est revenue le lendemain : le `git log -p` pèse 74,9 Mo (mesuré)
+ *
+ * On ne parie donc plus sur une marge : on MESURE et on relance une fois plus grand si ça déborde,
+ * pour que la carte ne retombe jamais sur ce message à cause d'un simple seuil. */
+const git = (args, maxBuffer = 256 * 1024 * 1024) => {
+  try {
+    return execFileSync('git', args, { cwd: RACINE, encoding: 'utf8', maxBuffer })
+  } catch (e) {
+    if (e.code !== 'ENOBUFS') throw e
+    return execFileSync('git', args, { cwd: RACINE, encoding: 'utf8', maxBuffer: maxBuffer * 4 })
+  }
+}
 
 /** Le SQL sans ses commentaires. Ce dépôt commente en citant du SQL : les lire serait s'inventer des colonnes. */
 function sansCommentairesSql(texte) {

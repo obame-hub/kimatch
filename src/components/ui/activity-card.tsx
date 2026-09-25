@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { cheminDansLeBucket, urlOuvrableDocument } from '@/lib/data/documents'
 
 // Un type d'activité = un fond teinté + une ligne de couleur à gauche (référence : fil
 // d'activité de la fiche Site). Toute liste d'activités/tâches dans l'app doit réutiliser
@@ -212,7 +213,37 @@ export function ActivityCard({
       )}
     </div>
   )
-  if (href) return <a href={href} target="_blank" rel="noreferrer">{content}</a>
+  /* ══ UN DOCUMENT S OUVRE PAR UN LIEN SIGNE — 24/09/2026 ══
+   *
+   * Le seau `documents` etait PUBLIC : mesure ce jour, ses 20 000 fichiers — 7 325 mandats signes,
+   * 5 845 contrats — se telechargaient depuis Internet sans compte ni session.
+   *
+   * ON GARDE LE `href` : il fait le clic droit, le survol qui montre la destination, et le lien
+   * reste un lien pour le clavier. Mais le clic gauche passe par la signature, seule adresse qui
+   * fonctionnera une fois le seau ferme.
+   *
+   * ICI, CONTRAIREMENT A `LienDocument`, LE LIEN N'EST PAS TOUJOURS UN DOCUMENT : une carte
+   * d'activite pointe aussi vers un ecran de Kimatch. `cheminDansLeBucket` rend null dans ce cas,
+   * et le navigateur suit le lien normalement. */
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => {
+          if (!cheminDansLeBucket(href)) return
+          e.preventDefault()
+          /* L'ECHEC SE VOIT. Sans cela, le clic ne fait rien et l'on croit le fichier perdu. */
+          void urlOuvrableDocument(href)
+            .then((adresse) => window.open(adresse, '_blank', 'noopener'))
+            .catch((err) => window.alert(err instanceof Error ? err.message : 'Ce fichier n’a pas pu être ouvert.'))
+        }}
+      >
+        {content}
+      </a>
+    )
+  }
   if (onClick) return <div role="button" tabIndex={0} onClick={onClick}>{content}</div>
   return content
 }

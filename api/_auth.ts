@@ -68,3 +68,68 @@ export async function exigerSession(
 
   return { id: data.user.id, email: data.user.email ?? null, authHeader }
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * UNE SESSION VALIDE N'EST PAS UN DROIT D'ACCÈS — 25/09/2026
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * `exigerSession` répond à UNE question : « la session est-elle valide ? ». Depuis l'ouverture de
+ * l'espace partenaire, des externes en ont une. Elle les laisse donc passer exactement comme un
+ * commercial — mesuré ce jour, avec un vrai compte partenaire : ACCEPTÉ.
+ *
+ * Tant que la fonction lisait ensuite la base au nom de l'appelant, les policies répondaient à sa
+ * place. SIX N'INTERROGENT JAMAIS LA BASE : elles appellent un service externe avec les
+ * identifiants de KiWee, et rien ne les retenait.
+ *
+ *     enedis/fetch-elec      les données de comptage de N'IMPORTE QUEL PDL de France, avec le
+ *     grd/fetch-gaz          certificat et le contrat Enedis / GRD de KiWee
+ *     ellisphere/search      les données d'entreprise, facturées à KiWee à chaque appel
+ *     ellisphere/score
+ *     ocr/extract-document   l'API Anthropic, facturée à l'usage
+ *     slack/channels         la liste des canaux Slack de KiWee, dont les canaux privés
+ *
+ * C'est la même faille qu'en août 2026 — six fonctions ouvertes à Internet — déplacée d'un cran :
+ * elles ne sont plus ouvertes à tous, elles sont ouvertes à tous les CONNECTÉS.
+ *
+ * ON NE FERME PAS AUX ADMINISTRATEURS ni aux comptes de service : seuls les profils rattachés à un
+ * compte partenaire sont écartés, par la même fonction que la base (`est_partenaire()`), pour
+ * qu'il n'y ait qu'une définition du mot « partenaire » dans tout Kimatch.
+ */
+export async function refuserLesPartenaires(
+  utilisateur: UtilisateurAuthentifie,
+  res: VercelResponse,
+): Promise<boolean> {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) {
+    res.status(500).json({ error: 'Supabase non configuré côté serveur' })
+    return true
+  }
+
+  /* ON DEMANDE À LA BASE, PAS À UNE COPIE DE LA RÈGLE. `est_partenaire()` est ce qui gouverne déjà
+     les policies : une seconde définition ici finirait par diverger de la première. */
+  const reponse = await fetch(`${supabaseUrl}/rest/v1/rpc/est_partenaire`, {
+    method: 'POST',
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: utilisateur.authHeader,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  })
+
+  if (!reponse.ok) {
+    /* EN CAS DE DOUTE, ON REFUSE. Laisser passer sur une panne de la base rouvrirait exactement ce
+       que ce garde ferme, et le service externe, lui, serait bien appelé. */
+    res.status(503).json({ error: 'Vérification des droits indisponible. Réessayez dans un instant.' })
+    return true
+  }
+
+  if ((await reponse.text()).trim() === 'true') {
+    res.status(403).json({ error: 'Cette fonctionnalité n’est pas accessible depuis un espace partenaire.' })
+    return true
+  }
+
+  return false
+}

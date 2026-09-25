@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { messageAnthropicLisible } from '../_anthropic.js'
-import { exigerSession } from '../_auth.js'
+import { exigerSession, refuserLesPartenaires } from '../_auth.js'
 
 // Client serveur pour l'extraction de contrats/mandats scannés via l'API
 // Anthropic (Claude, vision native PDF/image). Ne jamais importer ce fichier
@@ -63,6 +63,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // le budget de KiWee en postant ses propres documents.
   const utilisateur = await exigerSession(req, res)
   if (!utilisateur) return
+
+  /* UNE SESSION VALIDE N'EST PAS UN DROIT D'ACCES — 25/09/2026.
+     L'API Anthropic est facturee a l'usage : un externe y consommait le budget de KiWee. */
+  if (await refuserLesPartenaires(utilisateur, res)) return
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
