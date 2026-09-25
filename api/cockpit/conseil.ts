@@ -182,11 +182,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       (v) => v && connus.has(v.id) && VALENCES.includes(v.valence),
     )
 
+    /* ══ LES INTERACTIONS DOIVENT ÊTRE LES SIENNES — 25/09/2026 ══
+       Le filtre ci-dessus garde contre l'IA qui inventerait un identifiant. Il ne garde RIEN contre
+       l'appelant : `utiles` vient de `echanges`, c'est-à-dire du corps de la requête. N'importe quel
+       utilisateur connecté faisait donc écrire un `sentiment` sur les interactions d'un collègue —
+       en clé de service, donc sans qu'aucune policy n'intervienne.
+       On demande à la base lesquelles il voit VRAIMENT, avec son propre jeton, et l'on n'écrit que
+       sur celles-là. */
+    /* Ce qui a RÉELLEMENT été écrit. Sans session valide en base, rien ne l'est — et la réponse
+       doit le dire plutôt que de renvoyer ce que l'IA a proposé. */
+    let ecrites: { id: string; valence: string; motif: string }[] = []
     const url = urlSupabase()
     const cle = cleService()
     if (url && cle && valences.length > 0) {
+      const siennes = await interactionsVisibles(
+        utilisateur.authHeader, valences.map((v) => v.id))
+      const retenues = valences.filter((v) => siennes.has(v.id))
+      ecrites = retenues
       const admin = createClient(url, cle)
-      for (const v of valences) {
+      for (const v of retenues) {
         await admin
           .from('interactions')
           .update({
@@ -201,8 +215,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    res.status(200).json({ success: true, valences, conseil: lu.conseil })
+    /* ON REND CE QUI A ETE ECRIT, pas ce que l IA a propose : afficher un sentiment qui n a pas
+       ete enregistre ferait croire a une sauvegarde qui n a pas eu lieu. */
+    res.status(200).json({ success: true, valences: ecrites, conseil: lu.conseil })
   } catch (err) {
     res.status(200).json({ success: false, error: err instanceof Error ? err.message : 'Erreur inconnue.' })
   }
+}
+
+/**
+ * LES INTERACTIONS QUE CET APPELANT VOIT VRAIMENT.
+ *
+ * On interroge avec SON jeton, jamais avec la clé de service : ce sont les policies qui répondent,
+ * et l'on n'a donc aucune règle d'accès à réécrire ici — c'est ce qui évite qu'une seconde version
+ * de la règle diverge de la première.
+ *
+ * EN UNE SEULE REQUÊTE pour toute la liste : quarante allers-retours pour quarante échanges
+ * rendraient l'avis si lent que personne ne l'attendrait.
+ *
+ * EN CAS DE PANNE, ON NE REND RIEN, donc rien ne s'écrit. Laisser passer sur une erreur rouvrirait
+ * exactement ce que ce contrôle ferme.
+ */
+async function interactionsVisibles(authHeader: string, ids: string[]): Promise<Set<string>> {
+  const url = process.env.VITE_SUPABASE_URL
+  const anon = process.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !anon || ids.length === 0) return new Set()
+
+  const liste = ids.map((i) => `"${i}"`).join(',')
+  const rep = await fetch(
+    `${url}/rest/v1/interactions?id=in.(${encodeURIComponent(liste)})&select=id`,
+    { headers: { apikey: anon, Authorization: authHeader } },
+  )
+  if (!rep.ok) return new Set()
+
+  const lignes = (await rep.json()) as { id: string }[]
+  return new Set(Array.isArray(lignes) ? lignes.map((l) => l.id) : [])
 }

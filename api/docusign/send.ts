@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getDocusignContext, sendEnvelope } from './_client.js'
 import { NON_CONNECTE, profilAppelant } from './_oauth.js'
+import { exigerAcces } from '../_auth.js'
 import { archiverDocumentsEnvoyes, clientAdmin, type ObjetSigne } from './_archivage.js'
 
 interface SendBody {
@@ -89,7 +90,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
     return
   }
+  /* ══ L'OBJET DOIT ÊTRE LE SIEN — 25/09/2026 ══
+     `profilAppelant` dit QUI appelle. Il ne dit pas si ce mandat ou ce contrat le regarde : les
+     identifiants viennent du corps, et tout le travail qui suit se fait avec `clientAdmin()`,
+     c'est-à-dire la clé de service. N'importe quel utilisateur connecté envoyait donc à la
+     signature le contrat d'un collègue — et l'écriture de `docusign_envelope_id` et
+     `statut_signature` sur cette ligne passait au-dessus des policies.
+     On relit l'objet avec le jeton de l'appelant : ce sont les policies qui répondent, et aucune
+     règle d'accès n'est réécrite ici. */
   const estContrat = objet.type === 'contrat'
+  if (!(await exigerAcces(
+    { id: profilId, email: null, authHeader },
+    estContrat ? 'contrats' : 'mandats',
+    objet.id,
+    res,
+  ))) return
 
   try {
     /* UNE SEULE FONCTION POUR LES TROIS ENTRÉES. `documentUrl` seul devient une liste d'un

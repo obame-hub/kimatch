@@ -1559,6 +1559,10 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
     () => (tousLesComptes ?? []).filter((c) => c.type_compte === 'partenaire'),
     [tousLesComptes],
   )
+  /* Les contacts DU PARTENAIRE, pas ceux de ce compte-ci : le référent est quelqu'un de chez eux. */
+  const { data: contactsDuPartenaire = [] } = useContactsParCompte(
+    compte.apporteur_partenaire_id ?? undefined,
+  )
   const [editingAddress, setEditingAddress] = useState(false)
   const [addrDraft, setAddrDraft] = useState({ rue: compte.rue ?? '', code_postal: compte.code_postal ?? '', ville: compte.ville ?? '' })
 
@@ -1659,6 +1663,25 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
             lien={compte.apporteur_partenaire_id ? `/comptes/${compte.apporteur_partenaire_id}` : undefined}
             emptyLabel="désigner"
             onCommit={(v) => commit({ apporteur_partenaire_id: v || null })}
+            onSaved={() => onToast('✓ enregistré')}
+          />
+        )}
+        {/* QUI SUIT LE DOSSIER CHEZ EUX — on rappelle une personne, pas une société.
+            Le champ n'apparaît qu'une fois le partenaire désigné : demander le référent avant de
+            savoir de quelle maison il est n'a pas de sens, et la base le refuse d'ailleurs. */}
+        {compte.apporteur_partenaire_id && (
+          <InlineField
+            variant="select"
+            label="Qui le suit, chez eux"
+            value={compte.contact_partenaire_id ?? ''}
+            options={[{ value: '', label: 'aucun' },
+              ...contactsDuPartenaire.map((ct) => ({
+                value: ct.id,
+                label: `${ct.prenom ?? ''} ${ct.nom}`.trim() + (ct.fonction ? ` — ${ct.fonction}` : ''),
+              }))]}
+            lien={compte.contact_partenaire_id ? `/contacts/${compte.contact_partenaire_id}` : undefined}
+            emptyLabel="désigner"
+            onCommit={(v) => commit({ contact_partenaire_id: v || null })}
             onSaved={() => onToast('✓ enregistré')}
           />
         )}

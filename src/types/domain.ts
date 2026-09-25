@@ -548,6 +548,9 @@ export interface Compte {
   mandat_cadre_actif?: boolean
   note_interne?: string | null
   apporteur_partenaire_id?: string | null
+  /** Qui suit ce compte CHEZ le partenaire apporteur. Doit être un contact de
+   *  `apporteur_partenaire_id` — un déclencheur le vérifie (migration 20260925163000). */
+  contact_partenaire_id?: string | null
   // comptes_fournisseurs (type_compte === 'fournisseur')
   fournit_electricite?: boolean
   fournit_gaz?: boolean
