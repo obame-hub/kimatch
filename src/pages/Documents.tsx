@@ -182,7 +182,7 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
 
   const { data: monProfil } = useMonProfil()
 
-  const { perimetre, setPerimetre } = usePerimetre('documents')
+  const { perimetre, setPerimetre, sansBascule } = usePerimetre('documents')
 
   const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
 
@@ -207,7 +207,7 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un document, un auteur…" count={liste.total}>
-          <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes documents" libelleTous="Tous les documents" />
+          {!sansBascule && <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes documents" libelleTous="Tous les documents" />}
           <Select value={liste.tri} onChange={(e) => liste.trierPar(e.target.value)} className="w-auto">
             <option value="date_creation">Trier par date</option>
             <option value="nom">Trier par nom</option>

@@ -487,7 +487,7 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
 
   /* 530 contrats sur 1 600 n'ont pas de proprietaire : la cascade retombe alors sur leur compte,
      puis sur leur site. Sans elle, un tiers du portefeuille disparaitrait de « Mes contrats ». */
-  const { perimetre, setPerimetre, visibles: contratsDuPerimetre } = usePerimetreListe(
+  const { perimetre, setPerimetre, sansBascule, visibles: contratsDuPerimetre } = usePerimetreListe(
     'contrats', contratsFiltresParStatut,
     { proprietaireId: (c) => c.proprietaire_id, compteId: (c) => c.compte_id, siteId: (c) => c.site_id },
   )
@@ -528,12 +528,14 @@ export default function Contrats({ sansEntete }: { sansEntete?: boolean }) {
         </p>
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un numéro, un fournisseur, un site…" count={filteredContrats?.length}>
-            <BasculePerimetre
-              valeur={perimetre}
-              onChange={setPerimetre}
-              libelleMien="Mes contrats"
-              libelleTous="Tous les contrats"
-            />
+            {!sansBascule && (
+              <BasculePerimetre
+                valeur={perimetre}
+                onChange={setPerimetre}
+                libelleMien="Mes contrats"
+                libelleTous="Tous les contrats"
+              />
+            )}
           <Select value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} className="w-auto">
             <option value="">Tous les statuts</option>
             {(Object.keys(LIBELLE_STATUT_VIE) as StatutVie[]).map((code) => (

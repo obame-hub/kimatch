@@ -104,8 +104,11 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
 
   const { data: monProfil } = useMonProfil()
 
-  const { perimetre, setPerimetre } = usePerimetre('comptes')
+  const { perimetre, setPerimetre, sansBascule } = usePerimetre('comptes')
 
+  /* `perimetre` vaut déjà « tous » pour un partenaire : `usePerimetre` s'en charge, une fois pour
+     les six listes du patrimoine (voir le commentaire dans `lib/perimetre.tsx`). Rien à ajouter
+     ici — et surtout pas une seconde règle qui divergerait de la première. */
   const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
 
 
@@ -158,7 +161,9 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte, une ville…" count={liste.total}>
-          <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes comptes" libelleTous="Tous les comptes" />
+          {!sansBascule && (
+            <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes comptes" libelleTous="Tous les comptes" />
+          )}
           {/* Le sélecteur que Naoëlle a photographié ouvert : liste blanche à coins droits et
               ligne bleue du système. `MenuChoix` reprend la main sur les trois. */}
           <MenuChoix

@@ -52,7 +52,7 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compteDeLUrl?.id])
 
-  const { perimetre, setPerimetre, visibles: contactsDuPerimetre } = usePerimetreListe(
+  const { perimetre, setPerimetre, sansBascule, visibles: contactsDuPerimetre } = usePerimetreListe(
     'contacts', contacts, { proprietaireId: (c) => c.proprietaire_id, compteId: (c) => c.compte_id },
   )
 
@@ -98,12 +98,14 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <ListToolbar query={query} onQueryChange={setQuery} placeholder="Rechercher un contact, un compte…" count={filteredContacts?.length}>
+          {!sansBascule && (
             <BasculePerimetre
               valeur={perimetre}
               onChange={setPerimetre}
               libelleMien="Mes contacts"
               libelleTous="Tous les contacts"
             />
+          )}
           <Select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="w-auto">
             <option value="nom">Trier par nom</option>
             <option value="compte_nom">Trier par compte</option>
