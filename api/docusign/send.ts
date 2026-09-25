@@ -126,14 +126,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
      *
      * UNE ADRESSE ÉTRANGÈRE RESTE SERVIE PAR `fetch` : les appelants qui passent une URL signée,
      * ou un document hébergé ailleurs, continuent de fonctionner. */
-    const PREFIXE = `${process.env.VITE_SUPABASE_URL ?? ''}/storage/v1/object/public/documents/`
+    /* ON RECONNAÎT LE MARQUEUR, PAS LE DOMAINE. Comparer à
+       `${VITE_SUPABASE_URL}/storage/…` suppose que la variable est là, identique au caractère près,
+       et que l'adresse enregistrée porte le même hôte — trois suppositions pour un test qui, s'il
+       échoue, retombe silencieusement sur le `fetch` qui ne marche pas. Le marqueur, lui, est dans
+       l'adresse ou n'y est pas. Même règle que `cheminDansLeBucket`, côté écran. */
+    const MARQUEUR = '/storage/v1/object/public/documents/'
 
     async function telecharger(url: string, nomParDefaut: string) {
       let pdfBuffer: Buffer
 
       const stockage = clientAdmin()
-      if (stockage && PREFIXE.length > '/storage/v1/object/public/documents/'.length && url.startsWith(PREFIXE)) {
-        const chemin = decodeURIComponent(url.slice(PREFIXE.length))
+      const coupe = url.indexOf(MARQUEUR)
+      if (stockage && coupe >= 0) {
+        const chemin = decodeURIComponent(url.slice(coupe + MARQUEUR.length))
         const { data, error } = await stockage.storage.from('documents').download(chemin)
         if (error || !data) {
           throw new Error(
