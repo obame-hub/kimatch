@@ -92,6 +92,14 @@ export interface SuiviContrat {
   requetes_ouvertes: number
   requetes_en_retard: number
   sante: string
+  /**
+   * LE CONTRAT A-T-IL PASSÉ LA DEUXIÈME LAME ?
+   *
+   * William, 26/09/2026 : « Les suivis de contrats ne doivent apparaître qu'à partir du moment où
+   * le contrat est validé. » Depuis cette date aucun suivi ne s'ouvre avant la validation, mais
+   * 23 l'ont été avant la règle : c'est ce drapeau qui les retire des listes sans les effacer.
+   */
+  contrat_valide: boolean
 }
 
 const COLONNES_LUES =
@@ -101,7 +109,7 @@ const COLONNES_LUES =
   ' etape_ordre, compte_nom, site_nom, fournisseur_nom, contrat_reference, contrat_statut,' +
   ' date_debut, date_fin, responsable, contact_principal_nom, jours_avant_echeance,' +
   ' actions_ouvertes, actions_en_retard, prochaine_action, prochaine_echeance, prochain_responsable,' +
-  ' requetes_ouvertes, requetes_en_retard, sante'
+  ' requetes_ouvertes, requetes_en_retard, sante, contrat_valide'
 
 /** Tous les suivis visibles, filtrés par le périmètre de comptes comme les autres listes. */
 export function useSuivisContrats() {
@@ -113,7 +121,7 @@ export function useSuivisContrats() {
           'v_suivis_contrats_liste',
           COLONNES_LUES,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (q: any) => q.order('etape_ordre').order('date_ouverture', { ascending: false }),
+          (q: any) => q.eq('contrat_valide', true).order('etape_ordre').order('date_ouverture', { ascending: false }),
         )
         const comptesVisibles = await fetchComptesVisibles()
         /* Un suivi sans compte reste visible : le contrat peut n'avoir été rattaché qu'à un site.
@@ -153,11 +161,35 @@ export function useSuiviDuContrat(contratId: string | undefined) {
         .from('v_suivis_contrats_liste')
         .select(COLONNES_LUES)
         .eq('contrat_id', contratId as string)
+        /* La fiche d'un contrat signé mais pas encore validé ne montre pas de suivi : il n'y en a
+           plus qui s'ouvre à la signature, et les 23 d'avant la règle ne doivent pas ressurgir là. */
+        .eq('contrat_valide', true)
         .maybeSingle()
       if (error) throw new Error(error.message)
       return (data as SuiviContrat | null) ?? null
     },
   })
+}
+
+/**
+ * L'identifiant du suivi d'un contrat, RELU À L'INSTANT.
+ *
+ * Depuis le 26/09/2026 le suivi naît à la validation, par déclencheur. Celui qui vient de cliquer
+ * « Valider » a donc en cache un contrat SANS suivi — il n'en avait pas une seconde plus tôt — et
+ * le hook ne s'est pas encore rafraîchi. Tout ce qui a besoin du suivi juste après la validation
+ * passe par ici plutôt que par `useSuiviDuContrat`, sinon il tombe sur la valeur d'avant.
+ *
+ * On lit la TABLE et non la vue : on cherche la ligne que le déclencheur vient d'écrire, pas son
+ * état enrichi.
+ */
+export async function idDuSuiviDuContrat(contratId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('suivis_contrats')
+    .select('id')
+    .eq('contrat_id', contratId)
+    .eq('actif', true)
+    .maybeSingle()
+  return (data as { id: string } | null)?.id ?? null
 }
 
 /** Les huit étapes, lues en base pour disposer de leurs identifiants. */

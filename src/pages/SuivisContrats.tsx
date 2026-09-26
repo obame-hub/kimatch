@@ -93,6 +93,11 @@ export default function SuivisContrats() {
        filtrer à l'arrivée n'aurait touché que les cinquante cartes reçues. */
     filtres: {
       proprietaire_id: perimetre === 'moi' && monProfil?.id ? monProfil.id : null,
+      /* UNE CARTE N'APPARAÎT QU'APRÈS VALIDATION DU CONTRAT — William, 26/09/2026. Entre la
+         signature et la validation il y a la revérification de Fabien : un dossier préparé sur des
+         données que personne n'a encore relues est du travail à refaire. Le filtre descend en base
+         avec les autres, sinon il ne toucherait que les cinquante cartes reçues par colonne. */
+      contrat_valide: true,
     },
     ordre: { colonne: tri, ascendant },
     actif: true,

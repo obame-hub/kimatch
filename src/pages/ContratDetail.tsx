@@ -10,7 +10,7 @@ import { CheminSignature } from '@/components/contrat/CheminSignature'
 import { creerNotifications, profilsDuModule } from '@/lib/data/notifications'
 import { CycleDeVie } from '@/components/contrat/CycleDeVie'
 import { EntityLink } from '@/components/ui/entity-link'
-import { useSuiviDuContrat, SANTE_LIBELLE } from '@/lib/data/suivisContrats'
+import { useSuiviDuContrat, idDuSuiviDuContrat, SANTE_LIBELLE } from '@/lib/data/suivisContrats'
 import { Dialog } from '@/components/ui/dialog'
 import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { FormField, Input, Select } from '@/components/ui/form'
@@ -891,6 +891,11 @@ export default function ContratDetail() {
                                validation a échoué alors qu'elle est en base. */
                             try {
                               const destinataires = await profilsDuModule('service_client_contrat')
+                              /* RELU MAINTENANT, PAS AU CHARGEMENT DE LA PAGE : le suivi vient
+                                 d'être ouvert par le déclencheur, en réaction à la validation
+                                 qu'on vient d'écrire. `suivi` valait donc `null` il y a une
+                                 seconde, et s'en servir enverrait Fabien sur le contrat. */
+                              const idSuivi = await idDuSuiviDuContrat(contrat.id)
                               const combien = await creerNotifications({
                                 destinataires,
                                 titre: `Contrat à revérifier — ${contrat.reference ?? 'sans numéro'}`,
@@ -907,11 +912,9 @@ export default function ContratDetail() {
                                    checklist, les jalons, les tâches. Le contrat, lui, ne lui
                                    demande rien une fois validé.
 
-                                   LE REPLI RESTE. Les 1 584 contrats validés ont tous un suivi,
-                                   mais celui-ci est lu au chargement de la page : si la lecture
-                                   n'a pas encore abouti au moment du clic, on renvoie vers le
-                                   contrat plutôt que vers une adresse vide. */
-                                lien: suivi ? `/suivis-contrats/${suivi.id}` : `/contrats/${contrat.id}`,
+                                   LE REPLI RESTE : si le suivi n'a pas pu être relu, on renvoie
+                                   vers le contrat plutôt que vers une adresse vide. */
+                                lien: idSuivi ? `/suivis-contrats/${idSuivi}` : `/contrats/${contrat.id}`,
                                 entiteType: 'contrat',
                                 entiteId: contrat.id,
                                 categorie: 'validation_contrat',
