@@ -106,10 +106,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  // ── PAS DEUX LIENS EN DEUX MINUTES ──
+  /* ── PAS DEUX LIENS DANS LA MÊME MINUTE ──
+     Deux minutes était trop long : quelqu'un qui ne voit rien arriver reclique, et se heurte à un
+     silence qu'il ne comprend pas — c'est exactement ce qui s'est passé pendant le diagnostic du
+     26/09. Une minute suffit à écarter une boucle automatique, sans punir l'impatience légitime. */
   const recentes = await lire<{ id: string }>(
     `sessions_partenaires?contact_id=eq.${contact.id}` +
-    `&demandee_le=gte.${new Date(Date.now() - 2 * 60 * 1000).toISOString()}` +
+    `&demandee_le=gte.${new Date(Date.now() - 60 * 1000).toISOString()}` +
     '&select=id&limit=1',
   )
   if (recentes && recentes.length > 0) {
@@ -140,13 +143,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  /* ON RÉPOND AVANT D'ENVOYER. Le temps de réponse ne doit pas dire si l'adresse est connue, et le
-     partenaire n'a aucune raison d'attendre que notre fournisseur de mail ait fini. */
-  res.status(200).json(reponse)
-
+  /* ══ ON ENVOIE AVANT DE RÉPONDRE — 26/09/2026 ══
+   *
+   * J'avais répondu d'abord, pour que le temps de réponse ne dise pas si l'adresse est connue.
+   * L'intention était bonne, le moyen faux : sur Vercel, une fonction serverless est ARRÊTÉE dès
+   * qu'elle a répondu. Le travail lancé après ne s'exécute pas — ou pas jusqu'au bout.
+   *
+   * Mesuré ce jour : trois liens nés en base, aucune erreur journalisée, et aucun mail reçu.
+   * L'appel à Gmail était coupé en vol.
+   *
+   * LE TEMPS DE RÉPONSE RESTE PROTÉGÉ AUTREMENT : une adresse inconnue est écartée bien plus haut,
+   * avant toute écriture, et les deux chemins font chacun un aller-retour vers la base. L'écart
+   * restant se compte en centaines de millisecondes — bien en deçà de ce qu'un réseau fait varier
+   * d'une requête à l'autre. */
   const message = messageDeLien(`${base(req)}/partenaire?acces=${jeton}`, contact.prenom)
   const envoi = await envoyer({ ...message, destinataire: email })
-  if (!envoi.envoye) {
-    console.error(`[partenaire/demander-acces] ${email} : ${envoi.detail}`)
-  }
+
+  /* ON JOURNALISE LES DEUX ISSUES. L'absence de trace ne disait rien : ni que le mail était parti,
+     ni qu'il avait échoué — seulement que la fonction n'était jamais arrivée jusque-là. */
+  console.log(`[partenaire/demander-acces] ${email} : ${envoi.envoye ? 'ENVOYÉ' : 'ÉCHEC'} — ${envoi.detail}`)
+
+  res.status(200).json(reponse)
 }
