@@ -25,9 +25,18 @@ const H = { apikey: K, Authorization: 'Bearer ' + K, 'Content-Type': 'applicatio
 const BASE = process.env.BASE_CAPTURE || 'http://localhost:5184'
 const TP = '8e746506-fd52-4ec0-bb54-2ad5a461626b'
 
-/* L'ADRESSE DE CAPTURE EST CELLE QUE KIMATCH UTILISE DÉJÀ pour ses essais d'envoi. Elle est dans
-   `.env.local`, jamais écrite ici. */
-const DESTINATAIRE = env('ADRESSE_CAPTURE')
+/* ══ L'ADRESSE SE DONNE, ELLE NE SE DEVINE PAS ══
+ *
+ * `ADRESSE_CAPTURE` est l'adresse PROFESSIONNELLE de celui qui lance l'essai — celle de son compte
+ * Kimatch. La prendre par défaut, c'est envoyer un lien d'espace partenaire dans la boîte d'un
+ * commercial : ça marche, mais ça ne teste pas ce qu'on croit, et ça encombre la mauvaise boîte.
+ *
+ * Naoëlle, 26/09/2026 : « pourquoi tu me parles de n.ghouma@kiwee-energie.fr, c'est mon mail
+ * normal, le test que je fais c'est avec naoelle.ghouma@gmail.com ».
+ *
+ *     DESTINATAIRE=naoelle.ghouma@gmail.com node scripts/.essai-envoi-lien.cjs
+ */
+const DESTINATAIRE = process.env.DESTINATAIRE
 
 const m = fs.readFileSync('.env.local', 'utf8').match(/^SUPABASE_DB_URL=(.*)$/m)
 const db = new Client({
@@ -53,7 +62,9 @@ const a = (chemin, meth, corps) =>
 
   try {
     if (!DESTINATAIRE) {
-      throw new Error('ADRESSE_CAPTURE absente de .env.local : on n’enverrait nulle part.')
+      throw new Error(
+        'Dites où envoyer : DESTINATAIRE=vous@exemple.fr node scripts/.essai-envoi-lien.cjs\n' +
+        '  (une adresse que VOUS relevez — pas celle de votre compte Kimatch)')
     }
 
     console.log('')
