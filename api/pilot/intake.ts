@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { exigerSession, refuserLesPartenaires } from '../_auth.js'
 
 /**
  * Dépôt d'une demande de support Kimatch dans Pilot.
@@ -87,13 +88,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  // Même garde que les autres fonctions du projet : seul un utilisateur Kimatch connecté peut
-  // déclencher un dépôt. Sans cela, l'endpoint deviendrait un relais ouvert vers Pilot.
-  const authHeader = req.headers.authorization
-  if (!authHeader?.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Non authentifié' })
-    return
-  }
+  /* ══ LA SESSION EST VÉRIFIÉE, PAS SEULEMENT L'EN-TÊTE — 25/09/2026 ══
+     Ce contrôle se contentait de `authHeader?.startsWith('Bearer ')`. Or n'importe qui peut poser
+     un en-tête : mesuré ce jour, `Bearer nimportequoi` FRANCHISSAIT la garde et l'on n'était
+     arrêté qu'ensuite, par une variable manquante. En production, où la clé Pilot existe, la
+     requête serait partie — un relais ouvert sur Internet vers Pilot, avec la clé de KiWee.
+     C'est exactement l'erreur que `api/_auth.ts` décrit dans son en-tête : « contrôler la seule
+     présence d'un en-tête `Bearer` ne serait pas une barrière ». `exigerSession` fait valider le
+     jeton par Supabase. */
+  const utilisateur = await exigerSession(req, res)
+  if (!utilisateur) return
+  if (await refuserLesPartenaires(utilisateur, res)) return
 
   const cle = process.env.PILOT_API_KEY
   const base = process.env.PILOT_BASE_URL

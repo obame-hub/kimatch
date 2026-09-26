@@ -49,6 +49,7 @@ const a = (chemin, m, b) =>
     await a('recommandations?nom=like.ZZZ PAGE*', 'DELETE')
     await a('compteurs?numero_point=eq.99999999901', 'DELETE')
     await a('sites?nom=like.ZZZ PAGE*', 'DELETE')
+    await a('contacts?email=eq.zzz.page@kiwee-energie.invalid', 'DELETE')
     await a('comptes?nom=like.ZZZ PAGE*', 'DELETE')
 
     // ── UN PARTENAIRE, SON CLIENT, UN SITE, UN COMPTEUR, UNE AFFAIRE ──
@@ -58,6 +59,15 @@ const a = (chemin, m, b) =>
     cree.part = (await (await a('comptes', 'POST', {
       nom: 'ZZZ PAGE PARTENAIRE', type_compte_id: TP, type_compte: 'partenaire', actif: true,
     })).json())[0].id
+
+    /* UN CONTACT CHEZ LUI : une session appartient à quelqu'un, `sessions_partenaires.contact_id`
+       est obligatoire. Ce test n'en créait pas — il datait de l'époque où l'on entrait avec une
+       clé, qui ne désigne qu'un compte. */
+    cree.ct = (await (await a('contacts', 'POST', {
+      nom: 'ZZZ PAGE REFERENT', prenom: 'Essai',
+      email: 'zzz.page@kiwee-energie.invalid', compte_id: cree.part, actif: true,
+    })).json())[0].id
+
     cree.client = (await (await a('comptes', 'POST', {
       nom: 'ZZZ PAGE SON CLIENT', type_compte_id: TC, type_compte: 'client', actif: true,
       apporteur_partenaire_id: cree.part, ville: 'NANTES', code_postal: '44000',
@@ -107,24 +117,33 @@ const a = (chemin, m, b) =>
     await page.waitForTimeout(3000)
 
     let txt = await page.evaluate(() => document.body.innerText)
-    dire(/espace partenaire/i.test(txt) && /votre cl/i.test(txt),
-      'la page demande une cle', 'ecran de saisie')
+    /* L'ECRAN D'ENTREE A CHANGE le 26/09 : il demande une ADRESSE e-mail, plus une cle — le
+       partenaire recoit son lien lui-meme. Ce test cherchait encore « votre cle » et le bouton
+       « Entrer » : il echouait sur une refonte, pas sur une regression. */
+    dire(/espace partenaire/i.test(txt) && /votre adresse/i.test(txt),
+      'la page demande une adresse e-mail', 'ecran de saisie')
     dire(!txt.includes('ZZZ PAGE'), 'elle ne montre aucune donnee avant la cle',
       txt.includes('ZZZ PAGE') ? '*** DES DONNEES FUITENT ***' : 'rien')
 
-    // Une cle inventee.
-    await page.locator('input').first().fill('kw_' + crypto.randomBytes(32).toString('base64url'))
-    await page.getByRole('button', { name: /entrer/i }).first().click({ timeout: 20000 })
-    await page.waitForTimeout(3500)
-    txt = await page.evaluate(() => document.body.innerText)
-    dire(/pas reconnue|r[ée]voqu/i.test(txt), 'une cle inventee est refusee, avec un message clair',
-      /pas reconnue|r[ée]voqu/i.test(txt) ? 'dit quoi faire' : '*** message absent ***')
+    /* L'ECRAN N'ACCEPTE PLUS UNE CLE COLLEE : il envoie un lien. La cle d'API reste valable
+       pour une integration (verifie par `.essai-api-partenaire.cjs`), mais elle n'a plus de
+       champ de saisie. On passe donc directement a l'ouverture par lien. */
 
-    console.log('')
     console.log('══ ② AVEC SA CLE ══')
-    await page.locator('input').first().fill(cle)
-    await page.getByRole('button', { name: /entrer/i }).first().click({ timeout: 20000 })
-    await page.waitForTimeout(5000)
+    const crypto2 = require('crypto')
+    const jetonLien = crypto2.randomBytes(32).toString('base64url')
+    const { Client: PG } = require('pg')
+    const mm = fs.readFileSync('.env.local', 'utf8').match(/^SUPABASE_DB_URL=(.*)$/m)
+    const bdd = new PG({ connectionString: mm[1].trim().replace(/^["']|["']$/g, ''), ssl: { rejectUnauthorized: false } })
+    await bdd.connect()
+    await bdd.query(
+      "insert into sessions_partenaires (contact_id, compte_id, empreinte_lien, lien_expire_le) " +
+      "values ($1,$2,$3, now() + interval '1 hour')",
+      [cree.ct, cree.part, crypto2.createHash('sha256').update(jetonLien).digest('hex')])
+    await bdd.end()
+
+    await page.goto(BASE + '/partenaire?acces=' + jetonLien, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.waitForTimeout(7000)
 
     txt = await page.evaluate(() => document.body.innerText)
     dire(txt.includes('ZZZ PAGE SON AFFAIRE'), 'il voit SON affaire',
@@ -135,12 +154,18 @@ const a = (chemin, m, b) =>
       'l etape est lisible', etape ? etape.libelle : '')
 
     // L'onglet patrimoine.
-    await page.getByRole('button', { name: /Mon patrimoine/i }).first().click({ timeout: 20000 })
-    await page.waitForTimeout(3000)
+    /* LES ONGLETS ONT CHANGÉ le 26/09 : « Mon patrimoine » a été éclaté en sept onglets — un par
+       objet — à la demande de Naoëlle (« leur afficher tous leurs objets dans patrimoine »).
+       On parcourt donc les trois qui portent les données de cet essai. */
+    for (const onglet of ['Comptes', 'Sites', 'Compteurs']) {
+      await page.getByRole('button', { name: new RegExp('^' + onglet, 'i') }).first().click({ timeout: 20000 })
+      await page.waitForTimeout(2200)
+      const vu = await page.evaluate(() => document.body.innerText)
+      const attendu = onglet === 'Comptes' ? 'ZZZ PAGE SON CLIENT'
+        : onglet === 'Sites' ? 'ZZZ PAGE SITE' : '99999999901'
+      dire(vu.includes(attendu), onglet.padEnd(10) + ' montre ' + attendu)
+    }
     txt = await page.evaluate(() => document.body.innerText)
-    dire(txt.includes('ZZZ PAGE SON CLIENT'), 'il voit le compte qu il a apporte')
-    dire(txt.includes('ZZZ PAGE SITE'), 'il voit son site')
-    dire(txt.includes('99999999901'), 'il voit son compteur')
 
     console.log('')
     console.log('══ ③ ET RIEN DE KIWEE ══')
@@ -166,8 +191,10 @@ const a = (chemin, m, b) =>
     await page.getByRole('button', { name: /quitter/i }).first().click({ timeout: 20000 })
     await page.waitForTimeout(2500)
     txt = await page.evaluate(() => document.body.innerText)
-    dire(/votre cl/i.test(txt) && !txt.includes('ZZZ PAGE SON AFFAIRE'),
-      '« Quitter » efface la cle et les donnees')
+    /* L'ÉCRAN DE SORTIE DEMANDE UNE ADRESSE, plus une clé : dernière trace de l'ancienne version
+       dans ce test. Ce qui compte n'a pas changé — les données doivent avoir disparu. */
+    dire(/votre adresse/i.test(txt) && !txt.includes('ZZZ PAGE SON AFFAIRE'),
+      '« Quitter » efface la session et les donnees')
 
     console.log('')
     console.log('══ ⑤ LA CLE N EST PAS DANS L ADRESSE ══')

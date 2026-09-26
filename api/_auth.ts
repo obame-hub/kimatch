@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { createClient } from '@supabase/supabase-js'
 
 /**
  * LA GARDE D'AUTHENTIFICATION DES FONCTIONS SERVEUR.
@@ -22,8 +21,8 @@ import { createClient } from '@supabase/supabase-js'
  * corriger le jour où la vérification change.
  *
  * ELLE VÉRIFIE VRAIMENT LA SESSION. Contrôler la seule présence d'un en-tête `Bearer` ne serait
- * pas une barrière : n'importe qui peut en poser un. `auth.getUser()` fait valider le jeton par
- * Supabase, avec la clé anonyme — celle du navigateur, jamais la clé de service.
+ * pas une barrière : n'importe qui peut en poser un. On fait donc VALIDER le jeton par Supabase,
+ * avec la clé anonyme — celle du navigateur, jamais la clé de service.
  */
 export interface UtilisateurAuthentifie {
   id: string
@@ -56,17 +55,36 @@ export async function exigerSession(
     return null
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  })
+  /* ══ `GET /auth/v1/user` PLUTÔT QUE LE CLIENT SUPABASE — 25/09/2026 ══
+     C'est exactement ce que fait `auth.getUser()` : valider le jeton auprès de Supabase, avec la
+     clé anonyme — celle du navigateur, jamais la clé de service. La vérification est la même.
+     Ce qui change : `@supabase/supabase-js` v2 embarque un client temps réel qui exige Node 22
+     (« native WebSocket not found » en dessous). Sous Node 20, l'import faisait échouer le point
+     d'entrée AVANT sa garde, en HTTP 500 — impossible alors de vérifier en local qu'un jeton
+     inventé est bien refusé. Une barrière qu'on ne peut pas éprouver ne vaut pas grand-chose.
+     Cette API n'a besoin que de poser une question à Supabase : `fetch` la pose aussi bien. */
+  let reponse: Response
+  try {
+    reponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: supabaseAnonKey, Authorization: authHeader },
+    })
+  } catch {
+    res.status(503).json({ error: 'Vérification de session indisponible. Réessayez dans un instant.' })
+    return null
+  }
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data.user) {
+  if (!reponse.ok) {
     res.status(401).json({ error: 'Session invalide' })
     return null
   }
 
-  return { id: data.user.id, email: data.user.email ?? null, authHeader }
+  const utilisateur = (await reponse.json()) as { id?: string; email?: string | null }
+  if (!utilisateur?.id) {
+    res.status(401).json({ error: 'Session invalide' })
+    return null
+  }
+
+  return { id: utilisateur.id, email: utilisateur.email ?? null, authHeader }
 }
 
 /**
