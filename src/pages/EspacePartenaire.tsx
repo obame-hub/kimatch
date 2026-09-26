@@ -1,89 +1,60 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Building2, Gauge, KeyRound, Loader2, MapPin, Search, Sparkle } from 'lucide-react'
+import {
+  AlertTriangle, Building2, FileCheck2, Files, FileSignature, Gauge, Loader2, Mail,
+  MapPin, Search, Sparkle, Users,
+} from 'lucide-react'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { cn } from '@/lib/utils'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
- * L'ESPACE PARTENAIRE — UNE PAGE, UNE CLÉ, AUCUN COMPTE KIMATCH
+ * L'ESPACE PARTENAIRE — UNE PAGE, UN LIEN PAR MAIL, AUCUN COMPTE KIMATCH
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
  * Naoëlle, 26/09/2026 : « est-ce qu'ils peuvent passer par l'API et voir une interface visuelle ?
- * comme ça ils ont une interface sans entrer dans Kimatch ».
+ * comme ça ils ont une interface sans entrer dans Kimatch » — et, sur la clé : « je préfère qu'ils
+ * reçoivent ou un code ou un lien dans leur boîte mail afin qu'ils soient indépendants et
+ * n'attendent pas notre clé de notre part ».
+ *
+ * ══ IL SE CONNECTE SEUL ══
+ *
+ * Il tape son adresse, reçoit un lien valable 24 heures, et ce lien ouvre une session de 30 jours
+ * dans son navigateur. Personne chez KiWee n'a rien à copier ni à transmettre. C'est le même
+ * fonctionnement que la connexion de Kimatch — le lien est un sas, pas un accès permanent.
+ *
+ * LA CLÉ D'API RESTE POSSIBLE, pour une intégration à son propre outil : `exigerCle` accepte les
+ * deux, et le préfixe `kw_` les distingue.
  *
  * ══ POURQUOI CETTE PAGE PLUTÔT QU'UN ACCÈS KIMATCH ══
  *
  * Faire entrer un externe dans Kimatch, c'est lui donner une session dans une application de 188
- * tables, 25 vues et 69 points d'entrée, dont chacun doit refuser individuellement — et pour
- * toujours. Sept failles ont été mesurées en deux jours, dont une dans une correction écrite la
- * veille. Ce n'est pas un défaut d'attention : la surface est trop grande.
- *
- * Ici, il n'y a pas de session. La page ne parle qu'à `api/partenaire/`, qui ne rend que deux
- * ressources, en lecture, bornées par la clé. Ajouter demain une table ou un écran à Kimatch
- * n'ouvre rien de plus. C'est la même décision que la boîte de dépôt (`/depot/:jeton`), qui sert
- * un client sans compte depuis le 23/09.
- *
- * ══ LA CLÉ VIT DANS LE NAVIGATEUR, PAS DANS L'URL ══
- *
- * Une clé dans l'adresse se retrouve dans l'historique, dans les journaux du serveur, et dans le
- * `Referer` envoyé au moindre lien sortant. On la demande donc une fois, on la garde dans
- * `localStorage`, et l'adresse reste `/partenaire`.
+ * tables et 69 points d'entrée, dont chacun doit refuser individuellement et pour toujours. Sept
+ * failles ont été mesurées en deux jours, dont une dans une correction écrite la veille. Ici, il
+ * n'y a pas de session Kimatch : la page ne parle qu'à `api/partenaire`, qui rend ce qu'on a décidé
+ * de rendre. Ajouter demain un écran à Kimatch n'ouvre rien.
  *
  * ══ CE QU'ELLE MONTRE ══
  *
- * Ses recommandations et son patrimoine, c'est-à-dire exactement ce que l'espace partenaire de
- * Kimatch montrait. Rien de plus : ni marge de KiWee, ni commentaire interne, ni compte qu'il n'a
- * pas apporté — l'API s'en charge, et cette page ne peut pas en demander davantage.
+ * Ses recommandations, et TOUT son patrimoine — comptes, contacts, sites, compteurs, mandats,
+ * contrats, documents. Naoëlle, 26/09 : « faudrait leur afficher tous leurs objets dans
+ * patrimoine ». Jamais les marges de KiWee, ni les prix négociés, ni les commentaires internes :
+ * l'API ne les rend pas, et cette page ne peut pas les demander.
  */
 
-interface Compte {
-  id: string
-  reference: string | null
-  nom: string
-  siren: string | null
-  ville: string | null
-  code_postal: string | null
-  segment: string | null
-  actif: boolean
-}
+interface Compte { id: string; reference: string | null; nom: string; siren: string | null; ville: string | null; code_postal: string | null; segment: string | null }
+interface Contact { id: string; compte_id: string; civilite: string | null; prenom: string | null; nom: string; fonction: string | null; email: string | null; telephone: string | null; telephone_mobile: string | null; contact_principal: boolean | null }
+interface Site { id: string; compte_id: string; nom: string; adresse: string | null; code_postal: string | null; ville: string | null; surface_m2: number | null }
+interface Compteur { id: string; site_id: string; numero_point: string; libelle: string | null; consommation_annuelle_mwh: number | null; date_echeance: string | null }
+interface Mandat { id: string; reference: string | null; numero: string | null; compte_id: string; date_signature: string | null; date_debut_validite: string | null; date_fin_validite: string | null; statut: { libelle: string } | null; signataire: { prenom: string | null; nom: string } | null }
+interface Contrat { id: string; reference: string | null; compte_id: string; site_id: string | null; date_debut: string | null; date_fin: string | null; duree_mois: number | null; statut_signature: string | null; fournisseur: { nom: string } | null; energie: { libelle: string } | null }
+interface Document { id: string; nom: string; nom_fichier: string | null; entite_type: string | null; entite_id: string | null; date_creation: string | null; type: { libelle: string } | null }
+interface Recommandation { id: string; reference: string | null; nom: string; compte_id: string; date_ouverture: string | null; montant: number | null; duree_mois: number | null; marge_apporteur: number | null; etape: { libelle: string } | null; compte: { nom: string; ville: string | null } | null }
 
-interface Site {
-  id: string
-  compte_id: string
-  nom: string
-  adresse: string | null
-  code_postal: string | null
-  ville: string | null
-}
+const CLE_SESSION = 'kimatch-partenaire-session'
 
-interface Compteur {
-  id: string
-  site_id: string
-  numero_point: string
-  libelle: string | null
-  consommation_annuelle_mwh: number | null
-  date_echeance: string | null
-}
-
-interface Recommandation {
-  id: string
-  reference: string | null
-  nom: string
-  compte_id: string
-  date_ouverture: string | null
-  montant: number | null
-  duree_mois: number | null
-  marge_apporteur: number | null
-  etape: { libelle: string } | null
-  compte: { nom: string; ville: string | null } | null
-}
-
-const CLE_STOCKAGE = 'kimatch-partenaire-cle'
-
-/** Le stockage peut lever (navigation privée, cookies bloqués) : la page ne doit pas rester blanche. */
-function lireCle(): string {
+function lireSession(): string {
   try {
-    return localStorage.getItem(CLE_STOCKAGE) ?? ''
+    return localStorage.getItem(CLE_SESSION) ?? ''
   } catch {
     return ''
   }
@@ -99,35 +70,43 @@ function jour(d: string | null): string {
   return new Date(d).toLocaleDateString('fr-FR')
 }
 
+type Onglet = 'recommandations' | 'comptes' | 'contacts' | 'sites' | 'compteurs' | 'mandats' | 'contrats' | 'documents'
+
 export default function EspacePartenaire() {
-  const [cle, setCle] = useState<string>(lireCle)
-  const [saisie, setSaisie] = useState('')
+  const [session, setSession] = useState<string>(lireSession)
+  const [email, setEmail] = useState('')
+  const [demande, setDemande] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [enCours, setEnCours] = useState(false)
-  const [onglet, setOnglet] = useState<'recommandations' | 'patrimoine'>('recommandations')
+  const [onglet, setOnglet] = useState<Onglet>('recommandations')
   const [recherche, setRecherche] = useState('')
+  const [nom, setNom] = useState<string | null>(null)
 
-  const [recommandations, setRecommandations] = useState<Recommandation[] | null>(null)
-  const [comptes, setComptes] = useState<Compte[] | null>(null)
-  const [sites, setSites] = useState<Site[] | null>(null)
-  const [compteurs, setCompteurs] = useState<Compteur[] | null>(null)
-  const [nomCle, setNomCle] = useState<string | null>(null)
+  const [reco, setReco] = useState<Recommandation[] | null>(null)
+  const [comptes, setComptes] = useState<Compte[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [sites, setSites] = useState<Site[]>([])
+  const [compteurs, setCompteurs] = useState<Compteur[]>([])
+  const [mandats, setMandats] = useState<Mandat[]>([])
+  const [contrats, setContrats] = useState<Contrat[]>([])
+  const [documents, setDocuments] = useState<Document[]>([])
 
-  const charger = useCallback(async (laCle: string) => {
+  const charger = useCallback(async (jeton: string) => {
     setEnCours(true)
     setErreur(null)
     try {
-      const entete = { Authorization: 'Bearer ' + laCle }
+      const entete = { Authorization: 'Bearer ' + jeton }
 
-      /* ON COMMENCE PAR LA RACINE : c'est elle qui valide la clé et dit à qui elle appartient.
-         Deux appels qui échouent en parallèle donneraient deux messages pour une seule cause. */
+      /* ON COMMENCE PAR LA RACINE : c'est elle qui valide l'accès et dit à qui il appartient. Deux
+         appels qui échouent en parallèle donneraient deux messages pour une seule cause. */
       const racine = await fetch('/api/partenaire', { headers: entete })
       if (racine.status === 401) {
-        throw new Error('Cette clé n’est pas reconnue, ou elle a été révoquée. Demandez-en une nouvelle à votre contact KiWee.')
+        const j = await racine.json().catch(() => ({}))
+        throw new Error(j?.erreur ?? 'Votre accès a expiré. Saisissez votre adresse pour recevoir un nouveau lien.')
       }
       if (!racine.ok) throw new Error('Le service est momentanément indisponible. Réessayez dans un instant.')
       const info = await racine.json()
-      setNomCle(typeof info?.votre_cle === 'string' ? info.votre_cle : null)
+      setNom(typeof info?.votre_cle === 'string' ? info.votre_cle : null)
 
       const [rReco, rPat] = await Promise.all([
         fetch('/api/partenaire/recommandations', { headers: entete }),
@@ -135,70 +114,122 @@ export default function EspacePartenaire() {
       ])
       if (!rReco.ok || !rPat.ok) throw new Error('Vos données n’ont pas pu être chargées. Réessayez dans un instant.')
 
-      const reco = await rReco.json()
-      const pat = await rPat.json()
-      setRecommandations(reco.recommandations ?? [])
-      setComptes(pat.comptes ?? [])
-      setSites(pat.sites ?? [])
-      setCompteurs(pat.compteurs ?? [])
+      const r = await rReco.json()
+      const p = await rPat.json()
+      setReco(r.recommandations ?? [])
+      setComptes(p.comptes ?? [])
+      setContacts(p.contacts ?? [])
+      setSites(p.sites ?? [])
+      setCompteurs(p.compteurs ?? [])
+      setMandats(p.mandats ?? [])
+      setContrats(p.contrats ?? [])
+      setDocuments(p.documents ?? [])
 
       try {
-        localStorage.setItem(CLE_STOCKAGE, laCle)
+        localStorage.setItem(CLE_SESSION, jeton)
       } catch {
-        /* tant pis : la clé vaudra pour cette visite */
+        /* tant pis : l'accès vaudra pour cette visite */
       }
-      setCle(laCle)
+      setSession(jeton)
     } catch (e) {
       setErreur(e instanceof Error ? e.message : 'Quelque chose n’a pas fonctionné.')
-      setRecommandations(null)
+      setReco(null)
+      try {
+        localStorage.removeItem(CLE_SESSION)
+      } catch { /* rien à faire */ }
+      setSession('')
     } finally {
       setEnCours(false)
     }
   }, [])
 
+  /* ══ LE LIEN REÇU PAR MAIL S'ÉCHANGE À L'ARRIVÉE ══
+     `?acces=…` est consommé aussitôt et RETIRÉ DE L'ADRESSE : un jeton dans l'URL finit dans
+     l'historique, dans les journaux, et dans le `Referer` du moindre lien sortant. */
   useEffect(() => {
-    if (cle) void charger(cle)
-    // Au premier rendu seulement : la clé déjà mémorisée charge les données sans rien demander.
+    const params = new URLSearchParams(window.location.search)
+    const recu = params.get('acces')
+
+    if (recu) {
+      window.history.replaceState({}, '', window.location.pathname)
+      setEnCours(true)
+      void (async () => {
+        try {
+          const r = await fetch('/api/partenaire/ouvrir-acces', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jeton: recu }),
+          })
+          const j = await r.json()
+          if (!r.ok) throw new Error(j?.erreur ?? 'Ce lien n’a pas pu être ouvert.')
+          await charger(j.session)
+        } catch (e) {
+          setErreur(e instanceof Error ? e.message : 'Ce lien n’a pas pu être ouvert.')
+          setEnCours(false)
+        }
+      })()
+      return
+    }
+
+    if (session) void charger(session)
+    // Au premier rendu seulement.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function seDeconnecter() {
+  async function demanderUnLien() {
+    setErreur(null)
+    setDemande(null)
+    setEnCours(true)
     try {
-      localStorage.removeItem(CLE_STOCKAGE)
+      const r = await fetch('/api/partenaire/demander-acces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      const j = await r.json()
+      setDemande(j?.message ?? 'Si cette adresse nous est connue, vous allez recevoir un lien.')
     } catch {
-      /* rien à faire */
+      setErreur('Votre demande n’a pas pu être envoyée. Réessayez dans un instant.')
+    } finally {
+      setEnCours(false)
     }
-    setCle('')
-    setSaisie('')
-    setRecommandations(null)
-    setComptes(null)
-    setNomCle(null)
   }
 
-  /* ── LA RECHERCHE PORTE SUR CE QUI EST AFFICHÉ ──
-     Tout tient en mémoire : un partenaire a quelques dizaines de lignes, pas des milliers. Une
-     recherche serveur ajouterait un aller-retour pour rien. */
-  const recoFiltrees = useMemo(() => {
-    if (!recommandations) return []
-    const q = recherche.trim().toLowerCase()
-    if (!q) return recommandations
-    return recommandations.filter((r) =>
-      [r.nom, r.reference, r.compte?.nom, r.compte?.ville, r.etape?.libelle]
-        .some((v) => v && v.toLowerCase().includes(q)))
-  }, [recommandations, recherche])
+  function quitter() {
+    try {
+      localStorage.removeItem(CLE_SESSION)
+    } catch { /* rien à faire */ }
+    setSession('')
+    setReco(null)
+    setNom(null)
+    setEmail('')
+    setDemande(null)
+  }
 
-  const comptesFiltres = useMemo(() => {
-    if (!comptes) return []
-    const q = recherche.trim().toLowerCase()
-    if (!q) return comptes
-    return comptes.filter((c) =>
-      [c.nom, c.reference, c.ville, c.siren].some((v) => v && v.toLowerCase().includes(q)))
-  }, [comptes, recherche])
+  // ── LA RECHERCHE PORTE SUR CE QUI EST AFFICHÉ ──
+  const q = recherche.trim().toLowerCase()
+  const cherche = (...v: (string | null | undefined)[]) =>
+    !q || v.some((x) => x && x.toLowerCase().includes(q))
+
+  const vues = useMemo(() => ({
+    recommandations: (reco ?? []).filter((r) => cherche(r.nom, r.reference, r.compte?.nom, r.etape?.libelle)),
+    comptes: comptes.filter((c) => cherche(c.nom, c.reference, c.ville, c.siren)),
+    contacts: contacts.filter((c) => cherche(c.prenom, c.nom, c.email, c.fonction)),
+    sites: sites.filter((s) => cherche(s.nom, s.adresse, s.ville, s.code_postal)),
+    compteurs: compteurs.filter((c) => cherche(c.numero_point, c.libelle)),
+    mandats: mandats.filter((m) => cherche(m.reference, m.numero, m.statut?.libelle)),
+    contrats: contrats.filter((c) => cherche(c.reference, c.fournisseur?.nom, c.energie?.libelle)),
+    documents: documents.filter((d) => cherche(d.nom, d.nom_fichier, d.type?.libelle)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [reco, comptes, contacts, sites, compteurs, mandats, contrats, documents, q])
+
+  const nomDuCompte = (id: string) => comptes.find((c) => c.id === id)?.nom ?? '—'
+  const nomDuSite = (id: string | null) => (id ? sites.find((s) => s.id === id)?.nom ?? '—' : '—')
 
   // ══════════════════════════════════════════════════════════════════════════════════════════════
-  // L'ÉCRAN DE LA CLÉ
+  // L'ÉCRAN D'ENTRÉE
   // ══════════════════════════════════════════════════════════════════════════════════════════════
-  if (!cle || (!recommandations && !enCours)) {
+  if (!session && !enCours) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-km-bg p-4">
         <div className="w-full max-w-[420px] rounded-km border border-km-line bg-white p-7 shadow-[0_18px_40px_-24px_rgba(6,10,8,.4)]">
@@ -211,32 +242,39 @@ export default function EspacePartenaire() {
           </div>
 
           <p className="mb-4 text-km-xs leading-relaxed text-km-muted">
-            Saisissez la clé qui vous a été remise par votre contact KiWee. Elle vous donne accès à
-            vos affaires et à votre patrimoine, en lecture.
+            Saisissez votre adresse e-mail : nous vous envoyons un lien d’accès. Il est valable
+            24 heures, et votre navigateur gardera ensuite l’accès pendant 30 jours.
           </p>
 
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              if (saisie.trim()) void charger(saisie.trim())
+              if (email.trim()) void demanderUnLien()
             }}
             className="flex flex-col gap-2.5"
           >
             <label className="flex flex-col gap-1.5">
               <span className="text-km-label font-semibold uppercase tracking-wide text-km-faint">
-                Votre clé
+                Votre adresse e-mail
               </span>
               <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-km-faint" />
+                <Mail className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-km-faint" />
                 <input
-                  value={saisie}
-                  onChange={(e) => setSaisie(e.target.value)}
-                  placeholder="kw_…"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="vous@votre-societe.fr"
                   autoFocus
-                  className="w-full rounded-km border border-km-line bg-white py-2.5 pl-9 pr-3 font-mono text-[13px] text-km-text outline-none focus:border-km-green focus:ring-1 focus:ring-km-green"
+                  className="w-full rounded-km border border-km-line bg-white py-2.5 pl-9 pr-3 text-[14px] text-km-text outline-none focus:border-km-green focus:ring-1 focus:ring-km-green"
                 />
               </div>
             </label>
+
+            {demande && (
+              <p className="rounded-km-sm border border-km-green/30 bg-km-green-tint px-2.5 py-2 text-km-xs leading-snug text-km-text">
+                {demande}
+              </p>
+            )}
 
             {erreur && (
               <p className="flex items-start gap-1.5 rounded-km-sm border border-km-red/30 bg-km-red-soft px-2.5 py-2 text-km-xs leading-snug text-km-red">
@@ -247,17 +285,27 @@ export default function EspacePartenaire() {
 
             <button
               type="submit"
-              disabled={!saisie.trim() || enCours}
+              disabled={!email.trim() || enCours}
               className="flex h-[38px] items-center justify-center gap-2 rounded-km bg-km-green text-km-body font-semibold text-white transition-colors hover:bg-km-green/90 disabled:opacity-50"
             >
-              {enCours ? <><Loader2 className="h-4 w-4 animate-spin" /> Vérification…</> : 'Entrer'}
+              {enCours ? <><Loader2 className="h-4 w-4 animate-spin" /> Envoi…</> : 'Recevoir mon lien'}
             </button>
           </form>
 
           <p className="mt-4 text-km-label leading-relaxed text-km-faint">
-            Vous n’avez pas de clé ? Elle est remise une seule fois, par KiWee. En cas de perte, une
-            nouvelle vous sera émise et l’ancienne cessera de fonctionner.
+            Votre adresse doit être celle d’un contact déclaré chez KiWee. Si vous ne recevez rien,
+            rapprochez-vous de votre interlocuteur.
           </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (enCours && !reco) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-km-bg">
+        <div className="flex items-center gap-2 text-km-muted">
+          <Loader2 className="h-4 w-4 animate-spin" /> Ouverture de votre espace…
         </div>
       </div>
     )
@@ -266,33 +314,54 @@ export default function EspacePartenaire() {
   // ══════════════════════════════════════════════════════════════════════════════════════════════
   // L'ESPACE
   // ══════════════════════════════════════════════════════════════════════════════════════════════
-  const sitesParCompte = new Map<string, Site[]>()
-  for (const s of sites ?? []) {
-    const l = sitesParCompte.get(s.compte_id) ?? []
-    l.push(s)
-    sitesParCompte.set(s.compte_id, l)
-  }
-  const compteursParSite = new Map<string, Compteur[]>()
-  for (const c of compteurs ?? []) {
-    const l = compteursParSite.get(c.site_id) ?? []
-    l.push(c)
-    compteursParSite.set(c.site_id, l)
-  }
+  const ONGLETS: { cle: Onglet; libelle: string; icone: typeof Building2; n: number }[] = [
+    { cle: 'recommandations', libelle: 'Mes affaires', icone: Sparkle, n: reco?.length ?? 0 },
+    { cle: 'comptes', libelle: 'Comptes', icone: Building2, n: comptes.length },
+    { cle: 'contacts', libelle: 'Contacts', icone: Users, n: contacts.length },
+    { cle: 'sites', libelle: 'Sites', icone: MapPin, n: sites.length },
+    { cle: 'compteurs', libelle: 'Compteurs', icone: Gauge, n: compteurs.length },
+    { cle: 'mandats', libelle: 'Mandats', icone: FileCheck2, n: mandats.length },
+    { cle: 'contrats', libelle: 'Contrats', icone: FileSignature, n: contrats.length },
+    { cle: 'documents', libelle: 'Documents', icone: Files, n: documents.length },
+  ]
+
+  const Tableau = ({ tetes, children }: { tetes: string[]; children: React.ReactNode }) => (
+    <div className="overflow-x-auto rounded-km border border-km-line bg-white">
+      <table className="w-full text-km-xs">
+        <thead>
+          <tr className="border-b border-km-line bg-km-bg/40 text-km-label uppercase tracking-wide text-km-faint">
+            {tetes.map((t) => (
+              <th key={t} className={cn('px-3 py-2 font-semibold', t.startsWith('>') ? 'text-right' : 'text-left')}>
+                {t.replace(/^>/, '')}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  )
+
+  const Vide = ({ quoi }: { quoi: string }) => (
+    <p className="rounded-km border border-km-line bg-white px-4 py-6 text-center text-km-xs text-km-faint">
+      {recherche ? `Aucun ${quoi} ne correspond à cette recherche.` : `Aucun ${quoi} pour le moment.`}
+    </p>
+  )
 
   return (
     <div className="min-h-screen bg-km-bg">
       <header className="border-b border-km-line bg-white">
-        <div className="mx-auto flex max-w-[1100px] items-center gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1180px] items-center gap-3 px-4 py-3 sm:px-6">
           <img src={kiweePicto} alt="" className="h-7 w-7" />
           <div className="min-w-0 flex-1">
             <div className="text-km-body font-semibold text-km-text">KiWee Énergie</div>
             <div className="text-km-label text-km-faint">
-              Espace partenaire{nomCle ? ` · ${nomCle}` : ''}
+              Espace partenaire{nom ? ` · ${nom}` : ''}
             </div>
           </div>
           <button
             type="button"
-            onClick={seDeconnecter}
+            onClick={quitter}
             className="shrink-0 rounded-km-sm border border-km-line px-2.5 py-1.5 text-km-label font-semibold text-km-muted transition-colors hover:border-km-red hover:text-km-red"
           >
             Quitter
@@ -300,20 +369,16 @@ export default function EspacePartenaire() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1100px] px-4 py-5 sm:px-6">
-        {/* ── LES DEUX ONGLETS, exactement ceux de l'espace partenaire de Kimatch ── */}
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          {([
-            ['recommandations', 'Mes recommandations', Sparkle, recommandations?.length ?? 0],
-            ['patrimoine', 'Mon patrimoine', Building2, comptes?.length ?? 0],
-          ] as const).map(([cle2, libelle, Icone, n]) => (
+      <div className="mx-auto max-w-[1180px] px-4 py-5 sm:px-6">
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          {ONGLETS.map(({ cle, libelle, icone: Icone, n }) => (
             <button
-              key={cle2}
+              key={cle}
               type="button"
-              onClick={() => setOnglet(cle2)}
+              onClick={() => setOnglet(cle)}
               className={cn(
-                'flex items-center gap-1.5 rounded-km px-3 py-1.5 text-km-body font-medium transition-colors',
-                onglet === cle2 ? 'bg-kiwi-500/15 text-km-green' : 'text-km-muted hover:bg-white',
+                'flex items-center gap-1.5 rounded-km px-2.5 py-1.5 text-km-body font-medium transition-colors',
+                onglet === cle ? 'bg-kiwi-500/15 text-km-green' : 'text-km-muted hover:bg-white',
               )}
             >
               <Icone className="h-4 w-4" />
@@ -324,7 +389,7 @@ export default function EspacePartenaire() {
 
           <span className="flex-1" />
 
-          <div className="relative min-w-[200px] flex-1 sm:max-w-[280px]">
+          <div className="relative min-w-[180px] flex-1 sm:max-w-[260px]">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-km-faint" />
             <input
               value={recherche}
@@ -335,126 +400,174 @@ export default function EspacePartenaire() {
           </div>
         </div>
 
-        {enCours && (
-          <div className="flex items-center gap-2 py-8 text-km-muted">
-            <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
-          </div>
-        )}
-
-        {/* ── MES RECOMMANDATIONS ── */}
-        {!enCours && onglet === 'recommandations' && (
-          recoFiltrees.length === 0 ? (
-            <p className="rounded-km border border-km-line bg-white px-4 py-6 text-center text-km-xs text-km-faint">
-              {recherche ? 'Aucune affaire ne correspond à cette recherche.' : 'Aucune affaire en cours pour le moment.'}
-            </p>
-          ) : (
-            <div className="overflow-hidden rounded-km border border-km-line bg-white">
-              <table className="w-full text-km-xs">
-                <thead>
-                  <tr className="border-b border-km-line bg-km-bg/40 text-km-label uppercase tracking-wide text-km-faint">
-                    <th className="px-3 py-2 text-left font-semibold">Affaire</th>
-                    <th className="px-3 py-2 text-left font-semibold">Compte</th>
-                    <th className="px-3 py-2 text-left font-semibold">Étape</th>
-                    <th className="px-3 py-2 text-left font-semibold">Ouverte le</th>
-                    <th className="px-3 py-2 text-right font-semibold">Montant</th>
-                    <th className="px-3 py-2 text-right font-semibold">Votre marge</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recoFiltrees.map((r) => (
-                    <tr key={r.id} className="border-b border-km-line-soft last:border-0">
-                      <td className="px-3 py-2">
-                        <div className="font-semibold text-km-text">{r.nom}</div>
-                        {r.reference && <div className="text-km-label text-km-faint">{r.reference}</div>}
-                      </td>
-                      <td className="px-3 py-2 text-km-muted">
-                        {r.compte?.nom ?? '—'}
-                        {r.compte?.ville && <span className="text-km-faint"> · {r.compte.ville}</span>}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="rounded-km-sm bg-km-soft px-2 py-0.5 text-km-label font-semibold text-km-muted">
-                          {r.etape?.libelle ?? '—'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-km-muted">{jour(r.date_ouverture)}</td>
-                      <td className="px-3 py-2 text-right text-km-muted">{euros(r.montant)}</td>
-                      <td className="px-3 py-2 text-right font-semibold text-km-green">{euros(r.marge_apporteur)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {onglet === 'recommandations' && (
+          vues.recommandations.length === 0 ? <Vide quoi="dossier" /> : (
+            <Tableau tetes={['Affaire', 'Compte', 'Étape', 'Ouverte le', '>Montant', '>Votre marge']}>
+              {vues.recommandations.map((r) => (
+                <tr key={r.id} className="border-b border-km-line-soft last:border-0">
+                  <td className="px-3 py-2">
+                    <div className="font-semibold text-km-text">{r.nom}</div>
+                    {r.reference && <div className="text-km-label text-km-faint">{r.reference}</div>}
+                  </td>
+                  <td className="px-3 py-2 text-km-muted">{r.compte?.nom ?? '—'}</td>
+                  <td className="px-3 py-2">
+                    <span className="rounded-km-sm bg-km-soft px-2 py-0.5 text-km-label font-semibold text-km-muted">
+                      {r.etape?.libelle ?? '—'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-km-muted">{jour(r.date_ouverture)}</td>
+                  <td className="px-3 py-2 text-right text-km-muted">{euros(r.montant)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-km-green">{euros(r.marge_apporteur)}</td>
+                </tr>
+              ))}
+            </Tableau>
           )
         )}
 
-        {/* ── MON PATRIMOINE ── */}
-        {!enCours && onglet === 'patrimoine' && (
-          comptesFiltres.length === 0 ? (
-            <p className="rounded-km border border-km-line bg-white px-4 py-6 text-center text-km-xs text-km-faint">
-              {recherche ? 'Aucun compte ne correspond à cette recherche.' : 'Aucun compte pour le moment.'}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {comptesFiltres.map((c) => {
-                const sesSites = sitesParCompte.get(c.id) ?? []
-                return (
-                  <div key={c.id} className="overflow-hidden rounded-km border border-km-line bg-white">
-                    <div className="flex flex-wrap items-center gap-2 border-b border-km-line-soft px-4 py-3">
-                      <Building2 className="h-4 w-4 shrink-0 text-km-muted" />
-                      <span className="font-semibold text-km-text">{c.nom}</span>
-                      {c.ville && <span className="text-km-xs text-km-faint">{c.code_postal} {c.ville}</span>}
-                      {c.segment && (
-                        <span className="rounded-km-sm bg-km-soft px-2 py-0.5 text-km-label font-semibold text-km-muted">
-                          {c.segment}
-                        </span>
-                      )}
-                      <span className="flex-1" />
-                      <span className="text-km-label text-km-faint">
-                        {sesSites.length} site{sesSites.length > 1 ? 's' : ''}
-                      </span>
-                    </div>
+        {onglet === 'comptes' && (
+          vues.comptes.length === 0 ? <Vide quoi="compte" /> : (
+            <Tableau tetes={['Compte', 'Ville', 'SIREN', 'Typologie', '>Sites']}>
+              {vues.comptes.map((c) => (
+                <tr key={c.id} className="border-b border-km-line-soft last:border-0">
+                  <td className="px-3 py-2 font-semibold text-km-text">{c.nom}</td>
+                  <td className="px-3 py-2 text-km-muted">{c.code_postal} {c.ville}</td>
+                  <td className="px-3 py-2 font-mono text-km-faint">{c.siren ?? '—'}</td>
+                  <td className="px-3 py-2 text-km-muted">{c.segment ?? '—'}</td>
+                  <td className="px-3 py-2 text-right text-km-muted">
+                    {sites.filter((s) => s.compte_id === c.id).length}
+                  </td>
+                </tr>
+              ))}
+            </Tableau>
+          )
+        )}
 
-                    {sesSites.length === 0 ? (
-                      <p className="px-4 py-3 text-km-xs text-km-faint">Aucun site rattaché.</p>
-                    ) : (
-                      <div className="flex flex-col">
-                        {sesSites.map((s) => {
-                          const sesCompteurs = compteursParSite.get(s.id) ?? []
-                          return (
-                            <div key={s.id} className="border-b border-km-line-soft px-4 py-2.5 last:border-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <MapPin className="h-3.5 w-3.5 shrink-0 text-km-faint" />
-                                <span className="text-km-xs font-semibold text-km-text">{s.nom}</span>
-                                {s.ville && <span className="text-km-label text-km-faint">{s.code_postal} {s.ville}</span>}
-                              </div>
-                              {sesCompteurs.length > 0 && (
-                                <div className="mt-1.5 flex flex-wrap gap-1.5 pl-5">
-                                  {sesCompteurs.map((m) => (
-                                    <span
-                                      key={m.id}
-                                      title={m.date_echeance ? `Échéance : ${jour(m.date_echeance)}` : undefined}
-                                      className="inline-flex items-center gap-1 rounded-km-sm border border-km-line bg-km-bg/40 px-2 py-0.5 font-mono text-km-label text-km-muted"
-                                    >
-                                      <Gauge className="h-3 w-3 text-km-faint" />
-                                      {m.numero_point}
-                                      {m.consommation_annuelle_mwh !== null && (
-                                        <span className="font-sans text-km-faint">
-                                          · {m.consommation_annuelle_mwh} MWh
-                                        </span>
-                                      )}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
+        {onglet === 'contacts' && (
+          vues.contacts.length === 0 ? <Vide quoi="contact" /> : (
+            <Tableau tetes={['Nom', 'Fonction', 'Compte', 'E-mail', 'Téléphone']}>
+              {vues.contacts.map((c) => (
+                <tr key={c.id} className="border-b border-km-line-soft last:border-0">
+                  <td className="px-3 py-2 font-semibold text-km-text">
+                    {[c.civilite, c.prenom, c.nom].filter(Boolean).join(' ')}
+                    {c.contact_principal && (
+                      <span className="ml-1.5 rounded-km-sm bg-km-green-tint px-1.5 py-0.5 text-km-label font-semibold text-km-green">
+                        principal
+                      </span>
                     )}
-                  </div>
-                )
-              })}
-            </div>
+                  </td>
+                  <td className="px-3 py-2 text-km-muted">{c.fonction ?? '—'}</td>
+                  <td className="px-3 py-2 text-km-muted">{nomDuCompte(c.compte_id)}</td>
+                  <td className="px-3 py-2 text-km-muted">{c.email ?? '—'}</td>
+                  <td className="px-3 py-2 text-km-muted">{c.telephone ?? c.telephone_mobile ?? '—'}</td>
+                </tr>
+              ))}
+            </Tableau>
+          )
+        )}
+
+        {onglet === 'sites' && (
+          vues.sites.length === 0 ? <Vide quoi="site" /> : (
+            <Tableau tetes={['Site', 'Adresse', 'Compte', '>Surface', '>Compteurs']}>
+              {vues.sites.map((s) => (
+                <tr key={s.id} className="border-b border-km-line-soft last:border-0">
+                  <td className="px-3 py-2 font-semibold text-km-text">{s.nom}</td>
+                  <td className="px-3 py-2 text-km-muted">
+                    {[s.adresse, s.code_postal, s.ville].filter(Boolean).join(', ') || '—'}
+                  </td>
+                  <td className="px-3 py-2 text-km-muted">{nomDuCompte(s.compte_id)}</td>
+                  <td className="px-3 py-2 text-right text-km-muted">{s.surface_m2 ? `${s.surface_m2} m²` : '—'}</td>
+                  <td className="px-3 py-2 text-right text-km-muted">
+                    {compteurs.filter((c) => c.site_id === s.id).length}
+                  </td>
+                </tr>
+              ))}
+            </Tableau>
+          )
+        )}
+
+        {onglet === 'compteurs' && (
+          vues.compteurs.length === 0 ? <Vide quoi="compteur" /> : (
+            <Tableau tetes={['Point de livraison', 'Libellé', 'Site', '>Consommation', 'Échéance']}>
+              {vues.compteurs.map((c) => (
+                <tr key={c.id} className="border-b border-km-line-soft last:border-0">
+                  <td className="px-3 py-2 font-mono font-semibold text-km-text">{c.numero_point}</td>
+                  <td className="px-3 py-2 text-km-muted">{c.libelle ?? '—'}</td>
+                  <td className="px-3 py-2 text-km-muted">{nomDuSite(c.site_id)}</td>
+                  <td className="px-3 py-2 text-right text-km-muted">
+                    {c.consommation_annuelle_mwh !== null ? `${c.consommation_annuelle_mwh} MWh` : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-km-muted">{jour(c.date_echeance)}</td>
+                </tr>
+              ))}
+            </Tableau>
+          )
+        )}
+
+        {onglet === 'mandats' && (
+          vues.mandats.length === 0 ? <Vide quoi="mandat" /> : (
+            <Tableau tetes={['Référence', 'Compte', 'Statut', 'Signataire', 'Signé le', 'Validité']}>
+              {vues.mandats.map((m) => (
+                <tr key={m.id} className="border-b border-km-line-soft last:border-0">
+                  <td className="px-3 py-2 font-semibold text-km-text">{m.numero ?? m.reference ?? '—'}</td>
+                  <td className="px-3 py-2 text-km-muted">{nomDuCompte(m.compte_id)}</td>
+                  <td className="px-3 py-2">
+                    <span className="rounded-km-sm bg-km-soft px-2 py-0.5 text-km-label font-semibold text-km-muted">
+                      {m.statut?.libelle ?? '—'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-km-muted">
+                    {m.signataire ? `${m.signataire.prenom ?? ''} ${m.signataire.nom}`.trim() : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-km-muted">{jour(m.date_signature)}</td>
+                  <td className="px-3 py-2 text-km-muted">
+                    {m.date_debut_validite ? `${jour(m.date_debut_validite)} → ${jour(m.date_fin_validite)}` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </Tableau>
+          )
+        )}
+
+        {onglet === 'contrats' && (
+          vues.contrats.length === 0 ? <Vide quoi="contrat" /> : (
+            <Tableau tetes={['Référence', 'Compte', 'Fournisseur', 'Énergie', 'Période', '>Durée']}>
+              {vues.contrats.map((c) => (
+                <tr key={c.id} className="border-b border-km-line-soft last:border-0">
+                  <td className="px-3 py-2 font-semibold text-km-text">{c.reference ?? '—'}</td>
+                  <td className="px-3 py-2 text-km-muted">{nomDuCompte(c.compte_id)}</td>
+                  <td className="px-3 py-2 text-km-muted">{c.fournisseur?.nom ?? '—'}</td>
+                  <td className="px-3 py-2 text-km-muted">{c.energie?.libelle ?? '—'}</td>
+                  <td className="px-3 py-2 text-km-muted">
+                    {c.date_debut ? `${jour(c.date_debut)} → ${jour(c.date_fin)}` : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-right text-km-muted">
+                    {c.duree_mois ? `${c.duree_mois} mois` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </Tableau>
+          )
+        )}
+
+        {onglet === 'documents' && (
+          vues.documents.length === 0 ? <Vide quoi="document" /> : (
+            <>
+              <Tableau tetes={['Document', 'Type', 'Déposé le']}>
+                {vues.documents.map((d) => (
+                  <tr key={d.id} className="border-b border-km-line-soft last:border-0">
+                    <td className="px-3 py-2 font-semibold text-km-text">{d.nom_fichier ?? d.nom}</td>
+                    <td className="px-3 py-2 text-km-muted">{d.type?.libelle ?? '—'}</td>
+                    <td className="px-3 py-2 text-km-muted">{jour(d.date_creation)}</td>
+                  </tr>
+                ))}
+              </Tableau>
+              {/* ON DIT POURQUOI ON NE PEUT PAS TÉLÉCHARGER, plutôt que de laisser chercher un
+                  bouton qui n'existe pas. */}
+              <p className="mt-2 text-km-label leading-relaxed text-km-faint">
+                Les fichiers eux-mêmes ne sont pas téléchargeables depuis cet espace. Demandez-les à
+                votre interlocuteur KiWee.
+              </p>
+            </>
           )
         )}
 
