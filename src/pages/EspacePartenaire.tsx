@@ -315,7 +315,11 @@ export default function EspacePartenaire() {
   // L'ESPACE
   // ══════════════════════════════════════════════════════════════════════════════════════════════
   const ONGLETS: { cle: Onglet; libelle: string; icone: typeof Building2; n: number }[] = [
-    { cle: 'recommandations', libelle: 'Mes affaires', icone: Sparkle, n: reco?.length ?? 0 },
+    /* « Mes recommandations », pas « Mes affaires » : c'est le nom de l'objet dans Kimatch, et
+       c'est celui que l'écran partenaire de Kimatch portait déjà. Inventer un second vocabulaire
+       obligerait chacun à traduire — un commercial qui parle d'une recommandation au téléphone, un
+       partenaire qui cherche ses « affaires », et personne ne sait qu'il s'agit de la même chose. */
+    { cle: 'recommandations', libelle: 'Mes recommandations', icone: Sparkle, n: reco?.length ?? 0 },
     { cle: 'comptes', libelle: 'Comptes', icone: Building2, n: comptes.length },
     { cle: 'contacts', libelle: 'Contacts', icone: Users, n: contacts.length },
     { cle: 'sites', libelle: 'Sites', icone: MapPin, n: sites.length },
@@ -401,8 +405,8 @@ export default function EspacePartenaire() {
         </div>
 
         {onglet === 'recommandations' && (
-          vues.recommandations.length === 0 ? <Vide quoi="dossier" /> : (
-            <Tableau tetes={['Affaire', 'Compte', 'Étape', 'Ouverte le', '>Montant', '>Votre marge']}>
+          vues.recommandations.length === 0 ? <Vide quoi="recommandation" /> : (
+            <Tableau tetes={['Recommandation', 'Compte', 'Étape', 'Ouverte le', '>Montant', '>Votre marge']}>
               {vues.recommandations.map((r) => (
                 <tr key={r.id} className="border-b border-km-line-soft last:border-0">
                   <td className="px-3 py-2">

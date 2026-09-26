@@ -206,7 +206,7 @@ const demander = async (email) => {
     console.log('')
     console.log('══ ④ LES SEPT OBJETS DU PATRIMOINE ══')
     for (const [onglet, attendu] of [
-      ['Mes affaires', 'ZZZ ACC SON AFFAIRE'],
+      ['Mes recommandations', 'ZZZ ACC SON AFFAIRE'],
       ['Comptes', 'ZZZ ACC SON CLIENT'],
       ['Contacts', 'ZZZ ACC GESTIONNAIRE'],
       ['Sites', 'ZZZ ACC SITE'],
@@ -229,7 +229,7 @@ const demander = async (email) => {
     txt = await page.evaluate(() => document.body.innerText)
     /* ON REVIENT SUR L'ONGLET DES AFFAIRES : la marge y est, et nulle part ailleurs.
        Verifier depuis l'onglet Documents ne prouvait rien — elle n'y figure pas. */
-    await page.getByRole('button', { name: /^Mes affaires/i }).first().click({ timeout: 20000 })
+    await page.getByRole('button', { name: /^Mes recommandations/i }).first().click({ timeout: 20000 })
     await page.waitForTimeout(2200)
     txt = await page.evaluate(() => document.body.innerText)
     

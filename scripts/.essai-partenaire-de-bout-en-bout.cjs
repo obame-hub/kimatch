@@ -261,7 +261,7 @@ const a = (chemin, meth, corps) =>
     console.log('')
     console.log('══ ④ SES HUIT ONGLETS ══')
     for (const [onglet, attendu] of [
-      ['Mes affaires', 'ZZZ E2E SON AFFAIRE'],
+      ['Mes recommandations', 'ZZZ E2E SON AFFAIRE'],
       ['Comptes', 'ZZZ E2E SON CLIENT'],
       ['Contacts', 'ZZZ E2E GESTIONNAIRE'],
       ['Sites', 'ZZZ E2E SITE'],
@@ -284,7 +284,7 @@ const a = (chemin, meth, corps) =>
     /* ON REVIENT SUR L'ONGLET DES AFFAIRES : la marge d'apporteur n'est QUE là. La chercher
        depuis l'onglet Documents, où l'on venait de s'arrêter, ne prouvait rien — elle n'y
        figure pas, par construction. */
-    await page.getByRole('button', { name: /^Mes affaires/i }).first().click({ timeout: 20000 })
+    await page.getByRole('button', { name: /^Mes recommandations/i }).first().click({ timeout: 20000 })
     await page.waitForTimeout(2200)
     const tout = await page.evaluate(() => document.body.innerText)
     const sansEspaces = tout.replace(/[\s  ]/g, '')
