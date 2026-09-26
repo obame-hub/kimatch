@@ -38,6 +38,22 @@ export function AppLayout() {
    * CE N'EST PAS LA SÉCURITÉ, et il ne faut pas s'y tromper : ce sont les policies qui protègent
    * les données (migration 20260924143000). Ceci évite d'AFFICHER ce qui ne le concerne pas.
    * ══════════════════════════════════════════════════════════════════════════════════════════ */
+  /* ══ CE CHEMIN NE SERT PLUS, ET ON LE GARDE QUAND MÊME — 26/09/2026 ══
+   *
+   * Naoëlle : « il faut fermer Kimatch à un partenaire s'il a son interface externe ». C'est fait,
+   * EN BASE (migration 20260926143000) : plus aucun profil ne peut être rattaché à un compte
+   * partenaire, donc `useEstPartenaire()` rend désormais faux pour tout le monde, et tout ce qui
+   * suit est du code mort.
+   *
+   * ON NE LE RETIRE PAS, pour deux raisons :
+   *
+   *   · LA FERMETURE EST EN BASE, pas ici. Retirer l'aiguillage ne fermerait rien — et le jour où
+   *     l'on voudrait rouvrir, il faudrait le réécrire de mémoire, avec le risque d'oublier une
+   *     route. Ce qui est écrit ici est éprouvé.
+   *   · CE FICHIER EST LA COQUE DE TOUTE L'APPLICATION. Y toucher pour retirer du code inerte,
+   *     c'est prendre un risque pour toute l'équipe sans rien gagner.
+   *
+   * Si la fermeture devient définitive, ce retrait se fera à froid, avec un essai à l'écran. */
   const estPartenaire = useEstPartenaire()
   const { pathname } = useLocation()
   /* CE QU'IL A LE DROIT D'OUVRIR. Tout le reste le ramène à ses recommandations — y compris la
