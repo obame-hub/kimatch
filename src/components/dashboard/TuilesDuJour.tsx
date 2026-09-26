@@ -155,10 +155,10 @@ export function TuileArgent({
       className={cn(
         'animate-km-card-rise relative flex flex-col overflow-hidden rounded-[20px] px-[18px] py-4 text-white shadow-[0_14px_34px_-20px_rgba(13,122,95,.55)]',
         !sansPipe && 'sm:col-span-2 lg:row-span-2',
-        /* SANS LE PIPE, LA TUILE SE CENTRE. Le pipe et son filet occupaient le bas ; sans eux, le
-           montant restait collé en haut d'une tuile désormais haute de 230 px, avec un vide
-           dessous. Centré, il tient le milieu de la tuile comme la matrice tient la sienne. */
-        sansPipe && 'justify-center',
+        /* SANS LE PIPE, LA TUILE SE PARTAGE EN TROIS : le titre en haut, le montant au milieu,
+           les filtres au pied. `justify-center` groupait tout au centre et laissait deux vides ;
+           ici chaque chose a sa place dans les 230 px, et rien ne flotte. */
+        sansPipe && 'justify-between',
       )}
       style={{ background: 'linear-gradient(152deg,#199b78 0%,#0d7a5f 55%,#0a5F4A 100%)' }}
     >
@@ -181,12 +181,47 @@ export function TuileArgent({
           DEUX GROUPES ET NON UNE RANGÉE DE CINQ BOUTONS : les filtres se croisent — une période ET
           une portée. Les fondre ferait croire qu'ils s'excluent, et « Global » effacerait « Mois »
           à l'œil. Le filet vertical dit qu'on change de question. */}
-      <div className="flex items-center gap-x-2">
-        <span className="min-w-0 truncate text-km-label font-bold uppercase tracking-[.1em] text-white/75">
+      {/* ══ LE TITRE ET LES DEUX FILTRES SUR UNE SEULE LIGNE ══
+          William, 15/09/2026 : les filtres « dans la partie supérieure droite » de la tuile. C'est
+          l'endroit juste : le choix qualifie le chiffre qui suit, on le lit avant lui.
+          William, 24/09/2026 : « les filtres doivent être sur la même ligne que le texte Montant
+          signé ».
+
+          ON RENONCE DONC AU REPLI, ET C'EST UN ARBITRAGE QUI A CHANGÉ DE SENS. Il tenait jusqu'ici
+          par un argument : sans repli, c'est le titre qui serait rogné, et « Monta… » au-dessus
+          d'un montant fait perdre ce que le montant désigne. Cet argument ne tient plus depuis que
+          la phrase sous le chiffre dit la période ET la portée — « toutes les affaires acceptées ce
+          mois-ci ». Le montant est désormais qualifié en dessous de lui ; le titre peut se serrer
+          sans que le chiffre devienne ambigu.
+
+          ══ SAUF DANS LA TUILE ÉTROITE DU SERVICE CLIENT (25/09/2026) ══
+
+          Là, l'argument s'est retourné une fois de plus. Sur un quart de largeur, le titre ne se
+          serrait pas : il tombait à « M… », et les filtres occupaient tout. William : « tu as
+          largement la place d'écrire le titre, de mettre le montant et de positionner les filtres
+          en bas ».
+
+          Il a raison, et la place vient de la hauteur : 230 px pour trois lignes de contenu. Les
+          filtres descendent donc au pied de la tuile, où ils retrouvent leur largeur entière — et
+          le titre la sienne. L'ordre de lecture y gagne : on lit ce que c'est, combien, puis on
+          règle. Il n'y a que sur une ligne partagée que le réglage devait précéder le chiffre.
+
+          LES DEUX GROUPES NE SE COMPRIMENT JAMAIS (`shrink-0`) : un segment tronqué ne se clique
+          pas. C'est le titre qui cède en dernier recours, et lui seul.
+
+          DEUX GROUPES ET NON UNE RANGÉE DE CINQ BOUTONS : les filtres se croisent — une période ET
+          une portée. Les fondre ferait croire qu'ils s'excluent, et « Global » effacerait « Mois »
+          à l'œil. Le filet vertical dit qu'on change de question. */}
+      <div className={cn('flex items-center gap-x-2', sansPipe && 'flex-wrap')}>
+        <span className={cn(
+          'min-w-0 text-km-label font-bold uppercase tracking-[.1em] text-white/75',
+          sansPipe ? 'whitespace-nowrap' : 'truncate',
+        )}>
           Montant signé
         </span>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        {!sansPipe && (
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <div
             role="group"
             aria-label="Période du montant signé"
@@ -236,7 +271,8 @@ export function TuileArgent({
               )
             })}
           </div>
-        </div>
+          </div>
+        )}
       </div>
 
       <span
@@ -290,6 +326,62 @@ export function TuileArgent({
       <span className="mt-0.5 truncate text-km-label text-white/60">
         {chargement ? '—' : `${nb} étude${nb > 1 ? 's' : ''} chez le client`}
       </span>
+      )}
+
+      {/* LES FILTRES AU PIED, dans la tuile étroite : voir la note de l'en-tête. `mt-auto` les
+          pose au bas quelle que soit la hauteur que la rangée donne à la tuile. */}
+      {sansPipe && (
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
+          <div
+            role="group"
+            aria-label="Période du montant signé"
+            className="flex items-center gap-0.5 rounded-full bg-black/15 p-0.5"
+          >
+            {PERIODES_MONTANT.map((p) => {
+              const actif = p === periode
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={actif}
+                  onClick={() => onPeriode(p)}
+                  className={cn(
+                    'rounded-full px-[7px] py-[3px] text-km-tiny font-bold transition-colors',
+                    actif ? 'bg-white text-[#0d7a5f] shadow-sm' : 'text-white/70 hover:bg-white/10 hover:text-white',
+                  )}
+                >
+                  {LIBELLE_PERIODE[p].onglet}
+                </button>
+              )
+            })}
+          </div>
+
+          <span aria-hidden className="h-4 w-px bg-white/25" />
+
+          <div
+            role="group"
+            aria-label="Portée du montant signé"
+            className="flex items-center gap-0.5 rounded-full bg-black/15 p-0.5"
+          >
+            {PORTEES_MONTANT.map((p) => {
+              const actif = p === portee
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={actif}
+                  onClick={() => onPortee(p)}
+                  className={cn(
+                    'rounded-full px-[7px] py-[3px] text-km-tiny font-bold transition-colors',
+                    actif ? 'bg-white text-[#0d7a5f] shadow-sm' : 'text-white/70 hover:bg-white/10 hover:text-white',
+                  )}
+                >
+                  {LIBELLE_PORTEE[p]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       )}
     </div>
   )
