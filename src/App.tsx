@@ -26,6 +26,7 @@ import Login from '@/pages/Login'
    connexion. Elle est différée comme les autres : personne de l'équipe ne l'ouvre jamais, il n'y a
    aucune raison de la faire peser sur le premier chargement de ceux qui travaillent. */
 const DepotFactures = lazy(() => chargerPage(() => import('@/pages/DepotFactures')))
+const EspacePartenaire = lazy(() => chargerPage(() => import('@/pages/EspacePartenaire')))
 const Dashboard = lazy(() => chargerPage(() => import('@/pages/Dashboard')))
 const RedirectionSite = lazy(() => chargerPage(() => import('@/pages/RedirectionSite')))
 const PageIntrouvable = lazy(() => chargerPage(() => import('@/pages/PageIntrouvable')))
@@ -101,6 +102,12 @@ function App() {
             et n'en aura pas. Le jeton de l'URL est sa seule autorisation, et il est vérifié côté
             serveur par `api/depot/*` — aucune politique n'ouvre ces tables au navigateur. */}
         <Route path="/depot/:jeton" element={<DepotFactures />} />
+
+        {/* HORS DE `ProtectedRoute`, pour la même raison que la boîte de dépôt : le partenaire n'a
+            pas de compte Kimatch et n'en aura pas. Sa clé est sa seule autorisation, et elle est
+            vérifiée côté serveur par les points d'entrée `api/partenaire` — aucune policy n'ouvre
+            quoi que ce soit au navigateur. Ajouter demain un écran à Kimatch n'ouvre rien ici. */}
+        <Route path="/partenaire" element={<EspacePartenaire />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>

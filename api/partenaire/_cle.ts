@@ -99,8 +99,8 @@ export async function exigerCle(req: VercelRequest, res: VercelResponse): Promis
     return null
   }
 
-  const cle = entete.slice('Bearer '.length).trim()
-  if (!cle.startsWith(PREFIXE_CLE)) {
+  const porteur = entete.slice('Bearer '.length).trim()
+  if (!porteur) {
     res.status(401).json({ erreur: 'Clé invalide.' })
     return null
   }
@@ -110,6 +110,24 @@ export async function exigerCle(req: VercelRequest, res: VercelResponse): Promis
     return null
   }
 
+  /* ══ DEUX PORTEURS POSSIBLES, ET LE PRÉFIXE LES DISTINGUE ══
+   *
+   * `kw_…`  une CLÉ D'API, émise par un administrateur pour un programme. Elle vaut jusqu'à
+   *         révocation, et se relève dans `cles_api_partenaires`.
+   *
+   * autre   un JETON DE SESSION, né d'un lien reçu par mail. Il expire seul au bout de trente
+   *         jours, et vit dans `sessions_partenaires`.
+   *
+   * Naoëlle, 26/09/2026 : « je préfère qu'ils reçoivent un lien dans leur boîte mail afin qu'ils
+   * soient indépendants ». Les deux coexistent : la clé sert une intégration, le lien sert une
+   * personne — et les deux aboutissent au même périmètre, déduit du compte, jamais déclaré. */
+  return porteur.startsWith(PREFIXE_CLE)
+    ? await parLaCle(porteur, res)
+    : await parLaSession(porteur, res)
+}
+
+/** Une clé d'API : `cles_api_partenaires`, valable jusqu'à révocation. */
+async function parLaCle(cle: string, res: VercelResponse): Promise<Partenaire | null> {
   const lignes = await lire<{
     id: string; compte_id: string; libelle: string; actif: boolean; revoquee_le: string | null
   }>(
@@ -132,6 +150,48 @@ export async function exigerCle(req: VercelRequest, res: VercelResponse): Promis
   void marquerUsage(trouvee.id)
 
   return { cleId: trouvee.id, compteId: trouvee.compte_id, libelle: trouvee.libelle }
+}
+
+/** Un jeton de session, né d'un lien reçu par mail : `sessions_partenaires`, trente jours. */
+async function parLaSession(jeton: string, res: VercelResponse): Promise<Partenaire | null> {
+  const lignes = await lire<{
+    id: string
+    compte_id: string
+    sess_expire_le: string | null
+    revoquee_le: string | null
+    compte: { nom: string } | null
+  }>(
+    `sessions_partenaires?empreinte_sess=eq.${encodeURIComponent(empreinteDe(jeton))}` +
+    '&select=id,compte_id,sess_expire_le,revoquee_le,compte:comptes(nom)&limit=1',
+  )
+
+  const s = lignes && lignes.length > 0 ? lignes[0] : null
+  const expiree = s?.sess_expire_le ? new Date(s.sess_expire_le).getTime() < Date.now() : true
+
+  if (!s || s.revoquee_le || expiree) {
+    res.status(401).json({
+      erreur: 'Votre accès a expiré. Saisissez votre adresse e-mail pour recevoir un nouveau lien.',
+    })
+    return null
+  }
+
+  void marquerVueSession(s.id)
+
+  return { cleId: s.id, compteId: s.compte_id, libelle: s.compte?.nom ?? 'Espace partenaire' }
+}
+
+async function marquerVueSession(id: string): Promise<void> {
+  const c = config()
+  if (!c) return
+  try {
+    await fetch(`${c.url}/rest/v1/rpc/marquer_vue_session_partenaire`, {
+      method: 'POST',
+      headers: { apikey: c.cle, Authorization: `Bearer ${c.cle}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_session_id: id }),
+    })
+  } catch {
+    /* Le relevé est une commodité, jamais une condition de la réponse. */
+  }
 }
 
 async function marquerUsage(cleId: string): Promise<void> {
