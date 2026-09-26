@@ -21,6 +21,35 @@ import { supabase } from '@/lib/supabase'
  * silencieusement une liste de destinataires vide plutôt que d'écrire une ligne sans lecteur.
  */
 
+/**
+ * ══ LES MORCEAUX QUE LE VOLET DESSINE SÉPARÉMENT ══
+ *
+ * William, 26/09/2026, sur le dessin retenu : la référence dans un jeton, le type dans une
+ * pastille, le compte en dessous.
+ *
+ * Une notification ne portait qu'un `titre` et un `message` — du texte assemblé à l'écriture :
+ * « PLISSON IMMOBILIER · chez GAZ EUROPEEN · validé par William Goupil ». Retrouver la référence
+ * dans cette phrase demanderait de la découper à la lecture, et la première notification écrite
+ * autrement se dessinerait de travers.
+ *
+ * LA PHRASE RESTE : les treize notifications déjà en base n'ont pas de `donnees`, et tout ce qui
+ * n'a pas de dessin propre continue de s'afficher comme avant.
+ */
+export interface DonneesNotification {
+  /** Le grand titre : le compte pour un contrat, l'objet pour une requête. */
+  sujet?: string | null
+  /** La référence, dans son jeton à chasse fixe. */
+  reference?: string | null
+  /** La pastille colorée — « Gaz », « Réclamation ». */
+  jeton?: string | null
+  /** Sa teinte, écrite à la source : voir `TEINTES` dans le volet. */
+  ton?: 'gaz' | 'elec' | 'alerte' | 'neutre' | null
+  /** Le texte gris qui suit les jetons sur la même ligne. */
+  precision?: string | null
+  /** La ligne du dessous. */
+  sous_titre?: string | null
+}
+
 export interface Notification {
   id: string
   titre: string
@@ -29,11 +58,13 @@ export interface Notification {
   entite_type: string | null
   entite_id: string | null
   categorie: string
+  donnees: DonneesNotification | null
   lu_le: string | null
   date_creation: string
 }
 
-const COLONNES = 'id, titre, message, lien, entite_type, entite_id, categorie, lu_le, date_creation'
+const COLONNES =
+  'id, titre, message, lien, entite_type, entite_id, categorie, donnees, lu_le, date_creation'
 
 /**
  * Les cinquante dernières, lues comme non lues.
@@ -108,6 +139,7 @@ export async function creerNotifications(input: {
   entiteType?: string | null
   entiteId?: string | null
   categorie?: string
+  donnees?: DonneesNotification | null
   emetteurId?: string | null
 }): Promise<number> {
   const destinataires = [...new Set(input.destinataires)].filter(
@@ -124,6 +156,7 @@ export async function creerNotifications(input: {
       entite_type: input.entiteType ?? null,
       entite_id: input.entiteId ?? null,
       categorie: input.categorie ?? 'general',
+      donnees: input.donnees ?? null,
       cree_par_id: input.emetteurId ?? null,
     })),
   )

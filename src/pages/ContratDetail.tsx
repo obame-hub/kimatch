@@ -901,10 +901,37 @@ export default function ContratDetail() {
                                 ]
                                   .filter(Boolean)
                                   .join(' · '),
-                                lien: `/contrats/${contrat.id}`,
+                                /* ── LE LIEN MÈNE AU SUIVI, PAS AU CONTRAT ──
+                                   William, 26/09/2026 : « Au clic, Fabien doit être redirigé vers
+                                   le suivi de contrat lié. » C'est là qu'est son travail — la
+                                   checklist, les jalons, les tâches. Le contrat, lui, ne lui
+                                   demande rien une fois validé.
+
+                                   LE REPLI RESTE. Les 1 584 contrats validés ont tous un suivi,
+                                   mais celui-ci est lu au chargement de la page : si la lecture
+                                   n'a pas encore abouti au moment du clic, on renvoie vers le
+                                   contrat plutôt que vers une adresse vide. */
+                                lien: suivi ? `/suivis-contrats/${suivi.id}` : `/contrats/${contrat.id}`,
                                 entiteType: 'contrat',
                                 entiteId: contrat.id,
                                 categorie: 'validation_contrat',
+                                /* Les morceaux que le volet dessine séparément — l'étiquette dit
+                                   déjà « Contrat validé », donc le gras porte le COMPTE. La demande
+                                   de revérification descend en bas de ligne : elle reste écrite,
+                                   sans reprendre la place du seul mot qu'on cherche du regard. */
+                                donnees: {
+                                  sujet: contrat.compte_nom,
+                                  reference: contrat.reference,
+                                  jeton: contrat.type_energie === 'gaz' ? 'Gaz' : 'Électricité',
+                                  ton: contrat.type_energie === 'gaz' ? 'gaz' : 'elec',
+                                  precision: contrat.fournisseur_nom,
+                                  sous_titre: [
+                                    'à revérifier',
+                                    monProfil && `validé par ${monProfil.prenom} ${monProfil.nom}`,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · '),
+                                },
                                 emetteurId: monProfil?.id ?? null,
                               })
                               /* On ne dit rien quand il n'y a personne à prévenir : le service

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { CheckCheck, X } from 'lucide-react'
+import { Check, CheckCheck, LifeBuoy, X, type LucideIcon } from 'lucide-react'
 import { useMarquerLue, useNotifications, type Notification } from '@/lib/data/notifications'
 import { cn } from '@/lib/utils'
 
@@ -32,6 +32,53 @@ import { cn } from '@/lib/utils'
  * Une boîte entièrement lue n'a pas de pastille : dans ce cas l'ouverture ne change rien, et le
  * comportement ci-dessus ne se remarque pas.
  */
+
+/**
+ * ══ LE BANDEAU DE TYPE ══
+ *
+ * William, 26/09/2026 : « Tu as mon go pour le style B. » Fabien ne reçoit que deux sortes de
+ * notification, et le volet les distingue avant toute lecture — une bande de couleur sur le bord
+ * gauche, puis une étiquette qui NOMME le type.
+ *
+ * LE TITRE EST LE SUJET, PAS LE TYPE. « Contrat à revérifier — CT-01626 » mettait en gras ce que
+ * l'étiquette dit déjà, et reléguait le seul mot qu'on cherche du regard — le compte — dans la
+ * phrase du dessous. Ici le gras porte PLISSON IMMOBILIER, et la référence descend dans un jeton à
+ * chasse fixe, qu'on parcourt sans le lire.
+ *
+ * ── CE QUI ARRIVE AUX AUTRES ──
+ *
+ * Une notification sans dessin propre — les treize déjà en base, les factures déposées — garde
+ * l'affichage d'avant, titre et message, dans la même structure à bande. Rien ne disparaît en
+ * attendant qu'on lui donne un dessin.
+ */
+const TYPES: Record<string, { libelle: string; Icone: LucideIcon; bande: string; etiquette: string }> = {
+  validation_contrat: {
+    libelle: 'Contrat validé',
+    Icone: Check,
+    bande: 'bg-km-green',
+    etiquette: 'bg-km-green-soft text-km-green',
+  },
+  nouvelle_requete: {
+    libelle: 'Nouvelle requête',
+    Icone: LifeBuoy,
+    bande: 'bg-km-blue',
+    etiquette: 'bg-km-blue-soft text-km-blue',
+  },
+}
+
+/**
+ * La teinte de la pastille, écrite à la source plutôt que devinée ici.
+ *
+ * LE GAZ EST BLEU ET L'ÉLECTRICITÉ AMBRE dans tout Kimatch — c'est contre-intuitif la première
+ * fois, mais c'est la convention de l'application, et une notification qui en prendrait une autre
+ * ferait douter du reste.
+ */
+const TEINTES: Record<string, string> = {
+  gaz: 'bg-km-gaz-soft text-km-gaz',
+  elec: 'bg-km-elec-soft text-km-elec',
+  alerte: 'bg-km-red-soft text-km-red',
+  neutre: 'bg-km-soft text-km-muted',
+}
 
 function quand(iso: string): string {
   const d = new Date(iso)
@@ -125,32 +172,20 @@ export function PanneauNotifications({ ouvert, onFermer }: { ouvert: boolean; on
           ) : (
             <ul className="flex flex-col">
               {liste.map((n) => {
+                const lu = !!n.lu_le
+                const type = TYPES[n.categorie]
+
+                /* LA BANDE S'ÉTEINT UNE FOIS LUE, elle ne disparaît pas : c'est le seul repère de
+                   type qui reste quand la couleur se retire du reste. */
                 const contenu = (
                   <>
-                    <div className="flex items-start gap-2">
-                      {/* La pastille tient lieu de gras : elle dit « pas encore traité » sans
-                          alourdir le texte, et laisse le titre lisible une fois lu. */}
-                      <span
-                        className={cn(
-                          'mt-[6px] h-[7px] w-[7px] flex-none rounded-full',
-                          n.lu_le ? 'bg-transparent' : 'bg-km-green',
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={cn(
-                            'text-km-body leading-snug',
-                            n.lu_le ? 'text-km-muted' : 'font-bold text-km-text',
-                          )}
-                        >
-                          {n.titre}
-                        </p>
-                        {n.message && (
-                          <p className="mt-0.5 text-km-label leading-snug text-km-muted">{n.message}</p>
-                        )}
-                        <p className="mt-1 font-mono text-km-xs text-km-faint">{quand(n.date_creation)}</p>
-                      </div>
-                    </div>
+                    <span
+                      aria-hidden="true"
+                      className={cn('w-[3px] flex-none', lu || !type ? 'bg-km-line' : type.bande)}
+                    />
+                    <span className="min-w-0 flex-1 px-3.5 py-2.5">
+                      <Corps n={n} />
+                    </span>
                   </>
                 )
 
@@ -160,7 +195,7 @@ export function PanneauNotifications({ ouvert, onFermer }: { ouvert: boolean; on
                       <Link
                         to={n.lien}
                         onClick={() => ouvrir(n)}
-                        className="block px-3.5 py-2.5 transition-colors hover:bg-km-bg/60"
+                        className="flex transition-colors hover:bg-km-bg/60"
                       >
                         {contenu}
                       </Link>
@@ -168,7 +203,7 @@ export function PanneauNotifications({ ouvert, onFermer }: { ouvert: boolean; on
                       <button
                         type="button"
                         onClick={() => ouvrir(n)}
-                        className="block w-full px-3.5 py-2.5 text-left transition-colors hover:bg-km-bg/60"
+                        className="flex w-full text-left transition-colors hover:bg-km-bg/60"
                       >
                         {contenu}
                       </button>
@@ -180,6 +215,92 @@ export function PanneauNotifications({ ouvert, onFermer }: { ouvert: boolean; on
           )}
         </div>
       </div>
+    </>
+  )
+}
+
+/**
+ * Le corps d'une ligne.
+ *
+ * TOUT EST EN `span` : ce bloc vit aussi bien dans un `<a>` que dans un `<button>`, et un bouton
+ * n'accepte que du contenu de phrase. Un `<p>` là-dedans est du HTML invalide, que le navigateur
+ * répare en sortant le paragraphe du bouton — la mise en page saute sans prévenir.
+ */
+function Corps({ n }: { n: Notification }) {
+  const lu = !!n.lu_le
+  const type = TYPES[n.categorie]
+  const d = n.donnees
+
+  /* SANS DESSIN PROPRE OU SANS DONNÉES, on retombe sur le titre et le message. C'est le cas des
+     treize notifications écrites avant le 26/09 et des factures déposées. */
+  if (!type || !d?.sujet) {
+    return (
+      <>
+        <span className="flex items-baseline gap-2">
+          <span className={cn('flex-1 text-km-body leading-snug', lu ? 'text-km-muted' : 'font-bold text-km-text')}>
+            {n.titre}
+          </span>
+          <span className="shrink-0 font-mono text-km-xs text-km-faint">{quand(n.date_creation)}</span>
+        </span>
+        {n.message && (
+          <span className="mt-0.5 block text-km-label leading-snug text-km-muted">{n.message}</span>
+        )}
+      </>
+    )
+  }
+
+  const { Icone } = type
+  return (
+    <>
+      <span className="flex items-center gap-2">
+        <span
+          className={cn(
+            'inline-flex min-w-0 items-center gap-1 rounded-km-pill px-2 py-[2px] text-km-xs font-extrabold uppercase tracking-wide',
+            lu ? 'bg-km-soft text-km-faint' : type.etiquette,
+          )}
+        >
+          <Icone className="h-2.5 w-2.5 flex-none" strokeWidth={2.8} />
+          <span className="truncate">{type.libelle}</span>
+        </span>
+        <span className="flex-1" />
+        <span className="shrink-0 font-mono text-km-xs text-km-faint">{quand(n.date_creation)}</span>
+      </span>
+
+      {/* DEUX LIGNES AU PLUS POUR LE SUJET : « Syndicat des copropriétaires du 10 rue Coquelin »
+          ne tient pas sur la largeur du volet, et le couper à un mot le rendrait méconnaissable. */}
+      <span
+        className={cn(
+          'mt-1.5 line-clamp-2 text-km-name font-bold leading-snug tracking-tight',
+          lu ? 'font-semibold text-km-muted' : 'text-km-text',
+        )}
+      >
+        {d.sujet}
+      </span>
+
+      {(d.reference || d.jeton || d.precision) && (
+        <span className="mt-1 flex flex-wrap items-center gap-1.5">
+          {d.reference && (
+            <span className="rounded-km-sm border border-km-line px-1.5 py-px font-mono text-km-xs text-km-muted">
+              {d.reference}
+            </span>
+          )}
+          {d.jeton && (
+            <span
+              className={cn(
+                'rounded-km-pill px-2 py-px text-km-xs font-bold',
+                lu ? 'bg-km-soft text-km-faint' : (TEINTES[d.ton ?? 'neutre'] ?? TEINTES.neutre),
+              )}
+            >
+              {d.jeton}
+            </span>
+          )}
+          {d.precision && <span className="truncate text-km-label text-km-muted">{d.precision}</span>}
+        </span>
+      )}
+
+      {d.sous_titre && (
+        <span className="mt-1 block truncate text-km-label text-km-muted">{d.sous_titre}</span>
+      )}
     </>
   )
 }
