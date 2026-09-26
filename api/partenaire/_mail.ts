@@ -1,23 +1,35 @@
+import { refreshAccessToken, sendGmailMessage } from '../gmail/_client.js'
+import { lire } from './_cle.js'
+
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
- * ENVOYER UN MAIL À UN PARTENAIRE
+ * ENVOYER UN LIEN D'ACCÈS À UN PARTENAIRE
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
- * ══ PAS PAR GMAIL, ET C'EST DÉLIBÉRÉ ══
+ * Naoëlle, 26/09/2026 : « tu peux envoyer le lien avec le mail de William comme ce qu'on reçoit
+ * nous ».
  *
- * `api/gmail/send.ts` envoie depuis la boîte d'un commercial : c'est ce qu'il faut pour écrire à un
- * client, et c'est exactement ce qu'il ne faut pas ici. Un lien d'accès demandé à trois heures du
- * matin partirait de la boîte de quelqu'un qui dort, et atterrirait dans sa conversation avec le
- * partenaire. C'est un mail de service, il part de KiWee, pas de quelqu'un.
+ * ══ PAR GMAIL, COMME TOUT LE RESTE ══
  *
- * ══ LE SERVICE SE CHOISIT PAR L'ENVIRONNEMENT ══
+ * KiWee n'a pas de service d'envoi transactionnel, et n'a pas à en prendre un pour cette seule
+ * fonction : les neuf boîtes de l'équipe sont déjà connectées, et `api/gmail/_client.ts` sait
+ * envoyer depuis l'une d'elles. J'avais d'abord branché Resend — un fournisseur que KiWee n'utilise
+ * pas, choisi sans demander. Corrigé.
  *
- * On lit `RESEND_API_KEY` ou, à défaut, un SMTP classique. Aucun secret n'est écrit ici, et le jour
- * où KiWee change de fournisseur, c'est une variable à poser sur Vercel — pas une ligne de code.
+ * ══ UNE SEULE BOÎTE, CHOISIE UNE FOIS ══
  *
- * SI RIEN N'EST CONFIGURÉ, on le DIT au lieu de faire semblant. Un envoi qui échoue en silence est
- * la pire des pannes : le partenaire attend un mail qui ne viendra jamais, et personne ne le sait.
+ * L'expéditeur est fixé par `MAIL_EXPEDITEUR_PARTENAIRE`, et vaut par défaut celle de William.
+ * Ce n'est PAS la boîte du commercial qui suit le partenaire, et c'est délibéré : un lien demandé
+ * à vingt-deux heures partirait alors de la boîte de quelqu'un qui dort, et atterrirait au milieu
+ * de sa conversation avec ce partenaire. Ici, c'est toujours la même adresse — le partenaire
+ * apprend à la reconnaître.
+ *
+ * SI CETTE BOÎTE N'EST PAS CONNECTÉE, on le DIT dans le journal du serveur au lieu de faire
+ * semblant. Un envoi qui échoue en silence est la pire des pannes : le partenaire attend un mail
+ * qui ne viendra jamais, et personne ne le sait.
  */
+
+const EXPEDITEUR_PAR_DEFAUT = 'w.goupil@kiwee-energie.fr'
 
 export interface Courriel {
   destinataire: string
@@ -32,46 +44,47 @@ export interface Resultat {
   detail: string
 }
 
-/** Vrai si un service d'envoi est configuré. L'écran s'en sert pour ne pas promettre l'impossible. */
-export function envoiConfigure(): boolean {
-  return Boolean(process.env.RESEND_API_KEY || process.env.SMTP_URL)
-}
-
 export async function envoyer(c: Courriel): Promise<Resultat> {
-  const expediteur = process.env.MAIL_EXPEDITEUR ?? 'KiWee Énergie <ne-pas-repondre@kimatch.fr>'
+  const expediteur = (process.env.MAIL_EXPEDITEUR_PARTENAIRE ?? EXPEDITEUR_PAR_DEFAUT).toLowerCase()
 
-  // ── RESEND, si la clé est posée ──
-  const cleResend = process.env.RESEND_API_KEY
-  if (cleResend) {
-    try {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${cleResend}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: expediteur,
-          to: [c.destinataire],
-          subject: c.sujet,
-          text: c.texte,
-          html: c.html,
-        }),
-      })
-      if (!r.ok) {
-        return { envoye: false, detail: `Resend a répondu ${r.status} : ${(await r.text()).slice(0, 200)}` }
-      }
-      return { envoye: true, detail: 'envoyé par Resend' }
-    } catch (e) {
-      return { envoye: false, detail: e instanceof Error ? e.message : 'Resend injoignable' }
+  /* ══ PAS DE CLIENT SUPABASE ICI ══
+   *
+   * `@supabase/supabase-js` v2 embarque un client temps réel qui exige Node 22 (« native WebSocket
+   * not found » en dessous). Sous Node 20, le seul IMPORT fait échouer le point d'entrée — mesuré
+   * ce jour : le lien naissait en base, la réponse partait, et le mail ne partait jamais. L'échec
+   * n'apparaissait que dans le journal du serveur.
+   *
+   * `lire` fait la même chose par `fetch` sur PostgREST, sans dépendre d'une version de Node. */
+  const jetons = await lire<{ refresh_token: string | null }>(
+    `profils_gmail_tokens?email_gmail=eq.${encodeURIComponent(expediteur)}&select=refresh_token&limit=1`,
+  )
+
+  const refresh = jetons && jetons.length > 0 ? jetons[0].refresh_token : null
+  if (!refresh) {
+    return {
+      envoye: false,
+      detail: `La boîte ${expediteur} n’est pas connectée à Kimatch : le lien ne peut pas partir. ` +
+        'À reconnecter depuis Paramètres → Gmail.',
     }
   }
 
-  /* AUCUN SERVICE : on ne ment pas. L'appelant décidera quoi en faire — ici, répondre au partenaire
-     que quelque chose ne va pas de notre côté, et le dire dans le journal du serveur. */
-  return {
-    envoye: false,
-    detail: 'Aucun service d’envoi configuré (RESEND_API_KEY absente). Le mail n’est pas parti.',
+  try {
+    /* ON RAFRAÎCHIT PLUTÔT QUE DE RÉUTILISER L'ACCESS TOKEN STOCKÉ : il ne vaut qu'une heure, et un
+       lien demandé à n'importe quelle heure ne doit pas dépendre de la dernière fois que quelqu'un
+       a ouvert Kimatch. Le refresh_token, lui, vaut trente jours et se renouvelle à l'usage. */
+    const { access_token } = await refreshAccessToken(refresh)
+
+    await sendGmailMessage(access_token, {
+      fromEmail: expediteur,
+      to: c.destinataire,
+      subject: c.sujet,
+      text: c.texte,
+      html: c.html,
+    })
+
+    return { envoye: true, detail: `envoyé depuis ${expediteur}` }
+  } catch (e) {
+    return { envoye: false, detail: e instanceof Error ? e.message : 'Gmail injoignable' }
   }
 }
 
@@ -120,7 +133,7 @@ export function messageDeLien(lien: string, prenom: string | null): Courriel {
     Vous n’avez pas demandé cet accès ? Ignorez ce message : le lien ne sert à rien sans ce mail.
   </p>
   <p style="font-size:12px;color:#8a938e;margin:0;border-top:1px solid #e6e9e7;padding-top:14px">
-    KiWee Énergie — ce message est automatique, merci de ne pas y répondre.
+    KiWee Énergie
   </p>
 </div>`.trim()
 
