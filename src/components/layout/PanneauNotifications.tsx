@@ -280,14 +280,14 @@ function Corps({ n }: { n: Notification }) {
       {(d.reference || d.jeton || d.precision) && (
         <span className="mt-1 flex flex-wrap items-center gap-1.5">
           {d.reference && (
-            <span className="rounded-km-sm border border-km-line px-1.5 py-px font-mono text-km-xs text-km-muted">
+            <span className="rounded-km-sm border border-km-line px-1.5 py-px font-mono text-km-label text-km-muted">
               {d.reference}
             </span>
           )}
           {d.jeton && (
             <span
               className={cn(
-                'rounded-km-pill px-2 py-px text-km-xs font-bold',
+                'rounded-km-pill px-2 py-px text-km-label font-bold',
                 lu ? 'bg-km-soft text-km-faint' : (TEINTES[d.ton ?? 'neutre'] ?? TEINTES.neutre),
               )}
             >
