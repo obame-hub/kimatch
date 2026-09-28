@@ -267,7 +267,7 @@ export function ZoneRequetes({ jour }: { jour?: string | null }) {
       }
     >
       <Tableau
-        vide={jour ? 'Aucune tâche sur une requête ce jour-là.' : 'Aucune tâche ouverte sur une requête.'}
+        vide={jour ? 'Aucune tâche sur une requête ce jour-là.' : 'Rien de dû sur une requête : ni tâche du jour, ni retard.'}
         chargement={isLoading}
         enTout={lignes.length}
         enTete={
@@ -335,7 +335,7 @@ export function ZoneFidelisation({ jour }: { jour?: string | null }) {
       }
     >
       <Tableau
-        vide={jour ? 'Aucune tâche sur un suivi ce jour-là.' : 'Aucune tâche ouverte sur un suivi de contrat.'}
+        vide={jour ? 'Aucune tâche sur un suivi ce jour-là.' : 'Rien de dû sur un suivi de contrat : ni tâche du jour, ni retard.'}
         chargement={isLoading}
         enTout={lignes.length}
         enTete={

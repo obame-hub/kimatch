@@ -82,10 +82,15 @@ export interface TacheSuivi {
  * `jour` — `AAAA-MM-JJ` — restreint à une journée, quand on a cliqué dans la charge. Le filtre est
  * fait EN BASE : rapatrier 284 lignes pour n'en garder que celles d'un mardi serait payer le
  * transport de tout pour en afficher trois, et le refaire à chaque clic.
+ *
+ * SANS JOUR, CE QUI EST DÛ — et non plus tout. William, 28/09/2026 : « si aucune date n'a été
+ * sélectionnée dans le suivi de charge, il faut que ce soit les tâches du jour et celles en retard
+ * qui s'affichent, pas les tâches futures ». Le futur se lit dans la charge, en cliquant un jour.
+ * Les tâches sans échéance restent affichées : aucun jour ne les porte, elles disparaîtraient sinon.
  */
 export function useTachesDesRequetes(jour?: string | null) {
   return useQuery({
-    queryKey: ['service-client', 'taches-requetes', jour ?? 'tout'],
+    queryKey: ['service-client', 'taches-requetes', jour ?? 'du'],
     staleTime: 60 * 1000,
     queryFn: async (): Promise<TacheRequete[]> => {
       const { data, error } = await supabase.rpc('taches_ouvertes_des_requetes', { p_jour: jour ?? null })
@@ -98,7 +103,7 @@ export function useTachesDesRequetes(jour?: string | null) {
 /** Les tâches de suivis qui me reviennent. Voir `useTachesDesRequetes` pour le paramètre `jour`. */
 export function useTachesDesSuivis(jour?: string | null) {
   return useQuery({
-    queryKey: ['service-client', 'taches-suivis', jour ?? 'tout'],
+    queryKey: ['service-client', 'taches-suivis', jour ?? 'du'],
     staleTime: 60 * 1000,
     queryFn: async (): Promise<TacheSuivi[]> => {
       const { data, error } = await supabase.rpc('taches_ouvertes_des_suivis', { p_jour: jour ?? null })
