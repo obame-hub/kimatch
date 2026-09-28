@@ -102,6 +102,31 @@ export function statutDerive(o: Opportunite, mandats: MandatPourCouverture[]) {
       tache: o.motif_cloture ? o.motif_cloture : 'Fermée sans motif renseigné.',
     }
   }
+  /* ══ UNE OPPORTUNITÉ NÉE D'UNE PISTE NE PASSE PAS PAR « NOUVELLE » ══
+
+     William, 28/09/2026 : « une opportunité passe directement en Couverture mandat à partir du
+     moment où elle est créée avec des compteurs liés. Autrement elle reste En qualification. »
+
+     LA CONVERSION EST LE SIGNAL POSITIF : on vient de raccrocher avec cette personne. Exiger en plus
+     un signal saisi à la main la laissait « Nouvelle » — ce qui ne décrivait rien de vrai. Le
+     périmètre décide donc seul : des compteurs, et il reste le mandat à obtenir ; aucun, et il
+     reste à les rattacher. Le mandat, lui, se vérifie comme pour toutes les autres : s'il couvre
+     déjà le périmètre, l'opportunité est prête à convertir.
+
+     MÊME RÈGLE EN BASE, dans `fn_statut_opportunite_calcule` — voir l'en-tête de ce fichier. */
+  if (o.origine === 'PISTE') {
+    if (o.compteur_ids.length === 0) {
+      return { code: 'EN_QUALIFICATION', libelle: 'En qualification', tache: 'Rattacher les compteurs du périmètre.' }
+    }
+    if (!ok('mandat')) {
+      return { code: 'COUVERTURE_MANDAT', libelle: 'Couverture mandat', tache: 'Obtenir un mandat couvrant le périmètre.' }
+    }
+    return {
+      code: 'PRETE_A_CONVERTIR',
+      libelle: 'Prête à convertir',
+      tache: !ok('accord') ? 'Obtenir l’accord du client.' : 'Lancer la recommandation.',
+    }
+  }
   // « Nouvelle — issue d'un signal validé » : elle vient d'arriver, rien n'a encore été rassemblé.
   // Ce qui la distingue d'« En qualification », c'est qu'aucun périmètre n'a été touché — c'est le
   // premier geste du commercial, et le seul qui se lise dans les données.

@@ -31,7 +31,7 @@ try {
   /* Les mêmes faits que `fetchOpportunites`, à deux écarts voulus près — ceux de la fonction SQL :
      une recommandation ou un mandat supprimés (`actif = false`) ne comptent pas. */
   const { rows: opps } = await db.query(`
-    select o.id, o.reference, o.compte_id, o.contact_id, o.signal_id, o.signal_libelle,
+    select o.id, o.reference, o.origine, o.compte_id, o.contact_id, o.signal_id, o.signal_libelle,
            o.qualification_fin, o.motif_cloture, coalesce(o.accord_client, false) as accord_client,
            coalesce((select array_agg(os.site_id) from opportunites_sites os where os.opportunite_id = o.id), '{}') as site_ids,
            coalesce((select array_agg(oc.compteur_id) from opportunites_compteurs oc

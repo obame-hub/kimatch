@@ -103,3 +103,40 @@ describe('statutDerive — la conversion suit le périmètre', () => {
     expect(r.tache).toContain('2 compteurs sur 4')
   })
 })
+
+/**
+ * ══ UNE OPPORTUNITÉ NÉE D'UNE PISTE PART DE SON PÉRIMÈTRE ══
+ *
+ * William, 28/09/2026 : « une opportunité passe directement en Couverture mandat à partir du moment
+ * où elle est créée avec des compteurs liés. Autrement elle reste En qualification. »
+ */
+describe('statutDerive — une opportunité née d’une piste', () => {
+  /* La conversion ne pose ni signal ni, parfois, de contact : c'est justement le cas à tenir. */
+  const nee = (patch: Partial<Opportunite> = {}) =>
+    opportunite({ origine: 'PISTE', signal_id: null, signal_libelle: null, ...patch })
+
+  it('avec des compteurs et sans mandat : Couverture mandat', () => {
+    expect(statutDerive(nee(), []).code).toBe('COUVERTURE_MANDAT')
+  })
+
+  it('sans aucun compteur : En qualification, et jamais Nouvelle', () => {
+    expect(statutDerive(nee({ compteur_ids: [] }), []).code).toBe('EN_QUALIFICATION')
+    expect(statutDerive(nee({ compteur_ids: [], contact_id: null }), []).code).toBe('EN_QUALIFICATION')
+  })
+
+  it('un contact manquant ne la ramène pas à Nouvelle quand elle a des compteurs', () => {
+    expect(statutDerive(nee({ contact_id: null }), []).code).toBe('COUVERTURE_MANDAT')
+  })
+
+  it('un mandat qui couvre déjà le périmètre la rend prête à convertir', () => {
+    expect(statutDerive(nee(), MANDATS).code).toBe('PRETE_A_CONVERTIR')
+  })
+
+  it('la suite du parcours ne change pas : convertie quand tout est placé', () => {
+    expect(statutDerive(nee({ recommandation_ids: ['r1'], compteurs_places: ['c1', 'c2', 'c3', 'c4'] }), []).code).toBe('CONVERTIE')
+  })
+
+  it('une opportunité d’une autre origine garde la règle générale', () => {
+    expect(statutDerive(opportunite({ signal_id: null, signal_libelle: null }), []).code).toBe('NOUVELLE')
+  })
+})

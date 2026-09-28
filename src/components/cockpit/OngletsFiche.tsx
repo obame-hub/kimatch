@@ -828,7 +828,15 @@ function Ligne({ libelle, valeur, mono, lien, onCommit }: {
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-km-side-line px-3.5 py-2.5 text-km-body last:border-b-0">
       <dt className="shrink-0 text-km-side-muted">{libelle}</dt>
-      <dd className={cn('flex min-w-0 items-baseline justify-end gap-1.5 break-words text-right font-semibold text-km-side-text', mono ? 'font-mono' : '')}>
+      {/* ══ LA VALEUR PREND TOUTE LA PLACE LIBRE DE LA LIGNE ══
+          William, 28/09/2026, capture à l'appui : « les champs apparaissent sur 2 lignes alors que la
+          largeur permet largement de les afficher sur une seule ». Sans `flex-1`, la colonne se
+          calait sur la largeur de son contenu — et le champ modifiable qu'elle contient, avec sa
+          marge négative et son `max-w-full`, se retrouvait 8 px plus étroit que son propre texte.
+          Les deux derniers caractères de chaque valeur ne tenaient jamais : coupés par « … » avant
+          le 28/09, renvoyés à la ligne ensuite. Posée sur toute la largeur restante, la colonne n'a
+          plus rien à retrancher ; une valeur vraiment trop longue revient encore à la ligne. */}
+      <dd className={cn('flex min-w-0 flex-1 items-baseline justify-end gap-1.5 break-words text-right font-semibold text-km-side-text', mono ? 'font-mono' : '')}>
         {/* LE LIEN SURVIT À LA MODIFICATION : un site web qu'on ne pourrait plus ouvrir parce qu'il
             est devenu modifiable serait un échange perdant. La flèche part vers le site, le texte
             ouvre le champ. */}
