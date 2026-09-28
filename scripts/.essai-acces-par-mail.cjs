@@ -141,11 +141,15 @@ const demander = async (email) => {
     })).json())[0].id
 
     const tdoc = (await (await a('types_documents?select=id&limit=1')).json())[0]
+    /* `visible_partenaire: true` DEPUIS LE 28/09 : un document n'est rendu que s'il est
+       explicitement ouvert, ou s'il porte un mandat (règle de Michel du 27/09). Sans ce drapeau,
+       l'onglet Documents reste vide — et il a raison de l'être. */
     const posD = await (await a('documents', 'POST', {
       nom: 'ZZZ ACC PIECE', nom_fichier: 'ZZZ ACC PIECE.pdf',
       entite_type: 'compte', entite_id: cree.client,
       type_document_id: tdoc ? tdoc.id : null, actif: true,
       url: 'https://exemple.invalid/zzz.pdf',
+      visible_partenaire: true,
     })).json()
     cree.doc = posD[0] ? posD[0].id : null
 

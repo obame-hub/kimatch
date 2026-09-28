@@ -66,6 +66,7 @@ const CHAMPS_MANDAT = [
 const CHAMPS_CONTRAT = [
   'id', 'reference', 'compte_id', 'site_id', 'date_debut', 'date_fin', 'duree_mois',
   'date_signature', 'statut_signature', 'actif',
+  'visible_partenaire',
   'fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom)',
   'energie:types_energies(libelle)',
 ].join(',')
@@ -128,10 +129,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ...((mandats ?? []) as { id: string }[]).map((m) => m.id),
     ...((contrats ?? []) as { id: string }[]).map((c) => c.id),
   ]
+  /* ══ SEULS LES DOCUMENTS OUVERTS, PLUS LES MANDATS — 28/09/2026 ══
+   *
+   * Michel : « il peut télécharger les mandats. Pour les contrats et documents, je mettrais un
+   * champ visible partenaire oui/non. »
+   *
+   * Deux règles, donc, et une seule requête : un document est rendu s'il est explicitement ouvert
+   * (`visible_partenaire`) OU s'il porte un mandat — ceux-là le sont par principe, et poser un
+   * interrupteur qu'on n'actionnerait jamais serait une décision à prendre à chaque mandat.
+   *
+   * LE DÉFAUT EST FERMÉ : les 19 700 documents existants ne sortent pas. Un document qu'on oublie
+   * d'ouvrir, le partenaire le réclame ; un document ouvert par mégarde, personne ne le voit
+   * partir. */
+  const idsMandats = ((mandats ?? []) as { id: string }[]).map((m) => m.id)
   const documents = idsPerimetre.length
     ? (await lire(
         `documents?entite_id=${enListe(idsPerimetre)}&select=${encodeURIComponent(CHAMPS_DOCUMENT)}` +
-        '&actif=eq.true&order=date_creation.desc')) ?? []
+        '&actif=eq.true' +
+        `&or=(visible_partenaire.eq.true,and(entite_type.eq.mandat,entite_id.${enListe(idsMandats.length ? idsMandats : ['00000000-0000-0000-0000-000000000000'])}))` +
+        '&order=date_creation.desc')) ?? []
     : []
 
   res.status(200).json({

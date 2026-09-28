@@ -29,7 +29,14 @@ const CHAMPS = [
   'id', 'reference', 'nom', 'compte_id', 'date_ouverture', 'date_cloture',
   'montant', 'duree_mois', 'marge_apporteur', 'priorite', 'actif',
   'type_opportunite', 'finalite_cloture', 'date_creation',
-  'etape:etapes_recommandation(libelle)',
+  /* LE LIBELLÉ PARTENAIRE, PAS L'ÉTAPE INTERNE — 28/09/2026.
+     Michel : « je simplifierais les statuts visibles par le partenaire, pas besoin qu'il voie les
+     11 étapes internes ». La traduction vit en base (`etapes_recommandation.libelle_partenaire`),
+     et non ici : une correspondance écrite dans l'API divergerait au premier ajout d'étape, et
+     l'espace afficherait alors « Consultation » ou « Offres reçues » sans que personne ne l'ait
+     décidé. On rend les deux : le libellé simplifié, et l'interne pour l'ordre et le débogage —
+     l'écran n'affiche que le premier. */
+  'etape:etapes_recommandation(libelle,libelle_partenaire)',
   /* LA RELATION EST NOMMÉE EXPLICITEMENT. `recommandations` a plusieurs clés étrangères vers
      `comptes` (le compte de l'affaire, mais aussi des colonnes de rattachement) : sans le nom de
      la contrainte, PostgREST répond 300 « PGRST201 » et refuse de choisir à notre place. */

@@ -48,7 +48,7 @@ interface Compteur { id: string; site_id: string; numero_point: string; libelle:
 interface Mandat { id: string; reference: string | null; numero: string | null; compte_id: string; date_signature: string | null; date_debut_validite: string | null; date_fin_validite: string | null; statut: { libelle: string } | null; signataire: { prenom: string | null; nom: string } | null }
 interface Contrat { id: string; reference: string | null; compte_id: string; site_id: string | null; date_debut: string | null; date_fin: string | null; duree_mois: number | null; statut_signature: string | null; fournisseur: { nom: string } | null; energie: { libelle: string } | null }
 interface Document { id: string; nom: string; nom_fichier: string | null; entite_type: string | null; entite_id: string | null; date_creation: string | null; type: { libelle: string } | null }
-interface Recommandation { id: string; reference: string | null; nom: string; compte_id: string; date_ouverture: string | null; montant: number | null; duree_mois: number | null; marge_apporteur: number | null; etape: { libelle: string } | null; compte: { nom: string; ville: string | null } | null }
+interface Recommandation { id: string; reference: string | null; nom: string; compte_id: string; date_ouverture: string | null; montant: number | null; duree_mois: number | null; marge_apporteur: number | null; etape: { libelle: string; libelle_partenaire: string | null } | null; compte: { nom: string; ville: string | null } | null }
 
 const CLE_SESSION = 'kimatch-partenaire-session'
 
@@ -416,7 +416,7 @@ export default function EspacePartenaire() {
                   <td className="px-3 py-2 text-km-muted">{r.compte?.nom ?? '—'}</td>
                   <td className="px-3 py-2">
                     <span className="rounded-km-sm bg-km-soft px-2 py-0.5 text-km-label font-semibold text-km-muted">
-                      {r.etape?.libelle ?? '—'}
+                      {r.etape?.libelle_partenaire ?? r.etape?.libelle ?? '—'}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-km-muted">{jour(r.date_ouverture)}</td>

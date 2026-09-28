@@ -139,6 +139,7 @@ const a = (chemin, meth, corps) =>
       entite_type: 'compte', entite_id: cree.client,
       type_document_id: tdoc ? tdoc.id : null, actif: true,
       url: 'https://exemple.invalid/zzz-e2e.pdf',
+      visible_partenaire: true,
     })).json())[0].id
 
     // Une affaire de KiWee, qui ne doit JAMAIS apparaître.
