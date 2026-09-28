@@ -67,6 +67,7 @@ const MonProfil = lazy(() => chargerPage(() => import('@/pages/MonProfil')))
 const Support = lazy(() => chargerPage(() => import('@/pages/Support')))
 const Nouveautes = lazy(() => chargerPage(() => import('@/pages/Nouveautes')))
 const Pricing = lazy(() => chargerPage(() => import('@/pages/Pricing')))
+const PrixTradeo = lazy(() => chargerPage(() => import('@/pages/PrixTradeo')))
 
 function App() {
   return (
@@ -141,6 +142,7 @@ function App() {
           <Route path="/opportunites" element={<Opportunites />} />
           <Route path="/opportunites/:id" element={<OpportuniteDetail />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/prix-tradeo" element={<PrixTradeo />} />
           <Route path="/requetes" element={<Requetes />} />
           <Route path="/requetes/:id" element={<RequeteDetail />} />
           <Route path="/suivis-contrats" element={<SuivisContrats />} />

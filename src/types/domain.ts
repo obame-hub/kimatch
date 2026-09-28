@@ -106,6 +106,8 @@ export interface VersionRecommandation {
   /** Id de la `Cotation__c` d'origine. L'Id, jamais le nom — la reprise des mandats a payé pour l'apprendre. */
   id_salesforce?: string | null
   date_souhaitee: string | null
+  /** Premier jour de fourniture demandé (Michel, 28/09/2026). NULL sur les versions plus anciennes. */
+  date_debut_fourniture?: string | null
 }
 
 /**

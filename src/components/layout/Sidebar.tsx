@@ -6,7 +6,8 @@ import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
 import { useIsAdmin, useEstPartenaire, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
-import { navItems, cycleNavItems, productionNavItems, cockpitNavItems, bottomNavItems, partenaireNavItems, partenaireBottomNavItems } from '@/lib/navItems'
+import { navItems, cycleNavItems, productionNavItems, cockpitNavItems, bancTradeoNavItem, bottomNavItems, partenaireNavItems, partenaireBottomNavItems } from '@/lib/navItems'
+import { useOuvreBancTradeo } from '@/lib/data/tradeo'
 import { PanneauNotifications } from '@/components/layout/PanneauNotifications'
 import { useNotificationsNonLues } from '@/lib/data/notifications'
 import { Bell } from 'lucide-react'
@@ -229,6 +230,7 @@ export function Sidebar() {
    * empêchent l'accès (migration 20260924143000). Retirer une entrée cesse de la proposer, rien de
    * plus — quelqu'un qui taperait l'adresse à la main tomberait sur une page vide. */
   const estPartenaire = useEstPartenaire()
+  const { data: ouvreBancTradeo } = useOuvreBancTradeo()
   const { session } = useAuth()
   const { data: profil } = useMonProfil()
   // Support/Paramètres (et Administration pour les admins) sont séparés des objets métier
@@ -390,6 +392,7 @@ export function Sidebar() {
                 {cockpitNavItems.map((item) => (
                   <SidebarLink key={item.to} {...item} onClick={close} />
                 ))}
+                {ouvreBancTradeo && <SidebarLink {...bancTradeoNavItem} onClick={close} />}
               </>
             )}
           </nav>
