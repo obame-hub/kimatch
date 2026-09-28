@@ -18,6 +18,7 @@ import { PhoneOff,
   MessageSquare,
   Layers,
   Megaphone,
+  FlaskConical,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -159,6 +160,15 @@ export const navItemsMasques: NavItem[] = [
 export const cockpitNavItems: NavItem[] = [
   { to: '/cockpit', label: 'Cockpit', icon: Headphones },
 ]
+
+/**
+ * LE BANC D'ESSAI TRADEO, SOUS LE COCKPIT. Naoëlle, 28/09/2026 : « un onglet en dessous de cockpit
+ * […] visible juste de lui et moi ». Le rail ne l'affiche qu'à `ouvre_banc_tradeo()` ; ce n'est pas
+ * la sécurité — `api/tradeo` refuse l'appel, et la page elle-même se dit introuvable.
+ *
+ * HORS DE `pagesRecherchables` : la recherche ⌘K le proposerait à toute l'équipe.
+ */
+export const bancTradeoNavItem: NavItem = { to: '/prix-tradeo', label: 'Prix Tradeo', icon: FlaskConical }
 
 // Support et réglages : pas des objets métier, affichés en bas du rail juste au-dessus du profil.
 //

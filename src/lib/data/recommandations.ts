@@ -99,6 +99,7 @@ interface VersionExtra {
   id: string
   types_prix: string[] | null
   date_souhaitee: string | null
+  date_debut_fourniture?: string | null
   lien_eneo?: string | null
   id_salesforce?: string | null
 }
@@ -302,7 +303,7 @@ async function fetchRecommandations(
       // la fiche s'affiche sans le lien, au lieu de perdre toutes les versions.
       listeSeule ? aucune<VersionExtra>() : fetchAllRows<VersionExtra>(
         'versions_recommandation',
-        'id, types_prix, date_souhaitee, lien_eneo, id_salesforce',
+        'id, types_prix, date_souhaitee, date_debut_fourniture, lien_eneo, id_salesforce',
         cible ? surColonne('id', versionIds) : undefined,
       ).catch(() => [] as VersionExtra[]),
       listeSeule ? aucune<RawOptimisation>() : fetchAllRows<RawOptimisation>(
@@ -723,6 +724,7 @@ async function fetchRecommandations(
         durees: [...new Set(Object.values(dureesParVersion.get(v.id) ?? {}).flat())].sort((a, b) => a - b),
         types_prix: extraParVersion.get(v.id)?.types_prix ?? [],
         date_souhaitee: extraParVersion.get(v.id)?.date_souhaitee ?? null,
+        date_debut_fourniture: extraParVersion.get(v.id)?.date_debut_fourniture ?? null,
         lien_eneo: extraParVersion.get(v.id)?.lien_eneo ?? null,
         id_salesforce: extraParVersion.get(v.id)?.id_salesforce ?? null,
       })
@@ -836,9 +838,18 @@ async function fetchRecommandations(
 export function useRecommandation(recoId: string | undefined) {
   return useQuery({
     queryKey: ['recommandations', 'un', recoId],
-    queryFn: async () => (await fetchRecommandations(undefined, recoId as string))[0] ?? null,
+    queryFn: () => fetchRecommandationUnique(recoId as string),
     enabled: !!recoId,
   })
+}
+
+/**
+ * La même lecture qu'`useRecommandation`, hors d'un composant. « Calculer » (parcours de prix,
+ * 28/09/2026) relit la version entre la récupération des prix Tradeo et le calcul des budgets : il
+ * lui faut l'état de la base à cet instant, pas celui du cache.
+ */
+export async function fetchRecommandationUnique(recoId: string): Promise<Recommandation | null> {
+  return (await fetchRecommandations(undefined, recoId))[0] ?? null
 }
 /**
  * Recommandations pour une page de liste : l'en-tete seulement.
@@ -2708,16 +2719,29 @@ async function reporterTotalSurOffre(offreId: string) {
   if (eMaj) console.error('report du budget total sur l’offre :', eMaj.message)
 }
 
+export interface EcriturePrixCompteur {
+  offreId: string
+  /** Lien version ↔ compteur, et non l'identifiant du compteur : voir l'en-tête. */
+  versionCompteurId: string
+  energie: 'electricite' | 'gaz'
+  prix: PrixParCompteur
+}
+
 export function useEnregistrerPrixCompteur() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: {
-      offreId: string
-      /** Lien version ↔ compteur, et non l'identifiant du compteur : voir l'en-tête. */
-      versionCompteurId: string
-      energie: 'electricite' | 'gaz'
-      prix: PrixParCompteur
-    }) => {
+    mutationFn: enregistrerPrixCompteur,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+  })
+}
+
+/**
+ * L'écriture elle-même, hors du crochet. « Calculer » (parcours de prix, 28/09/2026) écrit toute une
+ * version d'un coup : passer par la mutation rechargerait la recommandation entière après CHAQUE
+ * compteur — trente rechargements pour une version de dix offres sur trois PDL. Il appelle donc
+ * cette fonction, puis invalide une seule fois. L'écriture est la même, à la lettre.
+ */
+export async function enregistrerPrixCompteur(input: EcriturePrixCompteur): Promise<void> {
       const p = input.prix
       const { data: ligne, error: eLigne } = await supabase
         .from('offres_fournisseurs_compteurs')
@@ -2801,9 +2825,6 @@ export function useEnregistrerPrixCompteur() {
       )
       if (error) throw new Error(error.message)
       await reporterTotalSurOffre(input.offreId)
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
-  })
 }
 
 export function useDeleteRecommandation() {
