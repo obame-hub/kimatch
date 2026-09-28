@@ -843,7 +843,8 @@ function Ligne({ libelle, valeur, mono, lien, onCommit }: {
             onCommit={onCommit}
             ariaLabel={libelle.toLowerCase()}
             mono={mono}
-            className={cn('text-km-body font-semibold', mono && 'font-mono')}
+            aLaLigne
+            className={cn('text-right text-km-body font-semibold', mono && 'font-mono')}
           />
         ) : url ? (
           <a href={url} target="_blank" rel="noreferrer" className="text-km-side-green hover:underline">{valeur}</a>

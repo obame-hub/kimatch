@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowUpRight, CalendarClock, CalendarX, ChevronDown, GripVertical, Mail, Phone, Zap } from 'lucide-react'
+import { ArrowUpRight, CalendarClock, CalendarX, Check, ChevronDown, GripVertical, Mail, Phone, Search, X, Zap } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import { echeanceLisible, estEnRetard } from '@/lib/heureTache'
 import { SprintCockpit } from '@/components/cockpit/SprintCockpit'
 import { CockpitEnConstruction } from '@/components/cockpit/OuvertureCockpit'
 import { cockpitOuvert } from '@/lib/cockpitOuvert'
+import { correspond } from '@/lib/recherche'
 import {
   LIBELLE_CRITERE,
   LIBELLE_SOURCE,
@@ -65,23 +66,6 @@ import {
 type Zone = 'pipe' | 'vivier' | 'pistes'
 
 /**
- * Les filtres du plan.
- *
- * ILS PORTENT LES MÊMES REGROUPEMENTS QUE LES CARTES DU SEUIL, et c'est ce qui rend le passage de
- * l'un à l'autre lisible : le 19 lu sur la carte est le 19 de la puce, et la table qui s'ouvre en
- * contient 19. Deux découpages différents auraient fait douter du chiffre.
- */
-const FILTRES: { cle: SourcePipe; libelle: string; sources: SourcePipe[] }[] = [
-  { cle: 'INBOUND', libelle: 'Leads entrants', sources: ['INBOUND', 'INBOUND_LIVE'] },
-  { cle: 'RAPPEL_HEURE', libelle: 'Rappels à l’heure', sources: ['RAPPEL_HEURE'] },
-  { cle: 'RAPPEL_JOUR', libelle: 'Rappels sans heure', sources: ['RAPPEL_JOUR'] },
-  { cle: 'VIVIER', libelle: 'À transformer', sources: ['VIVIER', 'PISTE_FROIDE', 'OPPORTUNITE_DORMANTE', 'AJOUT_MANUEL'] },
-]
-
-/* `SEAUX` est parti avec le seuil (21/09/2026) : ses quatre entrées faisaient doublon avec
-   `FILTRES` ci-dessus, qui porte les mêmes regroupements et sert désormais seul. */
-
-/**
  * ══════════════════ LES QUATRE FAMILLES DU VIVIER ══════════════════
  *
  * William, 21/09/2026 : « je veux notamment un héro avec échéances dépassées, un avec échéances
@@ -107,207 +91,189 @@ function familleDe(l: LigneVivier): FamilleVivier {
 }
 
 /**
- * ══════════════════ LES QUATRE CARTES DU VIVIER ══════════════════
+ * ══════════════════ LES FAMILLES, SANS LES CARTES ══════════════════
  *
- * William, 21/09/2026 : « améliore largement les héros de haut de page […] je veux que ce soit
- * design et premium. Au clic, la liste du dessous s'affichera comme filtrée. »
+ * William, 28/09/2026 : « je souhaite supprimer la bande avec les héros. Elle doit être remplacée
+ * par un système de recherche (barre) et un système de filtre permettant de retrouver facilement des
+ * enregistrements. Même chose pour les onglets Vivier et Mes pistes. »
  *
- * ══ CE QU'ELLES REMPLACENT ══
+ * ══ LA BANDE ÉTAIT AUSSI LE FILTRE ══
  *
- * Quatre encadrés qui disaient autre chose chacun — un volume, deux effectifs, et « le plus
- * lourd », un nom de compte. Trois unités différentes côte à côte, dont une qui ne se compare à
- * rien, et aucune n'était cliquable : on lisait « 127 sans périmètre » puis on cherchait lesquels
- * à la main dans une liste de 1 916 lignes.
+ * Cliquer une carte filtrait la liste : la supprimer sans rien mettre à la place aurait fait perdre
+ * le seul moyen de n'afficher que les leads entrants ou les échéances dépassées. Les familles
+ * restent donc, mot pour mot et dans le même ordre — elles passent de cartes de 90 px à des
+ * pastilles d'une ligne, et la recherche s'ajoute devant elles.
  *
- * ══ POURQUOI CES QUATRE-LÀ, ET PAS D'AUTRES ══
+ * ══ ELLES PARTITIONNENT TOUJOURS ══
  *
- * Elles partitionnent le vivier : leurs effectifs s'additionnent exactement au total. C'est ce qui
- * les rend cliquables sans mentir — filtrer sur l'une montre précisément son nombre, et les quatre
- * ensemble ne laissent aucun contact de côté.
- *
- * ══ L'ORDRE EST CELUI DE L'URGENCE, PAS DU VOLUME ══
- *
- * Dépassée d'abord — un contrat reconduit sans nous est une perte déjà consommée. Puis le
- * calendrier, puis les deux ignorances : échéance inconnue et périmètre vide. Les deux dernières
- * ne sont pas moins importantes, elles appellent un autre geste — qualifier plutôt que vendre.
- *
- * ══ « PREMIUM » VEUT DIRE QUE LE CHIFFRE RESPIRE ══
- *
- * Un nombre en 26 px, une barre de proportion sous lui, et deux lignes de texte. La barre est ce
- * qui fait la différence avec un encadré ordinaire : elle situe la famille dans l'ensemble sans
- * qu'on ait à diviser de tête, et c'est elle qui donne à la rangée son unité — quatre parts d'un
- * même tout, et non quatre chiffres sans rapport.
+ * Exclusives et exhaustives, comme au 21/09 : le nombre d'une pastille est celui que la liste
+ * montre quand on la choisit, et la somme des pastilles est le total. La teinte du point garde son
+ * sens d'urgence — rouge, déjà en retard ou bloqué ; ambre, à saisir ; bleu, à qualifier.
  */
-interface Carte {
-  titre: string
-  detail: string
-  /* La teinte porte l'urgence, jamais l'information seule : l'effectif est toujours écrit. */
-  accent: string
-  fond: string
-  bord: string
-  texte: string
+/** Une famille de filtre : ce qu'elle dit, et la teinte de son point. */
+interface Famille<C extends string> {
+  cle: C
+  libelle: string
+  point: string
 }
 
-/* Les quatre teintes, dans l'ordre d'urgence. Elles servent aux trois zones, si bien qu'une carte
-   rouge veut dire la même chose partout — « c'est déjà en retard, ou ça ne peut pas avancer ». */
-const TON_ROUGE = { accent: 'bg-km-red', fond: 'bg-km-red-soft', bord: 'border-km-red-line', texte: 'text-km-red' }
-const TON_AMBRE = { accent: 'bg-km-amber', fond: 'bg-km-amber-soft', bord: 'border-km-amber/40', texte: 'text-km-amber' }
-const TON_BLEU = { accent: 'bg-km-blue', fond: 'bg-km-blue-soft', bord: 'border-km-blue/30', texte: 'text-km-blue' }
-const TON_GRIS = { accent: 'bg-km-muted', fond: 'bg-km-soft', bord: 'border-km-line', texte: 'text-km-muted' }
-
-const CARTES_VIVIER: (Carte & { cle: FamilleVivier })[] = [
-  {
-    cle: 'DEPASSEE',
-    titre: 'Échéances dépassées',
-    detail: 'Reconduits sans nous',
-    ...TON_ROUGE,
-  },
-  {
-    cle: 'SOUS_18',
-    titre: 'Échéance sous 18 mois',
-    detail: 'À consulter le moment venu',
-    ...TON_AMBRE,
-  },
-  {
-    cle: 'VIDE',
-    titre: 'Échéance inconnue',
-    detail: 'Un parc, aucune date',
-    ...TON_BLEU,
-  },
-  {
-    cle: 'SANS_PERIMETRE',
-    titre: 'Sans périmètre',
-    detail: 'Décisionnaires sans compteur',
-    ...TON_GRIS,
-  },
+const FAMILLES_VIVIER: Famille<FamilleVivier>[] = [
+  { cle: 'DEPASSEE', libelle: 'Échéances dépassées', point: 'bg-km-red' },
+  { cle: 'SOUS_18', libelle: 'Échéance sous 18 mois', point: 'bg-km-amber' },
+  { cle: 'VIDE', libelle: 'Échéance inconnue', point: 'bg-km-blue' },
+  { cle: 'SANS_PERIMETRE', libelle: 'Sans périmètre', point: 'bg-km-muted' },
 ]
 
-/**
- * ══ LES QUATRE FAMILLES DU PIPE ══
- *
- * Ce sont les quatre seaux que la base construit, et que les puces rondes portaient déjà : le
- * découpage ne change pas, sa forme oui. « Le nombre lu sur la carte est celui de la liste »
- * reste vrai — c'était la qualité de l'ancien seuil, elle survit ici.
- */
-const CARTES_PIPE: (Carte & { cle: SourcePipe; sources: SourcePipe[] })[] = [
-  { cle: 'INBOUND', sources: ['INBOUND', 'INBOUND_LIVE'], titre: 'Leads entrants', detail: 'Priorité absolue', ...TON_ROUGE },
-  { cle: 'RAPPEL_HEURE', sources: ['RAPPEL_HEURE'], titre: 'Rappels à l’heure', detail: 'Un créneau a été promis', ...TON_AMBRE },
-  { cle: 'RAPPEL_JOUR', sources: ['RAPPEL_JOUR'], titre: 'Rappels du jour', detail: 'Sans heure convenue', ...TON_BLEU },
+const FAMILLES_PIPE: (Famille<SourcePipe> & { sources: SourcePipe[] })[] = [
+  { cle: 'INBOUND', sources: ['INBOUND', 'INBOUND_LIVE'], libelle: 'Leads entrants', point: 'bg-km-red' },
+  { cle: 'RAPPEL_HEURE', sources: ['RAPPEL_HEURE'], libelle: 'Rappels à l’heure', point: 'bg-km-amber' },
+  { cle: 'RAPPEL_JOUR', sources: ['RAPPEL_JOUR'], libelle: 'Rappels du jour', point: 'bg-km-blue' },
   {
     cle: 'VIVIER',
     sources: ['VIVIER', 'PISTE_FROIDE', 'OPPORTUNITE_DORMANTE', 'AJOUT_MANUEL'],
-    titre: 'À transformer',
-    detail: 'Tirés du vivier ou dormants',
-    ...TON_GRIS,
+    libelle: 'À transformer',
+    point: 'bg-km-muted',
   },
 ]
 
+type TypeCible = 'PISTE' | 'OPPORTUNITE'
+const TYPES_CIBLE: Famille<TypeCible>[] = [
+  { cle: 'PISTE', libelle: 'Pistes', point: 'bg-km-blue' },
+  { cle: 'OPPORTUNITE', libelle: 'Opportunités', point: 'bg-km-green' },
+]
+
 /**
- * ══ LES QUATRE FAMILLES DE MES PISTES ══
+ * ══ LES TROIS FAMILLES DE MES PISTES ══
  *
- * Exclusives et exhaustives, comme celles du vivier — sans quoi les cartes mentiraient en
- * s'additionnant. L'ordre suit ce qu'il y a à faire : appeler, relancer, compléter, archiver.
+ * « Closes » est partie avec les pistes closes elles-mêmes. William, 28/09/2026 : « Mes pistes ne
+ * doit pas afficher les pistes closes ». Le Cockpit est un plan de travail, pas un historique — une
+ * piste convertie vit désormais comme opportunité, une piste disqualifiée n'a plus rien à faire.
  *
- * « SANS NUMÉRO » N'EST PAS UNE VARIANTE DE « JAMAIS APPELÉE », c'est un autre travail : 1 259
- * pistes sur 4 750 n'ont aucun téléphone. Les mêler ferait croire à un gisement d'appels qui
- * n'existe pas, et masquerait le vrai geste — retrouver un numéro.
+ * « SANS NUMÉRO » N'EST PAS UNE VARIANTE DE « JAMAIS APPELÉE », c'est un autre travail : les mêler
+ * ferait croire à un gisement d'appels qui n'existe pas, et masquerait le vrai geste — retrouver un
+ * numéro.
  */
-type FamillePiste = 'JAMAIS' | 'APPELEE' | 'INJOIGNABLE' | 'CLOSE'
+type FamillePiste = 'JAMAIS' | 'APPELEE' | 'INJOIGNABLE'
 
 function famillePisteDe(p: PisteDuCockpit): FamillePiste {
-  if (p.statut_clos) return 'CLOSE'
   if (p.date_premier_appel) return 'APPELEE'
   if (!p.telephone && !p.telephone_mobile) return 'INJOIGNABLE'
   return 'JAMAIS'
 }
 
-const CARTES_PISTES: (Carte & { cle: FamillePiste })[] = [
-  { cle: 'JAMAIS', titre: 'Jamais appelées', detail: 'Le premier gisement', ...TON_AMBRE },
-  { cle: 'APPELEE', titre: 'Déjà appelées', detail: 'À relancer', ...TON_BLEU },
-  { cle: 'INJOIGNABLE', titre: 'Sans numéro', detail: 'À compléter avant d’appeler', ...TON_ROUGE },
-  { cle: 'CLOSE', titre: 'Closes', detail: 'Converties ou disqualifiées', ...TON_GRIS },
+const FAMILLES_PISTES: Famille<FamillePiste>[] = [
+  { cle: 'JAMAIS', libelle: 'Jamais appelées', point: 'bg-km-amber' },
+  { cle: 'APPELEE', libelle: 'Déjà appelées', point: 'bg-km-blue' },
+  { cle: 'INJOIGNABLE', libelle: 'Sans numéro', point: 'bg-km-red' },
 ]
 
+/* Les statuts ouverts d'une piste, dans l'ordre du parcours : les closes n'arrivent plus ici. */
+const STATUTS_PISTE: Famille<string>[] = [
+  { cle: 'NOUVELLE', libelle: 'Nouvelle', point: 'bg-km-amber' },
+  { cle: 'EN_QUALIFICATION', libelle: 'En qualification', point: 'bg-km-blue' },
+  { cle: 'EN_ATTENTE_FACTURE', libelle: 'En attente de facture', point: 'bg-km-green' },
+]
+
+/** Un groupe de pastilles : une seule choisie à la fois, et un second clic la retire. */
+interface GroupeFiltre {
+  nom: string
+  options: (Famille<string> & { n: number })[]
+  valeur: string | null
+  onChoisir: (cle: string | null) => void
+}
+
 /**
- * Une carte de filtre, la même dans les trois zones.
+ * ══ LA BARRE, LA MÊME DANS LES TROIS ZONES ══
  *
- * William, 21/09/2026 : « j'aimerais que le header soit exactement le même peu importe Pipe du
- * jour, Vivier ou Mes pistes. Tous les éléments doivent être placés exactement à la même place.
- * C'est le reste de la page qui évolue, pas le haut. »
- *
- * D'OÙ UNE SEULE CARTE ET UNE SEULE RANGÉE. Chaque zone donne ses quatre familles ; la forme, la
- * hauteur et la position ne changent jamais. Ce qui bougeait avant : le pipe montrait des puces
- * rondes, le vivier quatre encadrés, les pistes une phrase et une case à cocher — trois hauteurs
- * différentes, donc un tableau dont le bord supérieur sautait à chaque changement d'onglet.
+ * William, 21/09/2026 : « le header doit être exactement le même peu importe Pipe du jour, Vivier ou
+ * Mes pistes ». La règle tient : une seule barre, à la même place, de la même hauteur. Ce qu'elle
+ * propose change avec la zone ; sa forme, jamais.
  */
-function CarteFiltre({
-  carte,
-  n,
-  mesure,
-  total,
-  actif,
-  onCliquer,
+function BarreRecherche({
+  recherche,
+  onRecherche,
+  placeholder,
+  groupes,
+  resume,
 }: {
-  carte: Carte
-  n: number
-  /** Le second chiffre, quand la zone en a un : le volume pour le vivier, rien ailleurs. */
-  mesure?: string | null
-  /** L'effectif de la zone entière : la barre mesure une PART, pas une valeur. */
-  total: number
-  actif: boolean
-  onCliquer: () => void
+  recherche: string
+  onRecherche: (v: string) => void
+  placeholder: string
+  groupes: GroupeFiltre[]
+  resume: string
 }) {
+  const filtreActif = recherche.trim() !== '' || groupes.some((g) => g.valeur != null)
   return (
-    <button
-      type="button"
-      onClick={onCliquer}
-      aria-pressed={actif}
-      disabled={n === 0}
-      title={n === 0 ? 'Aucun contact dans cette famille' : actif ? 'Retirer le filtre' : 'Filtrer la liste'}
-      className={cn(
-        'group/carte relative overflow-hidden rounded-km-lg border px-3.5 py-3 text-left transition-all',
-        actif ? `${carte.fond} ${carte.bord} shadow-km-card` : 'border-km-line bg-km-surface',
-        n > 0 && !actif && 'hover:border-km-line hover:shadow-km-card',
-        n === 0 && 'cursor-default opacity-55',
-      )}
-    >
-      {/* Le filet d'accent : discret au repos, plein quand la carte commande la liste. */}
-      <span
-        className={cn('absolute inset-y-0 left-0 w-[3px] transition-opacity', carte.accent, actif ? 'opacity-100' : 'opacity-40')}
-        aria-hidden="true"
-      />
-
-      <span className={cn('block font-mono text-km-micro uppercase tracking-[0.13em]', actif ? carte.texte : 'text-km-muted')}>
-        {carte.titre}
-      </span>
-
-      <span className="mt-1 flex items-baseline gap-1.5">
-        <span className={cn('font-mono text-km-metric-lg font-semibold leading-none tabular-nums', actif ? carte.texte : 'text-km-text')}>
-          {n}
-        </span>
-        {mesure ? (
-          <span className="font-mono text-km-label tabular-nums text-km-muted">· {mesure}</span>
-        ) : null}
-      </span>
-
-      <span className="mt-1.5 block text-km-micro text-km-muted">{carte.detail}</span>
-
-      {/* LA PART DU TOUT, sans qu'on ait à diviser de tête : c'est ce qui fait de quatre chiffres
-          une seule lecture. Elle est absente quand la famille est vide — une barre à zéro se lit
-          comme une barre non chargée. */}
-      {n > 0 ? (
-        <span className="mt-2 block h-[3px] overflow-hidden rounded-full bg-km-line" aria-hidden="true">
-          <span
-            className={cn('block h-full rounded-full', carte.accent)}
-            /* Trois pour cent au minimum : une famille de sept contacts sur mille neuf cents
-               donnerait un trait invisible, et on la croirait vide. */
-            style={{ width: `${Math.max(3, Math.round((n / Math.max(1, total)) * 100))}%` }}
+    <div className="shrink-0 border-b border-km-line bg-km-bg px-4 py-3 sm:px-6">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <label className="relative w-full max-w-[22rem] min-w-[14rem] flex-1 sm:w-auto">
+          <span className="sr-only">Rechercher</span>
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-km-faint" aria-hidden="true" />
+          <input
+            type="search"
+            value={recherche}
+            onChange={(e) => onRecherche(e.target.value)}
+            placeholder={placeholder}
+            className="h-9 w-full rounded-km border border-km-line bg-km-surface pl-8 pr-8 text-km-body text-km-text placeholder:text-km-faint focus:border-km-green focus:outline-none focus:ring-2 focus:ring-km-green/20 [&::-webkit-search-cancel-button]:hidden"
           />
+          {recherche ? (
+            <button
+              type="button"
+              onClick={() => onRecherche('')}
+              aria-label="Effacer la recherche"
+              className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-km-sm text-km-faint hover:bg-km-soft hover:text-km-text"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </label>
+
+        {groupes.map((g) => (
+          <div key={g.nom} role="group" aria-label={g.nom} className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 hidden h-5 w-px bg-km-line sm:block" aria-hidden="true" />
+            {g.options.map((o) => {
+              const choisie = g.valeur === o.cle
+              return (
+                <button
+                  key={o.cle}
+                  type="button"
+                  aria-pressed={choisie}
+                  disabled={o.n === 0 && !choisie}
+                  onClick={() => g.onChoisir(choisie ? null : o.cle)}
+                  className={cn(
+                    'inline-flex h-8 items-center gap-1.5 rounded-km-pill border px-3 text-km-label font-medium transition-colors',
+                    choisie
+                      ? 'border-km-text bg-km-text text-white'
+                      : 'border-km-line bg-km-surface text-km-muted hover:border-km-muted hover:text-km-text',
+                    o.n === 0 && !choisie && 'cursor-default opacity-45 hover:border-km-line hover:text-km-muted',
+                  )}
+                >
+                  <span className={cn('h-1.5 w-1.5 rounded-full', choisie ? 'bg-white' : o.point)} aria-hidden="true" />
+                  {o.libelle}
+                  <span className="font-mono tabular-nums opacity-70">{o.n}</span>
+                </button>
+              )
+            })}
+          </div>
+        ))}
+
+        <span className="ml-auto flex items-center gap-3">
+          <span className="font-mono text-km-label tabular-nums text-km-muted">{resume}</span>
+          {filtreActif ? (
+            <button
+              type="button"
+              onClick={() => { onRecherche(''); groupes.forEach((g) => g.onChoisir(null)) }}
+              className="rounded-km-pill border border-km-line bg-km-surface px-2.5 py-0.5 text-km-label font-medium text-km-muted hover:border-km-green-line hover:text-km-green"
+            >
+              Tout effacer
+            </button>
+          ) : null}
         </span>
-      ) : null}
-    </button>
+      </div>
+    </div>
   )
 }
+
 
 export default function Cockpit() {
   /**
@@ -327,10 +293,10 @@ export default function Cockpit() {
 
 function CockpitOuvert() {
   const [zone, setZone] = useState<Zone>('pipe')
-  /* TOUT EST CHARGÉ, LE TRI SE FAIT AUX CARTES. La case « inclure les closes » a disparu avec la
-     barre qu'elle occupait : les closes sont devenues la quatrième carte, ce qui les rend visibles
-     sans les imposer. Six cents lignes au plus se filtrent sans qu'on le sente. */
-  const { data: mesPistes } = useMesPistes(true)
+  /* LES CLOSES NE SONT PLUS CHARGÉES. William, 28/09/2026 : « Mes pistes ne doit pas afficher les
+     pistes closes ». Elles étaient une quatrième carte, visibles sans être imposées ; elles sortent
+     maintenant de l'écran, comme elles sortent du pipe. */
+  const { data: mesPistes } = useMesPistes(false)
   const [enSprint, setEnSprint] = useState(false)
   /**
    * ══ ARRIVER DEPUIS LE BANDEAU DE RAPPEL ══
@@ -375,6 +341,13 @@ function CockpitOuvert() {
   const [message, setMessage] = useState<string | null>(null)
   /** `null` veut dire « tout le pipe ». La valeur est la première source du seau choisi. */
   const [filtre, setFiltre] = useState<SourcePipe | null>(null)
+  const [typePipe, setTypePipe] = useState<TypeCible | null>(null)
+  const [statutPiste, setStatutPiste] = useState<string | null>(null)
+  /* UNE RECHERCHE PAR ZONE : passer du pipe au vivier et revenir ne doit pas effacer ce qu'on
+     cherchait, ni l'appliquer à une liste où elle ne veut rien dire. */
+  const [recherches, setRecherches] = useState<Record<Zone, string>>({ pipe: '', vivier: '', pistes: '' })
+  const recherche = recherches[zone]
+  const setRecherche = (v: string) => setRecherches((r) => ({ ...r, [zone]: v }))
 
   const { data: pipe, isLoading } = usePipeDuJour()
   const { data: vivier } = useVivier()
@@ -383,14 +356,36 @@ function CockpitOuvert() {
   const sortir = useSortirDuPipe()
   const reordonner = useReordonnerPipe()
 
-  const lignes = pipe?.lignes ?? []
+  const lignes = useMemo(() => pipe?.lignes ?? [], [pipe])
+  /* Ce qu'un mot cherché peut toucher sur une ligne du pipe : qui, où, comment le joindre. */
+  const champsPipe = (l: LignePipe) => [l.nom_complet, l.compte_nom, l.fonction, l.telephone, l.telephone_mobile, l.email, l.ville, l.code_postal]
+  const dansFamille = (l: LignePipe, cle: SourcePipe | null) =>
+    !cle || Boolean(FAMILLES_PIPE.find((f) => f.cle === cle)?.sources.includes(l.source))
   /**
    * Ce que la table montre, et ce que le sprint parcourra.
    *
-   * LE SPRINT SUIT LE FILTRE, et le bouton annonce son effectif. Sinon un conseiller qui a filtré
-   * sur ses quatre leads entrants lancerait un sprint de soixante sans comprendre pourquoi.
+   * LE SPRINT SUIT LE FILTRE ET LA RECHERCHE, et le bouton annonce son effectif. Sinon un conseiller
+   * qui a filtré sur ses quatre leads entrants lancerait un sprint de soixante sans comprendre
+   * pourquoi.
+   *
+   * ══ LES DEUX MOITIÉS DU PLAN ══
+   * William, 28/09/2026 : « en haut la liste du pipe du jour qui n'a pas encore été contactée, en
+   * dessous celle qui vient d'être contactée ». C'est la base qui dit de quel côté tombe une ligne
+   * (`etat`) ; l'écran ne fait que ranger. Le sprint reçoit les deux, et ne parcourt que le haut.
    */
-  const affichees = filtre ? lignes.filter((l) => FILTRES.find((f) => f.cle === filtre)?.sources.includes(l.source)) : lignes
+  const lignesDuFiltre = useMemo(
+    () => lignes.filter((l) => dansFamille(l, filtre) && (!typePipe || l.cible_type === typePipe) && correspond(champsPipe(l), recherches.pipe)),
+    [lignes, filtre, typePipe, recherches.pipe],
+  )
+  const affichees = useMemo(() => lignesDuFiltre.filter((l) => l.etat === 'A_CONTACTER'), [lignesDuFiltre])
+  /* Les plus récemment contactées d'abord : c'est ce qu'on vient de faire qu'on cherche du regard. */
+  const contactees = useMemo(
+    () => lignesDuFiltre
+      .filter((l) => l.etat === 'CONTACTE')
+      .sort((a, b) => (b.contacte_le ?? '').localeCompare(a.contacte_le ?? '')),
+    [lignesDuFiltre],
+  )
+  const aContacterTotal = lignes.filter((l) => l.etat === 'A_CONTACTER').length
   /* `?? []` produirait un tableau neuf à chaque rendu, donc un `useMemo` qui recalcule toujours. */
   const lignesVivier = useMemo(() => vivier?.lignes ?? [], [vivier])
 
@@ -398,7 +393,7 @@ function CockpitOuvert() {
      arrivent par des migrations distinctes : n'annoncer que l'absence du pipe laisserait un vivier
      vide sans explication, ce qui est exactement la question qu'on s'est posée le 15/09. */
   const enAttenteDeMigration = pipe?.pretMigration === false || vivier?.pretMigration === false
-  const laFiche = affichees.find((l) => l.ligne_id === choisie) ?? affichees[0]
+  const laFiche = lignesDuFiltre.find((l) => l.ligne_id === choisie) ?? affichees[0] ?? contactees[0]
 
   /* Les héros du vivier : de l'argent et des alarmes, pas des effectifs de lignes. */
   /**
@@ -425,62 +420,98 @@ function CockpitOuvert() {
 
   /* La liste suit la carte choisie. Aucun tri n'est refait : la vue les rend déjà par urgence puis
      par volume, et réordonner à l'arrivée contredirait ce que la première ligne promet. */
+  const vivierCherche = useMemo(
+    () => lignesVivier.filter((l) => correspond([l.nom_complet, l.compte_nom, l.fonction, l.telephone, l.telephone_mobile, l.compte_segment], recherches.vivier)),
+    [lignesVivier, recherches.vivier],
+  )
   const vivierAffiche = useMemo(
-    () => (familleVivier ? lignesVivier.filter((l) => familleDe(l) === familleVivier) : lignesVivier),
-    [lignesVivier, familleVivier],
+    () => (familleVivier ? vivierCherche.filter((l) => familleDe(l) === familleVivier) : vivierCherche),
+    [vivierCherche, familleVivier],
   )
 
-  const pistesAffichees = useMemo(() => {
-    const toutes = mesPistes ?? []
-    /* SANS CARTE CHOISIE, LES CLOSES RESTENT HORS DE L'ÉCRAN : le Cockpit est un plan de travail,
-       pas un historique. Leur carte les rappelle quand on la clique. */
-    return famillePiste
-      ? toutes.filter((p) => famillePisteDe(p) === famillePiste)
-      : toutes.filter((p) => !p.statut_clos)
-  }, [mesPistes, famillePiste])
+  /* Par sécurité en plus du chargement : une piste close ne doit JAMAIS s'afficher ici, même si
+     une requête l'avait ramenée. */
+  const pistesOuvertes = useMemo(() => (mesPistes ?? []).filter((p) => !p.statut_clos), [mesPistes])
+  const pistesCherchees = useMemo(
+    () => pistesOuvertes.filter((p) => correspond([p.societe, p.contact_nom, p.fonction, p.ville, p.telephone, p.telephone_mobile, p.segment], recherches.pistes)),
+    [pistesOuvertes, recherches.pistes],
+  )
+  const pistesAffichees = useMemo(
+    () => pistesCherchees.filter((p) => (!famillePiste || famillePisteDe(p) === famillePiste) && (!statutPiste || p.statut_code === statutPiste)),
+    [pistesCherchees, famillePiste, statutPiste],
+  )
 
   /**
-   * LES QUATRE CARTES DE LA ZONE COURANTE, calculées au même endroit pour les trois.
+   * ══ LES PASTILLES DE LA ZONE COURANTE ══
    *
-   * C'est ce qui garantit ce que William demande : une seule rangée, une seule forme, une seule
-   * position. Changer d'onglet change ce que les cartes comptent, jamais où elles sont.
+   * CHAQUE NOMBRE TIENT COMPTE DE LA RECHERCHE ET DE L'AUTRE GROUPE, jamais du sien : il dit combien
+   * de lignes la liste montrerait si on choisissait cette pastille. Compter sans la recherche
+   * annoncerait « 12 leads entrants » à côté d'une liste qui en montre 2.
    */
-  const cartes = useMemo(() => {
+  const groupes: GroupeFiltre[] = (() => {
+    const choisir = <T extends string>(set: (v: T | null) => void) => (v: string | null) => {
+      setContactChoisi(null)
+      setChoisie(null)
+      set(v as T | null)
+    }
     if (zone === 'pipe') {
-      return CARTES_PIPE.map((c) => ({
-        cle: c.cle as string,
-        carte: c as Carte,
-        n: lignes.filter((l) => c.sources.includes(l.source)).length,
-        mesure: null as string | null,
-      }))
+      const cherchees = lignes.filter((l) => correspond(champsPipe(l), recherches.pipe))
+      return [
+        {
+          nom: 'Famille',
+          valeur: filtre,
+          onChoisir: choisir<SourcePipe>(setFiltre),
+          options: FAMILLES_PIPE.map((f) => ({
+            ...f,
+            n: cherchees.filter((l) => dansFamille(l, f.cle) && (!typePipe || l.cible_type === typePipe)).length,
+          })),
+        },
+        {
+          nom: 'Type',
+          valeur: typePipe,
+          onChoisir: choisir<TypeCible>(setTypePipe),
+          options: TYPES_CIBLE.map((t) => ({
+            ...t,
+            n: cherchees.filter((l) => l.cible_type === t.cle && dansFamille(l, filtre)).length,
+          })),
+        },
+      ]
     }
     if (zone === 'vivier') {
-      return CARTES_VIVIER.map((c) => ({
-        cle: c.cle as string,
-        carte: c as Carte,
-        n: heros.par[c.cle].n,
-        mesure: heros.par[c.cle].mwh > 0 ? `${Math.round(heros.par[c.cle].mwh).toLocaleString('fr-FR')} MWh` : null,
-      }))
+      return [{
+        nom: 'Famille',
+        valeur: familleVivier,
+        onChoisir: choisir<FamilleVivier>(setFamilleVivier),
+        options: FAMILLES_VIVIER.map((f) => ({ ...f, n: vivierCherche.filter((l) => familleDe(l) === f.cle).length })),
+      }]
     }
-    const toutes = mesPistes ?? []
-    return CARTES_PISTES.map((c) => ({
-      cle: c.cle as string,
-      carte: c as Carte,
-      n: toutes.filter((p) => famillePisteDe(p) === c.cle).length,
-      mesure: null as string | null,
-    }))
-  }, [zone, lignes, heros, mesPistes])
+    return [
+      {
+        nom: 'Famille',
+        valeur: famillePiste,
+        onChoisir: choisir<FamillePiste>(setFamillePiste),
+        options: FAMILLES_PISTES.map((f) => ({
+          ...f,
+          n: pistesCherchees.filter((p) => famillePisteDe(p) === f.cle && (!statutPiste || p.statut_code === statutPiste)).length,
+        })),
+      },
+      {
+        nom: 'Statut',
+        valeur: statutPiste,
+        onChoisir: choisir(setStatutPiste),
+        options: STATUTS_PISTE.map((st) => ({
+          ...st,
+          n: pistesCherchees.filter((p) => p.statut_code === st.cle && (!famillePiste || famillePisteDe(p) === famillePiste)).length,
+        })),
+      },
+    ]
+  })()
 
-  const familleCourante = zone === 'pipe' ? filtre : zone === 'vivier' ? familleVivier : famillePiste
-  const totalZone = zone === 'pipe' ? lignes.length : zone === 'vivier' ? heros.total : (mesPistes ?? []).length
-
-  function choisirCarte(cle: string) {
-    setContactChoisi(null)
-    setChoisie(null)
-    if (zone === 'pipe') setFiltre(filtre === cle ? null : (cle as SourcePipe))
-    else if (zone === 'vivier') setFamilleVivier(familleVivier === cle ? null : (cle as FamilleVivier))
-    else setFamillePiste(famillePiste === cle ? null : (cle as FamillePiste))
-  }
+  const resumeZone = zone === 'pipe'
+    ? `${affichees.length} à contacter · ${contactees.length} contacté${contactees.length > 1 ? 's' : ''}`
+    : zone === 'vivier'
+      ? `${vivierAffiche.length} contact${vivierAffiche.length > 1 ? 's' : ''} · ${Math.round(vivierAffiche.reduce((t, l) => t + (l.mwh_annuels ?? 0), 0)).toLocaleString('fr-FR')} MWh/an`
+      : `${pistesAffichees.length} piste${pistesAffichees.length > 1 ? 's' : ''}`
 
 /* `horizons` est parti avec le graphique des échéances (21/09/2026) : il répartissait le vivier
      en quatre tranches de calendrier pour dessiner quatre barres. Le vivier étant déjà trié par
@@ -562,7 +593,7 @@ function CockpitOuvert() {
   if (enSprint) {
     return (
       <SprintCockpit
-        lignes={affichees}
+        lignes={lignesDuFiltre}
         departSur={cibleRappel}
         onSortir={(ligne, motif) => void sortir.mutateAsync({ ligne, motif })}
         onFermer={() => { setCibleRappel(null); setEnSprint(false) }}
@@ -642,9 +673,9 @@ function CockpitOuvert() {
               aujourd'hui, le vivier ce qui dort chez mes clients, les pistes ce qui n'est pas
               encore client. Trois gisements, trois onglets — et le même écran. */}
           {([
-            ['pipe', 'Pipe du jour', lignes.length],
+            ['pipe', 'Pipe du jour', aContacterTotal],
             ['vivier', 'Vivier', heros.total],
-            ['pistes', 'Mes pistes', mesPistes?.length ?? 0],
+            ['pistes', 'Mes pistes', pistesOuvertes.length],
           ] as const).map(([cle, libelle, n]) => (
             <button
               key={cle}
@@ -668,69 +699,29 @@ function CockpitOuvert() {
         >
           <Zap className="h-4 w-4" aria-hidden="true" />
           Lancer un sprint
-          {affichees.length !== lignes.length ? (
+          {affichees.length !== aContacterTotal ? (
             <span className="font-mono opacity-80">{affichees.length}</span>
           ) : null}
         </button>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════════════════════
-          LE HAUT NE BOUGE JAMAIS
-
-          William, 21/09/2026 : « j'aimerais que le header soit exactement le même peu importe Pipe
-          du jour, Vivier ou Mes pistes. Tous les éléments doivent être placés exactement à la même
-          place. C'est le reste de la page qui évolue, pas le haut. »
-
-          IL AVAIT TROIS BARRES DIFFÉRENTES sous les onglets : des puces rondes pour le pipe, quatre
-          encadrés pour le vivier, une phrase et une case à cocher pour les pistes. Trois hauteurs,
-          donc un tableau dont le bord supérieur sautait à chaque changement d'onglet — et l'œil
-          devait retrouver où il en était.
-
-          UNE SEULE RANGÉE DE QUATRE CARTES, toujours au même endroit. Ce que les cartes COMPTENT
-          change avec la zone ; leur forme, leur hauteur et leur position, jamais.
-          ══════════════════════════════════════════════════════════════════════════════════════ */}
-      <div className="shrink-0 border-b-[3px] border-km-line bg-km-bg px-4 py-4 sm:px-6">
-        {/* UNE SEULE LIGNE, TOUJOURS : `truncate` garantit qu'un libellé long ne la fera pas
-            passer sur deux hauteurs et ne descendra pas les cartes d'un cran. */}
-        <div className="mb-2.5 flex items-baseline gap-2">
-          <span className="shrink-0 font-mono text-km-label uppercase tracking-[0.16em] text-km-muted">
-            {zone === 'pipe' ? 'Le plan du jour' : zone === 'vivier' ? 'Mon vivier' : 'Mes pistes'}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-km-body text-km-muted">
-            {zone === 'pipe'
-              ? `${lignes.length} action${lignes.length > 1 ? 's' : ''}, figées ce matin`
-              : zone === 'vivier'
-                ? `${heros.total} contact${heros.total > 1 ? 's' : ''} · ${Math.round(heros.mwh).toLocaleString('fr-FR')} MWh/an à renégocier`
-                : `${(mesPistes ?? []).length} piste${(mesPistes ?? []).length > 1 ? 's' : ''}, jamais appelées en tête`}
-          </span>
-          {/* LE RETRAIT DU FILTRE EST TOUJOURS AU MÊME ENDROIT, et n'apparaît que s'il y a
-              quelque chose à retirer : une place réservée en permanence à un bouton absent
-              déplacerait le texte à gauche dès qu'il surgit. */}
-          {familleCourante ? (
-            <button
-              type="button"
-              onClick={() => choisirCarte(familleCourante)}
-              className="shrink-0 rounded-km-pill border border-km-line bg-km-surface px-2.5 py-0.5 text-km-label font-medium text-km-muted hover:border-km-green-line hover:text-km-green"
-            >
-              Retirer le filtre
-            </button>
-          ) : null}
-        </div>
-
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-2.5">
-          {cartes.map((c) => (
-            <CarteFiltre
-              key={c.cle}
-              carte={c.carte}
-              n={c.n}
-              mesure={c.mesure}
-              total={totalZone}
-              actif={familleCourante === c.cle}
-              onCliquer={() => choisirCarte(c.cle)}
-            />
-          ))}
-        </div>
-      </div>
+      {/* ══ LA RECHERCHE ET LES FILTRES, À LA PLACE DES HÉROS ══
+          William, 28/09/2026 : « je souhaite supprimer la bande avec les héros. Elle doit être
+          remplacée par un système de recherche (barre) et un système de filtre ». La barre garde la
+          règle du 21/09 — une seule, à la même place, dans les trois zones. */}
+      <BarreRecherche
+        recherche={recherche}
+        onRecherche={setRecherche}
+        placeholder={
+          zone === 'pipe'
+            ? 'Rechercher un nom, une société, une ville, un numéro…'
+            : zone === 'vivier'
+              ? 'Rechercher un contact, un compte, un numéro…'
+              : 'Rechercher une société, un contact, une ville…'
+        }
+        groupes={groupes}
+        resume={resumeZone}
+      />
 
       {message ? (
         <p className="border-b border-km-green-line bg-km-green-soft px-4 py-2 text-km-body text-km-green sm:px-6">{message}</p>
@@ -783,62 +774,74 @@ function CockpitOuvert() {
                     ))}
                   </tr>
                 </thead>
+                {/* ══ LE PLAN COUPÉ EN DEUX, DANS UNE SEULE TABLE ══
+                    William, 28/09/2026 : « je souhaiterais que la liste soit séparée
+                    horizontalement en 2 ». Deux corps dans la même table plutôt que deux tables :
+                    les colonnes restent alignées d'une moitié à l'autre, et l'œil passe de « à
+                    contacter » à « contactés » sans se réajuster. */}
                 <tbody>
+                  <tr>
+                    <th colSpan={8} scope="rowgroup" className="border-b border-km-line bg-km-surface px-3 pb-1.5 pt-3 text-left">
+                      <span className="font-mono text-km-label font-semibold uppercase tracking-[0.14em] text-km-text">
+                        À contacter
+                      </span>
+                      <span className="ml-2 font-mono text-km-label tabular-nums text-km-muted">{affichees.length}</span>
+                      <span className="ml-3 text-km-label font-normal text-km-muted">une tâche en retard ou pour aujourd’hui reste ouverte</span>
+                    </th>
+                  </tr>
                   {affichees.map((l, i) => (
-                    <tr
+                    <LignePipeTable
                       key={l.ligne_id}
-                      draggable
-                      onDragStart={() => setTire(l.ligne_id)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => surDepot(l.ligne_id)}
-                      onClick={() => setChoisie(l.ligne_id)}
-                      aria-selected={l.ligne_id === (choisie ?? affichees[0]?.ligne_id)}
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter') setChoisie(l.ligne_id) }}
-                      className={cn(
-                        'cursor-pointer bg-km-surface hover:bg-km-green-tint',
-                        l.ligne_id === (choisie ?? affichees[0]?.ligne_id) ? 'bg-km-green-tint' : '',
-                      )}
-                    >
-                      <td className="w-8 border-b border-km-line-soft px-2 py-2 text-km-faint">
-                        <GripVertical className="h-4 w-4 cursor-grab" aria-hidden="true" />
-                      </td>
-                      <td className="w-10 border-b border-km-line-soft px-3 py-2 font-mono text-km-label text-km-muted">{i + 1}</td>
-                      <td className="border-b border-km-line-soft px-3 py-2">
-                        <span className="block font-medium">{l.nom_complet ?? 'Sans nom'}</span>
-                        <span className="block font-mono text-km-label tracking-wide text-km-muted">{l.telephone ?? 'Aucun numéro'}</span>
-                        <span className="block text-km-micro text-km-muted">{LIBELLE_SOURCE[l.source]}</span>
-                      </td>
-                      <td className="border-b border-km-line-soft px-3 py-2">{l.fonction ?? '—'}</td>
-                      <td className="border-b border-km-line-soft px-3 py-2">{l.compte_nom ?? '—'}</td>
-                      <td className="border-b border-km-line-soft px-3 py-2">
-                        <Badge tone={l.cible_type === 'PISTE' ? 'blue' : 'green'}>
-                          {l.cible_type === 'PISTE' ? 'Piste' : 'Opportunité'}
-                        </Badge>
-                      </td>
-                      <td className="border-b border-km-line-soft px-3 py-2">{l.segment ?? '—'}</td>
-                      <td
-                        className={cn(
-                          'border-b border-km-line-soft px-3 py-2 font-mono text-km-label tabular-nums',
-                          l.en_retard ? 'font-medium text-km-amber' : l.heure ? '' : 'text-km-faint',
-                        )}
-                      >
-                        {l.heure ?? (l.en_retard ? 'en retard' : '—')}
-                      </td>
-                    </tr>
+                      l={l}
+                      rang={i + 1}
+                      choisie={l.ligne_id === laFiche?.ligne_id}
+                      onChoisir={() => setChoisie(l.ligne_id)}
+                      deplacement={{
+                        onDragStart: () => setTire(l.ligne_id),
+                        onDrop: () => surDepot(l.ligne_id),
+                      }}
+                    />
                   ))}
                   {affichees.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="bg-km-surface px-4 py-10 text-center text-km-muted">
+                      <td colSpan={8} className="bg-km-surface px-4 py-8 text-center text-km-muted">
                         {isLoading
                           ? 'Chargement…'
-                          : filtre
-                            ? 'Aucune fiche à ce titre. Retirez le filtre pour voir tout le pipe.'
-                            : 'Le pipe est vide. Complétez-le depuis le vivier.'}
+                          : filtre || typePipe || recherche.trim()
+                            ? 'Aucune fiche à contacter ne correspond. Effacez la recherche ou les filtres pour voir tout le plan.'
+                            : contactees.length > 0
+                              ? 'Tout le plan du jour a été contacté.'
+                              : 'Le pipe est vide. Complétez-le depuis le vivier.'}
                       </td>
                     </tr>
                   ) : null}
                 </tbody>
+
+                {/* ══ CE QUI VIENT D'ÊTRE CONTACTÉ ══
+                    Passé par le sprint, et plus aucune tâche due aujourd'hui. Ces lignes ne se
+                    déplacent pas : l'ordre du plan ne vaut que pour ce qui reste à faire. On les
+                    garde à l'écran pour relire ce qu'on vient de faire et rouvrir une fiche. */}
+                {contactees.length > 0 ? (
+                  <tbody>
+                    <tr>
+                      <th colSpan={8} scope="rowgroup" className="border-b border-t-[3px] border-km-line bg-km-bg px-3 pb-1.5 pt-4 text-left">
+                        <span className="font-mono text-km-label font-semibold uppercase tracking-[0.14em] text-km-green">
+                          Contactés aujourd’hui
+                        </span>
+                        <span className="ml-2 font-mono text-km-label tabular-nums text-km-muted">{contactees.length}</span>
+                      </th>
+                    </tr>
+                    {contactees.map((l, i) => (
+                      <LignePipeTable
+                        key={l.ligne_id}
+                        l={l}
+                        rang={i + 1}
+                        choisie={l.ligne_id === laFiche?.ligne_id}
+                        onChoisir={() => setChoisie(l.ligne_id)}
+                      />
+                    ))}
+                  </tbody>
+                ) : null}
               </table>
             ) : zone === 'pistes' ? (
               /* ══════════ MES PISTES ══════════
@@ -918,8 +921,8 @@ function CockpitOuvert() {
                   {pistesAffichees.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="bg-km-surface px-4 py-10 text-center text-km-muted">
-                        {famillePiste
-                          ? 'Aucune piste dans cette famille.'
+                        {famillePiste || statutPiste || recherche.trim()
+                          ? 'Aucune piste ouverte ne correspond. Effacez la recherche ou les filtres.'
                           : 'Aucune piste ouverte ne vous est attribuée.'}
                       </td>
                     </tr>
@@ -1025,8 +1028,8 @@ function CockpitOuvert() {
                   {vivierAffiche.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="bg-km-surface px-4 py-10 text-center text-km-muted">
-                        {familleVivier
-                          ? 'Aucun contact dans cette famille. Cliquez la carte à nouveau pour tout revoir.'
+                        {familleVivier || recherche.trim()
+                          ? 'Aucun contact ne correspond. Effacez la recherche ou le filtre pour tout revoir.'
                           : 'Votre vivier est vide : tout le portefeuille dont vous répondez est travaillé.'}
                       </td>
                     </tr>
@@ -1280,6 +1283,82 @@ function CockpitOuvert() {
    unités, dont une — « le plus lourd » — qui ne se comparait à rien, et aucun n'était cliquable.
    `CarteVivier` les remplace : quatre parts d'un même tout, filtrantes. */
 
+
+/**
+ * Une ligne du plan du jour, la même dans les deux moitiés.
+ *
+ * UNE LIGNE CONTACTÉE DIT QUAND, pas une échéance : sa tâche du jour est faite, et « contacté à
+ * 10 h 32 » est ce qu'on veut relire. Elle ne se glisse pas — l'ordre ne vaut que pour ce qui reste.
+ */
+function LignePipeTable({
+  l,
+  rang,
+  choisie,
+  onChoisir,
+  deplacement,
+}: {
+  l: LignePipe
+  rang: number
+  choisie: boolean
+  onChoisir: () => void
+  deplacement?: { onDragStart: () => void; onDrop: () => void }
+}) {
+  const contactee = l.etat === 'CONTACTE'
+  const lieu = [l.code_postal, l.ville].filter(Boolean).join(' ')
+  return (
+    <tr
+      draggable={Boolean(deplacement)}
+      onDragStart={deplacement?.onDragStart}
+      onDragOver={deplacement ? (e) => e.preventDefault() : undefined}
+      onDrop={deplacement?.onDrop}
+      onClick={onChoisir}
+      aria-selected={choisie}
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') onChoisir() }}
+      className={cn(
+        'cursor-pointer hover:bg-km-green-tint',
+        choisie ? 'bg-km-green-tint' : contactee ? 'bg-km-bg/60' : 'bg-km-surface',
+      )}
+    >
+      <td className="w-8 border-b border-km-line-soft px-2 py-2 text-km-faint">
+        {deplacement ? (
+          <GripVertical className="h-4 w-4 cursor-grab" aria-hidden="true" />
+        ) : (
+          <Check className="h-4 w-4 text-km-green" strokeWidth={2.6} aria-label="Contacté" />
+        )}
+      </td>
+      <td className="w-10 border-b border-km-line-soft px-3 py-2 font-mono text-km-label text-km-muted">{rang}</td>
+      <td className="border-b border-km-line-soft px-3 py-2">
+        <span className={cn('block font-medium', contactee && 'text-km-muted')}>{l.nom_complet ?? 'Sans nom'}</span>
+        <span className="block font-mono text-km-label tracking-wide text-km-muted">{l.telephone ?? 'Aucun numéro'}</span>
+        <span className="block text-km-micro text-km-muted">{LIBELLE_SOURCE[l.source]}</span>
+      </td>
+      <td className="border-b border-km-line-soft px-3 py-2">{l.fonction ?? '—'}</td>
+      <td className="border-b border-km-line-soft px-3 py-2">
+        <span className="block">{l.compte_nom ?? '—'}</span>
+        {lieu ? <span className="block text-km-label text-km-muted">{lieu}</span> : null}
+      </td>
+      <td className="border-b border-km-line-soft px-3 py-2">
+        <Badge tone={l.cible_type === 'PISTE' ? 'blue' : 'green'}>
+          {l.cible_type === 'PISTE' ? 'Piste' : 'Opportunité'}
+        </Badge>
+      </td>
+      <td className="border-b border-km-line-soft px-3 py-2">{l.segment ?? '—'}</td>
+      <td
+        className={cn(
+          'border-b border-km-line-soft px-3 py-2 font-mono text-km-label tabular-nums',
+          contactee ? 'text-km-green' : l.en_retard ? 'font-medium text-km-amber' : l.heure ? '' : 'text-km-faint',
+        )}
+      >
+        {contactee
+          ? l.contacte_le
+            ? `contacté ${new Date(l.contacte_le).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+            : 'contacté'
+          : l.heure ?? (l.en_retard ? 'en retard' : '—')}
+      </td>
+    </tr>
+  )
+}
 
 function Fait({ libelle, valeur, alerte }: { libelle: string; valeur: string; alerte?: boolean }) {
   return (

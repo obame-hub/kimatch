@@ -85,6 +85,24 @@ export interface LignePipe {
   tache_titre: string | null
   /** L'instant complet, pas une date : `heureTache.ts` sait dire s'il porte une heure. */
   tache_echeance: string | null
+  /**
+   * La ville et le code postal, pris ENSEMBLE à une seule source (migration du 28/09/2026) : ceux
+   * de la piste si elle en porte, sinon ceux du compte. Jamais la ville de l'une avec le code de
+   * l'autre.
+   */
+  ville: string | null
+  code_postal: string | null
+  /** Posé par le sprint au clic sur « Appeler ». */
+  contacte_le: string | null
+  /**
+   * ══ LES DEUX MOITIÉS DU PLAN DU JOUR ══
+   *
+   * William, 28/09/2026 : « en haut la liste qui n'a pas encore été contactée — il y a encore une
+   * tâche ouverte en retard ou à aujourd'hui ; en dessous, la liste qui vient d'être contactée ».
+   * La base tranche, l'écran range : une fiche rappelée pour 16 h redevient À CONTACTER, parce qu'il
+   * reste réellement un appel à passer.
+   */
+  etat: 'A_CONTACTER' | 'CONTACTE'
 }
 
 export type SourcePipe =
@@ -300,6 +318,43 @@ export function useAjouterAuPipe() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['cockpit'] })
       void qc.invalidateQueries({ queryKey: ['opportunites'] })
+    },
+  })
+}
+
+/**
+ * ══ TERMINER LES TÂCHES DU JOUR D'UNE FICHE — EN BASE ══
+ *
+ * William, 28/09/2026 : « on a fait des tests ce matin avec des appels Allô mais la tâche restait
+ * ouverte ».
+ *
+ * Le sprint fermait la tâche lui-même, à partir du détail de la fiche — une seconde requête, pas
+ * toujours revenue au moment du clic. Il sortait alors sans rien dire, et un `.catch(() => {})`
+ * avalait le reste. La base retrouve maintenant elle-même les tâches dues aujourd'hui ou en retard
+ * et les ferme : plus rien ne dépend de ce qui est chargé à l'écran.
+ *
+ * L'ÉCHEC REMONTE. L'appelant doit l'afficher : une tâche qu'on croit fermée et qui ne l'est pas
+ * ramène la fiche demain, sans que personne comprenne pourquoi.
+ *
+ * `contacte` : vrai pour un appel, faux quand on pose une nouvelle tâche sans avoir appelé — la
+ * tâche du jour se termine dans les deux cas, mais seul l'appel range la fiche en « contactée ».
+ */
+export function useTerminerTachesDuJour() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ligne, contacte }: { ligne: string; contacte: boolean }) => {
+      const { data, error } = await supabase.rpc('sprint_terminer_taches_du_jour', {
+        p_ligne_id: ligne,
+        p_contacte: contacte,
+      })
+      if (error) throw new Error(error.message)
+      return data as { taches_terminees: number; contacte_le: string | null }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['cockpit', 'pipe'] })
+      void qc.invalidateQueries({ queryKey: ['cockpit', 'fiche'] })
+      void qc.invalidateQueries({ queryKey: ['actions'] })
+      void qc.invalidateQueries({ queryKey: ['tableau-de-bord'] })
     },
   })
 }

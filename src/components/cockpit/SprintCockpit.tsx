@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarClock, ChevronUp, Mail, Phone, PhoneOff, SkipForward, StickyNote, X, Zap } from 'lucide-react'
+import { ArrowRight, CalendarClock, Check, ChevronUp, Mail, Phone, PhoneOff, SkipForward, StickyNote, X, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { numeroInternational } from '@/lib/telephonie'
 import { lancerAppelBureau, ouvrirAlloBureau } from '@/lib/alloBureau'
@@ -13,12 +13,13 @@ import {
   useEcarterAppel,
   useQualifierAppel,
 } from '@/lib/data/appelEnCours'
-import { useCreateAction, useUpdateActionPartiel } from '@/lib/data/actions'
+import { useCreateAction } from '@/lib/data/actions'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { LIBELLE_SOURCE, useAvancerStatutPiste, useFichePipe, useMajFicheSprint, useOuvrirDepot, useReordonnerPipe, type ChampFicheSprint, type LignePipe } from '@/lib/data/cockpit'
+import { LIBELLE_SOURCE, useAvancerStatutPiste, useFichePipe, useMajFicheSprint, useOuvrirDepot, useReordonnerPipe, useTerminerTachesDuJour, type ChampFicheSprint, type LignePipe } from '@/lib/data/cockpit'
 import type { Alerte } from '@/lib/data/alertes'
 import { QUALIFICATIONS_FIN } from '@/lib/data/opportunites'
 import { supabase } from '@/lib/supabase'
+import { prochaineFiche } from '@/lib/sprintNavigation'
 import { ChampSprint } from '@/components/cockpit/ChampSprint'
 import { QualifierAppel } from '@/components/cockpit/QualifierAppel'
 import { PanneauApresAppel, type GesteApresAppel } from '@/components/cockpit/PanneauApresAppel'
@@ -168,11 +169,30 @@ export function SprintCockpit({
   onSortir: (ligne: string, motif: 'APPELE' | 'REPORTE' | 'ECARTE') => void
   onFermer: () => void
 }) {
-  const [index, setIndex] = useState(() => {
-    if (!departSur) return 0
-    const [type, id] = departSur.split(':')
-    const rang = lignes.findIndex((l) => l.cible_type === type && l.cible_id === id)
-    return rang >= 0 ? rang : 0
+  /* ══ LA SÉANCE DÉSIGNE SES FICHES PAR LEUR IDENTIFIANT, JAMAIS PAR LEUR RANG ══
+
+     Thomas, 28/09/2026, relayé par William : « dans certains cas — par exemple quand il vient
+     d'appuyer sur Passer — la prochaine fiche qui s'affiche est skip dès qu'il clique sur Appeler ».
+
+     LA FICHE COURANTE ÉTAIT `lignes[index]`, un rang dans une liste qui bouge sous elle. Appeler
+     termine la tâche du jour ; dès que la liste est relue — ce qui arrive quand la fenêtre reprend
+     le focus, c'est-à-dire en revenant d'Allô — la fiche appelée en sort, tout remonte d'un cran, et
+     `lignes[index]` désigne la suivante. Sortir une fiche du plan faisait pareil en plus vite : la
+     ligne quittait la liste tout de suite, PUIS on avançait d'un cran — une fiche de sautée.
+
+     La séance tient donc son propre ORDRE d'identifiants, fixé à l'ouverture, et la fiche courante
+     est un identifiant. Ce que la liste devient pendant ce temps ne la déplace plus. */
+  const [ordre, setOrdre] = useState<string[]>(
+    () => lignes.filter((l) => l.etat === 'A_CONTACTER').map((l) => l.ligne_id),
+  )
+  const [courantId, setCourantId] = useState<string | null>(() => {
+    const aContacter = lignes.filter((l) => l.etat === 'A_CONTACTER')
+    if (departSur) {
+      const [type, id] = departSur.split(':')
+      const trouvee = aContacter.find((l) => l.cible_type === type && l.cible_id === id)
+      if (trouvee) return trouvee.ligne_id
+    }
+    return aContacter[0]?.ligne_id ?? null
   })
   const [secondes, setSecondes] = useState(0)
   /* Le numéro à composer quand la fiche en porte deux. Remis à zéro en changeant de fiche —
@@ -203,16 +223,30 @@ export function SprintCockpit({
    * cesse d'être ouverte, et l'opportunité qui naît reçoit sa propre tâche automatique
    * (migration 20260921130000).
    */
-  const [suiteAPrevoir, setSuiteAPrevoir] = useState(false)
-  /** Pour ne pas terminer deux fois la même tâche si on rappelle le second numéro. */
-  const [tacheFaite, setTacheFaite] = useState(false)
+  /* ══ APRÈS L'APPEL, PLUS DE « PASSER » ══
+     William, 28/09/2026 : « Passer n'est proposé qu'avant l'appel ; après l'appel il ne reste que
+     clôturer ou prévoir ». `appelFait` bascule le pied de fiche ; `suitePosee` dit qu'une tâche vient
+     d'être créée ici même, ce qui ouvre la fiche suivante sans avoir à la vérifier. */
+  const [appelFait, setAppelFait] = useState(false)
+  const [suitePosee, setSuitePosee] = useState(false)
+  /** La pop-up qui invite à prévoir ou à clôturer, et l'aller-retour qui décide de l'ouvrir. */
+  const [dialogueSuite, setDialogueSuite] = useState(false)
+  const [verification, setVerification] = useState(false)
+  /**
+   * LA PHOTO DE LA TÂCHE AU MOMENT OÙ ON L'A FAITE.
+   *
+   * William : « rayer le texte dans la card Tâche du jour afin de bien notifier que la tâche est
+   * considérée comme complétée ». Mais une fois terminée, la tâche QUITTE la ligne du pipe — la
+   * carte aurait disparu au lieu de se rayer. On garde donc ce qu'elle disait, pour la montrer faite.
+   */
+  const [tacheFaite, setTacheFaite] = useState<{ ligne: string; titre: string; echeance: string | null; enRetard: boolean } | null>(null)
   const [appels, setAppels] = useState(0)
   /* ABOUTI N'EST PAS APPELÉ. Trois messages sur répondeur font trois appels et zéro abouti, et
      c'est la seule des deux mesures qui dit si la journée a servi à quelque chose. */
   const [aboutis, setAboutis] = useState(0)
 
   const creerAction = useCreateAction()
-  const majAction = useUpdateActionPartiel()
+  const terminerTaches = useTerminerTachesDuJour()
   const avancerStatut = useAvancerStatutPiste()
   const ouvrirDepot = useOuvrirDepot()
   const reordonner = useReordonnerPipe()
@@ -257,18 +291,24 @@ export function SprintCockpit({
    * perdrait exactement comme avant.
    *
    * ON NE DÉPLACE PAS CE QUI EST DÉJÀ EN PLACE : ni la fiche en cours, ni celle qui la suit déjà.
+   *
+   * DEUX ORDRES À TENIR, et on les tient tous les deux : celui de la séance, qui décide de la fiche
+   * suivante, et celui du plan en base, qui survit au rechargement.
    */
   const rangerApresLaFicheEnCours = useCallback((alerte: Alerte) => {
-    const source = lignes.findIndex((l) => l.cible_type === alerte.cible_type && l.cible_id === alerte.cible_id)
-    if (source < 0 || source === index || source === index + 1) return
+    const cible = lignes.find((l) => l.cible_type === alerte.cible_type && l.cible_id === alerte.cible_id)
+    if (!cible || !courantId || cible.ligne_id === courantId) return
+    if (ordre[ordre.indexOf(courantId) + 1] === cible.ligne_id) return
 
-    const ordre = lignes.map((l) => l.ligne_id)
-    const [deplacee] = ordre.splice(source, 1)
-    /* Si la fiche à rappeler était AVANT celle en cours, la retirer décale l'index d'un cran. */
-    const apres = source < index ? index : index + 1
-    ordre.splice(apres, 0, deplacee)
-    reordonner.mutate(ordre)
-  }, [lignes, index, reordonner])
+    const seance = ordre.filter((id) => id !== cible.ligne_id)
+    seance.splice(seance.indexOf(courantId) + 1, 0, cible.ligne_id)
+    setOrdre(seance)
+
+    const enBase = lignes.map((l) => l.ligne_id).filter((id) => id !== cible.ligne_id)
+    const ici = enBase.indexOf(courantId)
+    enBase.splice(ici >= 0 ? ici + 1 : enBase.length, 0, cible.ligne_id)
+    reordonner.mutate(enBase)
+  }, [lignes, ordre, courantId, reordonner])
 
   /**
    * Ouvre l'éditeur en le faisant naître de la carte « Contacter ».
@@ -345,34 +385,65 @@ export function SprintCockpit({
     return () => clearInterval(t)
   }, [])
 
-  const fiche = lignes[index]
+  /* LA DERNIÈRE VERSION CONNUE DE CHAQUE FICHE. Une fiche appelée ou convertie quitte la liste
+     « à contacter » — mais on est encore dessus, et elle doit rester à l'écran jusqu'à ce qu'on la
+     quitte. Sans cette mémoire, c'est la suivante qui prendrait sa place sous nos yeux. */
+  const connues = useRef(new Map<string, LignePipe>())
+  for (const l of lignes) connues.current.set(l.ligne_id, l)
+  const presentes = useMemo(() => new Map(lignes.map((l) => [l.ligne_id, l])), [lignes])
+
+  /* Une fiche arrivée en cours de séance — un rappel posé pour tout à l'heure — rejoint la file. */
+  useEffect(() => {
+    setOrdre((o) => {
+      const nouvelles = lignes.filter((l) => l.etat === 'A_CONTACTER' && !o.includes(l.ligne_id)).map((l) => l.ligne_id)
+      return nouvelles.length ? [...o, ...nouvelles] : o
+    })
+  }, [lignes])
+
+  const ficheOuRien = courantId ? (presentes.get(courantId) ?? connues.current.get(courantId)) : undefined
   /* LE DÉTAIL DE LA FICHE alimente les trois onglets du volet de droite. Il est volontairement
      SÉPARÉ de la ligne du pipe : `lister_pipe_du_jour` rend ce qu'il faut pour appeler, cette
      requête ce qu'il faut pour comprendre — périmètre, société, parc. La charger pour les soixante
      lignes du plan aurait coûté soixante requêtes pour une seule fiche lue. */
-  const { data: detail } = useFichePipe(fiche ?? null)
+  const { data: detail } = useFichePipe(ficheOuRien ?? null)
 
-  const avancer = useCallback(() => {
+  /**
+   * La prochaine fiche ENCORE À APPELER, dans l'ordre de la séance, en partant de celle qui suit
+   * `depuis` et en revenant au début.
+   *
+   * ON TOURNE, ET C'EST CE QUI REND « PASSER » HONNÊTE. William, 22/09/2026 : « Passer passe à la
+   * prochaine cible mais ne disparaît pas du sprint ». Une fiche passée reste à appeler : le tour
+   * suivant la reproposera. Une fiche appelée, close ou sortie du plan n'est plus à appeler — elle ne
+   * revient pas.
+   */
+  const suivante = useCallback(
+    (depuis: string | null) => prochaineFiche(ordre, (id) => presentes.get(id)?.etat, depuis),
+    [ordre, presentes],
+  )
+
+  /* Tout ce qui décrit la fiche en cours, remis à zéro en la quittant — sinon le second numéro d'un
+     contact, ou son appel déjà passé, suivrait la fiche d'après. */
+  const quitterLaFiche = useCallback((vers: string | null) => {
     setChoixNumero(0)
     setAppelLance(null)
     setGeste(null)
-    setSuiteAPrevoir(false)
-    setTacheFaite(false)
-    setIndex((i) => i + 1)
+    setAppelFait(false)
+    setSuitePosee(false)
+    setDialogueSuite(false)
+    setCourantId(vers)
   }, [])
 
-  /* ══ PASSER TOURNE, IL NE SORT PAS ══
-     William, 22/09/2026 : « Passer passe à la prochaine cible mais ne disparaît pas du sprint ».
-     À la dernière fiche on revient donc à la première : une fiche passée doit pouvoir se reprendre
-     en fin de séance, et c'est tout l'intérêt de la distinguer d'« Écarter », qui n'existe plus. */
+  /** Après une clôture ou une suite posée : la fiche est réglée, on va à la suivante — ou à la fin. */
+  const avancer = useCallback(() => {
+    quitterLaFiche(suivante(courantId))
+  }, [quitterLaFiche, suivante, courantId])
+
+  /* PASSER NE FERME PAS LA SÉANCE sur la dernière fiche restante : elle est toujours à appeler. */
   const passer = useCallback(() => {
-    setChoixNumero(0)
-    setAppelLance(null)
-    setGeste(null)
-    setSuiteAPrevoir(false)
-    setTacheFaite(false)
-    setIndex((i) => (i + 1 >= lignes.length ? 0 : i + 1))
-  }, [lignes.length])
+    const s = suivante(courantId)
+    if (s) quitterLaFiche(s)
+    else setMessageSprint('C’est la dernière fiche à appeler de ce plan.')
+  }, [suivante, courantId, quitterLaFiche])
 
   /**
    * La fiche est traitée : elle sort du plan du jour et on passe à la suivante.
@@ -384,10 +455,10 @@ export function SprintCockpit({
    * défaut sur les fiches où la suite était déjà posée.
    */
   const terminerFiche = useCallback(() => {
-    if (!fiche) return
-    onSortir(fiche.ligne_id, 'APPELE')
+    if (!ficheOuRien) return
+    onSortir(ficheOuRien.ligne_id, 'APPELE')
     avancer()
-  }, [fiche, onSortir, avancer])
+  }, [ficheOuRien, onSortir, avancer])
 
   /* ══ LE SPRINT SE MÈNE À LA SOURIS (16/09/2026) ══
      Ce panneau était pensé clavier d'abord : F pour « appel terminé », P pour « pas joignable »,
@@ -403,13 +474,17 @@ export function SprintCockpit({
      ÉCHAP RESTE : sortir d'un panneau plein écran n'est pas un raccourci, c'est la porte. */
   useEffect(() => {
     function surEchap(e: KeyboardEvent) {
-      if (e.key === 'Escape') onFermer()
+      if (e.key !== 'Escape') return
+      /* Dans la pop-up, Échap ferme la pop-up — pas la séance entière. Un geste réflexe pour
+         écarter une fenêtre ne doit pas faire perdre le sprint en cours. */
+      if (dialogueSuite) { setDialogueSuite(false); return }
+      onFermer()
     }
     window.addEventListener('keydown', surEchap)
     return () => window.removeEventListener('keydown', surEchap)
-  }, [onFermer])
+  }, [onFermer, dialogueSuite])
 
-  if (!fiche) {
+  if (!ficheOuRien) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-km-side px-6 text-center text-km-side-text">
         <p className="font-mono text-km-label font-semibold uppercase tracking-[0.3em] text-km-side-faint">
@@ -428,8 +503,26 @@ export function SprintCockpit({
     )
   }
 
+  /* Passé la garde, la fiche EXISTE : tout ce qui suit — gestes, écritures, rendu — s'en sert sans
+     avoir à le revérifier. */
+  const fiche: LignePipe = ficheOuRien
+
   const estPiste = fiche.cible_type === 'PISTE'
   const tag = estPiste ? 'Piste' : 'Opportunité'
+  const lieu = [fiche.code_postal, fiche.ville].filter(Boolean).join(' ') || null
+  /* Une fiche traitée est une fiche qui n'est plus à appeler : appelée, close ou sortie du plan. */
+  const faites = ordre.filter((id) => presentes.get(id)?.etat !== 'A_CONTACTER').length
+
+  /* ══ LA TÂCHE QUE MONTRE LA CARTE ══
+     Celle de la ligne tant qu'elle est ouverte ; sa photo, rayée, une fois faite. Si une nouvelle
+     tâche est tombée aujourd'hui — un rappel à 16 h —, c'est elle qu'on montre, non rayée : c'est la
+     nouvelle consigne, et elle reste à faire. */
+  const photo = tacheFaite?.ligne === fiche.ligne_id ? tacheFaite : null
+  const memeTache = Boolean(photo && fiche.tache_titre === photo.titre && fiche.tache_echeance === photo.echeance)
+  const tacheAffichee = fiche.tache_titre && !memeTache
+    ? { titre: fiche.tache_titre, echeance: fiche.tache_echeance, enRetard: fiche.en_retard }
+    : photo
+  const tacheEstFaite = Boolean(photo) && (!fiche.tache_titre || memeTache)
 
   /* Fixe puis mobile, sans doublon : beaucoup de fiches portent deux fois le même numéro, et
      l'afficher deux fois ferait douter de celui qu'il faut composer. */
@@ -487,10 +580,11 @@ export function SprintCockpit({
     if (!e164) return
     lancerAppelBureau(e164)
     setAppelLance({ numero: choisi.numero, depuis: Date.now() })
+    setAppelFait(true)
     /* APPELER TERMINE LA TÂCHE, et c'est le clic qui fait foi, pas le décroché : la tâche disait
        « appeler aujourd'hui », et on vient d'appeler. Tomber sur un répondeur ne rend pas la tâche
        à faire — elle est faite, c'est la SUITE qui reste à poser. */
-    void terminerTacheDuJour()
+    void terminerTacheDuJour(true)
 
     /* ══ APPELER, C'EST QUALIFIER ══
        William, 22/09/2026 : « dès que je lance une action de prospection dans cockpit (appel), la
@@ -528,7 +622,6 @@ export function SprintCockpit({
       })
       .eq('id', fiche.cible_id)
     if (error) { setMessageSprint(`Clôture impossible : ${error.message}`); return }
-    setSuiteAPrevoir(false)
     setGeste(null)
     terminerFiche()
   }
@@ -537,26 +630,65 @@ export function SprintCockpit({
      Elles vivent ici et non dans le panneau : le panneau dessine et collecte, la page écrit. C'est
      ce qui lui permet de rester utilisable ailleurs sans traîner quatre mutations. */
   /**
-   * Terminer la tâche qui a fait entrer cette fiche dans le plan du jour.
+   * Terminer les tâches qui ont fait entrer cette fiche dans le plan du jour.
    *
-   * C'EST BIEN CELLE-LÀ, et pas une autre : `useFichePipe` retient exactement la même que
-   * `lister_pipe_du_jour` — ouverte, à moi ou à personne, prévue aujourd'hui ou en retard, la plus
-   * ancienne d'abord. S'il en reste d'autres ouvertes ce jour-là, la fiche reste dans le plan, et
-   * c'est juste : il reste quelque chose à y faire.
+   * ══ C'EST LA BASE QUI LES TROUVE, AU MOMENT DU CLIC ══
+   *
+   * William, 28/09/2026 : « on a fait des tests ce matin avec des appels Allô mais la tâche restait
+   * ouverte ». Cette fonction lisait la tâche dans le détail de la fiche — une seconde requête, pas
+   * toujours revenue quand on clique vite, juste après « Passer » — et sortait alors sans rien
+   * faire. Un `.catch(() => {})` avalait les autres échecs, et le code se fiait à un déclencheur de
+   * date de réalisation qui n'existait pas. `sprint_terminer_taches_du_jour` ne dépend de rien de
+   * chargé ici.
+   *
+   * ══ L'ÉCHEC SE DIT ══
+   *
+   * Une tâche qu'on croit fermée et qui ne l'est pas ramène la fiche demain, sans que personne
+   * sache pourquoi. Le message l'écrit en toutes lettres, et la carte ne se raye pas.
+   *
+   * `contacte` : vrai pour un appel. Faux quand on pose une nouvelle tâche sans avoir appelé — la
+   * tâche du jour se termine aussi, mais la fiche n'a pas été contactée.
    */
-  async function terminerTacheDuJour() {
-    const tache = detail?.tache
-    if (!tache || tacheFaite) return
-    const terminee = statutsActions?.find((st) => st.code === 'TERMINEE')
-    if (!terminee) return
-    setTacheFaite(true)
-    setSuiteAPrevoir(true)
-    await majAction.mutateAsync({
-      id: tache.id,
-      /* Le statut suffit : `lister_pipe_du_jour` écarte TERMINEE et ANNULEE, et la date de
-         réalisation est posée par le déclencheur qui suit le statut. */
-      patch: { statut_id: terminee.id },
-    }).catch(() => { /* une tâche qu'on n'a pas pu fermer se rouvrira au prochain plan : pas de perte */ })
+  async function terminerTacheDuJour(contacte: boolean) {
+    if (!fiche) return
+    const ligne = fiche.ligne_id
+    if (fiche.tache_titre && tacheFaite?.ligne !== ligne) {
+      setTacheFaite({ ligne, titre: fiche.tache_titre, echeance: fiche.tache_echeance, enRetard: fiche.en_retard })
+    }
+    try {
+      await terminerTaches.mutateAsync({ ligne, contacte })
+    } catch (e) {
+      setTacheFaite(null)
+      setMessageSprint(
+        `La tâche du jour n’a pas pu être terminée — ${e instanceof Error ? e.message : 'erreur inconnue'}. Elle reste ouverte.`,
+      )
+    }
+  }
+
+  /**
+   * ══ LE PASSAGE À LA FICHE SUIVANTE, APRÈS L'APPEL ══
+   *
+   * William, 28/09/2026 : « soit je clôture, soit je prévois une nouvelle tâche, soit je passe la
+   * fiche pour y revenir plus tard. Si je ne fais pas une de ces trois actions, le passage à la fiche
+   * suivante doit être bloqué ». Passer n'existant plus après l'appel, il reste clôturer ou prévoir.
+   *
+   * LA BASE TRANCHE, À L'INSTANT DU CLIC (`fiche_a_une_suite`) : la conversion d'une piste se fait
+   * dans un autre onglet, une tâche peut se poser depuis la fiche — le sprint ne voit pas tout. Une
+   * fiche close, ou qui porte au moins une tâche ouverte, reviendra d'elle-même ou n'a plus rien à
+   * faire : elle passe. Sinon, la pop-up explique quoi faire.
+   */
+  async function ficheSuivante() {
+    if (!fiche) return
+    if (suitePosee) { avancer(); return }
+    setVerification(true)
+    const { data, error } = await supabase.rpc('fiche_a_une_suite', {
+      p_cible_type: fiche.cible_type,
+      p_cible_id: fiche.cible_id,
+    })
+    setVerification(false)
+    if (error) { setMessageSprint(`Impossible de vérifier la suite de cette fiche — ${error.message}`); return }
+    if (data) avancer()
+    else setDialogueSuite(true)
   }
 
   /**
@@ -575,7 +707,7 @@ export function SprintCockpit({
    * tâche qui n'est à personne compte pour tout le monde, donc n'est faite par personne.
    */
   async function creerRelance(titreTache: string, instant: string, codeType: 'APPELER' | 'ENVOYER_EMAIL' = 'APPELER') {
-    await terminerTacheDuJour()
+    await terminerTacheDuJour(false)
     const type = typesActions?.find((t) => t.code === codeType)
     const aFaire = statutsActions?.find((st) => st.code === 'A_FAIRE')
     await creerAction.mutateAsync({
@@ -596,7 +728,7 @@ export function SprintCockpit({
     })
     /* LA SUITE EST POSÉE : la fiche reviendra d'elle-même dans le plan du jour à l'échéance de
        cette tâche. C'est tout le processus, et c'est la seule sortie qui ne perd rien. */
-    setSuiteAPrevoir(false)
+    setSuitePosee(true)
   }
 
   /**
@@ -638,8 +770,8 @@ export function SprintCockpit({
     /* LE STATUT SUIT LE MOTIF. Sans lui, la piste gardait « En cours de qualification » avec un
        motif de disqualification en travers : deux écrans en désaccord sur la même ligne. */
     await avancerStatut.mutateAsync({ piste: fiche.cible_id, vers: 'DISQUALIFIEE' }).catch(() => {})
-    await terminerTacheDuJour()
-    setSuiteAPrevoir(false)
+    /* LES TÂCHES SE FERMENT EN BASE, pas d'ici : depuis le 28/09/2026 toute clôture — conversion,
+       disqualification, abandon — termine d'elle-même les tâches encore ouvertes de la fiche. */
     onSortir(fiche.ligne_id, 'ECARTE')
     avancer()
   }
@@ -659,14 +791,36 @@ export function SprintCockpit({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-km-side text-km-side-text">
+      {dialogueSuite ? (
+        <DialogueSuite
+          nom={fiche.nom_complet}
+          estPiste={estPiste}
+          onPrevoir={() => {
+            setDialogueSuite(false)
+            ouvrirGeste('relance', tacheAffichee ? 'carte-tache' : 'menu-action-rapide')
+          }}
+          onCloturer={(g) => {
+            setDialogueSuite(false)
+            ouvrirGeste(g, 'menu-action-rapide')
+          }}
+          onFermer={() => setDialogueSuite(false)}
+        />
+      ) : null}
+
       {/* ── LE RAIL DE PROGRESSION : la seule trace de la journée entière ── */}
       <div className="flex h-[3px] gap-[2px]" aria-hidden="true">
-        {lignes.map((l, i) => (
-          <span
-            key={l.ligne_id}
-            className={cn('flex-1', i < index ? 'bg-km-side-green/55' : i === index ? 'bg-km-side-green' : 'bg-km-side-line')}
-          />
-        ))}
+        {/* UN SEGMENT PAR FICHE DE LA SÉANCE. Est « faite » une fiche qui n'est plus à appeler —
+            appelée, close ou sortie —, et non une fiche située avant la courante : on tourne, et
+            une fiche passée reste à faire. */}
+        {ordre.map((id) => {
+          const faite = presentes.get(id)?.etat !== 'A_CONTACTER'
+          return (
+            <span
+              key={id}
+              className={cn('flex-1', id === courantId ? 'bg-km-side-green' : faite ? 'bg-km-side-green/55' : 'bg-km-side-line')}
+            />
+          )
+        })}
       </div>
 
       {/* ── LA BARRE DE SÉANCE ── */}
@@ -677,7 +831,7 @@ export function SprintCockpit({
       <div className="flex flex-wrap items-center gap-x-8 gap-y-2 border-b border-km-side-line bg-km-side-bas px-4 py-3.5 font-mono text-km-label font-semibold uppercase tracking-[0.12em] text-km-side-muted sm:px-8 xl:py-5">
         <span className="text-km-sprint font-bold tracking-[0.01em] text-km-side-green tabular-nums">{chrono(secondes)}</span>
         <span>
-          Fiche <b className="text-km-sprint-val font-bold text-km-side-text">{index + 1}</b> sur {lignes.length}
+          Fiche <b className="text-km-sprint-val font-bold text-km-side-text">{ordre.indexOf(courantId ?? '') + 1}</b> sur {ordre.length}
         </span>
         <span>
           Appels <b className="text-km-sprint-val font-bold text-km-side-text">{appels}</b>
@@ -800,6 +954,9 @@ export function SprintCockpit({
               ) : (
                 <b className="font-semibold text-km-side-text">{fiche.compte_nom ?? 'Société inconnue'}</b>
               )}
+              {/* William, 28/09/2026 : « la ville + code postal doit s'afficher à côté du nom du
+                  compte ». Dans l'ordre d'une adresse française — le code, puis la ville. */}
+              {lieu ? <span className="ml-2 font-normal text-km-side-muted">· {lieu}</span> : null}
             </p>
           </div>
 
@@ -1034,37 +1191,53 @@ export function SprintCockpit({
                 deux autres : à 1 024 px, trois cartes feraient 210 px chacune et le libellé s'y
                 casserait en quatre lignes — on aurait regagné de la hauteur d'un côté pour en
                 perdre de l'autre. */}
-            {fiche.tache_titre ? (
+            {tacheAffichee ? (
               <div
                 id="carte-tache"
                 className={cn(
-                  'flex flex-col rounded-km-lg border border-l-[3px] bg-km-side-bas/60 p-4 xl:p-5',
-                  fiche.en_retard
-                    ? 'border-km-amber/30 border-l-km-amber'
-                    : 'border-km-side-line border-l-km-side-green',
+                  'flex flex-col rounded-km-lg border border-l-[3px] bg-km-side-bas/60 p-4 transition-colors xl:p-5',
+                  tacheEstFaite
+                    ? 'border-km-side-line border-l-km-side-green/55'
+                    : tacheAffichee.enRetard
+                      ? 'border-km-amber/30 border-l-km-amber'
+                      : 'border-km-side-line border-l-km-side-green',
                 )}
               >
                 <div className="mb-2 flex items-center gap-2">
-                  <CalendarClock
-                    className={cn('h-3.5 w-3.5 shrink-0', fiche.en_retard ? 'text-km-amber' : 'text-km-side-green')}
-                    aria-hidden="true"
-                  />
+                  {tacheEstFaite ? (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-km-side-green" strokeWidth={3} aria-hidden="true" />
+                  ) : (
+                    <CalendarClock
+                      className={cn('h-3.5 w-3.5 shrink-0', tacheAffichee.enRetard ? 'text-km-amber' : 'text-km-side-green')}
+                      aria-hidden="true"
+                    />
+                  )}
                   <span
                     className={cn(
                       'truncate font-mono text-km-label font-semibold uppercase tracking-[0.16em]',
-                      fiche.en_retard ? 'text-km-amber' : 'text-km-side-green',
+                      tacheAffichee.enRetard && !tacheEstFaite ? 'text-km-amber' : 'text-km-side-green',
                     )}
                   >
                     {/* « Tâche du jour » et non « À faire aujourd'hui » : vu à l'écran, le
                         second repassait sur deux lignes dans une carte de 250 px et poussait le
                         libellé vers le bas. Les trois en-têtes doivent tenir sur une ligne, sinon
                         la rangée se désaligne. */}
-                    Tâche du jour
+                    {tacheEstFaite ? 'Tâche du jour · faite' : 'Tâche du jour'}
                   </span>
                 </div>
                 <div className="flex min-h-[2.25rem] flex-1 flex-col justify-start">
-                  <p className="text-km-lead font-semibold leading-snug text-km-side-text">
-                    {fiche.tache_titre}
+                  {/* RAYÉE, PAS EFFACÉE : on voit ce qui vient d'être fait. William, 28/09/2026 :
+                      « rayer le texte dans la card Tâche du jour afin de bien notifier à
+                      l'utilisateur que la tâche est considérée comme complétée ». */}
+                  <p
+                    className={cn(
+                      'text-km-lead font-semibold leading-snug transition-colors',
+                      tacheEstFaite
+                        ? 'text-km-side-muted line-through decoration-km-side-green decoration-2'
+                        : 'text-km-side-text',
+                    )}
+                  >
+                    {tacheAffichee.titre}
                   </p>
                 </div>
                 {/* LA HAUTEUR DE 40 PX EST CELLE DES BOUTONS des deux autres cartes : c'est ce
@@ -1074,11 +1247,11 @@ export function SprintCockpit({
                 <p className="mt-2.5 flex h-10 items-center text-km-label font-medium leading-tight text-km-side-muted">
                   {/* `echeanceLisible` n'écrit l'heure que s'il y en a une : minuit local veut
                       dire « pas d'heure ». */}
-                  <span className={cn(fiche.en_retard && 'text-km-amber')}>
-                    {echeanceLisible(fiche.tache_echeance) || 'sans échéance'}
-                    {fiche.en_retard ? ' — en retard' : ''}
+                  <span className={cn(tacheAffichee.enRetard && !tacheEstFaite && 'text-km-amber')}>
+                    {echeanceLisible(tacheAffichee.echeance) || 'sans échéance'}
+                    {tacheEstFaite ? ' — terminée' : tacheAffichee.enRetard ? ' — en retard' : ''}
                   </span>
-                  {fiche.taches_ouvertes > 1 ? (
+                  {!tacheEstFaite && fiche.taches_ouvertes > 1 ? (
                     <span className="ml-1.5 text-km-side-faint">
                       · +{fiche.taches_ouvertes - 1}
                     </span>
@@ -1345,28 +1518,53 @@ export function SprintCockpit({
               onRaccrocher={raccrocher}
             />
 
-            {/* PASSER NE SORT PAS LA FICHE DU PLAN. William : « passe à la prochaine cible mais ne
-                disparaît pas du sprint ». À la dernière fiche, on revient donc à la première plutôt
-                que de fermer la séance — une fiche passée doit pouvoir se reprendre à la fin. */}
-            <button
-              onClick={passer}
-              className="inline-flex h-11 items-center gap-2 rounded-km border border-km-side-line px-5 text-km-name font-semibold text-km-side-text transition-colors hover:border-km-side-muted hover:bg-km-side-bas"
-            >
-              <SkipForward className="h-4 w-4" aria-hidden="true" />
-              Passer
-            </button>
+            {/* ══ AVANT L'APPEL, ON PASSE ; APRÈS, ON DONNE UNE SUITE ══
+
+                William, 28/09/2026 : « Passer n'est proposé qu'avant l'appel, et après l'appel il ne
+                reste que clôturer ou prévoir ». Passer ne sort pas la fiche : elle reste à appeler
+                et le tour suivant la reproposera. Une fois appelée, elle n'a plus de raison de
+                revenir — sauf si on lui en donne une. */}
+            {appelFait ? (
+              <button
+                onClick={() => void ficheSuivante()}
+                disabled={verification}
+                className={cn(
+                  'inline-flex h-11 items-center gap-2 rounded-km border px-5 text-km-name font-semibold transition-colors disabled:opacity-60',
+                  suitePosee
+                    ? 'border-km-side-green/60 bg-km-side-green/15 text-km-side-green hover:bg-km-side-green/25'
+                    : 'border-km-side-line text-km-side-text hover:border-km-side-muted hover:bg-km-side-bas',
+                )}
+              >
+                Fiche suivante
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                onClick={passer}
+                className="inline-flex h-11 items-center gap-2 rounded-km border border-km-side-line px-5 text-km-name font-semibold text-km-side-text transition-colors hover:border-km-side-muted hover:bg-km-side-bas"
+              >
+                <SkipForward className="h-4 w-4" aria-hidden="true" />
+                Passer
+              </button>
+            )}
 
             {/* ══ LE VERROU DU PROCESSUS, EN TOUTES LETTRES ══
 
-                Une fois la tâche du jour terminée, plus rien ne ramène cette fiche dans le plan.
-                Passer maintenant la ferait disparaître sans bruit — et un enregistrement qui
-                disparaît ne réclame rien à personne. Le bandeau ne bloque pas le geste : il dit ce
-                qui va se passer. Interdire aurait enfermé le commercial les jours où la bonne
-                réponse est « on verra ». */}
-            {suiteAPrevoir ? (
-              <p className="order-last w-full text-km-label leading-snug text-km-amber">
-                Tâche du jour terminée. <b className="font-semibold">Sans nouvelle tâche ni fin de
-                parcours</b>, cette fiche sort du plan du jour et n’y reviendra pas.
+                Il BLOQUE désormais, et c'est un revirement assumé. Le 22/09 il ne faisait que
+                prévenir, pour ne pas enfermer le commercial les jours où la réponse est « on
+                verra ». William, 28/09/2026, a tranché : une fiche appelée ne passe qu'avec une
+                suite ou une clôture — « on verra » s'écrit donc en tâche, et c'est ce qui l'empêche
+                de disparaître. La ligne dit la règle AVANT qu'on bute dessus. */}
+            {appelFait ? (
+              <p className={cn('order-last w-full text-km-label leading-snug', suitePosee ? 'text-km-side-green' : 'text-km-amber')}>
+                {suitePosee ? (
+                  <>Suite posée — vous pouvez passer à la fiche suivante.</>
+                ) : (
+                  <>
+                    Fiche appelée. <b className="font-semibold">Prévoyez une tâche ou clôturez-la</b> pour
+                    passer à la suivante.
+                  </>
+                )}
               </p>
             ) : null}
 
@@ -1433,7 +1631,7 @@ export function SprintCockpit({
               {' '}Ouvrir la fiche ferme le sprint : vous reprendrez la séance depuis le début.
             </p>
             <p className="mt-2 text-km-label text-km-side-faint">
-              {index} fiche{index > 1 ? 's' : ''} traitée{index > 1 ? 's' : ''} sur {lignes.length},
+              {faites} fiche{faites > 1 ? 's' : ''} traitée{faites > 1 ? 's' : ''} sur {ordre.length},
               {' '}{appels} appel{appels > 1 ? 's' : ''} passé{appels > 1 ? 's' : ''}.
             </p>
 
@@ -1670,6 +1868,97 @@ function MenuActionRapide({ id, estPiste, onAction }: { id: string; estPiste: bo
           </div>
         </>
       ) : null}
+    </div>
+  )
+}
+
+/**
+ * ══ LA POP-UP QUI BARRE LE PASSAGE ══
+ *
+ * William, 28/09/2026 : « si ces règles ne sont pas respectées, une pop-up doit s'afficher pour
+ * inviter l'utilisateur à prévoir une tâche (éditeur de tâche) ou à clôturer (lien vers actions
+ * rapides) ».
+ *
+ * ELLE DIT POURQUOI AVANT DE DIRE QUOI FAIRE. Un refus sans raison se contourne ; celui-ci explique
+ * ce qui arriverait à la fiche — sortir du plan sans jamais y revenir —, et c'est ce qui rend les
+ * deux sorties évidentes.
+ *
+ * LES GESTES DE CLÔTURE SONT CEUX DU MENU, et pas une copie : un clic ouvre le même panneau
+ * qu'« Action rapide », à la même place.
+ */
+function DialogueSuite({ nom, estPiste, onPrevoir, onCloturer, onFermer }: {
+  nom: string | null
+  estPiste: boolean
+  onPrevoir: () => void
+  onCloturer: (geste: 'convertir' | 'disqualifier' | 'clore') => void
+  onFermer: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4" onClick={onFermer} role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titre-dialogue-suite"
+        onClick={(e) => e.stopPropagation()}
+        className="animate-km-fade-slide w-full max-w-md rounded-km-lg border border-km-side-line bg-km-side-bas p-6 shadow-2xl"
+      >
+        <p className="font-mono text-km-label font-semibold uppercase tracking-[0.16em] text-km-amber">
+          Avant de passer à la suite
+        </p>
+        <h3 id="titre-dialogue-suite" className="mt-2 text-balance text-km-sprint-val font-bold leading-tight text-km-side-text">
+          {nom ? `${nom} n’a pas encore de suite` : 'Cette fiche n’a pas encore de suite'}
+        </h3>
+        <p className="mt-2.5 text-km-body leading-relaxed text-km-side-muted">
+          Vous l’avez appelée et sa tâche du jour est terminée. Sans nouvelle tâche ni clôture, elle
+          sortirait du plan du jour et n’y reviendrait jamais.
+        </p>
+
+        <div className="mt-5 flex flex-col gap-2">
+          <button
+            type="button"
+            autoFocus
+            onClick={onPrevoir}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-km bg-km-side-green px-5 text-km-name font-bold text-[#0B241C] transition-[filter] hover:brightness-110"
+          >
+            <CalendarClock className="h-4 w-4" aria-hidden="true" />
+            Prévoir une tâche
+          </button>
+          {estPiste ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onCloturer('convertir')}
+                className="h-11 rounded-km border border-km-side-line px-4 text-km-name font-semibold text-km-side-text transition-colors hover:border-km-side-muted hover:bg-km-side"
+              >
+                Convertir
+              </button>
+              <button
+                type="button"
+                onClick={() => onCloturer('disqualifier')}
+                className="h-11 rounded-km border border-km-side-line px-4 text-km-name font-semibold text-km-side-red transition-colors hover:bg-km-side-red/12"
+              >
+                Disqualifier
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onCloturer('clore')}
+              className="h-11 rounded-km border border-km-side-line px-4 text-km-name font-semibold text-km-side-red transition-colors hover:bg-km-side-red/12"
+            >
+              Clore l’opportunité
+            </button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onFermer}
+          className="mt-4 w-full text-center text-km-label font-medium text-km-side-muted hover:text-km-side-text"
+        >
+          Rester sur cette fiche
+        </button>
+      </div>
     </div>
   )
 }

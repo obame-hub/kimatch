@@ -41,6 +41,7 @@ export function ChampSprint({
   className,
   classeLecture,
   ariaLabel,
+  aLaLigne,
 }: {
   valeur: string | null | undefined
   onCommit: (v: string) => Promise<void> | void
@@ -52,6 +53,18 @@ export function ChampSprint({
   /** Réservé aux cas où la lecture porte un style que l'édition ne doit pas reprendre. */
   classeLecture?: string
   ariaLabel: string
+  /**
+   * ══ REVENIR À LA LIGNE PLUTÔT QUE COUPER ══
+   *
+   * William, 28/09/2026, sur l'onglet Société du sprint : « les champs sont coupés par des "…"
+   * alors qu'il doit y avoir largement la place ». La ligne qui l'accueille était faite pour
+   * revenir à la ligne (`break-words`) ; ce champ, lui, forçait une seule ligne tronquée — et
+   * depuis que chaque champ de l'onglet est modifiable, c'est lui qui affichait toutes les valeurs.
+   *
+   * PAR DÉFAUT IL TRONQUE ENCORE : un nom sur une seule ligne, en tête de fiche, doit le rester.
+   * Là où l'on lit une adresse ou un libellé NAF, la valeur entière compte plus que la hauteur.
+   */
+  aLaLigne?: boolean
 }) {
   const [ouvert, setOuvert] = useState(false)
   const [brouillon, setBrouillon] = useState(valeur ?? '')
@@ -82,16 +95,28 @@ export function ChampSprint({
         aria-label={`Modifier ${ariaLabel}`}
         title={`Modifier ${ariaLabel}`}
         className={cn(
-          'group/champ -mx-1 inline-flex max-w-full items-center gap-1.5 rounded-km-sm px-1 text-left transition-colors hover:bg-km-side-line/50',
+          'group/champ -mx-1 inline-flex max-w-full gap-1.5 rounded-km-sm px-1 text-left transition-colors hover:bg-km-side-line/50',
+          aLaLigne || multiligne ? 'items-start' : 'items-center',
           className,
           classeLecture,
         )}
       >
-        <span className={cn('min-w-0 truncate', !valeur && 'text-km-side-faint italic')}>
+        {/* UNE NOTE GARDE SES RETOURS À LA LIGNE, une valeur longue revient à la ligne, le
+            reste tient sur une ligne : c'est le contenu qui décide, pas le composant. */}
+        <span
+          className={cn(
+            'min-w-0',
+            multiligne ? 'whitespace-pre-wrap break-words' : aLaLigne ? 'whitespace-normal break-words' : 'truncate',
+            !valeur && 'text-km-side-faint italic',
+          )}
+        >
           {valeur || placeholder}
         </span>
         <Pencil
-          className="h-3 w-3 shrink-0 text-km-side-faint opacity-0 transition-opacity group-hover/champ:opacity-100"
+          className={cn(
+            'h-3 w-3 shrink-0 text-km-side-faint opacity-0 transition-opacity group-hover/champ:opacity-100',
+            (aLaLigne || multiligne) && 'mt-[0.35em]',
+          )}
           aria-hidden="true"
         />
       </button>
