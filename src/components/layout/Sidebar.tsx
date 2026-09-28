@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronUp, LogOut, ShieldCheck, User, X } from 'lucide-react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+import { ChevronUp, LogOut, ShieldCheck, User, X, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
@@ -104,6 +104,62 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
         </>
       )}
     </NavLink>
+  )
+}
+
+/**
+ * ══ « LANCER MON SPRINT » — UN GESTE, PAS UN ENDROIT ══
+ *
+ * William, 28/09/2026 : « juste au-dessus du séparateur horizontal avec Nouveautés, j'aimerais que
+ * tu positionnes un bouton "Lancer mon sprint". Ce serait une forme de raccourci vers la
+ * fonctionnalité Cockpit, qui me permettrait d'atterrir directement sur le sprint. Ce bouton doit
+ * être stylisé et différencié visuellement des autres éléments du menu. »
+ *
+ * ══ POURQUOI IL NE RESSEMBLE À AUCUNE LIGNE DU RAIL ══
+ *
+ * Les lignes du rail sont des LIEUX : elles disent où l'on va, en gris, et ne s'éclairent que là où
+ * l'on est. Celui-ci est une ACTION — on n'y « va » pas, on commence quelque chose. Il prend donc
+ * une forme pleine, et la couleur des boutons d'action du sprint lui-même (`km-side-green`) : on
+ * reconnaît d'un coup d'œil qu'il mène à la séance, avant même d'avoir lu.
+ *
+ * IL NE DÉFILE PAS. Posé hors de la liste qui défile, juste au-dessus du filet de Nouveautés, il
+ * reste à la même place quelle que soit la longueur du rail — un raccourci qu'il faut chercher n'en
+ * est plus un.
+ *
+ * IL NE COMPTE RIEN. Afficher le nombre de fiches à appeler obligerait le rail à construire le plan
+ * du jour — qui s'écrit en base — à chaque page ouverte. Le sprint le dit en arrivant.
+ *
+ * ══ LE LIBELLÉ TIENT EN ENTIER, TOUJOURS ══
+ *
+ * William, 28/09/2026 : « Lancer mon sprint doit s'afficher en entier dans le bouton ». La première
+ * version le coupait : une flèche décorative prenait 30 px, et le gras demandé (700) n'est pas une
+ * graisse que le site charge — Inter n'y est servie que jusqu'à 650 — si bien que le navigateur
+ * fabriquait un faux gras, plus large encore. La flèche est partie, le libellé est en 600 et ne se
+ * tronque plus : dans 195 px utiles, il lui en reste 145.
+ */
+function BoutonSprint({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="px-2.5 pb-2.5 pt-1.5">
+      <Link
+        to="/cockpit?sprint=1"
+        onClick={onClick}
+        className={cn(
+          'group/sprint relative flex h-10 items-center gap-2 overflow-hidden rounded-km-lg bg-km-side-green pl-1.5 pr-3',
+          'text-km-body font-semibold text-[#0B241C]',
+          /* Un liseré clair en haut et une lueur de la même teinte dessous : il se détache du rail
+             sans ombre grise, qui salirait l'anthracite. */
+          'shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_8px_20px_-10px_rgb(var(--km-side-green)/0.75)]',
+          'transition-[filter,transform] duration-150 hover:brightness-[1.07] active:scale-[0.98]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-km-side-bas',
+          'motion-reduce:transition-none motion-reduce:active:scale-100',
+        )}
+      >
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-km bg-[#0B241C]/15 transition-transform duration-150 group-hover/sprint:scale-110 motion-reduce:transition-none">
+          <Zap className="h-3.5 w-3.5" fill="currentColor" strokeWidth={2.2} aria-hidden="true" />
+        </span>
+        <span className="whitespace-nowrap">Lancer mon sprint</span>
+      </Link>
+    </div>
   )
 }
 
@@ -400,6 +456,9 @@ export function Sidebar() {
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-gradient-to-t from-km-side-bas to-transparent" />
           )}
         </div>
+
+        {/* Pas pour un partenaire : il n'a ni Cockpit ni pistes (Naoëlle, 24/09/2026). */}
+        {!estPartenaire && <BoutonSprint onClick={close} />}
 
         <nav className="space-y-0.5 border-t border-km-side-line px-2.5 py-2.5">
           {bottomItems.map((item) =>

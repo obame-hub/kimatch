@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, HeartPulse, PhoneCall, Sparkles } from 'lucide-react'
+import { AlertTriangle, HeartPulse, PhoneCall, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   calculerSante, joignabiliteEcrit, joignabiliteTelephone,
   type Joignabilite, type SanteRelation, type SignalRelation,
 } from '@/lib/santeRelation'
 import { useQueryClient } from '@tanstack/react-query'
+import { CommandesGlisseur, PisteGlisseur } from '@/components/cockpit/Glisseur'
 import { useAvisFiche, type EntreeAvis, type EvenementFil, type FicheDetaillee, type LignePipe } from '@/lib/data/cockpit'
 
 /**
@@ -230,8 +231,6 @@ function HeroJoignabilite({ telephone, ecrit }: { telephone: Joignabilite; ecrit
     },
   ]
 
-  const precedent = () => setVue((v) => Math.max(0, v - 1))
-  const suivant = () => setVue((v) => Math.min(vues.length - 1, v + 1))
 
   return (
     <Carte
@@ -249,76 +248,35 @@ function HeroJoignabilite({ telephone, ecrit }: { telephone: Joignabilite; ecrit
 
            LES PASTILLES RESTENT ENTRE LES DEUX, parce qu'elles disent où l'on est — ce que les
            flèches, elles, ne disent pas. */
-        <div className="flex items-center justify-center gap-2">
-          <Fleche sens="precedent" onClick={precedent} desactive={vue === 0} />
-          <span className="flex items-center gap-1">
-            {vues.map((x, i) => (
-              <button
-                key={x.cle}
-                onClick={() => setVue(i)}
-                aria-label={`Voir la joignabilité ${x.legende.toLowerCase()}`}
-                aria-pressed={vue === i}
-                className={cn(
-                  'h-1.5 rounded-full transition-all',
-                  vue === i ? 'w-4 bg-km-side-green' : 'w-1.5 bg-km-side-line hover:bg-km-side-muted',
-                )}
-              />
-            ))}
-          </span>
-          <Fleche sens="suivant" onClick={suivant} desactive={vue === vues.length - 1} />
-        </div>
+        <CommandesGlisseur
+          vue={vue}
+          onVue={setVue}
+          libelles={vues.map((x) => x.legende)}
+          sujet="la joignabilité"
+        />
       }
     >
       {/* DEUX PANNEAUX QUI GLISSENT, et non un seul qu'on remplace : le remplacement fait clignoter
           la carte, le glissement dit d'où l'on vient. La piste est en `flex` à 200 % de large et se
           translate d'une demi-largeur. La découpe est ici, et nulle part ailleurs. */}
-      <div className="flex flex-1 flex-col justify-center overflow-hidden">
-        <div
-          className="flex w-[200%] transition-transform duration-500 [transition-timing-function:cubic-bezier(.32,.72,0,1)]"
-          style={{ transform: `translateX(-${vue * 50}%)` }}
-        >
-          {vues.map((x, i) => (
-            <div key={x.cle} className="w-1/2 shrink-0 px-1" aria-hidden={vue !== i}>
-              <Jauge
-                valeur={x.v.taux}
-                couleur={x.couleur}
-                suffixe="%"
-                legende={x.legende}
-                detail={x.detail}
-                ariaLabel={`${x.legende} : ${x.v.taux == null ? 'aucune donnée' : `${x.v.taux} %`}`}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      <PisteGlisseur
+        vue={vue}
+        className="flex flex-1 flex-col justify-center"
+        panneaux={vues.map((x) => ({
+          cle: x.cle,
+          contenu: (
+            <Jauge
+              valeur={x.v.taux}
+              couleur={x.couleur}
+              suffixe="%"
+              legende={x.legende}
+              detail={x.detail}
+              ariaLabel={`${x.legende} : ${x.v.taux == null ? 'aucune donnée' : `${x.v.taux} %`}`}
+            />
+          ),
+        }))}
+      />
     </Carte>
-  )
-}
-
-/** Une flèche de glisseur : assez grande pour se cliquer, assez discrète pour ne pas voler l'œil. */
-function Fleche({
-  sens, onClick, desactive,
-}: {
-  sens: 'precedent' | 'suivant'
-  onClick: () => void
-  desactive: boolean
-}) {
-  const Icone = sens === 'precedent' ? ChevronLeft : ChevronRight
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={desactive}
-      aria-label={sens === 'precedent' ? 'Vue précédente' : 'Vue suivante'}
-      className={cn(
-        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
-        desactive
-          ? 'cursor-default border-km-side-line/60 text-km-side-line'
-          : 'border-km-side-line text-km-side-muted hover:border-km-side-green hover:text-km-side-green',
-      )}
-    >
-      <Icone className="h-3 w-3" aria-hidden="true" />
-    </button>
   )
 }
 

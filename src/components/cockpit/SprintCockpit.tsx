@@ -20,6 +20,7 @@ import type { Alerte } from '@/lib/data/alertes'
 import { QUALIFICATIONS_FIN } from '@/lib/data/opportunites'
 import { supabase } from '@/lib/supabase'
 import { prochaineFiche } from '@/lib/sprintNavigation'
+import { CommandesGlisseur, PisteGlisseur } from '@/components/cockpit/Glisseur'
 import { ChampSprint } from '@/components/cockpit/ChampSprint'
 import { QualifierAppel } from '@/components/cockpit/QualifierAppel'
 import { PanneauApresAppel, type GesteApresAppel } from '@/components/cockpit/PanneauApresAppel'
@@ -195,9 +196,6 @@ export function SprintCockpit({
     return aContacter[0]?.ligne_id ?? null
   })
   const [secondes, setSecondes] = useState(0)
-  /* Le numéro à composer quand la fiche en porte deux. Remis à zéro en changeant de fiche —
-     sinon le second numéro d'un contact deviendrait le premier du suivant. */
-  const [choixNumero, setChoixNumero] = useState(0)
   /* ══ L'APPEL COMMENCE AU CLIC, PAS AU WEBHOOK (William, 22/09/2026) ══
      « Je veux que le bouton raccrocher soit proposé dès que j'ai appuyé sur Appeler. »
      Le webhook d'Allô met quelques secondes à nous parvenir, et il peut ne jamais venir si le
@@ -424,7 +422,6 @@ export function SprintCockpit({
   /* Tout ce qui décrit la fiche en cours, remis à zéro en la quittant — sinon le second numéro d'un
      contact, ou son appel déjà passé, suivrait la fiche d'après. */
   const quitterLaFiche = useCallback((vers: string | null) => {
-    setChoixNumero(0)
     setAppelLance(null)
     setGeste(null)
     setAppelFait(false)
@@ -487,12 +484,27 @@ export function SprintCockpit({
   if (!ficheOuRien) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-km-side px-6 text-center text-km-side-text">
-        <p className="font-mono text-km-label font-semibold uppercase tracking-[0.3em] text-km-side-faint">
-          Sprint terminé · {chrono(secondes)}
-        </p>
-        <p className="text-km-sprint font-bold text-km-side-text">
-          {appels} appel{appels > 1 ? 's' : ''} passé{appels > 1 ? 's' : ''}, plus rien dans la pile.
-        </p>
+        {/* UN PLAN VIDE N'EST PAS UNE SÉANCE FINIE. Lancé depuis le menu un jour sans rien à
+            appeler, le sprint aurait annoncé « terminé, 0 appel » — comme si le travail était fait. */}
+        {ordre.length === 0 ? (
+          <>
+            <p className="font-mono text-km-label font-semibold uppercase tracking-[0.3em] text-km-side-faint">
+              Rien à appeler
+            </p>
+            <p className="max-w-xl text-balance text-km-sprint font-bold text-km-side-text">
+              Votre plan du jour ne porte aucune fiche à contacter pour l’instant.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-mono text-km-label font-semibold uppercase tracking-[0.3em] text-km-side-faint">
+              Sprint terminé · {chrono(secondes)}
+            </p>
+            <p className="text-km-sprint font-bold text-km-side-text">
+              {appels} appel{appels > 1 ? 's' : ''} passé{appels > 1 ? 's' : ''}, plus rien dans la pile.
+            </p>
+          </>
+        )}
         <button
           onClick={onFermer}
           className="rounded-km bg-km-side-green px-6 py-3 text-km-name font-bold text-[#0B241C] transition-[filter] hover:brightness-110"
@@ -527,7 +539,9 @@ export function SprintCockpit({
   /* Fixe puis mobile, sans doublon : beaucoup de fiches portent deux fois le même numéro, et
      l'afficher deux fois ferait douter de celui qu'il faut composer. */
   const numeros = [
-    { numero: fiche.telephone, libelle: 'Ligne fixe' },
+    /* LE VRAI FIXE, et non `telephone`, qui vaut « le fixe ou à défaut le mobile » : sans ça une
+       fiche au seul mobile semblait porter deux fois le même numéro. */
+    { numero: fiche.telephone_fixe, libelle: 'Ligne fixe' },
     { numero: fiche.telephone_mobile, libelle: 'Mobile' },
   ]
     .filter((n): n is { numero: string; libelle: string } => Boolean(n.numero))
@@ -574,12 +588,11 @@ export function SprintCockpit({
      LE PROTOCOLE PART EN PREMIER, avant tout état : c'est le piège numéro un de la spécification
      que William a fournie — un `tel:` déclenché après une opération asynchrone n'ouvre pas Allô
      sur Safari et iOS. Rien ne doit s'intercaler entre le clic et le lancement. */
-  function lancerAppel(indice = choixNumero) {
-    const choisi = numeros[indice]
-    const e164 = numeroInternational(choisi?.numero)
-    if (!e164) return
+  function lancerAppel(numero: string | null | undefined) {
+    const e164 = numeroInternational(numero)
+    if (!e164 || !numero) return
     lancerAppelBureau(e164)
-    setAppelLance({ numero: choisi.numero, depuis: Date.now() })
+    setAppelLance({ numero, depuis: Date.now() })
     setAppelFait(true)
     /* APPELER TERMINE LA TÂCHE, et c'est le clic qui fait foi, pas le décroché : la tâche disait
        « appeler aujourd'hui », et on vient d'appeler. Tomber sur un répondeur ne rend pas la tâche
@@ -1043,87 +1056,18 @@ export function SprintCockpit({
               qui évite le « Bonjour Monsieur » adressé à Madame. */}
           <div className="relative flex min-h-0 flex-1 flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <CarteSprint
-              titre="Appeler"
-              icone={Phone}
-              /* PLUS DE CAS « VIDE » SUR CETTE CARTE : un écran qui dit « aucun numéro » et
-                 n'offre pas de l'ajouter est exactement ce que William fait corriger. Le champ
-                 s'affiche toujours, avec son invite. */
-              texteVide="Aucun numéro sur cette fiche"
-              action={
-                /* ══ LE MÊME BOUTON DIT LES DEUX TEMPS DE L'APPEL ══
-                   Tant que rien ne sonne, il compose. Dès qu'Allo signale la ligne, il devient
-                   rouge et raccroche — au sens de Kimatch, voir la fenêtre plus bas. Deux boutons
-                   distincts auraient laissé « Appeler » cliquable pendant la communication, ce qui
-                   aurait relancé un second appel sur le même numéro. */
-                appelOuvert ? (
-                  <button
-                    type="button"
-                    onClick={raccrocher}
-                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-km bg-km-side-red text-km-name font-bold text-[#2A0F0C] transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-km-side-red focus-visible:ring-offset-2 focus-visible:ring-offset-km-side"
-                  >
-                    <PhoneOff className="h-4 w-4" aria-hidden="true" />
-                    Raccrocher
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={numeros.length === 0}
-                    onClick={() => lancerAppel()}
-                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-km bg-km-side-green text-km-name font-bold text-[#0B241C] transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-km-side-green focus-visible:ring-offset-2 focus-visible:ring-offset-km-side disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Phone className="h-4 w-4" aria-hidden="true" />
-                    Appeler
-                  </button>
-                )
-              }
-            >
-              {/* ══ UN SEUL NUMÉRO À L'ÉCRAN, LE SECOND DANS UNE LISTE ══
-
-                  William, 22/09/2026 : « affiche un numéro de tél, et s'il y en a 2, propose une
-                  liste ». Empiler les deux coûtait une ligne de hauteur sur CHAQUE fiche, alors
-                  qu'une fiche sur combien en porte deux ? Et surtout : on ne compose qu'un numéro.
-                  Montrer les deux oblige à choisir avant même d'avoir décroché.
-
-                  LE SÉLECTEUR N'APPARAÎT QUE S'IL Y A UN CHOIX. Un menu déroulant à une seule
-                  entrée est un ornement qui promet une décision inexistante. */}
-              {/* LE NUMÉRO SEUL SUR SA LIGNE, l'étiquette dessous. Vu à l'écran : côte à côte,
-                  « 01 45 67 89 12 » en 20 px plus le sélecteur dépassaient les 306 px que fait
-                  une carte sur trois, et le numéro se cassait en deux lignes — le seul contenu
-                  de tout l'écran qui ne doit jamais se casser, puisqu'on le lit pour le composer
-                  ou le vérifier pendant que ça sonne. */}
-              {/* LE NUMÉRO AFFICHÉ EST CELUI QU'ON CORRIGE : si deux existent, c'est celui que le
-                  sélecteur a retenu. On écrit dans la colonne qui le porte — fixe ou mobile — et
-                  non dans la première venue, sinon corriger le mobile écraserait le fixe. */}
-              <span className="block font-mono text-km-sprint-val font-semibold tabular-nums tracking-wide text-km-side-text">
-                <ChampSprint
-                  valeur={numeros[choixNumero]?.numero ?? ''}
-                  ariaLabel={numeros[choixNumero]?.libelle === 'Mobile' ? 'le mobile' : 'le numéro fixe'}
-                  placeholder="ajouter un numéro"
-                  mono
-                  className="font-mono text-km-sprint-val font-semibold tabular-nums tracking-wide"
-                  onCommit={corriger(numeros[choixNumero]?.libelle === 'Mobile' ? 'telephone_mobile' : 'telephone')}
-                />
-              </span>
-              {numeros.length > 1 ? (
-                <select
-                  aria-label="Choisir le numéro à composer"
-                  value={choixNumero}
-                  onChange={(e) => setChoixNumero(Number(e.target.value))}
-                  className="mt-0.5 -ml-1 w-fit max-w-full cursor-pointer rounded-km-sm border border-transparent bg-transparent px-1 py-px font-mono text-km-micro uppercase tracking-[0.14em] text-km-side-muted hover:border-km-side-line hover:text-km-side-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-km-side-green"
-                >
-                  {numeros.map((n, i) => (
-                    <option key={n.numero} value={i} className="bg-km-side text-km-side-text">
-                      {n.libelle}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="mt-0.5 font-mono text-km-micro uppercase tracking-[0.14em] text-km-side-faint">
-                  {numeros[0]?.libelle}
-                </span>
-              )}
-            </CarteSprint>
+            {/* LA CARTE GARDE SON CURSEUR ELLE-MÊME, et c'est voulu : la colonne est remontée à chaque
+                fiche (sa `key` est celle de la ligne), donc le curseur revient de lui-même sur le
+                bon emplacement — le fixe, ou le mobile si c'est le seul numéro. */}
+            <CarteAppeler
+              fixe={fiche.telephone_fixe}
+              mobile={fiche.telephone_mobile}
+              appelOuvert={appelOuvert}
+              onAppeler={lancerAppel}
+              onRaccrocher={raccrocher}
+              onCorrigerFixe={corriger('telephone')}
+              onCorrigerMobile={corriger('telephone_mobile')}
+            />
 
             <CarteSprint
               id="carte-contacter"
@@ -1514,7 +1458,7 @@ export function SprintCockpit({
             <BoutonAppeler
               numeros={numeros}
               enLigne={enCommunication || appelLance != null}
-              onAppeler={(i: number) => { setChoixNumero(i); lancerAppel(i) }}
+              onAppeler={(i: number) => lancerAppel(numeros[i]?.numero)}
               onRaccrocher={raccrocher}
             />
 
@@ -1678,7 +1622,7 @@ export function SprintCockpit({
  * endroit à chaque passage.
  */
 function CarteSprint({
-  id, titre, icone: Icone, vide, texteVide, children, action,
+  id, titre, icone: Icone, vide, texteVide, children, action, enTete,
 }: {
   /** Sert au morphing : c'est par lui que l'éditeur retrouve le rectangle d'où il doit naître. */
   id?: string
@@ -1690,6 +1634,8 @@ function CarteSprint({
   children: React.ReactNode
   /** Le geste, toujours rendu — désactivé plutôt qu'absent, pour que la paire garde sa hauteur. */
   action: React.ReactNode
+  /** À droite du titre, sur la même ligne : les commandes d'un curseur, par exemple. */
+  enTete?: React.ReactNode
 }) {
   return (
     <div
@@ -1704,12 +1650,134 @@ function CarteSprint({
         <span className="truncate font-mono text-km-label font-semibold uppercase tracking-[0.16em] text-km-side-faint">
           {titre}
         </span>
+        {enTete ? <span className="ml-auto shrink-0">{enTete}</span> : null}
       </div>
       <div className="flex min-h-[2.25rem] flex-1 flex-col justify-start">
         {vide ? <p className="text-km-body text-km-side-faint">{texteVide}</p> : children}
       </div>
       <div className="mt-2.5">{action}</div>
     </div>
+  )
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LA CARTE « APPELER » — LE FIXE ET LE MOBILE, SUR UN CURSEUR
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 28/09/2026 : « je dois pouvoir renseigner un mobile même si un contact n'en a pas,
+ * possibilité de cliquer pour passer de fixe à mobile. Ainsi si je slide et qu'un numéro n'est pas
+ * renseigné, ça me propose de l'ajouter. Au slide, le bouton Appeler doit continuer à apparaître. »
+ *
+ * ══ DEUX EMPLACEMENTS, TOUJOURS ══
+ *
+ * La carte ne montrait que les numéros EXISTANTS, avec une liste quand il y en avait deux : une
+ * fiche qui n'avait qu'un fixe n'offrait aucun endroit où écrire le mobile qu'on vient d'entendre.
+ * Les deux emplacements existent désormais toujours, et l'emplacement vide est une invite à le
+ * remplir — c'est le même champ, simplement vide.
+ *
+ * ══ LE BOUTON RESTE, ET RESTE UTILE ══
+ *
+ * Sur un emplacement rempli, il compose ce numéro. Sur un emplacement vide, il ne disparaît pas et
+ * ne se grise pas pour rien : si l'autre numéro existe, il le compose et le DIT — « Appeler le
+ * fixe ». Il ne se désactive que si la fiche n'a aucun numéro. Glisser pour ajouter un mobile ne
+ * doit pas faire perdre le moyen d'appeler.
+ *
+ * ══ LE CURSEUR PART DU BON CÔTÉ ══
+ *
+ * Sur le fixe, sauf si la fiche n'a qu'un mobile : on arrive sur le numéro qu'on peut composer.
+ */
+function CarteAppeler({
+  fixe, mobile, appelOuvert, onAppeler, onRaccrocher, onCorrigerFixe, onCorrigerMobile,
+}: {
+  fixe: string | null
+  mobile: string | null
+  appelOuvert: boolean
+  onAppeler: (numero: string) => void
+  onRaccrocher: () => void
+  onCorrigerFixe: (v: string) => Promise<void> | void
+  onCorrigerMobile: (v: string) => Promise<void> | void
+}) {
+  const emplacements = [
+    { cle: 'fixe', libelle: 'Ligne fixe', court: 'le fixe', invite: 'ajouter un fixe', numero: fixe, corriger: onCorrigerFixe },
+    { cle: 'mobile', libelle: 'Mobile', court: 'le mobile', invite: 'ajouter un mobile', numero: mobile, corriger: onCorrigerMobile },
+  ]
+  const [vue, setVue] = useState(() => (!fixe && mobile ? 1 : 0))
+  const courant = emplacements[vue]
+  const autre = emplacements[1 - vue]
+  /* Ce que le bouton compose : le numéro affiché, sinon l'autre — jamais un emplacement vide. */
+  const cible = courant.numero ? courant : autre.numero ? autre : null
+
+  return (
+    <CarteSprint
+      titre="Appeler"
+      icone={Phone}
+      texteVide="Aucun numéro sur cette fiche"
+      enTete={
+        <CommandesGlisseur
+          vue={vue}
+          onVue={setVue}
+          libelles={emplacements.map((e) => e.libelle)}
+          sujet="le numéro"
+        />
+      }
+      action={
+        /* ══ LE MÊME BOUTON DIT LES DEUX TEMPS DE L'APPEL ══
+           Tant que rien ne sonne, il compose. Dès que la ligne est ouverte, il devient rouge et
+           raccroche. Deux boutons distincts auraient laissé « Appeler » cliquable pendant la
+           communication, ce qui aurait relancé un second appel sur le même numéro. */
+        appelOuvert ? (
+          <button
+            type="button"
+            onClick={onRaccrocher}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-km bg-km-side-red text-km-name font-bold text-[#2A0F0C] transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-km-side-red focus-visible:ring-offset-2 focus-visible:ring-offset-km-side"
+          >
+            <PhoneOff className="h-4 w-4" aria-hidden="true" />
+            Raccrocher
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!cible}
+            onClick={() => { if (cible?.numero) onAppeler(cible.numero) }}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-km bg-km-side-green text-km-name font-bold text-[#0B241C] transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-km-side-green focus-visible:ring-offset-2 focus-visible:ring-offset-km-side disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Phone className="h-4 w-4" aria-hidden="true" />
+            {cible && cible !== courant ? `Appeler ${cible.court}` : 'Appeler'}
+          </button>
+        )
+      }
+    >
+      <PisteGlisseur
+        vue={vue}
+        panneaux={emplacements.map((e) => ({
+          cle: e.cle,
+          contenu: (
+            <>
+              {/* LE NUMÉRO SEUL SUR SA LIGNE, l'étiquette dessous : côte à côte, un numéro en 20 px
+                  plus son étiquette dépassaient la largeur d'une carte sur trois, et le numéro se
+                  cassait — le seul contenu de l'écran qui ne doit jamais se casser. */}
+              <span className="block whitespace-nowrap font-mono text-km-sprint-val font-semibold tabular-nums tracking-wide text-km-side-text">
+                <ChampSprint
+                  valeur={e.numero ?? ''}
+                  ariaLabel={e.court}
+                  placeholder={`+ ${e.invite}`}
+                  mono
+                  className="font-mono text-km-sprint-val font-semibold tabular-nums tracking-wide"
+                  onCommit={e.corriger}
+                />
+              </span>
+              <span className={cn(
+                'mt-0.5 block font-mono text-km-micro uppercase tracking-[0.14em]',
+                e.numero ? 'text-km-side-muted' : 'text-km-side-faint',
+              )}>
+                {e.libelle}{e.numero ? '' : ' · non renseigné'}
+              </span>
+            </>
+          ),
+        }))}
+      />
+    </CarteSprint>
   )
 }
 

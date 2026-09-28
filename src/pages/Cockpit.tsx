@@ -349,6 +349,31 @@ function CockpitOuvert() {
   const recherche = recherches[zone]
   const setRecherche = (v: string) => setRecherches((r) => ({ ...r, [zone]: v }))
 
+  /**
+   * ══ ARRIVER DIRECTEMENT DANS LE SPRINT ══
+   *
+   * William, 28/09/2026 : un bouton « Lancer mon sprint » dans le menu, « qui me permettrait
+   * d'atterrir directement sur le sprint cockpit ». Il mène à `/cockpit?sprint=1`.
+   *
+   * MON SPRINT, C'EST TOUT LE PLAN : les filtres et la recherche de la page sont remis à zéro. Venu
+   * du menu, on veut sa journée entière — pas les quatre leads entrants filtrés une heure plus tôt.
+   *
+   * Comme pour le rappel, le paramètre s'efface une fois lu : revenir en arrière ne doit pas
+   * relancer une séance qu'on vient de quitter.
+   */
+  const sprintDemande = params.get('sprint')
+  useEffect(() => {
+    if (!sprintDemande) return
+    setFiltre(null)
+    setTypePipe(null)
+    setRecherches((r) => ({ ...r, pipe: '' }))
+    setCibleRappel(null)
+    setEnSprint(true)
+    const suite = new URLSearchParams(params)
+    suite.delete('sprint')
+    setParams(suite, { replace: true })
+  }, [sprintDemande, params, setParams])
+
   const { data: pipe, isLoading } = usePipeDuJour()
   const { data: vivier } = useVivier()
   const completer = useCompleterPipe()
@@ -588,6 +613,20 @@ function CockpitOuvert() {
     ordre.splice(vers, 0, tire)
     void reordonner.mutateAsync(ordre)
     setTire(null)
+  }
+
+  /* ══ LE SPRINT ATTEND SON PLAN ══
+     Il fixe l'ordre de sa séance à l'ouverture. Ouvert avant que le plan du jour soit chargé — ce
+     qui arrive quand on y atterrit directement, depuis le menu ou un bandeau de rappel —, il
+     démarrerait sur une liste vide et annoncerait aussitôt « Sprint terminé ». On attend donc le
+     plan, sur le même fond que la séance, pour qu'il n'y ait pas d'écran intermédiaire qui clignote. */
+  if (enSprint && isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-km-side text-km-side-muted" role="status">
+        <Zap className="h-6 w-6 animate-pulse text-km-side-green motion-reduce:animate-none" aria-hidden="true" />
+        <p className="font-mono text-km-label font-semibold uppercase tracking-[0.3em]">Préparation du sprint</p>
+      </div>
+    )
   }
 
   if (enSprint) {

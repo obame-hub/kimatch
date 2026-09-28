@@ -117,7 +117,9 @@ export const navItems: NavItem[] = [
    tuiles d'accueil et les fils d'activité. Le jour où le sujet est repris, c'est ce commentaire
    qu'il faut suivre à rebours : `git log -S"/signaux"` retrouve chaque point de branchement. */
 export const cycleNavItems: NavItem[] = [
-  { to: '/pistes', label: 'Pistes', icon: Filter },
+  /* « PISTES » EST SORTI DU RAIL LE 28/09/2026. William : « dans le menu, tu peux masquer Pistes,
+     elles s'affichent dans Cockpit ». L'onglet « Mes pistes » du Cockpit les porte désormais. La
+     page reste entière et se retrouve par la recherche — voir `navItemsMasques`. */
   { to: '/opportunites', label: 'Opportunités', icon: Target },
   { to: '/recommandations', label: 'Recommandations', icon: Sparkle },
 ]
@@ -140,6 +142,8 @@ export const productionNavItems: NavItem[] = [
 
 export const navItemsMasques: NavItem[] = [
   { to: '/remunerations', label: 'Rémunérations', icon: Euro },
+  // Hors du rail depuis le 28/09/2026, lue dans le Cockpit ; la recherche la trouve encore.
+  { to: '/pistes', label: 'Pistes', icon: Filter },
 ]
 
 /**

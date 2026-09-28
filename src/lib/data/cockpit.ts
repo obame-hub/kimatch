@@ -103,6 +103,12 @@ export interface LignePipe {
    * reste réellement un appel à passer.
    */
   etat: 'A_CONTACTER' | 'CONTACTE'
+  /**
+   * LE FIXE TEL QU'IL EST, vide quand il l'est (migration du 28/09/2026). `telephone`, lui, vaut
+   * « le fixe, ou à défaut le mobile » — ce qu'il faut pour afficher UN numéro dans une liste, mais
+   * pas pour savoir si la fiche a un fixe. Le sprint montre les deux emplacements.
+   */
+  telephone_fixe: string | null
 }
 
 export type SourcePipe =
