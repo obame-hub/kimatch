@@ -5,6 +5,8 @@ import {
   Strikethrough, Underline, Undo2, Unlink, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ChampAdresses } from '@/components/email/ChampAdresses'
+import { nettoyerAdresses } from '@/lib/adresses'
 import { supabase } from '@/lib/supabase'
 import { envoyerEmail, GmailNonConnecte, useSignatureEmail, type PieceJointe } from '@/lib/data/signatureEmail'
 import {
@@ -165,7 +167,7 @@ export function EditeurMailSprint({
     try {
       const resultat = await envoyerEmail({
         to: email,
-        cc: copie.trim() || undefined,
+        cc: nettoyerAdresses(copie) || undefined,
         subject: objet.trim(),
         html: corpsHtml,
         avecSignature,
@@ -222,12 +224,15 @@ export function EditeurMailSprint({
       <div className="shrink-0 space-y-1.5">
         {afficherCopie && (
           <div className="flex items-center gap-1.5">
-            <input
-              value={copie}
+            {/* La copie connaît l'équipe : taper « marie » propose Marie Thonnard. */}
+            <ChampAdresses
+              valeur={copie}
               autoFocus
-              onChange={(e) => setCopie(e.target.value)}
-              placeholder="Cc — séparer par des virgules"
-              aria-label="Copie"
+              onChange={setCopie}
+              placeholder="Cc — un prénom, ou des adresses séparées par des virgules"
+              ariaLabel="Copie"
+              theme="sombre"
+              classeConteneur="min-w-0 flex-1"
               className={champ}
             />
             <button

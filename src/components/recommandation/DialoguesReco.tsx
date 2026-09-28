@@ -4,7 +4,9 @@ import { AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { IconeEnergie } from '@/components/ui/icone-energie'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select, Textarea } from '@/components/ui/form'
+import { CONTROLE_BASE, FormField, Input, Select, Textarea } from '@/components/ui/form'
+import { ChampAdresses } from '@/components/email/ChampAdresses'
+import { nettoyerAdresses } from '@/lib/adresses'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import {
   DUREE_OFFRE_MAX_MOIS,
@@ -634,7 +636,7 @@ export function EnvoyerEmailDialog({
     setSending(true)
     setFeedback(null)
     try {
-      await sendEmail({ to, subject, text })
+      await sendEmail({ to: nettoyerAdresses(to), subject, text })
       setFeedback('Email envoyé ✓')
       setTimeout(onClose, 1200)
     } catch (e) {
@@ -648,7 +650,14 @@ export function EnvoyerEmailDialog({
     <Dialog open={open} onClose={onClose} title="Envoyer par email" description="Envoie cette version au destinataire choisi depuis votre propre compte Gmail.">
       <div className="space-y-3">
         <FormField label="Destinataire">
-          <Input type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="email@exemple.fr" />
+          {/* Le destinataire connaît l'équipe, comme les autres éditeurs de mails. */}
+          <ChampAdresses
+            valeur={to}
+            onChange={setTo}
+            placeholder="email@exemple.fr, ou un prénom de l’équipe"
+            ariaLabel="Destinataire"
+            className={CONTROLE_BASE}
+          />
         </FormField>
         <FormField label="Objet">
           <Input value={subject} onChange={(e) => setSubject(e.target.value)} />

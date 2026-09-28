@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Bold, Italic, Link2, List, ListOrdered, Loader2, Mail, Minus, Paperclip, PenLine, Send, Underline, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { ChampAdresses } from '@/components/email/ChampAdresses'
+import { nettoyerAdresses } from '@/lib/adresses'
 import { useVoletEmail, type BrouillonEmail } from '@/lib/voletEmail'
 import { useSignatureEmail, envoyerEmail, GmailNonConnecte, type PieceJointe } from '@/lib/data/signatureEmail'
 import { supabase } from '@/lib/supabase'
@@ -205,9 +207,11 @@ export function VoletEmail() {
     setBesoinGmail(false)
     try {
       const resultat = await envoyerEmail({
-        to: brouillon.a,
-        cc: brouillon.copie || undefined,
-        bcc: brouillon.copieCachee || undefined,
+        /* Remises au propre : la virgule qu'ajoute une suggestion, un « ;; » tapé par réflexe,
+           ne doivent pas arriver dans l'en-tête du mail. */
+        to: nettoyerAdresses(brouillon.a),
+        cc: nettoyerAdresses(brouillon.copie) || undefined,
+        bcc: nettoyerAdresses(brouillon.copieCachee) || undefined,
         subject: brouillon.objet,
         html: brouillon.corpsHtml,
         avecSignature: brouillon.avecSignature,
@@ -315,12 +319,14 @@ export function VoletEmail() {
             croire que la hauteur était gérée. */}
         <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3 [&>*]:shrink-0">
           {/* ── Destinataires ── */}
-          <Champ libelle="À" valeur={brouillon.a} onChange={(a) => maj({ a })} placeholder="prenom.nom@societe.fr" />
+          {/* LES TROIS CHAMPS D'ADRESSE CONNAISSENT L'ÉQUIPE : taper « marie » propose Marie
+              Thonnard (William, 28/09/2026). Voir `ChampAdresses`. */}
+          <Champ adresses libelle="À" valeur={brouillon.a} onChange={(a) => maj({ a })} placeholder="prenom.nom@societe.fr" />
           {brouillon.afficherCopie && (
-            <Champ libelle="Cc" valeur={brouillon.copie} onChange={(copie) => maj({ copie })} placeholder="séparées par des virgules" />
+            <Champ adresses libelle="Cc" valeur={brouillon.copie} onChange={(copie) => maj({ copie })} placeholder="un prénom, ou des adresses séparées par des virgules" />
           )}
           {brouillon.afficherCopieCachee && (
-            <Champ libelle="Cci" valeur={brouillon.copieCachee} onChange={(copieCachee) => maj({ copieCachee })} placeholder="séparées par des virgules" />
+            <Champ adresses libelle="Cci" valeur={brouillon.copieCachee} onChange={(copieCachee) => maj({ copieCachee })} placeholder="un prénom, ou des adresses séparées par des virgules" />
           )}
           <div className="flex gap-3 pl-[42px]">
             {!brouillon.afficherCopie && (
@@ -541,24 +547,38 @@ export function VoletEmail() {
 
 /** Une ligne d'en-tête du mail : intitulé court à gauche, saisie qui prend le reste. */
 function Champ({
-  libelle, valeur, onChange, placeholder,
+  libelle, valeur, onChange, placeholder, adresses,
 }: {
   libelle: string
   valeur: string
   onChange: (v: string) => void
   placeholder?: string
+  /** Un champ d'adresses : il propose les membres de l'équipe à mesure qu'on tape. */
+  adresses?: boolean
 }) {
+  const classe = 'min-w-0 flex-1 w-full bg-transparent text-km-body text-km-text outline-none placeholder:text-km-faint'
   return (
     <label className="flex items-center gap-2 border-b border-km-line pb-1.5">
       <span className="w-[34px] shrink-0 text-km-label font-bold uppercase tracking-[0.06em] text-km-faint">
         {libelle}
       </span>
-      <input
-        value={valeur}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="min-w-0 flex-1 bg-transparent text-km-body text-km-text outline-none placeholder:text-km-faint"
-      />
+      {adresses ? (
+        <ChampAdresses
+          valeur={valeur}
+          onChange={onChange}
+          placeholder={placeholder}
+          ariaLabel={libelle === 'À' ? 'Destinataires' : libelle === 'Cc' ? 'Copie' : 'Copie cachée'}
+          classeConteneur="min-w-0 flex-1"
+          className={classe}
+        />
+      ) : (
+        <input
+          value={valeur}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={classe}
+        />
+      )}
     </label>
   )
 }

@@ -196,6 +196,16 @@ export default {
           purple: 'rgb(var(--kw-purple) / <alpha-value>)',
         },
       },
+      /* ══ DEUX PALIERS D'OPACITÉ DE PLUS : 8 % ET 12 % ══
+         Relevé le 28/09/2026 en contrôlant les classes du code contre la feuille compilée : quatorze
+         fonds du sprint — survols du menu « Action rapide », bandeaux de rappel, pastilles du fil —
+         étaient écrits en `/8` et `/12`. L'échelle de Tailwind passe de 5 à 10 puis à 15 : ces
+         classes ne produisaient AUCUN style, en silence, depuis qu'elles existent. Les ajouter ici
+         les fait apparaître telles qu'elles ont été dessinées, sans toucher aux quatorze endroits. */
+      opacity: {
+        8: '0.08',
+        12: '0.12',
+      },
       /* INTER, la police de la maquette de Michel. « Instrument Sans » reste en repli le temps
          que la refonte passe sur tous les ecrans : sans elle, un ecran encore ancien perdrait sa
          metrique et se decalerait, ce qui se voit plus qu'un changement de police assume. */

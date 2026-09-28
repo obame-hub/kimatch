@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils'
  *
  * Le champ passe de 32 a 34 px de haut pour la meme raison que les interlignes : le texte y etait
  * colle aux bords. */
-const CONTROLE_BASE =
+export const CONTROLE_BASE =
   'h-[34px] w-full rounded-km border border-km-line bg-km-surface px-2.5 text-km-body text-km-text ' +
   'placeholder:text-km-label placeholder:text-km-faint ' +
   'focus:border-km-green focus:outline-none focus:ring-1 focus:ring-km-green'
