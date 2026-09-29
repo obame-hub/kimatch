@@ -156,6 +156,7 @@ export function EtapeDeclarer({ versionInitiale, onChoix, onCree }: {
                 {v.compte_nom ?? '—'} · {v.recommandation_nom}
                 {v.numero_version ? ` · V${v.numero_version}` : ''}
                 {v.type_energie ? ` · ${v.type_energie.toUpperCase() === 'GAZ' ? 'Gaz' : 'Élec'}` : ''}
+                {v.reco_etape === 'A_REACTIVER' ? ' · à réactiver' : ''}
               </option>
             ))}
           </Select>

@@ -130,11 +130,21 @@ export interface VersionChoisissable {
   /** En capitales dans la vue (`ELECTRICITE`, `GAZ`), mesuré le 28/09/2026 — la casse n'est pas garantie. */
   type_energie: string | null
   date_souhaitee: string | null
+  /** Le statut de la version : une version close se déclare aussi, mais l'écran le dit. */
+  version_statut?: string | null
+  reco_etape?: string | null
 }
 
 /**
- * Les versions qu'on peut prendre pour exemple : les versions COURANTES des dossiers OUVERTS, par la
- * même vue que la page Pricing. Une version close raconterait un dossier qui n'attend plus de prix.
+ * Les versions qu'on peut déclarer : la version COURANTE de chaque dossier NON CLÔTURÉ, QUEL QUE
+ * SOIT SON STATUT.
+ *
+ * ELLE PASSAIT PAR `v_pricing_versions`, qui ne garde que les versions « En construction » et
+ * « Disponible ». Naoëlle, 29/09/2026 : « pourquoi je trouve pas la reco DIMOTRANS - GT: 1 rue de
+ * FERCHAUD CREVIN ». Dossier « À réactiver », version 1 clôturée : invisible. Et il n'était pas
+ * seul — 84 dossiers à réactiver sur 149 dossiers ouverts, précisément ceux qu'on relance pour
+ * REDEMANDER des prix. Déclarer un dossier chez Tradeo ne dépend pas du statut de la version, mais
+ * du SIRET, du responsable et des compteurs sous mandat.
  */
 export function useVersionsPourTradeo(actif: boolean) {
   return useQuery({
@@ -143,13 +153,25 @@ export function useVersionsPourTradeo(actif: boolean) {
     staleTime: 60 * 1000,
     queryFn: async (): Promise<VersionChoisissable[]> => {
       const { data, error } = await supabase
-        .from('v_pricing_versions')
-        .select('version_id, numero_version, version_nom, recommandation_nom, compte_nom, type_energie, date_souhaitee')
-        .eq('reco_en_cours', true)
-        .eq('version_courante', true)
-        .order('date_souhaitee', { ascending: true, nullsFirst: false })
+        .from('versions_recommandation')
+        .select('id, numero_version, nom, date_souhaitee, statut:statuts_versions_recommandation(code), reco:recommandations!inner(nom, etape:etapes_recommandation!inner(code), compte:comptes!recommandations_compte_id_fkey(nom), energie:types_energies(code))')
+        .eq('version_actuelle', true)
+        .neq('reco.etape.code', 'CLOTUREE')
       if (error) throw new Error(error.message)
-      return (data ?? []) as VersionChoisissable[]
+      type Ligne = { id: string; numero_version: number | null; nom: string | null; date_souhaitee: string | null; statut: { code: string } | null; reco: { nom: string; etape: { code: string } | null; compte: { nom: string } | null; energie: { code: string } | null } }
+      return ((data ?? []) as unknown as Ligne[])
+        .map((v) => ({
+          version_id: v.id,
+          numero_version: v.numero_version,
+          version_nom: v.nom,
+          recommandation_nom: v.reco.nom,
+          compte_nom: v.reco.compte?.nom ?? null,
+          type_energie: v.reco.energie?.code ?? null,
+          date_souhaitee: v.date_souhaitee,
+          version_statut: v.statut?.code ?? null,
+          reco_etape: v.reco.etape?.code ?? null,
+        }))
+        .sort((a, b) => `${a.compte_nom ?? ''}${a.recommandation_nom}`.localeCompare(`${b.compte_nom ?? ''}${b.recommandation_nom}`, 'fr'))
     },
   })
 }

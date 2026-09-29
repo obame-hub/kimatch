@@ -221,18 +221,22 @@ export function useRecommandationsPourParcours() {
     queryFn: async (): Promise<RecoChoisissable[]> => {
       const [essai, ouvertes] = await Promise.all([
         supabase.from('recommandations').select('id, nom, compte_id, compte:comptes!recommandations_compte_id_fkey(nom)').eq('compte_id', COMPTE_D_ESSAI_ID).order('date_creation', { ascending: false }),
-        supabase.from('v_pricing_versions').select('recommandation_id, recommandation_nom, compte_id, compte_nom').eq('reco_en_cours', true).eq('version_courante', true),
+        /* TOUS LES DOSSIERS NON CLÔTURÉS, et non la seule vue du Pricing : elle écarte les versions
+           closes, donc les 84 dossiers « À réactiver » — ceux qu'on relance pour redemander des prix
+           (Naoëlle, 29/09/2026, sur DIMOTRANS - GT: 1 rue de FERCHAUD CREVIN). */
+        supabase.from('recommandations').select('id, nom, compte_id, compte:comptes!recommandations_compte_id_fkey(nom), etape:etapes_recommandation!inner(code)').neq('etape.code', 'CLOTUREE'),
       ])
       if (essai.error) throw new Error(essai.error.message)
       if (ouvertes.error) throw new Error(ouvertes.error.message)
       const liste: RecoChoisissable[] = ((essai.data ?? []) as unknown as { id: string; nom: string; compte_id: string; compte: { nom: string } | null }[])
         .map((r) => ({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, ecriture: true }))
       const vus = new Set(liste.map((r) => r.id))
-      for (const v of (ouvertes.data ?? []) as { recommandation_id: string; recommandation_nom: string; compte_id: string | null; compte_nom: string | null }[]) {
-        if (vus.has(v.recommandation_id)) continue
-        vus.add(v.recommandation_id)
-        liste.push({ id: v.recommandation_id, nom: v.recommandation_nom, compte_id: v.compte_id, compte_nom: v.compte_nom, ecriture: v.compte_id === COMPTE_D_ESSAI_ID })
+      for (const r of (ouvertes.data ?? []) as unknown as { id: string; nom: string; compte_id: string | null; compte: { nom: string } | null }[]) {
+        if (vus.has(r.id)) continue
+        vus.add(r.id)
+        liste.push({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, ecriture: r.compte_id === COMPTE_D_ESSAI_ID })
       }
+      liste.sort((a, b) => Number(b.ecriture) - Number(a.ecriture) || `${a.compte_nom ?? ''}${a.nom}`.localeCompare(`${b.compte_nom ?? ''}${b.nom}`, 'fr'))
       return liste
     },
   })
