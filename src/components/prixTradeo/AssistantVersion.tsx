@@ -43,7 +43,7 @@ export function AssistantVersion({ onFermer }: { onFermer: () => void }) {
   }, [compteurs, reco?.compteur_ids, version?.compteur_ids])
 
   return (
-    <Dialog open onClose={onFermer} title="Préparer une version" className="max-w-2xl">
+    <Dialog open onClose={onFermer} title="Préparer une version" description="Étape 2 du travail : transformer les prix reçus en proposition pour le client." className="max-w-2xl">
       {!recoId || !reco ? (
         <>
           <Explication>

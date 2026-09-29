@@ -45,18 +45,21 @@ export default function PrixTradeo() {
       <div className="p-4 sm:p-6">
         <PageHeader title="Prix Tradeo" badge="Test" description="Obtenir les prix des fournisseurs qui passent par Tradeo, puis préparer une version." />
         <EtatConnexion />
+        <CommentCaMarche />
 
         <div className="grid gap-3 sm:grid-cols-2">
           <CarteAction
+            numero={1}
             icone={<Send className="h-5 w-5" />}
             titre="Demander des prix à Tradeo"
-            texte="Envoyez un dossier à Tradeo. Quand leur équipe a accepté les compteurs, vous récupérez les prix des fournisseurs."
+            texte="Pour récupérer les prix. On envoie le dossier du client à Tradeo ; quand son équipe l’a accepté, on reçoit les prix de ses fournisseurs."
             onClick={() => { setDepart(undefined); setAssistant('demande') }}
           />
           <CarteAction
+            numero={2}
             icone={<Sparkle className="h-5 w-5" />}
             titre="Préparer une version"
-            texte="Suivez les offres d’une version, calculez les budgets avec votre marge, puis validez-la."
+            texte="Pour faire la proposition au client. On reprend les prix reçus, on calcule les budgets avec notre marge, et on valide la version."
             onClick={() => setAssistant('version')}
           />
         </div>
@@ -80,12 +83,44 @@ export default function PrixTradeo() {
   )
 }
 
-function CarteAction({ icone, titre, texte, onClick }: { icone: React.ReactNode; titre: string; texte: string; onClick: () => void }) {
+/**
+ * COMMENT ÇA MARCHE — Naoëlle, 29/09/2026 : « mettre une information pour expliquer à quoi servent
+ * les deux assistants […] pour que moi aussi je comprenne, pour que je puisse expliquer ». Les deux
+ * boutons ne sont pas deux outils au choix : ce sont les deux temps d'un même travail, et l'ordre
+ * compte. On le dit en trois temps, avant les boutons, et chaque bouton porte son numéro.
+ */
+function CommentCaMarche() {
+  const temps = [
+    { n: '1', titre: 'On demande les prix', texte: 'Kimatch envoie le dossier du client à Tradeo, qui consulte ses fournisseurs.' },
+    { n: '⏳', titre: 'Tradeo répond', texte: 'Son équipe accepte les compteurs, puis Tradeo renvoie le prix de chaque fournisseur.' },
+    { n: '2', titre: 'On prépare la proposition', texte: 'Kimatch calcule le budget de chaque offre avec notre marge ; on valide la version pour le client.' },
+  ]
+  return (
+    <section className="mb-4 rounded-km border border-km-line bg-km-surface p-4">
+      <h3 className="text-km-body font-semibold text-km-text">Comment ça marche</h3>
+      <p className="mt-0.5 text-km-label text-km-muted">Le premier assistant récupère les prix ; le second les transforme en proposition pour le client.</p>
+      <ol className="mt-3 grid gap-3 sm:grid-cols-3">
+        {temps.map((t) => (
+          <li key={t.titre} className="flex gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-km-green-soft text-km-label font-bold text-km-green">{t.n}</span>
+            <span className="min-w-0">
+              <span className="block text-km-body font-semibold text-km-text">{t.titre}</span>
+              <span className="block text-km-label text-km-muted">{t.texte}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+function CarteAction({ numero, icone, titre, texte, onClick }: { numero: number; icone: React.ReactNode; titre: string; texte: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="group text-left">
       <Card className="flex h-full items-start gap-3 p-4 transition-colors group-hover:border-km-green">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-km bg-km-green-soft text-km-green">{icone}</span>
         <span className="min-w-0 flex-1">
+          <span className="block text-km-label font-semibold uppercase tracking-[0.06em] text-km-green">Étape {numero}</span>
           <span className="block text-km-name font-semibold text-km-text">{titre}</span>
           <span className="mt-1 block text-km-body text-km-muted">{texte}</span>
         </span>

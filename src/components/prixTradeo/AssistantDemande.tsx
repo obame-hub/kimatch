@@ -101,9 +101,28 @@ export function AssistantDemande({ onFermer, depart }: { onFermer: () => void; d
       dataResponsable: responsable,
       ...(acd?.document_id ? { acd_document_id: acd.document_id } : {}),
     })
-    const id = (r.reponse as { demande_id?: number } | undefined)?.demande_id
-    if (!r.ok || !id) {
-      setErreur(messageErreur(r))
+    if (!r.ok) {
+      const m = messageErreur(r) ?? 'Tradeo a refusé la demande.'
+      setErreur(/déjà ajoutés/i.test(m)
+        ? `Ces compteurs sont déjà chez Tradeo : une demande existe. Fermez cette fenêtre et suivez-la dans « Vos demandes ». (${m})`
+        : m)
+      setEnCours(false)
+      return
+    }
+    /* ══ TRADEO NE REND PAS LE NUMÉRO — 29/09/2026 ══
+       La documentation v1.4 annonce `{ result, demande_id, message }`. La pré-production répond
+       `{ result: true, message: "Demande de cotation créée avec succès." }` — sans `demande_id`.
+       L'assistant attendait ce numéro, ne le trouvait pas, et s'arrêtait sans rien dire : Naoëlle
+       est restée figée sur « Envoyer », et la validation n'est jamais partie. On va donc chercher
+       la demande dans la liste — la plus récente sur ce SIRET — quand le numéro manque. */
+    let id = (r.reponse as { demande_id?: number } | undefined)?.demande_id ?? null
+    if (!id) {
+      const l = await appelerBanc('mes_demandes', { pageNumber: 1, dataTable: { statusFilter: '', sortBy: null, draw: 1, length: 20, search: siret, column: 0, dir: 'desc' } })
+      const liste = (l.reponse as { demandesCotations?: { id: number; societe?: { siret?: string } }[] } | undefined)?.demandesCotations ?? []
+      id = liste.filter((d) => d.societe?.siret === siret).sort((a, b) => b.id - a.id)[0]?.id ?? null
+    }
+    if (!id) {
+      setErreur('La demande est partie chez Tradeo, mais Kimatch n’a pas retrouvé son numéro. Fermez cette fenêtre : elle apparaît dans « Vos demandes », d’où vous pourrez prévenir l’équipe Tradeo.')
       setEnCours(false)
       return
     }
@@ -116,7 +135,7 @@ export function AssistantDemande({ onFermer, depart }: { onFermer: () => void; d
   }
 
   return (
-    <Dialog open onClose={onFermer} title="Demander des prix à Tradeo" className="max-w-2xl">
+    <Dialog open onClose={onFermer} title="Demander des prix à Tradeo" description="Étape 1 du travail : récupérer les prix des fournisseurs pour un dossier." className="max-w-2xl">
       <EnteteEtapes titres={TITRES} courante={etape} />
 
       {etape === 0 && (
@@ -249,6 +268,17 @@ function EtapeAccord({ demandeId, erreur, onFermer, onPrix }: { demandeId: numbe
   }
 
   const acceptes = (demande?.compteurs ?? []).filter((c) => c.status === 1).length
+  const enAttente = !demande || (demande.compteurs ?? []).some((c) => c.status === 0 || c.status === undefined)
+
+  /* PRÉVENIR TRADEO APRÈS COUP. Une demande créée sans validation dort : l'équipe Tradeo n'en sait
+     rien. C'est arrivé le 29/09/2026 sur DIMOTRANS (n° 3099) : la création a réussi, la validation
+     n'est jamais partie (voir plus haut, le numéro manquant). */
+  async function prevenir() {
+    setLecture(true)
+    const v = await appelerBanc('demander_validation', { id_demande: demandeId })
+    setMessage(v.ok ? '✓ L’équipe Tradeo a été prévenue par mail.' : messageErreur(v))
+    setLecture(false)
+  }
 
   return (
     <>
@@ -275,11 +305,12 @@ function EtapeAccord({ demandeId, erreur, onFermer, onPrix }: { demandeId: numbe
           </Ligne>
         </div>
       ) : (
-        <p className="flex items-center gap-2 text-km-muted"><Clock className="h-4 w-4" /> Cliquez sur « Vérifier maintenant » pour voir où en est Tradeo.</p>
+        <p className="flex items-center gap-2 text-km-muted"><Clock className="h-4 w-4" /> Cliquez sur « Vérifier maintenant » pour voir où en est Tradeo. Si rien ne bouge, « Prévenir l’équipe Tradeo » relance leur équipe par mail.</p>
       )}
       {message && <p className="mt-2 text-km-label text-km-muted">{message}</p>}
       <PiedAssistant>
         <Button onClick={onFermer}>Fermer, je reviendrai</Button>
+        {enAttente && <Button onClick={() => void prevenir()} disabled={lecture}>Prévenir l’équipe Tradeo</Button>}
         <Button onClick={() => void verifier()} disabled={lecture}>
           {lecture ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Vérifier maintenant
         </Button>
