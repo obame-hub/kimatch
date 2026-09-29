@@ -125,6 +125,17 @@ export function useCreerUnContact(): (demande?: DemandeCreation) => void {
  * Les deux arguments sont acceptés vides : une fiche les découvre après sa requête, et appeler le
  * crochet conditionnellement serait interdit.
  */
+/**
+ * Le compte de l'écran ouvert, tel que sa fiche l'a déclaré — ou `null` hors d'une fiche.
+ *
+ * Né pour le contact, lu aussi par le parcours de création d'un compteur (29/09/2026) : lancé depuis
+ * une fiche, un compteur part sur le compte de cette fiche, comme un contact. Une seule déclaration
+ * par fiche, pour tous les parcours — deux mécanismes finiraient par ne pas désigner le même compte.
+ */
+export function useCompteCourant(): CompteCourant | null {
+  return useContext(Contexte)?.compteCourant ?? null
+}
+
 export function useDeclarerCompteCourant(id: string | null | undefined, nom: string | null | undefined) {
   const declarer = useContext(Contexte)?.declarer
   useEffect(() => {

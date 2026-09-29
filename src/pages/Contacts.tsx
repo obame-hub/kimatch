@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { useCreerUnCompte } from '@/lib/creationCompte'
 import { useCreerUnContact } from '@/lib/creationContact'
+import { useCreerUnCompteur } from '@/lib/creationCompteur'
+import { useCreerUnMandat } from '@/lib/creationMandat'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -30,6 +32,8 @@ import { LIBELLE_ROLE } from '@/lib/contactRoles'
 export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
   const creerUnCompte = useCreerUnCompte()
   const creerUnContact = useCreerUnContact()
+  const creerUnCompteur = useCreerUnCompteur()
+  const creerUnMandat = useCreerUnMandat()
   const { data: contacts, isLoading } = useContacts()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -86,11 +90,10 @@ export default function Contacts({ sansEntete }: { sansEntete?: boolean }) {
               onAction={(cle) => {
                 if (cle === 'contact') creerUnContact()
                 if (cle === 'compte') creerUnCompte()
-                /* `?creer=1` ET NON `/compteurs` TOUT COURT : depuis le 10/09/2026 la liste des
-                   compteurs porte le formulaire de création, et c'est ce paramètre qui l'ouvre.
-                   Sans lui, le hub déposait sur une liste sans rien proposer. */
-                if (cle === 'compteur') navigate('/compteurs?creer=1')
-                if (cle === 'mandat') navigate('/mandats')
+                /* Le parcours du compteur s'ouvre sur place depuis le 29/09/2026, comme ceux du
+                   compte et du contact. */
+                if (cle === 'compteur') creerUnCompteur()
+                if (cle === 'mandat') creerUnMandat()
                 if (cle === 'recommandation') navigate('/recommandations')
               }}
             />

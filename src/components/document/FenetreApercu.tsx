@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, Loader2, X } from 'lucide-react'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
@@ -39,6 +39,20 @@ export function FenetreApercu({ document: doc, onFermer }: {
   onFermer: () => void
 }) {
   const nom = doc.nom_fichier || doc.nom
+
+  /* ══ ÉCHAP FERME L'APERÇU, ET SEULEMENT LUI ══
+     Ouverte depuis un parcours de création (la facture d'un compteur, 29/09/2026), cette fenêtre en
+     recouvre une autre qui écoute aussi Échap — et qui, elle, se fermerait avec tout ce qu'on y a
+     saisi. L'écoute se fait donc à la capture, avant toute autre, et la touche s'arrête ici. */
+  useEffect(() => {
+    const auClavier = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      onFermer()
+    }
+    window.addEventListener('keydown', auClavier, true)
+    return () => window.removeEventListener('keydown', auClavier, true)
+  }, [onFermer])
   const estPdf = nom.toLowerCase().endsWith('.pdf') || doc.url.toLowerCase().includes('.pdf')
 
   async function telecharger() {

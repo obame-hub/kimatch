@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { messageAnthropicLisible } from '../_anthropic.js'
 import { exigerSession, refuserLesPartenaires } from '../_auth.js'
+import {
+  appliquerLeconsSures, consignesApprises, lireLecons, normaliserFournisseur, normaliserLecture,
+  type ChampLu,
+} from './_apprentissage.js'
 
 // Client serveur pour l'extraction de contrats/mandats scannés via l'API
 // Anthropic (Claude, vision native PDF/image). Ne jamais importer ce fichier
@@ -33,7 +37,7 @@ Champs propres au point de livraison (surtout présents sur les factures) :
 - puissance_souscrite_kva: puissance souscrite en kVA (nombre). S'il y a plusieurs postes horaires, retourne la puissance de pointe.
 - consommation_annuelle_mwh: consommation annuelle en MWh (nombre). Si la facture donne des kWh, convertis en MWh (divise par 1000).
 - tarif_distribution: tarif d'acheminement gaz ("T1", "T2", "T3", "T4") si mentionné
-- profil_consommation: profil de consommation gaz ("P011" à "P019") si mentionné
+- profil_consommation: profil de consommation gaz ("P011" à "P019") si mentionné. Les factures l'écrivent souvent en abrégé : « P12 » est P012, « P17 » est P017. Retourne toujours la forme à trois chiffres.
 
 Règles impératives :
 - Toutes les dates doivent être normalisées au format YYYY-MM-DD (convertis depuis JJ/MM/AAAA si nécessaire).
@@ -41,16 +45,13 @@ Règles impératives :
 - Si un champ est absent ou ambigu, retourne { "value": null, "confidence": 0 }.
 - Retourne UNIQUEMENT le JSON, sans texte autour, sans balises markdown.`
 
-interface ExtractedField {
-  value: string | number | null
-  confidence: number
-}
-
 export interface ExtractDocumentResult {
   success: boolean
   error?: string
   fileName?: string
-  extracted?: Record<string, ExtractedField>
+  extracted?: Record<string, ChampLu>
+  /** Le fournisseur de la facture, sous la forme qui désigne son modèle — voir `_apprentissage`. */
+  modele?: string
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -85,6 +86,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fileBase64 } }
       : { type: 'image', source: { type: 'base64', media_type: mediaType, data: fileBase64 } }
 
+  /* CE QUE LES COMMERCIAUX ONT CORRIGÉ JUSQU'ICI, lu au nom de l'appelant. Voir `_apprentissage`. */
+  const lecons = await lireLecons(utilisateur.authHeader)
+
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -96,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify({
         model: 'claude-sonnet-5',
         max_tokens: 1500,
-        messages: [{ role: 'user', content: [documentBlock, { type: 'text', text: EXTRACTION_PROMPT }] }],
+        messages: [{ role: 'user', content: [documentBlock, { type: 'text', text: EXTRACTION_PROMPT + consignesApprises(lecons) }] }],
       }),
     })
 
@@ -115,15 +119,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const jsonMatch = text.match(/```json\s*([\s\S]*?)```/) || text.match(/\{[\s\S]*\}/)
     const jsonStr = jsonMatch ? (jsonMatch[1] ?? jsonMatch[0]) : text
 
-    let extracted: Record<string, ExtractedField>
+    let brut: Record<string, ChampLu>
     try {
-      extracted = JSON.parse(jsonStr.trim())
+      brut = JSON.parse(jsonStr.trim())
     } catch {
       res.status(200).json({ success: false, error: "Impossible d'analyser la réponse de l'IA." })
       return
     }
 
-    res.status(200).json({ success: true, extracted, fileName })
+    const extracted = appliquerLeconsSures(normaliserLecture(brut), lecons)
+    const modele = normaliserFournisseur(brut.fournisseur_nom?.value)
+    res.status(200).json({ success: true, extracted, fileName, modele } satisfies ExtractDocumentResult)
   } catch (err) {
     res.status(200).json({ success: false, error: err instanceof Error ? err.message : "Erreur inconnue lors de l'extraction." })
   }

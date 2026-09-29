@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react'
-import { AlertTriangle, FileText, Loader2, MapPin, Trash2, Upload } from 'lucide-react'
+import { AlertTriangle, Eye, FileText, Loader2, MapPin, Trash2, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ContactPicker } from '@/components/contact/ContactPicker'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
@@ -48,8 +48,8 @@ export interface PdlDraft {
   responsableContactId: string
   // Caractéristiques techniques -- saisissables manuellement dès la création, comme dans Tools
   // (manuelle ou extraction facture), en repli de la synchro GRD réelle qui n'a lieu qu'une fois
-  // le mandat actif. Requises (voir champsPdlManquants) : sans elles le moteur d'éligibilité
-  // fournisseur de la cotation n'a rien à exploiter.
+  // le mandat actif. Facultatives depuis le 29/09/2026 (voir champsPdlManquants) — mais c'est sur
+  // elles que le moteur d'éligibilité fournisseur de la cotation s'appuie : à saisir quand on les a.
   segment: string
   tension: string
   puissanceParClasseKva: Record<string, string>
@@ -87,52 +87,32 @@ export function emptyPdlDraft(responsableContactId = ''): PdlDraft {
   }
 }
 
-/** Champs requis encore vides sur un brouillon de PDL -- même règle que Tools
- * (computeRequiredFields) : numéro + responsable toujours, puis segment/tension/utilisation +
- * puissances pour l'élec (PS Unique si C5, sinon les 5 classes), tarif/profil/CAR pour le gaz.
- * Sert à la fois au surlignage des champs et au blocage de l'enregistrement. */
-export function champsPdlManquants(d: PdlDraft, estElectricite: boolean, siteImpose = false): Set<string> {
+/**
+ * Champs requis encore vides sur un brouillon de PDL. Sert à la fois à l'astérisque, à la phrase qui
+ * compte ce qui manque et au blocage de l'enregistrement.
+ *
+ * ══ QUATRE CHAMPS, PLUS L'ÉNERGIE — William, 29/09/2026 ══
+ *
+ * « Les seuls champs obligatoires doivent être le responsable, le libellé, le numéro et
+ * l'échéance. » L'adresse (exigée depuis le 10/09 à la demande de Naoëlle), le segment, la tension,
+ * l'utilisation, le tarif, le profil et la CAR deviennent facultatifs : ils se saisissent quand on
+ * les a, la facture les donne souvent, et ils ne bloquent plus la création.
+ *
+ * L'ÉNERGIE RESTE EXIGÉE, parce que la base l'exige : `compteurs.type_energie_id` est `not null`.
+ * Sans elle, l'enregistrement échouerait — ou pire, partirait en électricité par défaut sur un PCE
+ * de gaz. C'est un clic, et la facture la donne presque toujours.
+ *
+ * `estElectricite` ne sert plus ici ; le paramètre reste pour les appelants.
+ */
+export function champsPdlManquants(d: PdlDraft, _estElectricite: boolean, siteImpose = false): Set<string> {
   const manquants = new Set<string>()
-  // Le site est saisi dans le formulaire du PDL (décision William 06/08/2026), sauf quand on part
-  // déjà d'une fiche site -- dans ce cas il est connu et les champs ne sont même pas affichés.
-  if (!siteImpose) {
-    if (!d.libelleSite.trim()) manquants.add('libelleSite')
-    /* ══ L'ADRESSE EST OBLIGATOIRE DEPUIS LE 10/09/2026 ══
-       Naoëlle : « faut rendre toutes les adresses obligatoires, même adresse ». Elle était le seul
-       champ facultatif du bloc, et ça se voyait dans les données : `sites.adresse` n'était rempli
-       que sur 336 sites sur 6 374 — 5 % — et `sites.rue` sur 8.
-
-       Or depuis le retrait de l'objet site, c'est la création du compteur qui pose l'adresse : elle
-       alimente `compteurs.adresse`, donc la colonne calculée `adresse_site`, donc la RECHERCHE, qui
-       est désormais la seule façon de retrouver un lieu. Un compteur créé sans rue se cherche par
-       son seul libellé — et deux « SDC Plaisance » dans deux communes deviennent indiscernables.
-
-       Laisser ce champ facultatif revenait à laisser refabriquer le trou qu'on vient de combler. */
-    if (!d.adresse.trim()) manquants.add('adresse')
-    if (!d.ville.trim()) manquants.add('ville')
-    if (!d.codePostal.trim()) manquants.add('codePostal')
-  }
+  // Le libellé est saisi dans le formulaire du PDL, sauf quand on part d'une fiche site : il est
+  // alors connu et le champ n'est même pas affiché.
+  if (!siteImpose && !d.libelleSite.trim()) manquants.add('libelleSite')
   if (!d.numeroPdl.trim()) manquants.add('numeroPdl')
   if (!d.responsableContactId) manquants.add('responsableContactId')
-  if (!d.typeEnergieId) {
-    manquants.add('typeEnergieId')
-    return manquants
-  }
-  if (estElectricite) {
-    if (!d.segment) manquants.add('segment')
-    if (!d.tension) manquants.add('tension')
-    if (!d.typeUtilisationId) manquants.add('typeUtilisationId')
-    /* ══ LES PUISSANCES NE SONT PLUS EXIGÉES — William, 24/09/2026 ══
-       « Les puissances ne sont pas du tout obligatoires, donc inutile de les mettre dans le
-       formulaire. » Elles quittent l'écran ET la liste des manques. `puissanceParClasseKva` reste
-       dans le brouillon : l'extraction de facture la remplit quand elle la trouve, et
-       `buildDraftCharacteristics` continue de l'écrire en base. Ce qui disparaît, c'est
-       l'obligation de la saisir à la main. */
-  } else {
-    if (!d.tarifDistribution) manquants.add('tarifDistribution')
-    if (!d.profilConsommation) manquants.add('profilConsommation')
-    if (!d.carMwh.trim()) manquants.add('carMwh')
-  }
+  if (!d.dateEcheance) manquants.add('dateEcheance')
+  if (!d.typeEnergieId) manquants.add('typeEnergieId')
   return manquants
 }
 
@@ -293,12 +273,9 @@ export function trouverSiteExistant(sites: Site[], compteId: string, d: PdlDraft
    s'activer, et UNE phrase sobre qui nomme ce qui manque. Les règles elles-mêmes n'ont pas bougé
    d'une ligne — `champsPdlManquants` est intacte.
 
-   ══ LES PUISSANCES SONT LÀ, ET CE N'EST PAS UN AJOUT DE MA PART ══
-
-   Elles ne figurent pas dans les quatre zones dictées, mais `champsPdlManquants` les EXIGE pour
-   l'électricité : PS Unique en C5, les cinq classes sinon. Sans elles à l'écran, le formulaire ne
-   pourrait jamais être enregistré. Elles tiennent donc sur une ligne au bas de la zone 4, en
-   champs étroits. À signaler à William.
+   (Les règles ont bougé depuis : le 24/09 pour les puissances, retirées de l'écran, puis le
+   29/09/2026, où seuls le responsable, le libellé, le numéro, l'échéance — et l'énergie, que la
+   base exige — restent obligatoires. Voir `champsPdlManquants`.)
 */
 
 /**
@@ -311,15 +288,27 @@ export function trouverSiteExistant(sites: Site[], compteId: string, d: PdlDraft
  * qui remplissait jusqu'alors le formulaire depuis un bouton « Déposer une facture ». Le dépôt
  * devient une vraie cible de glisser-déposer, et le fichier ne sert plus seulement à lire : il est
  * attaché au compteur créé, dans ses fichiers.
+ *
+ * ══ UNE OU PLUSIEURS FACTURES (29/09/2026) ══
+ *
+ * William : « si j'en dépose plusieurs, alors chaque facture correspond à un compteur ». Là où le
+ * formulaire sait tenir plusieurs compteurs (`plusieurs`), la zone accepte donc un lot : la première
+ * facture va au compteur affiché, chacune des suivantes ouvre le sien. Ailleurs, elle ne prend que
+ * la première — un seul compteur à l'écran, une seule facture à lire.
+ *
+ * « VOIR LA FACTURE » EST UN BOUTON À PART, sous la zone et non dedans : la zone est elle-même un
+ * bouton (elle ouvre le sélecteur de fichier), et un bouton ne se glisse pas dans un autre.
  */
-function ZoneDepotFacture({ nomFichier, enCours, erreur, onFichier, desactive }: {
+function ZoneDepotFacture({ nomFichier, enCours, erreur, onFichiers, plusieurs, onVoir, desactive }: {
   nomFichier: string | null
   enCours: boolean
   /** CE QUI A RATÉ, DIT À L'ÉCRAN. Le service répond « indisponible » avec un code 200 : sans cette
    *  ligne, un dépôt sans effet passe pour un dépôt réussi, et c'est ce qui est arrivé à William le
    *  24/09/2026. Une extraction qui échoue doit se voir, sinon on valide des champs vides. */
   erreur: string | null
-  onFichier: (f: File) => void
+  onFichiers: (f: File[]) => void
+  plusieurs?: boolean
+  onVoir?: () => void
   desactive?: boolean
 }) {
   const champ = useRef<HTMLInputElement>(null)
@@ -328,11 +317,12 @@ function ZoneDepotFacture({ nomFichier, enCours, erreur, onFichier, desactive }:
   const deposer = (e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault()
     setSurvol(false)
-    const f = e.dataTransfer.files?.[0]
-    if (f) onFichier(f)
+    const fichiers = Array.from(e.dataTransfer.files ?? [])
+    if (fichiers.length > 0) onFichiers(plusieurs ? fichiers : fichiers.slice(0, 1))
   }
 
   return (
+    <div className="flex h-full flex-col gap-[5px]">
     <button
       type="button"
       disabled={desactive}
@@ -341,7 +331,7 @@ function ZoneDepotFacture({ nomFichier, enCours, erreur, onFichier, desactive }:
       onDragLeave={() => setSurvol(false)}
       onDrop={deposer}
       className={cn(
-        'flex h-full min-h-[62px] w-full flex-col items-center justify-center gap-[3px] rounded-[11px] border border-dashed px-3 py-2 text-center transition-colors',
+        'flex min-h-[62px] w-full flex-1 flex-col items-center justify-center gap-[3px] rounded-[11px] border border-dashed px-3 py-2 text-center transition-colors',
         survol ? 'border-km-green bg-km-green-tint' : 'border-km-line bg-km-bg/40 hover:bg-km-bg',
       )}
     >
@@ -349,8 +339,13 @@ function ZoneDepotFacture({ nomFichier, enCours, erreur, onFichier, desactive }:
         ref={champ}
         type="file"
         accept=".pdf,image/*"
+        multiple={plusieurs}
         className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onFichier(f); e.target.value = '' }}
+        onChange={(e) => {
+          const fichiers = Array.from(e.target.files ?? [])
+          if (fichiers.length > 0) onFichiers(plusieurs ? fichiers : fichiers.slice(0, 1))
+          e.target.value = ''
+        }}
       />
       {enCours ? (
         <>
@@ -372,12 +367,38 @@ function ZoneDepotFacture({ nomFichier, enCours, erreur, onFichier, desactive }:
       ) : (
         <>
           <Upload className="h-[15px] w-[15px] text-km-faint" />
-          <span className="text-[11.5px] font-semibold text-km-muted">Déposer la facture</span>
-          <span className="text-[10.5px] text-km-faint">Elle sera lue et jointe au compteur</span>
+          <span className="text-[11.5px] font-semibold text-km-muted">
+            {plusieurs ? 'Déposer une ou plusieurs factures' : 'Déposer la facture'}
+          </span>
+          <span className="text-[10.5px] text-km-faint">
+            {plusieurs ? 'Une facture = un compteur, lu et pré-rempli' : 'Elle sera lue et jointe au compteur'}
+          </span>
         </>
       )}
     </button>
+    {nomFichier && onVoir && (
+      <button
+        type="button"
+        onClick={onVoir}
+        className="inline-flex items-center justify-center gap-[5px] self-center text-[11px] font-semibold text-km-green hover:underline"
+      >
+        <Eye className="h-[12px] w-[12px]" /> Voir la facture
+      </button>
+    )}
+    </div>
   )
+}
+
+/** La facture d'un compteur du formulaire : son nom, l'état de sa lecture, et où la remettre. */
+export interface FactureDuBrouillon {
+  nom: string | null
+  enCours: boolean
+  erreur: string | null
+  onFichiers: (f: File[]) => void
+  /** La zone accepte plusieurs factures d'un coup — une par compteur. */
+  plusieurs?: boolean
+  /** Ouvre la facture déposée dans la visionneuse. */
+  onVoir?: () => void
 }
 
 export function PdlDraftRows({
@@ -411,8 +432,9 @@ export function PdlDraftRows({
   sites?: Site[]
   siteImpose?: boolean
   responsableParDefautId?: string
-  /** La facture déposée : son nom, l'état de sa lecture, et où la remettre. */
-  facture?: { nom: string | null; enCours: boolean; erreur: string | null; onFichier: (f: File) => void }
+  /** La facture de chaque compteur, par clé de brouillon : chacun a la sienne depuis qu'on peut en
+   *  déposer plusieurs (29/09/2026). */
+  facture?: (cle: string) => FactureDuBrouillon
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -427,6 +449,7 @@ export function PdlDraftRows({
         const siteExistant = siteImpose ? null : trouverSiteExistant(sites, compteId, d)
         const responsableHerite = Boolean(responsableParDefautId) && d.responsableContactId === responsableParDefautId
         const communeResolue = Boolean(d.ville.trim() && d.codePostal.trim())
+        const saFacture = facture?.(d.key)
 
         return (
           <fieldset key={d.key} disabled={locked} className="flex flex-col gap-[13px] disabled:opacity-60">
@@ -454,12 +477,14 @@ export function PdlDraftRows({
                 )}
               </div>
 
-              {facture && (
+              {saFacture && (
                 <ZoneDepotFacture
-                  nomFichier={facture.nom}
-                  enCours={facture.enCours}
-                  erreur={facture.erreur}
-                  onFichier={facture.onFichier}
+                  nomFichier={saFacture.nom}
+                  enCours={saFacture.enCours}
+                  erreur={saFacture.erreur}
+                  onFichiers={saFacture.onFichiers}
+                  plusieurs={saFacture.plusieurs}
+                  onVoir={saFacture.onVoir}
                   desactive={locked}
                 />
               )}
@@ -487,7 +512,7 @@ export function PdlDraftRows({
                   {fournisseurs.map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
                 </select>
               </Champ>
-              <Champ intitule="Échéance">
+              <Champ intitule="Échéance" requis>
                 <input
                   type="date"
                   value={d.dateEcheance}
@@ -518,7 +543,7 @@ export function PdlDraftRows({
                 />
               </Champ>
               {!siteImpose && (
-                <Champ intitule="Adresse" requis>
+                <Champ intitule="Adresse">
                   <AddressAutocomplete
                     value={d.adresse}
                     className={SAISIE}
@@ -544,10 +569,10 @@ export function PdlDraftRows({
                 </p>
               ) : (
                 <div className="-mt-[6px] grid grid-cols-[1fr_130px] gap-[13px]">
-                  <Champ intitule="Ville" requis>
+                  <Champ intitule="Ville">
                     <input value={d.ville} onChange={(e) => onChange(d.key, { ville: e.target.value })} className={SAISIE} />
                   </Champ>
-                  <Champ intitule="Code postal" requis>
+                  <Champ intitule="Code postal">
                     <input value={d.codePostal} onChange={(e) => onChange(d.key, { codePostal: e.target.value })} className={SAISIE_MONO} />
                   </Champ>
                 </div>
@@ -564,14 +589,14 @@ export function PdlDraftRows({
             {/* ══ ZONE 4 · CE QUE LE COMPTEUR EST ══ */}
             {d.typeEnergieId && estElectricite && (
               <div className="grid grid-cols-[5fr_2fr_3fr] gap-[13px]">
-                <Champ intitule="Segment" requis>
+                <Champ intitule="Segment">
                   <Segments
                     valeur={d.segment}
                     options={SEGMENTS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
                     onChoisir={(v) => onChange(d.key, { segment: v })}
                   />
                 </Champ>
-                <Champ intitule="Tension" requis>
+                <Champ intitule="Tension">
                   <Segments
                     valeur={d.tension}
                     options={TENSIONS_ELEC.map((x) => ({ valeur: x, libelle: x }))}
@@ -579,7 +604,7 @@ export function PdlDraftRows({
                   />
                 </Champ>
                 {utilisationsRef && utilisationsRef.length > 0 && (
-                  <Champ intitule="Utilisation" requis>
+                  <Champ intitule="Utilisation">
                     <Segments
                       valeur={d.typeUtilisationId}
                       options={utilisationsRef.map((u) => ({ valeur: u.id, libelle: u.code ?? u.libelle, titre: u.libelle }))}
@@ -592,14 +617,14 @@ export function PdlDraftRows({
 
             {d.typeEnergieId && !estElectricite && (
               <div className="grid grid-cols-[3fr_4fr_3fr] gap-[13px]">
-                <Champ intitule="Tarif" requis>
+                <Champ intitule="Tarif">
                   <Segments
                     valeur={d.tarifDistribution}
                     options={TARIFS_GAZ.map((x) => ({ valeur: x, libelle: x }))}
                     onChoisir={(v) => onChange(d.key, { tarifDistribution: v })}
                   />
                 </Champ>
-                <Champ intitule="Profil de consommation" requis>
+                <Champ intitule="Profil de consommation">
                   <select
                     value={d.profilConsommation}
                     onChange={(e) => onChange(d.key, { profilConsommation: e.target.value })}
@@ -609,7 +634,7 @@ export function PdlDraftRows({
                     {PROFILS_GAZ.map((x) => <option key={x} value={x}>{x}</option>)}
                   </select>
                 </Champ>
-                <Champ intitule="CAR (MWh)" requis>
+                <Champ intitule="CAR (MWh)">
                   <input
                     type="number"
                     step="0.1"

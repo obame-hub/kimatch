@@ -4,6 +4,9 @@ import { authHeaderJson } from '@/lib/data/authHeader'
 interface ExtractedField {
   value: string | number | null
   confidence: number
+  /** La lecture avant une correction apprise des commerciaux — voir `api/ocr/_apprentissage.ts`. */
+  lu?: string | number | null
+  appris?: string
 }
 
 export interface ExtractDocumentResult {
@@ -11,6 +14,8 @@ export interface ExtractDocumentResult {
   error?: string
   fileName?: string
   extracted?: Record<string, ExtractedField>
+  /** Le fournisseur lu, sous la forme qui désigne le modèle de facture. */
+  modele?: string
 }
 
 function fileToBase64(file: File): Promise<string> {

@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
-import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { FormField, Select, Textarea } from '@/components/ui/form'
 import { InlineField } from '@/components/ui/inline-field'
 import { EntityLink } from '@/components/ui/entity-link'
@@ -38,7 +37,7 @@ import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { useSuppression } from '@/lib/useSuppression'
 import { useContacts } from '@/lib/data/contacts'
 import { useMandats } from '@/lib/data/mandats'
-import { MandatWizard } from '@/components/mandat/MandatWizard'
+import { useCreerUnMandat } from '@/lib/creationMandat'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 import { DialogConversionOpportunite } from '@/components/opportunite/DialogConversionOpportunite'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
@@ -99,7 +98,7 @@ export default function OpportuniteDetail() {
   const [ajoutOuvert, setAjoutOuvert] = useState(false)
   // « On peut lancer la demande de mandat depuis l'opportunité » (Michel, 23/08/2026). Le bouton
   // renvoyait sur la fiche compte, ce qui faisait perdre le périmètre qu'on vient d'établir.
-  const [mandatOuvert, setMandatOuvert] = useState(false)
+  const creerUnMandat = useCreerUnMandat()
   const [recoOuverte, setRecoOuverte] = useState(false)
   const [onglet, setOnglet] = useState<'opportunite' | 'rattachements' | 'fichiers' | 'historique'>('opportunite')
   const [hubOuvert, setHubOuvert] = useState(false)
@@ -222,6 +221,20 @@ export default function OpportuniteDetail() {
 
   const origine = ORIGINES_OPPORTUNITE.find((o) => o.code === opportunite.origine)
   const contact = (contacts ?? []).find((c) => c.id === opportunite.contact_id)
+
+  /* ══ LE MANDAT, LANCÉ DEPUIS L'OPPORTUNITÉ ══
+     Le parcours de création d'un mandat (29/09/2026) reprend le contact de l'opportunité et les
+     compteurs du périmètre QUI NE SONT PAS COUVERTS : ce sont eux qui motivent la demande. Tout
+     reste modifiable dans le parcours. */
+  function ouvrirMandat() {
+    if (!opportunite?.compte_id) return
+    creerUnMandat({
+      compte: { id: opportunite.compte_id, nom: opportunite.compte_nom ?? '' },
+      contactId: opportunite.contact_id ?? null,
+      compteurIds: couverture.manquants.length > 0 ? couverture.manquants : opportunite.compteur_ids,
+      onCree: () => signaler('✓ Mandat créé — ouverture de DocuSign'),
+    })
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -354,7 +367,7 @@ export default function OpportuniteDetail() {
                     libelle: 'Lancer la demande de mandat',
                     dispo: Boolean(opportunite.compte_id) && !mandatCouvre,
                     raison: mandatCouvre ? 'Le périmètre est déjà couvert.' : 'Il faut d’abord un compte.',
-                    action: () => setMandatOuvert(true),
+                    action: () => ouvrirMandat(),
                   },
                   {
                     cle: 'accord',
@@ -609,7 +622,7 @@ export default function OpportuniteDetail() {
             {opportunite.compte_id && !mandatCouvre && (
               <button
                 type="button"
-                onClick={() => setMandatOuvert(true)}
+                onClick={() => ouvrirMandat()}
                 className="mt-2 text-km-label font-bold text-opp-500 hover:underline"
               >
                 ＋ Lancer la demande de mandat
@@ -955,32 +968,6 @@ export default function OpportuniteDetail() {
         }}
       />
 
-      {/* L'ASSISTANT MANDAT, LANCÉ DEPUIS L'OPPORTUNITÉ. Pré-rempli avec le contact de
-          l'opportunité et les compteurs du périmètre QUI NE SONT PAS COUVERTS : ce sont eux qui
-          motivent la demande, et les ressaisir serait le moyen de se tromper. L'assistant crée le
-          mandat puis ouvre le brouillon DocuSign pour vérification avant envoi. */}
-      <Dialog
-        open={mandatOuvert && Boolean(opportunite.compte_id)}
-        onClose={() => setMandatOuvert(false)}
-        title="Demande de mandat"
-        description="Le mandat autorise KiWee à intervenir sur le périmètre de cette opportunité. Le contact et les compteurs non couverts sont déjà sélectionnés."
-        className="max-w-2xl"
-      >
-        {/* MONTÉ SEULEMENT À L'OUVERTURE : l'assistant appelle six tables entières. Et enveloppé
-            dans un Dialog, parce qu'il rend un simple div — monté nu, son contenu était bien dans
-            le DOM mais invisible à l'écran (constaté sur kimatch.fr). La garde de connexion évite
-            de remplir quatre étapes pour échouer sur DocuSign à la fin. */}
-        {mandatOuvert && opportunite.compte_id && (
-          <WizardConnectionGate required={['crm', 'docusign']} feature="demande de mandat">
-            <MandatWizard
-              compteId={opportunite.compte_id}
-              contactInitialId={opportunite.contact_id ?? undefined}
-              compteursInitiaux={couverture.manquants.length > 0 ? couverture.manquants : opportunite.compteur_ids}
-              onCree={() => signaler('✓ Mandat créé — ouverture de DocuSign')}
-            />
-          </WizardConnectionGate>
-        )}
-      </Dialog>
 
 
 

@@ -11,6 +11,8 @@ import { SidebarProvider } from '@/lib/layout'
 import { TelephonieProvider } from '@/lib/telephonie'
 import { CreationCompteProvider } from '@/lib/creationCompte'
 import { CreationContactProvider } from '@/lib/creationContact'
+import { CreationCompteurProvider } from '@/lib/creationCompteur'
+import { CreationMandatProvider } from '@/lib/creationMandat'
 import { getImpersonationInfo } from '@/lib/data/impersonation'
 import { useEstPartenaire } from '@/lib/data/roles'
 import { PaletteCommandes } from '@/components/layout/PaletteCommandes'
@@ -113,6 +115,9 @@ export function AppLayout() {
           `src/lib/creationCompte.tsx`. */}
       <CreationCompteProvider>
       <CreationContactProvider>
+      {/* DANS le fournisseur du contact : il lit le compte que la fiche ouverte a déclaré. */}
+      <CreationCompteurProvider>
+      <CreationMandatProvider>
       <ImpersonationBanner />
       {/* En flux normal, contrairement au bandeau d'emprunt d'identité qui est en position fixe :
           les deux peuvent s'afficher ensemble sans se superposer, et celui-ci pousse le contenu au
@@ -202,6 +207,8 @@ export function AppLayout() {
       />
       <BottomNav />
       <InstallPrompt />
+      </CreationMandatProvider>
+      </CreationCompteurProvider>
       </CreationContactProvider>
       </CreationCompteProvider>
       </TelephonieProvider>

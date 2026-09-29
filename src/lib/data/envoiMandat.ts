@@ -8,7 +8,8 @@ import type { Compte, Compteur, Contact } from '@/types/domain'
  * CRÉER LE MANDAT, PUIS OUVRIR DOCUSIGN — LA CHAÎNE, SANS L'ÉCRAN
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
- * Cette suite d'appels vivait au fond de `MandatWizard`, mêlée à ses quatre étapes. Elle en sort
+ * Cette suite d'appels vivait au fond de `MandatWizard` (retiré le 29/09/2026 au profit du parcours
+ * `ParcoursCreationMandat`), mêlée à ses quatre étapes. Elle en sort
  * parce qu'un second écran en a besoin : le mandat en une page du parcours de conversion.
  *
  * ══ CE QUI SE DUPLIQUE ET CE QUI NE SE DUPLIQUE PAS ══
@@ -95,7 +96,7 @@ export function useEnvoiMandat(onCree?: (mandatId: string) => void) {
 
       setEtape('Génération des documents…')
       /* `jspdf` pèse 396 Ko : il ne se télécharge qu'au moment du clic, jamais à l'ouverture d'une
-         fiche. Voir le commentaire d'origine dans `MandatWizard`. */
+         fiche. */
       const { generateMandatKiweePdf, generateMandatEnergixPdf } = await import('@/lib/mandatPdf')
       const documents = [
         await generateMandatKiweePdf({

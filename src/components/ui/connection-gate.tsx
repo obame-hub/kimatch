@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { AlertTriangle, CheckCircle2, Cloud, ExternalLink, FileSignature, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -113,7 +114,21 @@ export function WizardConnectionGate({
           const ok = statut[key]
           const onConnect = actions[key]
           return (
-            <div key={key} className="flex items-center justify-between gap-4 rounded-xl border border-km-line bg-white p-4">
+            /* ══ LA CARTE ENTIÈRE RÉSOUT LE PROBLÈME ══
+               William, 29/09/2026 : « s'il manque une connexion, le clic sur la card en question
+               devrait me permettre de résoudre le problème ». Quand la connexion est de celles
+               qu'on établit soi-même, toute la carte la lance — pas seulement le petit bouton. */
+            <div
+              key={key}
+              role={!ok && onConnect ? 'button' : undefined}
+              tabIndex={!ok && onConnect ? 0 : undefined}
+              onClick={!ok && onConnect ? onConnect : undefined}
+              onKeyDown={!ok && onConnect ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onConnect() } } : undefined}
+              className={cn(
+                'flex items-center justify-between gap-4 rounded-xl border border-km-line bg-white p-4',
+                !ok && onConnect && 'cursor-pointer transition-colors hover:border-km-green hover:bg-km-green-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-km-green',
+              )}
+            >
               <div className="flex min-w-0 items-start gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-kiwi-50 text-km-green">
                   <Icon className="h-4 w-4" />
@@ -134,7 +149,7 @@ export function WizardConnectionGate({
                 </div>
               </div>
               {!ok && onConnect && (
-                <Button type="button" size="sm" onClick={onConnect} className="shrink-0 gap-1.5">
+                <Button type="button" size="sm" onClick={(e) => { e.stopPropagation(); onConnect() }} className="shrink-0 gap-1.5">
                   <ExternalLink className="h-3.5 w-3.5" /> Se connecter
                 </Button>
               )}

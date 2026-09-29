@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Building2, Check, Loader2, Search, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
-  Champ, EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours, SAISIE, Segments,
+  Champ, EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours, SAISIE, Segments, useSortieParcours,
   type EtapeParcours, type ResumeEtape,
 } from '@/components/parcours/Parcours'
 import { useContacts, useCreateContact, findContactDuplicates } from '@/lib/data/contacts'
@@ -204,6 +204,25 @@ export function ParcoursCreationContact({ compte: compteInitial, type, onFermer,
 
   const nomAffiche = [prenom.trim(), nom.trim().toUpperCase()].filter(Boolean).join(' ')
 
+  /* ══ CE QUE FERMER FERAIT PERDRE ══
+     Avant la validation : ce qu'on a tapé sur la fiche. Après : le contact existe, seuls les
+     compteurs cochés mais pas encore assignés se perdraient. Voir `useSortieParcours`. */
+  const ficheEntamee = !contactCree && [prenom, nom, fonction, email, telephone, mobile].some((v) => v.trim() !== '')
+  const compteursEnAttente = Boolean(contactCree) && compteursChoisis.length > 0
+  const sortie = useSortieParcours({
+    entame: ficheEntamee || compteursEnAttente,
+    bloque: creerContact.isPending || assigner.isPending,
+    onFermer: () => fermer(),
+    titre: contactCree ? 'Fermer sans assigner les compteurs ?' : 'Fermer sans créer le contact ?',
+    lignes: contactCree
+      ? [
+          { perdu: true, texte: `Les ${compteursChoisis.length} compteur${compteursChoisis.length > 1 ? 's' : ''} coché${compteursChoisis.length > 1 ? 's' : ''} ne lui seront pas assignés.` },
+          { texte: <>Le contact <strong className="font-semibold">{nomAffiche}</strong> est créé et reste en place.</> },
+        ]
+      : [{ perdu: true, texte: 'Ce que vous avez saisi sur la fiche sera perdu.' }],
+    libelleFermer: contactCree ? 'Fermer sans assigner' : 'Fermer sans créer',
+  })
+
   const resumes: Record<string, ResumeEtape | undefined> = {
     fiche: contactCree
       ? { lignes: [nomAffiche, membreCS ? 'Conseil syndical' : 'Contact', compte?.nom ?? ''].filter(Boolean) }
@@ -214,7 +233,7 @@ export function ParcoursCreationContact({ compte: compteInitial, type, onFermer,
   }
 
   return (
-    <FenetreParcours onFermer={() => fermer()}>
+    <FenetreParcours sortie={sortie}>
       <RailParcours
         titre={nomAffiche || 'Nouveau contact'}
         reference={compte?.nom ?? null}
@@ -227,7 +246,7 @@ export function ParcoursCreationContact({ compte: compteInitial, type, onFermer,
             ? { titre: 'Rien n’est écrit avant la validation', texte: 'Vous pouvez fermer sans rien laisser derrière.' }
             : { titre: 'Le contact existe', texte: 'Les compteurs sont facultatifs — vous pouvez vous arrêter là.' }
         }
-        onFermer={() => fermer()}
+        onFermer={sortie.demander}
       />
 
       <PanneauParcours>
@@ -369,7 +388,7 @@ export function ParcoursCreationContact({ compte: compteInitial, type, onFermer,
                 {compte ? 'Le contact sera rattaché à ce compte.' : 'Choisissez d’abord le compte.'}
               </span>
               <span className="flex-1" />
-              <Button variant="ghost" onClick={() => fermer()}>Annuler</Button>
+              <Button variant="ghost" onClick={sortie.demander}>Annuler</Button>
               <Button disabled={!peutValider || creerContact.isPending} onClick={() => void creer()}>
                 {creerContact.isPending
                   ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Création…</>

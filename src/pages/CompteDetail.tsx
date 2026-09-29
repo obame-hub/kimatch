@@ -5,11 +5,11 @@ import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { HubCreation } from '@/components/compte/HubCreation'
 import { useCreerUnCompte } from '@/lib/creationCompte'
 import { useCreerUnContact, useDeclarerCompteCourant } from '@/lib/creationContact'
+import { useCreerUnCompteur } from '@/lib/creationCompteur'
+import { useCreerUnMandat } from '@/lib/creationMandat'
 import { ZoneATraiter } from '@/components/compte/ZoneATraiter'
 import { ZoneEnCours } from '@/components/compte/ZoneEnCours'
 import { ZonePortefeuille } from '@/components/compte/ZonePortefeuille'
-import { MandatWizard } from '@/components/mandat/MandatWizard'
-import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { HeroQualiteCompte, HeroScoreEllipro, type FaitEllipro } from '@/components/compte/HerosCompte'
 import { useQualiteCompte, useEvolutionQualite, useQualiteCompteurs, useStatutCommercialSites, manquesCompteur } from '@/lib/data/qualiteCompte'
 import { useOpportunites } from '@/lib/data/opportunites'
@@ -21,13 +21,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog } from '@/components/ui/dialog'
 import { DialogSuppression } from '@/components/ui/dialog-suppression'
-import { PdlMethodSheet, type PdlMethode } from '@/components/compteur/PdlMethodSheet'
 import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { DialogCreationOpportunite } from '@/pages/Opportunites'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { InlineField } from '@/components/ui/inline-field'
 import { ExplicationCalcul } from '@/components/ui/explication-calcul'
-import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
 import {
   useCompte,
   useComptesRattachables,
@@ -121,6 +119,8 @@ type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'o
 export default function CompteDetail() {
   const creerUnCompte = useCreerUnCompte()
   const creerUnContact = useCreerUnContact()
+  const creerUnCompteur = useCreerUnCompteur()
+  const creerUnMandat = useCreerUnMandat()
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -225,10 +225,6 @@ export default function CompteDetail() {
   const televerser = useTeleverserDocuments()
   const { data: typesDocumentsRef } = useReferenceTable('types_documents')
   const typesDocuments = typesDocumentsRef && typesDocumentsRef.length > 0 ? typesDocumentsRef : FALLBACK_TYPES_DOCUMENTS
-  const [addCompteurOpen, setAddCompteurOpen] = useState(false)
-  const [pdlMethodOpen, setPdlMethodOpen] = useState(false)
-  const [pdlMethode, setPdlMethode] = useState<PdlMethode>('manuel')
-  const [addMandatOpen, setAddMandatOpen] = useState(false)
   const [addRecoOpen, setAddRecoOpen] = useState(false)
   const [addOppOpen, setAddOppOpen] = useState(false)
 
@@ -237,13 +233,14 @@ export default function CompteDetail() {
   // étape « que faire maintenant ? » déposait ici. Le parcours en fenêtre, lui, pose contacts et
   // compteurs sans quitter la modale. Le paramètre reste : c'est un lien valable, et il ne coûte
   // rien à qui ne l'emploie pas.
+  /* LE PARCOURS ATTEND LE COMPTE : ouvert au premier affichage, avant que la fiche ne soit chargée,
+     il serait parti sans savoir chez qui poser le compteur. */
   useEffect(() => {
-    if (searchParams.get('action') === 'ajouter-compteur') {
-      setAddCompteurOpen(true)
-      setSearchParams((prev) => { prev.delete('action'); return prev }, { replace: true })
-    }
+    if (searchParams.get('action') !== 'ajouter-compteur' || !compte) return
+    creerUnCompteur({ compte: { id: compte.id, nom: compte.nom } })
+    setSearchParams((prev) => { prev.delete('action'); return prev }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [compte?.id])
 
   /* La mutation d'un champ de compte, déjà utilisée par les cartes filles. Elle sert ici au taux
      de partage de la marge, saisi directement dans le bloc « Fournisseur ». */
@@ -556,8 +553,10 @@ export default function CompteDetail() {
             onAction={(cle) => {
               if (cle === 'compte') creerUnCompte()
               if (cle === 'contact') creerUnContact({ compte: { id: compte.id, nom: compte.nom } })
-              if (cle === 'compteur') setPdlMethodOpen(true)
-              if (cle === 'mandat') setAddMandatOpen(true)
+              /* Le parcours du compteur (29/09/2026) demande lui-même la méthode — facture ou
+                 saisie — : l'ancien volet de choix qui la précédait n'a plus lieu d'être. */
+              if (cle === 'compteur') creerUnCompteur({ compte: { id: compte.id, nom: compte.nom } })
+              if (cle === 'mandat') creerUnMandat({ compte: { id: compte.id, nom: compte.nom } })
               if (cle === 'opportunite') setAddOppOpen(true)
               if (cle === 'recommandation') setAddRecoOpen(true)
             }}
@@ -1246,48 +1245,15 @@ export default function CompteDetail() {
           compteurs (il doit détecter un PDL déjà existant ailleurs dans le CRM). Monté en
           permanence, il faisait payer ces deux tables à chaque affichage d'une fiche compte —
           même piège que le wizard de cotation. */}
-      {addCompteurOpen && (
-      <CreationCompteurDialog
-        open
-        onClose={() => setAddCompteurOpen(false)}
-        compte={compte}
-        /* LES GROUPES D'ADRESSE DU COMPTE, et non plus la table `sites` : c'est ce qui permet au
-           dialogue de retrouver une adresse déjà connue de ce client au lieu d'en créer une
-           seconde. Il ne cherchait de toute façon que parmi les siens. */
-        sites={sitesDuCompte}
-        methode={pdlMethode}
-        onSaved={(message) => showToast(message)}
-      />
-      )}
-
-      {/* Choix de la méthode avant le formulaire PDL, comme Tools. La méthode choisie est
-          transmise au dialogue : en « extraction », le dépôt de facture s'ouvre d'emblée. */}
-      <PdlMethodSheet
-        open={pdlMethodOpen}
-        onClose={() => setPdlMethodOpen(false)}
-        compteNom={compte.nom}
-        onChoose={(methode) => { setPdlMethode(methode); setPdlMethodOpen(false); setAddCompteurOpen(true) }}
-      />
+      {/* LA CRÉATION D'UN COMPTEUR A QUITTÉ CETTE FICHE le 29/09/2026 : c'est un parcours à part
+          entière, ouvert par-dessus l'écran (`useCreerUnCompteur`). Il demande lui-même la méthode
+          — facture ou saisie —, ce que faisait le volet de choix monté ici. */}
 
       {/* Contact : panneau latéral (reste sur la fiche compte, comme l'écran de session
           post-création dans Tools) -- on ne quitte jamais la page. */}
 
-      {/* Wizard en quatre étapes, comme Tools. Monté conditionnellement et non caché par le
-          Dialog : un Sheet/Dialog masque son contenu sans démonter le composant, dont les hooks
-          continueraient de tourner — le piège qui a gelé la navigation le 05/08/2026. */}
-      <Dialog
-        open={addMandatOpen}
-        onClose={() => setAddMandatOpen(false)}
-        title="Nouveau mandat"
-        description="Le mandat autorise KiWee à intervenir sur un périmètre de points de livraison de ce compte."
-        className="max-w-2xl"
-      >
-        {addMandatOpen && (
-          <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">
-            <MandatWizard compteId={compte.id} />
-          </WizardConnectionGate>
-        )}
-      </Dialog>
+      {/* LE MANDAT EST UN PARCOURS depuis le 29/09/2026, ouvert par-dessus l'écran
+          (`useCreerUnMandat`) : l'assistant en quatre étapes monté ici n'a plus lieu d'être. */}
 
       {/* Monte seulement a l'ouverture : ce dialogue appelle useMandats, useCompteurs, useContacts,
           useContrats, useRecommandations et useComptes, soit six tables entieres. Monte en

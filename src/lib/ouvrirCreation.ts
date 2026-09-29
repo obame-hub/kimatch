@@ -83,7 +83,9 @@ export const OBJETS_CREABLES = [
      C'est précisément le geste que le retrait du site rend central : c'est LA création d'un
      compteur qui pose désormais le libellé de site, l'adresse et le groupe d'adresse (déclencheur
      `trg_compteur_herite_de_son_site`, migration 20260910140000). */
-  { cle: 'compteur', libelle: 'Compteur', chemin: '/compteurs', touche: 'L' },
+  /* ET LE COMPTEUR S'OUVRE SUR PLACE depuis le 29/09/2026 : il a son propre parcours, qui part du
+     compte de l'écran courant — y naviguer d'abord ferait perdre ce compte. */
+  { cle: 'compteur', libelle: 'Compteur', chemin: '/compteurs', touche: 'L', surPlace: true },
   /* LE CONTACT A REJOINT LE COMPTE LE 24/09/2026, et pour une raison de plus que lui : son
      parcours part du compte de l'écran où l'on se trouve. Naviguer vers /contacts d'abord
      effacerait précisément ce qu'il faut garder — William : « en fonction de la page depuis
@@ -93,7 +95,8 @@ export const OBJETS_CREABLES = [
   { cle: 'piste', libelle: 'Piste', chemin: '/pistes', touche: 'P' },
   { cle: 'opportunite', libelle: 'Opportunité', chemin: '/opportunites', touche: 'O' },
   { cle: 'recommandation', libelle: 'Recommandation', chemin: '/recommandations', touche: 'R' },
-  { cle: 'mandat', libelle: 'Mandat', chemin: '/mandats', touche: 'M' },
+  /* Le mandat aussi s'ouvre sur place depuis le 29/09/2026 : c'est un parcours, pas un formulaire. */
+  { cle: 'mandat', libelle: 'Mandat', chemin: '/mandats', touche: 'M', surPlace: true },
   { cle: 'requete', libelle: 'Requête', chemin: '/requetes', touche: 'Q' },
   { cle: 'tache', libelle: 'Tâche', chemin: '/taches', touche: 'A' },
   { cle: 'echange', libelle: 'Échange', chemin: '/interactions', touche: 'E' },

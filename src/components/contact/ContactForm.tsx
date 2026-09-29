@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Briefcase, Check, Loader2, Mail, Phone, ShieldCheck, Smartphone, Sparkles, User, UserCircle2, UserRound } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -55,6 +55,7 @@ export function ContactForm({
   onCreated,
   onCancel,
   submitLabel = 'Créer le contact',
+  onEntame,
 }: {
   compteId: string
   compteNom: string
@@ -62,6 +63,8 @@ export function ContactForm({
   onCreated: (contact: Contact) => void
   onCancel: () => void
   submitLabel?: string
+  /** Quelque chose est saisi : le parcours qui accueille ce formulaire confirme avant de fermer. */
+  onEntame?: (entame: boolean) => void
 }) {
   const { data: allContacts, isLoading: contactsLoading } = useContacts()
   const createContact = useCreateContact()
@@ -77,6 +80,9 @@ export function ContactForm({
   const [email, setEmail] = useState('')
   const [emailTouched, setEmailTouched] = useState(false)
   const [roles, setRoles] = useState<RoleContact[]>([])
+
+  const entame = [prenom, nom, fonction, telephone, telephoneMobile, email].some((v) => v.trim() !== '')
+  useEffect(() => { onEntame?.(entame) }, [entame, onEntame])
 
   const hasSignal =
     (prenom.trim().length >= 2 && nom.trim().length >= 2) ||

@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils'
 import { OBJETS_CREABLES } from '@/lib/ouvrirCreation'
 import { useCreerUnCompte } from '@/lib/creationCompte'
 import { useCreerUnContact } from '@/lib/creationContact'
+import { useCreerUnCompteur } from '@/lib/creationCompteur'
+import { useCreerUnMandat } from '@/lib/creationMandat'
 
 /**
  * LE BOUTON « CRÉER », SUR TOUS LES ÉCRANS.
@@ -40,6 +42,8 @@ export function MenuCreer() {
   const navigate = useNavigate()
   const creerUnCompte = useCreerUnCompte()
   const creerUnContact = useCreerUnContact()
+  const creerUnCompteur = useCreerUnCompteur()
+  const creerUnMandat = useCreerUnMandat()
   const [ouvert, setOuvert] = useState(false)
   const conteneur = useRef<HTMLDivElement>(null)
 
@@ -102,6 +106,9 @@ export function MenuCreer() {
                   /* Le contact part avec le compte que l'écran courant a déclaré — c'est tout
                      l'objet de `useDeclarerCompteCourant`. */
                   if (o.cle === 'contact') creerUnContact()
+                  /* Le compteur aussi, depuis le 29/09/2026 : il part du compte de la fiche. */
+                  else if (o.cle === 'compteur') creerUnCompteur()
+                  else if (o.cle === 'mandat') creerUnMandat()
                   else creerUnCompte()
                 } else navigate(`${o.chemin}?creer=1`)
               }}

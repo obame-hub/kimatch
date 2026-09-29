@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, Check, Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
 import { MandatEnUnePage } from '@/components/mandat/MandatEnUnePage'
@@ -19,7 +18,7 @@ import {
   type IdentiteLegale,
 } from '@/lib/data/conversionPiste'
 import {
-  EnTeteEtape, FenetreParcours, RailParcours,
+  EnTeteEtape, FenetreParcours, RailParcours, useSortieParcours,
   type EtapeParcours, type ResumeEtape,
 } from '@/components/parcours/Parcours'
 import { cn } from '@/lib/utils'
@@ -167,7 +166,9 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
   const [etape, setEtape] = useState<CleEtape>('identite')
   const [travail, setTravail] = useState<Travail>(null)
   const [erreur, setErreur] = useState<string | null>(null)
-  const [sortieDemandee, setSortieDemandee] = useState(false)
+  /* Ce que le périmètre porte de non enregistré, et si le mandat est parti — voir la sortie. */
+  const [perimetreEntame, setPerimetreEntame] = useState(false)
+  const [mandatCree, setMandatCree] = useState(false)
 
   /* Ce que le parcours a produit, au fur et à mesure. */
   const [compteId, setCompteId] = useState<string | null>(null)
@@ -313,15 +314,62 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
     }
   }
 
-  /** La croix, Échap et le clic sur le voile passent tous par ici. */
-  function demanderSortie() {
-    if (travail) return
-    // L'opportunité existe : la conversion a abouti, il n'y a plus rien à confirmer.
-    if (opportuniteId) { onFermer(); navigate(`/opportunites/${opportuniteId}`); return }
-    // Rien n'a encore été écrit : sortir ne coûte rien.
-    if (!compteId) { onFermer(); return }
-    setSortieDemandee(true)
-  }
+  /* ══ LA SORTIE, À CHAQUE ÉTAPE ══
+     La croix, Échap, le clic sur le voile et les « Annuler » passent tous par `sortie.demander`.
+     William, 29/09/2026 : « il est très frustrant de tout perdre avec juste une fausse manip ».
+
+     - SOCIÉTÉ & CONTACT : rien n'est écrit, mais l'entreprise retrouvée et les corrections
+       apportées au contact de la piste se perdraient. On demande dès que l'une ou l'autre existe.
+     - PÉRIMÈTRE, OPPORTUNITÉ À REPRENDRE : le compte et le contact existent ; on dit ce qui reste,
+       et ce qui manque pour que la piste bascule.
+     - MANDAT : la piste est convertie, seul le mandat pas encore envoyé se perdrait.
+     - MANDAT ENVOYÉ : plus rien à confirmer. */
+  const contactInitial = useRef([civilite, prenom, nom, fonction, telephone, mobile, email].join('|'))
+  const identiteEntamee = Boolean(entreprise) || [civilite, prenom, nom, fonction, telephone, mobile, email].join('|') !== contactInitial.current
+  const versLOpportunite = () => { onFermer(); navigate(`/opportunites/${opportuniteId}`) }
+  const versLeCompte = () => { onFermer(); navigate(`/comptes/${compteId}`) }
+  const sortie = useSortieParcours(
+    opportuniteId
+      ? {
+          entame: etape === 'mandat' && !mandatCree,
+          onFermer: versLOpportunite,
+          titre: 'Fermer sans envoyer le mandat ?',
+          description: 'La piste est convertie.',
+          lignes: [
+            { perdu: true, texte: 'Le mandat n’est pas encore envoyé.' },
+            { texte: 'Le compte, les compteurs et l’opportunité restent en place : le mandat pourra partir depuis l’opportunité.' },
+          ],
+          libelleFermer: 'Fermer et voir l’opportunité',
+        }
+      : compteId
+        ? {
+            entame: true,
+            bloque: Boolean(travail),
+            onFermer: versLeCompte,
+            titre: 'Arrêter la conversion ici ?',
+            description: 'Ce qui est déjà créé ne disparaît pas.',
+            lignes: [
+              ...(perimetreEntame ? [{ perdu: true, texte: 'Le compteur en cours de saisie sera perdu.' }] : []),
+              { texte: <>Le compte <strong className="font-semibold">{compteNom ?? 'créé'}</strong> et son contact restent en place.</> },
+              { texte: <>La piste <strong className="font-semibold">reste ouverte</strong> : elle garde sa tâche et revient dans le plan du jour.</> },
+            ],
+            note: 'Sans compteur, pas d’opportunité. Pour reprendre, créez les compteurs depuis la fiche du compte : l’opportunité se lancera de là.',
+            libelleFermer: 'Arrêter et voir le compte',
+          }
+        : {
+            entame: identiteEntamee,
+            bloque: Boolean(travail),
+            onFermer,
+            titre: 'Arrêter la conversion ?',
+            description: 'Rien n’est encore créé.',
+            lignes: [
+              { perdu: true, texte: 'L’entreprise retrouvée et vos corrections du contact seront perdues.' },
+              { texte: <>La piste <strong className="font-semibold">reste ouverte</strong>, telle qu’avant.</> },
+            ],
+            libelleFermer: 'Arrêter la conversion',
+          },
+  )
+  const demanderSortie = sortie.demander
 
   const rail = (props: { courante: CleEtape; sousTitre?: string; note: { titre: string; texte: string } }) => (
     <RailParcours
@@ -338,7 +386,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
   if (etape === 'perimetre') {
     return (
       <>
-        <FenetreParcours onFermer={demanderSortie}>
+        <FenetreParcours sortie={sortie}>
           {rail({
             courante: 'perimetre',
             sousTitre: compteurNumeros.length > 0
@@ -353,6 +401,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
                 sansCadre
                 open
                 onClose={demanderSortie}
+                onEntame={setPerimetreEntame}
                 compte={compte}
                 sites={sites ?? []}
                 responsableParDefautId={contactId ?? undefined}
@@ -376,7 +425,6 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
             )}
           </div>
         </FenetreParcours>
-        {sortieDemandee && <DialogueSortie compteNom={compteNom} onReprendre={() => setSortieDemandee(false)} onArreter={() => { onFermer(); navigate(`/comptes/${compteId}`) }} />}
       </>
     )
   }
@@ -384,7 +432,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
   /* ════════ ÉTAPE 4 · LE MANDAT ════════ */
   if (etape === 'mandat' && compteId && opportuniteId) {
     return (
-      <FenetreParcours onFermer={demanderSortie}>
+      <FenetreParcours sortie={sortie}>
         {rail({
           courante: 'mandat',
           sousTitre: 'Dernière étape',
@@ -403,6 +451,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
               compteId={compteId}
               contactId={contactId}
               compteurIds={compteurIds}
+              onCree={() => setMandatCree(true)}
             />
           </WizardConnectionGate>
         </div>
@@ -416,7 +465,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
      SIREN, mais rien ne rattrape un contact en double. */
   if (etape === 'opportunite' && !travail) {
     return (
-      <FenetreParcours onFermer={demanderSortie}>
+      <FenetreParcours sortie={sortie}>
         {rail({
           courante: 'opportunite',
           sousTitre: 'À reprendre',
@@ -445,7 +494,7 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
   /* ════════ ÉTAPE 1 · SOCIÉTÉ & CONTACT, et les temps morts ════════ */
   return (
     <>
-      <FenetreParcours onFermer={demanderSortie}>
+      <FenetreParcours sortie={sortie}>
         {rail({
           courante: travail === 'opportunite' ? 'opportunite' : 'identite',
           sousTitre: travail ? 'En cours' : undefined,
@@ -633,56 +682,6 @@ export function ParcoursConversion({ piste, onFermer }: { piste: Piste; onFermer
         </div>
       </FenetreParcours>
 
-      {sortieDemandee && (
-        <DialogueSortie
-          compteNom={compteNom}
-          onReprendre={() => setSortieDemandee(false)}
-          onArreter={() => { onFermer(); navigate(`/comptes/${compteId}`) }}
-        />
-      )}
     </>
-  )
-}
-
-/**
- * LA SORTIE EN COURS DE ROUTE.
- *
- * Une petite fenêtre par-dessus la grande, et non un écran du parcours : ce n'est pas une étape,
- * c'est une question. Elle passe par `Dialog`, qui sait déjà s'empiler.
- */
-function DialogueSortie({ compteNom, onReprendre, onArreter }: {
-  compteNom: string | null
-  onReprendre: () => void
-  onArreter: () => void
-}) {
-  return (
-    <Dialog
-      open
-      onClose={onReprendre}
-      title="Arrêter la conversion ici ?"
-      description="Ce qui est déjà créé ne disparaît pas."
-      className="max-w-md"
-    >
-      <div className="space-y-3">
-        <ul className="space-y-1.5 text-km-body leading-snug text-km-text">
-          <li className="flex gap-2">
-            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-km-green" />
-            <span>Le compte <strong className="font-semibold">{compteNom ?? 'créé'}</strong> et son contact restent en place.</span>
-          </li>
-          <li className="flex gap-2">
-            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-km-green" />
-            <span>La piste <strong className="font-semibold">reste ouverte</strong> : elle garde sa tâche et revient dans le plan du jour.</span>
-          </li>
-        </ul>
-        <p className="rounded-lg border border-km-line bg-km-bg/60 px-3 py-2 text-km-label leading-snug text-km-muted">
-          Sans compteur, pas d'opportunité. Pour reprendre, créez les compteurs depuis la fiche du
-          compte : l'opportunité se lancera de là.
-        </p>
-        <div className="flex justify-end gap-2 border-t border-km-line pt-3">
-          <Button variant="ghost" onClick={onReprendre}>Reprendre</Button>
-          <Button onClick={onArreter}>Arrêter et voir le compte</Button>
-        </div>
-      </div>
-    </Dialog>
   )
 }

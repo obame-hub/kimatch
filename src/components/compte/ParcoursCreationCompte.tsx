@@ -8,7 +8,7 @@ import { ContactForm } from '@/components/contact/ContactForm'
 import { CarteEllipro } from '@/components/compte/CarteEllipro'
 import { CreationCompteurDialog } from '@/components/compteur/CreationCompteurDialog'
 import {
-  EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours,
+  EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours, useSortieParcours,
   type EtapeParcours, type ResumeEtape,
 } from '@/components/parcours/Parcours'
 import { useCreateCompte, useComptesRattachables } from '@/lib/data/comptes'
@@ -388,17 +388,42 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
     if (compte) navigate(`/comptes/${compte.id}`)
   }
 
+  /* ══ CE QUE FERMER FERAIT PERDRE ══
+     Avant la création : l'entreprise choisie ou ce qu'on a saisi d'elle — le type seul se rechoisit
+     d'un clic, il ne vaut pas une question. Après : le compte existe ; seul se perdrait le contact ou
+     le compteur en cours de saisie dans l'étape « Et ensuite ». Voir `useSortieParcours`. */
+  const [sousEtapeEntamee, setSousEtapeEntamee] = useState(false)
+  const ficheEntamee = !compte && (
+    Boolean(choisie) || [nom, siren, siret, rue, codePostal, ville, recherche].some((v) => v.trim() !== '') || Boolean(partenaireId)
+  )
+  const suiteEntamee = Boolean(compte) && suite !== 'choix' && sousEtapeEntamee
+  const sortie = useSortieParcours({
+    entame: ficheEntamee || suiteEntamee,
+    bloque: creerCompte.isPending,
+    onFermer: fermer,
+    titre: compte
+      ? (suite === 'contact' ? 'Fermer sans créer le contact ?' : 'Fermer sans créer le compteur ?')
+      : 'Fermer sans créer le compte ?',
+    lignes: compte
+      ? [
+          { perdu: true, texte: suite === 'contact' ? 'Le contact en cours de saisie sera perdu.' : 'Le compteur en cours de saisie sera perdu.' },
+          { texte: <>Le compte <strong className="font-semibold">{compte.nom}</strong> est créé et reste en place.</> },
+        ]
+      : [{ perdu: true, texte: 'L’entreprise choisie et ce que vous avez saisi seront perdus.' }],
+    libelleFermer: 'Fermer sans créer',
+  })
+
   const railProps = {
     titre: nom.trim() || type?.libelle || (venteIndirecte ? 'Vente indirecte' : 'Nouveau compte'),
     etapes,
     resumes,
-    onFermer: fermer,
+    onFermer: sortie.demander,
   }
 
   /* ════════ ÉTAPE 4 · LES COMPTEURS, dans l'écran de saisie réemployé ════════ */
   if (etape === 'suite' && suite === 'compteur' && compte) {
     return (
-      <FenetreParcours onFermer={fermer}>
+      <FenetreParcours sortie={sortie}>
         <RailParcours {...railProps} courante="suite" sousTitre="Les compteurs" />
         <PanneauParcours>
           <EnTeteEtape numero={numeroDe('suite')} total={total} titre="Les compteurs de ce compte" />
@@ -406,13 +431,14 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
             sansCadre
             unParUn
             open
-            onClose={() => setSuite('choix')}
+            onClose={() => { setSousEtapeEntamee(false); setSuite('choix') }}
+            onEntame={setSousEtapeEntamee}
             compte={compte}
             sites={sites ?? []}
             libelleValidation="Terminer"
             onSaved={() => { /* le rail annonce lui-même */ }}
             onCompteurCree={(c) => setCompteursCrees((p) => [...p, c.numero_pdl])}
-            onCrees={() => setSuite('choix')}
+            onCrees={() => { setSousEtapeEntamee(false); setSuite('choix') }}
           />
         </PanneauParcours>
       </FenetreParcours>
@@ -420,7 +446,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
   }
 
   return (
-    <FenetreParcours onFermer={fermer}>
+    <FenetreParcours sortie={sortie}>
       <RailParcours
         {...railProps}
         courante={etape}
@@ -473,7 +499,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 Un clic suffit : le choix vous emmène directement à la recherche.
               </span>
               <span className="flex-1" />
-              <Button variant="ghost" onClick={fermer}>Annuler</Button>
+              <Button variant="ghost" onClick={sortie.demander}>Annuler</Button>
             </div>
           </>
         )}
@@ -866,9 +892,11 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 submitLabel="Créer le contact"
                 onCreated={(c) => {
                   setContactsCrees((p) => [...p, `${c.prenom} ${c.nom}`])
+                  setSousEtapeEntamee(false)
                   setSuite('choix')
                 }}
-                onCancel={() => setSuite('choix')}
+                onCancel={() => { setSousEtapeEntamee(false); setSuite('choix') }}
+                onEntame={setSousEtapeEntamee}
               />
             </div>
           </>

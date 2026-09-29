@@ -103,6 +103,12 @@ function avertirConfigTailwind() {
 const SECRET_PAR_ROUTE: { prefixe: string; variable: string }[] = [
   { prefixe: '/api/ocr/', variable: 'ANTHROPIC_API_KEY' },
   { prefixe: '/api/cockpit/conseil', variable: 'ANTHROPIC_API_KEY' },
+  /* DOCUSIGN, 29/09/2026 : en local, la garde du mandat affichait « Non connecté — variables serveur
+     manquantes », parce que les clés DocuSign ne vivent que sur Vercel. Relayée, la vérification
+     répond comme en ligne, et le mandat se prépare depuis le poste. L'autorisation personnelle,
+     elle, se donne sur kimatch.fr (seule adresse de retour admise par DocuSign) et vaut ensuite
+     partout : elle est rangée dans la base, commune aux deux. */
+  { prefixe: '/api/docusign/', variable: 'DOCUSIGN_INTEGRATION_KEY' },
 ]
 
 const RELAIS_DISTANT = process.env.KIMATCH_API_DISTANTE ?? 'https://kimatch.fr'

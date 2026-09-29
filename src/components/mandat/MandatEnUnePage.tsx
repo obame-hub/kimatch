@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Check, Loader2, Mail, Zap } from 'lucide-react'
+import { AlertTriangle, Loader2, Mail, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { useComptes } from '@/lib/data/comptes'
@@ -8,6 +8,7 @@ import { useCompteurs } from '@/lib/data/compteurs'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_COURTIERS_MANDAT } from '@/lib/referenceFallbacks'
 import { useEnvoiMandat } from '@/lib/data/envoiMandat'
+import { ChoixDureeMandats, DUREE_DEFAUT } from '@/components/mandat/ChoixDureeMandats'
 import { connectDocusign } from '@/lib/data/docusign'
 import { champBase } from '@/lib/champBase'
 import { cn } from '@/lib/utils'
@@ -25,7 +26,10 @@ import type { Contact } from '@/types/domain'
  *   Zone 2 · les compteurs du périmètre qu'on vient de créer, et eux seuls, présélectionnés
  *   Zone 3 · la durée (36 mois par défaut, ou personnalisée) et le choix du mandat
  *
- * ══ POURQUOI CET ÉCRAN N'EST PAS `MandatWizard` ══
+ * ══ POURQUOI CET ÉCRAN N'EST PAS LE PARCOURS DE CRÉATION D'UN MANDAT ══
+ *
+ * (L'assistant `MandatWizard` dont il est question ci-dessous a laissé place, le 29/09/2026, à
+ * `ParcoursCreationMandat` — qui demande, lui aussi, ce que cet écran se contente de confirmer.)
  *
  * L'assistant DEMANDE : quel contact parmi ceux du compte, quels compteurs parmi tous ceux du
  * patrimoine, en quatre étapes. Ici, rien de tout cela n'est à demander — le parcours vient de
@@ -44,8 +48,6 @@ import type { Contact } from '@/types/domain'
  * son président là où le gestionnaire suit le dossier.
  */
 
-const DUREES = [12, 24, 36, 48] as const
-const DUREE_DEFAUT = 36
 
 export function MandatEnUnePage({ compteId, contactId, compteurIds, onCree }: {
   compteId: string
@@ -66,7 +68,6 @@ export function MandatEnUnePage({ compteId, contactId, compteurIds, onCree }: {
   const [changerSignataire, setChangerSignataire] = useState(false)
   const [retenus, setRetenus] = useState<string[]>(compteurIds)
   const [dureeMois, setDureeMois] = useState<number>(DUREE_DEFAUT)
-  const [dureeLibre, setDureeLibre] = useState(false)
   const [avecEnergix, setAvecEnergix] = useState(true)
 
   const signataire = contacts?.find((c) => c.id === signataireId) ?? null
@@ -182,78 +183,13 @@ export function MandatEnUnePage({ compteId, contactId, compteurIds, onCree }: {
         </div>
       </div>
 
-      {/* ══ ZONE 3 · DURÉE ET MANDATS ══ */}
-      <div className="grid grid-cols-2 gap-[13px]">
-        <div className="flex flex-col gap-[9px] rounded-[12px] border border-km-line bg-km-bg/40 p-[13px]">
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Durée</span>
-          <div className="flex gap-[2px] rounded-[9px] border border-km-line bg-km-soft p-[3px]">
-            {DUREES.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => { setDureeLibre(false); setDureeMois(d) }}
-                className={cn(
-                  'flex-1 rounded-[6px] py-[6px] text-[12px] tabular-nums transition-colors',
-                  !dureeLibre && dureeMois === d
-                    ? 'bg-km-green font-bold text-white'
-                    : 'font-medium text-km-muted hover:bg-white hover:text-km-text',
-                )}
-              >
-                {d}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setDureeLibre(true)}
-              className={cn(
-                'flex-1 rounded-[6px] py-[6px] text-[12px] transition-colors',
-                dureeLibre
-                  ? 'bg-km-green font-bold text-white'
-                  : 'font-medium text-km-muted hover:bg-white hover:text-km-text',
-              )}
-            >
-              Autre
-            </button>
-          </div>
-          {dureeLibre ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                autoFocus
-                value={dureeMois || ''}
-                onChange={(e) => setDureeMois(Number(e.target.value))}
-                className="w-[90px] rounded-[9px] border border-km-line bg-white px-[11px] py-[7px] font-mono text-[13px] text-km-text outline-none focus:border-km-green"
-              />
-              <span className="text-[11.5px] text-km-muted">mois</span>
-            </div>
-          ) : (
-            <span className="text-[11px] text-km-faint">En mois. Trois ans par défaut.</span>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-[9px] rounded-[12px] border border-km-line bg-km-bg/40 p-[13px]">
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Mandats</span>
-          <div className="flex items-center gap-[10px] rounded-[9px] border border-km-line bg-white px-[11px] py-[7px]">
-            <Check className="h-[13px] w-[13px] shrink-0 text-km-green" />
-            <span className="flex-1 text-[12.5px] font-semibold text-km-text">KiWee Énergie</span>
-            <span className="text-[10.5px] text-km-faint">toujours</span>
-          </div>
-          <label className={cn(
-            'flex cursor-pointer items-center gap-[10px] rounded-[9px] border px-[11px] py-[7px]',
-            avecEnergix ? 'border-km-green-line bg-km-green-tint' : 'border-km-line bg-white',
-          )}>
-            <input
-              type="checkbox"
-              checked={avecEnergix}
-              onChange={(e) => setAvecEnergix(e.target.checked)}
-              className="h-[15px] w-[15px] shrink-0 accent-km-green"
-            />
-            <span className="flex-1 text-[12.5px] font-semibold text-km-text">Energix</span>
-            <span className="text-[10.5px] text-km-faint">en option</span>
-          </label>
-        </div>
-      </div>
+      {/* ══ ZONE 3 · DURÉE ET MANDATS ══ — partagée avec le parcours de création d'un mandat. */}
+      <ChoixDureeMandats
+        dureeMois={dureeMois}
+        onDuree={setDureeMois}
+        avecEnergix={avecEnergix}
+        onEnergix={setAvecEnergix}
+      />
 
       {etat.erreur && (
         <div className="flex items-start gap-2 rounded-[10px] border border-km-red-line bg-km-red-soft px-[13px] py-[9px]">

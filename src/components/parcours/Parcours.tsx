@@ -1,6 +1,8 @@
-import { useEffect, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, X } from 'lucide-react'
+import { AlertTriangle, Check, Loader2, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Dialog } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 /**
@@ -41,14 +43,172 @@ export interface EtapeParcours {
 export interface ResumeEtape {
   lignes: string[]
   mono?: boolean
+  /** Des éléments qu'on rouvre d'un clic — les compteurs d'un lot de factures (29/09/2026). */
+  elements?: ElementRail[]
 }
 
-export function FenetreParcours({ onFermer, children }: { onFermer: () => void; children: ReactNode }) {
+/** Un élément cliquable du rail : son nom, une précision, et où il en est. */
+export interface ElementRail {
+  cle: string
+  libelle: string
+  detail?: string | null
+  etat: 'lecture' | 'complet' | 'incomplet' | 'erreur'
+  actif?: boolean
+  onChoisir: () => void
+}
+
+/* L'état se lit à la forme autant qu'à la couleur : un anneau qui tourne, une coche, un point creux,
+   un triangle — jamais le vert et le rouge seuls. */
+function EtatElement({ etat }: { etat: ElementRail['etat'] }) {
+  if (etat === 'lecture') return <Loader2 className="h-[12px] w-[12px] shrink-0 animate-spin text-km-side-green" />
+  if (etat === 'complet') {
+    return (
+      <span className="flex h-[13px] w-[13px] shrink-0 items-center justify-center rounded-full bg-km-side-green">
+        <Check className="h-[8px] w-[8px] stroke-[3.6] text-[#10231D]" />
+      </span>
+    )
+  }
+  if (etat === 'erreur') return <AlertTriangle className="h-[12px] w-[12px] shrink-0 text-[#F0A08F]" />
+  return <span className="h-[11px] w-[11px] shrink-0 rounded-full border-[1.5px] border-[#C9A64E]" />
+}
+
+/*
+  ══════════════════════════════════════════════════════════════════════════════════════════════════
+  FERMER UN PARCOURS SE CONFIRME DÈS QU'IL Y A QUELQUE CHOSE À PERDRE
+  ══════════════════════════════════════════════════════════════════════════════════════════════════
+
+  William, 29/09/2026 : « cette fonctionnalité de confirmer une fermeture avant de fermer un process
+  devrait être faite à chaque fois. Sur les process qu'on a déjà créés et sur les futurs à créer
+  également. Car il est très frustrant de tout perdre avec juste une fausse manip. »
+
+  LA RÈGLE VIT DANS LA COQUILLE, PAS DANS CHAQUE PARCOURS. `FenetreParcours` n'accepte plus un simple
+  `onFermer` : elle exige une `sortie`, que seul `useSortieParcours` fabrique, et qui exige à son tour
+  de dire `entame` — y a-t-il, là, maintenant, quelque chose que fermer ferait perdre ? Un parcours
+  à venir ne peut donc pas être écrit sans répondre à la question : le typage le refuse.
+
+  TOUS LES GESTES DE SORTIE PASSENT PAR `sortie.demander` : la croix du rail, Échap, le clic sur le
+  voile, et les « Annuler » / « Fermer » des écrans. Rien d'entamé : on ferme sans question, comme
+  avant. Sinon : une petite fenêtre, « Reprendre » en bouton principal — c'est la réponse à une
+  fausse manip, donc celle qu'un Entrée réflexe doit donner.
+*/
+
+/** Une ligne de la confirmation : ce qui se perd (`perdu`), ou ce qui reste en place. */
+export interface LigneSortie {
+  texte: ReactNode
+  perdu?: boolean
+}
+
+export interface OptionsSortie {
+  /** Y a-t-il quelque chose — saisi, déposé, choisi — que fermer maintenant ferait perdre ? */
+  entame: boolean
+  /** La fermeture elle-même, une fois décidée (ou sans question quand rien n'est entamé). */
+  onFermer: () => void
+  /** Un travail est en cours d'écriture : on ne ferme pas du tout, on attend qu'il aboutisse. */
+  bloque?: boolean
+  titre?: string
+  description?: string
+  lignes?: LigneSortie[]
+  /** Une précision en encadré, sous les lignes. */
+  note?: string
+  libelleFermer?: string
+}
+
+export interface SortieParcours {
+  demander: () => void
+  /** Réservé à la coquille : l'état de la confirmation et ses deux réponses. */
+  demandee: boolean
+  reprendre: () => void
+  confirmer: () => void
+  options: OptionsSortie
+}
+
+export function useSortieParcours(options: OptionsSortie): SortieParcours {
+  const [demandee, setDemandee] = useState(false)
+  /* Les options changent à chaque frappe ; les gestes, eux, doivent rester les mêmes fonctions pour
+     que les écoutes du clavier ne se réinstallent pas à chaque rendu. */
+  const courantes = useRef(options)
+  courantes.current = options
+
+  const demander = useCallback(() => {
+    const o = courantes.current
+    if (o.bloque) return
+    if (o.entame) setDemandee(true)
+    else o.onFermer()
+  }, [])
+  const reprendre = useCallback(() => setDemandee(false), [])
+  const confirmer = useCallback(() => {
+    setDemandee(false)
+    courantes.current.onFermer()
+  }, [])
+
+  return { demander, demandee, reprendre, confirmer, options }
+}
+
+function ConfirmationSortie({ sortie }: { sortie: SortieParcours }) {
+  const o = sortie.options
+  const lignes = o.lignes ?? [{ texte: 'Ce que vous avez saisi dans ce parcours sera perdu.', perdu: true }]
+  return (
+    <Dialog
+      open
+      onClose={sortie.reprendre}
+      title={o.titre ?? 'Fermer sans terminer ?'}
+      description={o.description ?? 'Rien de ce qui est en cours n’est encore enregistré.'}
+      className="max-w-md"
+    >
+      <div className="space-y-3">
+        <ul className="space-y-1.5 text-km-body leading-snug text-km-text">
+          {lignes.map((l, i) => (
+            <li key={i} className="flex gap-2">
+              {l.perdu
+                ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-km-red" />
+                : <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-km-green" />}
+              <span>{l.texte}</span>
+            </li>
+          ))}
+        </ul>
+        {o.note && (
+          <p className="rounded-lg border border-km-line bg-km-bg/60 px-3 py-2 text-km-label leading-snug text-km-muted">
+            {o.note}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 border-t border-km-line pt-3">
+          <Button variant="ghost" onClick={sortie.confirmer}>{o.libelleFermer ?? 'Fermer sans terminer'}</Button>
+          <Button autoFocus onClick={sortie.reprendre}>Reprendre</Button>
+        </div>
+      </div>
+    </Dialog>
+  )
+}
+
+/* ══ DEUX PARCOURS L'UN SUR L'AUTRE ══
+   Le mandat ouvre la création d'un contact par-dessus lui-même. Les deux écoutent Échap : sans
+   cette pile, la touche fermerait le contact ET demanderait la sortie du mandat. Seul le parcours
+   du dessus répond. */
+const pileDesParcours: number[] = []
+let prochainParcours = 0
+
+export function FenetreParcours({ sortie, children }: { sortie: SortieParcours; children: ReactNode }) {
+  const { demander, reprendre, demandee } = sortie
+  const moi = useRef<number>(-1)
   useEffect(() => {
-    const auClavier = (e: KeyboardEvent) => e.key === 'Escape' && onFermer()
+    moi.current = ++prochainParcours
+    pileDesParcours.push(moi.current)
+    return () => {
+      const i = pileDesParcours.indexOf(moi.current)
+      if (i >= 0) pileDesParcours.splice(i, 1)
+    }
+  }, [])
+  /* Échap pendant la confirmation, c'est « Reprendre » — jamais une seconde demande de sortie. */
+  useEffect(() => {
+    const auClavier = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (pileDesParcours[pileDesParcours.length - 1] !== moi.current) return
+      if (demandee) reprendre()
+      else demander()
+    }
     window.addEventListener('keydown', auClavier)
     return () => window.removeEventListener('keydown', auClavier)
-  }, [onFermer])
+  }, [demander, reprendre, demandee])
 
   /* Les pastilles flottantes (appel, notifications) se retirent quand le document porte cette
      marque. Un compteur et non un booléen : une confirmation peut s'ouvrir par-dessus celle-ci. */
@@ -65,11 +225,12 @@ export function FenetreParcours({ onFermer, children }: { onFermer: () => void; 
   return createPortal(
     <div
       className="animate-km-fade fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,14,12,0.62)] p-4 backdrop-blur-[3px]"
-      onClick={(e) => { if (e.target === e.currentTarget) onFermer() }}
+      onClick={(e) => { if (e.target === e.currentTarget) demander() }}
     >
       <div className="animate-fade-up flex h-[740px] max-h-[calc(100vh-2.5rem)] w-[1000px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[20px] bg-white shadow-[0_32px_80px_rgba(6,10,8,0.44),0_3px_14px_rgba(6,10,8,0.26)]">
         {children}
       </div>
+      {demandee && <ConfirmationSortie sortie={sortie} />}
     </div>,
     document.body,
   )
@@ -179,6 +340,36 @@ export function RailParcours({ titre, reference, etapes, courante, sousTitre, re
                 )}
                 {e.auto && etat === 'avenir' && (
                   <span className={cn('text-[10px]', GRIS_A_VENIR)}>Automatique</span>
+                )}
+
+                {resume?.elements && resume.elements.length > 0 && (
+                  <div className="flex flex-col gap-[2px]">
+                    {resume.elements.map((el) => (
+                      <button
+                        key={el.cle}
+                        type="button"
+                        onClick={el.onChoisir}
+                        aria-current={el.actif ? 'true' : undefined}
+                        className={cn(
+                          'flex items-start gap-[8px] rounded-[8px] px-[8px] py-[6px] text-left transition-colors',
+                          el.actif ? 'bg-km-side-bas' : 'hover:bg-km-side-bas/60',
+                        )}
+                      >
+                        <span className="mt-[2px]"><EtatElement etat={el.etat} /></span>
+                        <span className="flex min-w-0 flex-col gap-[1px]">
+                          <span className={cn(
+                            'truncate font-mono text-[10.5px] leading-[1.35]',
+                            el.actif ? 'text-white' : 'text-[#D8DFDA]',
+                          )}>
+                            {el.libelle}
+                          </span>
+                          {el.detail && (
+                            <span className="truncate text-[10px] leading-[1.35] text-km-side-faint">{el.detail}</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 )}
 
                 {resume && resume.lignes.length > 0 && (

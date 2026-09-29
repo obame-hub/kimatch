@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField } from '@/components/ui/form'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { MandatChainPrompt, type ChainedCompteur } from '@/components/compteur/MandatChainPrompt'
+import { FenetreApercu } from '@/components/document/FenetreApercu'
 import {
   PdlDraftRows,
   emptyPdlDraft,
@@ -15,6 +16,7 @@ import {
   trouverSiteExistant,
   type PdlDraft,
   type ExtractedField,
+  type FactureDuBrouillon,
 } from '@/components/compteur/PdlDraftRows'
 import { cn } from '@/lib/utils'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -23,11 +25,50 @@ import { useContacts } from '@/lib/data/contacts'
 import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
 import { useTeleverserDocuments } from '@/lib/data/documents'
 import { useExtractDocument } from '@/lib/data/ocr'
+import { enregistrerObservations, type ChampAppris } from '@/lib/data/apprentissageExtraction'
 import { useCreateSite, useUpdateSitePartiel, normalizeTexte } from '@/lib/data/sites'
 import { toUpperFR } from '@/lib/textFormat'
 import { FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import type { Compte, Site } from '@/types/domain'
-import type { PdlMethode } from '@/components/compteur/PdlMethodSheet'
+
+/** Ce que le parcours affiche d'un compteur du lot, dans son rail. */
+export interface BrouillonLot {
+  cle: string
+  numeroPdl: string
+  nomFichier: string | null
+  lecture: 'en_cours' | 'erreur' | 'lue' | null
+  /** Champs obligatoires encore vides. */
+  manquants: number
+  /** Le même PDL figure déjà sur un autre compteur du lot — deux factures du même compteur. */
+  enDouble: boolean
+  statut: PdlDraft['status']
+  /** Quelque chose a été déposé ou saisi sur ce compteur : le perdre en fermant coûterait. */
+  entame: boolean
+}
+
+/** Les champs dont la moindre saisie fait d'un brouillon un travail à ne pas perdre. Le responsable
+ *  n'y est pas : il peut être posé d'avance, sans que personne ait rien tapé. */
+const CHAMPS_SAISIS: (keyof PdlDraft)[] = [
+  'numeroPdl', 'typeEnergieId', 'libelleSite', 'adresse', 'ville', 'codePostal', 'dateEcheance',
+  'fournisseurActuelId', 'typeUtilisationId', 'segment', 'tension', 'tarifDistribution',
+  'profilConsommation', 'carMwh',
+]
+
+/** La facture d'un brouillon : gardée jusqu'à la création pour être jointe au compteur. */
+interface FactureLue {
+  fichier: File
+  enCours: boolean
+  erreur: string | null
+  /** Ce que la lecture a donné sur les champs appris, et le modèle de facture — de quoi confronter,
+   *  à la création, la lecture à ce que le commercial a retenu. */
+  lu?: Partial<Record<ChampAppris, unknown>>
+  modele?: string
+}
+
+const CHAMPS_APPRIS: ChampAppris[] = [
+  'type_energie', 'fournisseur_nom', 'segment', 'tension', 'type_utilisation',
+  'tarif_distribution', 'profil_consommation',
+]
 
 import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
 
@@ -46,15 +87,14 @@ export function CreationCompteurDialog({
   sansCadre = false,
   unParUn = false,
   onCompteurCree,
+  lot,
+  onEntame,
 }: {
   open: boolean
   onClose: () => void
   /** Compte de rattachement. Absent depuis la liste des sites : un sélecteur est alors affiché. */
   compte?: Compte
   sites: Site[]
-  /** Conservé pour les appelants : la zone de dépôt est désormais toujours visible dans le
-   *  formulaire, il n'y a plus de mode « extraction » à distinguer. */
-  methode?: PdlMethode
   /** « Nouveau site » depuis la liste des sites — même parcours, autre intitulé. */
   titre?: string
   /** Présélectionne le compte dans le sélecteur (ex. « créer un site » depuis une fiche compte). */
@@ -96,6 +136,23 @@ export function CreationCompteurDialog({
    *  `Dialog` dedans poserait un voile par-dessus le voile et une carte par-dessus la carte. On
    *  rend donc le seul formulaire, que le parcours place dans son panneau de droite. */
   sansCadre?: boolean
+  /** ══ PLUSIEURS FACTURES, PLUSIEURS COMPTEURS ══
+   *  William, 29/09/2026 : « si j'en dépose 3, alors 3 compteurs sont pré-créés avec les infos
+   *  extraites et présents dans la barre latérale gauche. Au clic sur ces compteurs, j'atterris sur
+   *  leur écran avec la facture liée et leurs données. »
+   *  Dans ce mode, le formulaire tient un LOT de brouillons : une facture déposée ouvre un compteur,
+   *  chacun est lu à part, un seul est affiché — celui que le parcours désigne (`actif`). Le rail
+   *  du parcours, qui liste le lot, reçoit son état par `onEtat`.
+   *  RIEN N'EST ÉCRIT AVANT LE BOUTON FINAL (décision de William) : un seul « Créer les N
+   *  compteurs », bloqué tant qu'un compteur du lot est incomplet. */
+  lot?: {
+    actif: string | null
+    onActif: (cle: string) => void
+    onEtat: (brouillons: BrouillonLot[]) => void
+  }
+  /** Un compteur pas encore enregistré porte une saisie ou une facture : le parcours qui accueille
+   *  ce formulaire doit alors confirmer avant de fermer (voir `useSortieParcours`). */
+  onEntame?: (entame: boolean) => void
 }) {
   const { data: energiesRef } = useReferenceTable('types_energies')
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
@@ -124,10 +181,10 @@ export function CreationCompteurDialog({
   // Champs de la facture extraits à l'étape adresse : ils servent l'adresse tout de suite, puis
   // le brouillon PDL une fois le site résolu.
   /* LE FICHIER DÉPOSÉ NE SERT PLUS SEULEMENT À LIRE. William, 24/09/2026 : « le fichier sera lié
-     aux fichiers du compteur créé ». On le garde donc jusqu'à la création, puis on le téléverse. */
-  const [facture, setFacture] = useState<File | null>(null)
-  const [factureEnCours, setFactureEnCours] = useState(false)
-  const [factureErreur, setFactureErreur] = useState<string | null>(null)
+     aux fichiers du compteur créé ». On le garde donc jusqu'à la création, puis on le téléverse.
+     UNE FACTURE PAR BROUILLON depuis le 29/09/2026 : la clé est celle du compteur qu'elle décrit. */
+  const [factures, setFactures] = useState<Record<string, FactureLue>>({})
+  const [apercu, setApercu] = useState<{ url: string; nom: string } | null>(null)
   /* Les compteurs déjà enregistrés dans cette session de saisie — voir `unParUn`. */
   const [dejaCrees, setDejaCrees] = useState<ChainedCompteur[]>([])
 
@@ -138,10 +195,10 @@ export function CreationCompteurDialog({
   /** Extraction depuis une facture : remplit l'adresse (étape en cours) et mémorise le reste pour
    * pré-remplir le brouillon PDL. On ne remplace jamais ce que l'utilisateur a déjà saisi. */
   /** Le geste complet du dépôt : garder le fichier pour le joindre, et le faire lire tout de suite. */
-  async function deposerFacture(fichier: File) {
-    setFacture(fichier)
-    setFactureErreur(null)
-    setFactureEnCours(true)
+  async function deposerFacture(cle: string, fichier: File) {
+    const suivre = (patch: Partial<FactureLue>) =>
+      setFactures((prev) => (prev[cle] ? { ...prev, [cle]: { ...prev[cle], ...patch } } : prev))
+    setFactures((prev) => ({ ...prev, [cle]: { fichier, enCours: true, erreur: null } }))
     try {
       const resultat = await extraire.mutateAsync(fichier)
       /* ══ LE SERVICE RÉPOND « INDISPONIBLE » AVEC UN CODE 200 ══
@@ -150,22 +207,42 @@ export function CreationCompteurDialog({
          de ne rien faire — un dépôt sans effet passait pour un dépôt réussi. C'est ce qui est
          arrivé à William le 24/09/2026. On regarde désormais le contenu, pas le code HTTP. */
       if (resultat.extracted && Object.keys(resultat.extracted).length > 0) {
-        handleFactureExtraite(resultat.extracted)
+        handleFactureExtraite(cle, resultat.extracted)
+        const champs = resultat.extracted
+        /* LA LECTURE D'ORIGINE, pas celle qu'une leçon a corrigée : c'est elle que le commercial
+           confirme ou corrige, et c'est ce qui dira si la leçon tient. */
+        const lu = Object.fromEntries(CHAMPS_APPRIS.map((k) => [k, champs[k] && 'lu' in champs[k] ? champs[k].lu : champs[k]?.value ?? null]))
+        suivre({ enCours: false, lu, modele: resultat.modele ?? '' })
       } else {
-        setFactureErreur(resultat.error ?? 'Aucun champ n’a pu être lu dans ce document.')
+        suivre({ enCours: false, erreur: resultat.error ?? 'Aucun champ n’a pu être lu dans ce document.' })
       }
     } catch (e) {
-      setFactureErreur(e instanceof Error ? e.message : 'Lecture impossible.')
-    } finally {
-      setFactureEnCours(false)
+      suivre({ enCours: false, erreur: e instanceof Error ? e.message : 'Lecture impossible.' })
     }
   }
 
-  function handleFactureExtraite(fields: Record<string, ExtractedField>) {
+  /** ══ LE DÉPÔT D'UN LOT ══
+   *  La première facture va au compteur affiché ; chacune des suivantes ouvre un compteur neuf,
+   *  rangé juste après, et se lit en même temps que les autres. On reste sur le compteur affiché :
+   *  les autres se remplissent dans le rail pendant qu'on vérifie celui-ci. */
+  function deposerFactures(cle: string, fichiers: File[]) {
+    const [premiere, ...suivantes] = lot ? fichiers : fichiers.slice(0, 1)
+    if (!premiere) return
+    void deposerFacture(cle, premiere)
+    if (suivantes.length === 0) return
+    const nouveaux = suivantes.map(() => emptyPdlDraft(responsableDuLot(cle)))
+    setDrafts((prev) => {
+      const i = prev.findIndex((d) => d.key === cle)
+      return [...prev.slice(0, i + 1), ...nouveaux, ...prev.slice(i + 1)]
+    })
+    nouveaux.forEach((d, i) => void deposerFacture(d.key, suivantes[i]))
+  }
+
+  function handleFactureExtraite(cle: string, fields: Record<string, ExtractedField>) {
     const val = (k: string) => (fields[k]?.value == null ? '' : String(fields[k].value).trim())
     setDrafts((prev) =>
-      prev.map((d, i) => {
-        if (i !== 0) return d
+      prev.map((d) => {
+        if (d.key !== cle) return d
         return {
           ...d,
           ...applyExtractionToDraft(d, fields, energies, fournisseurs, utilisationsRef ?? []),
@@ -180,18 +257,110 @@ export function CreationCompteurDialog({
   }
 
   // Un brouillon non encore créé auquel il manque un champ requis bloque l'enregistrement (Tools).
-  const draftsIncomplets = drafts.some((d) => {
-    if (d.status === 'saved' || d.status === 'saving') return false
+  const manquantsDe = (d: PdlDraft) => {
+    if (d.status === 'saved' || d.status === 'saving') return 0
     const code = energies.find((e) => e.id === d.typeEnergieId)?.code?.toLowerCase()
-    return champsPdlManquants(d, code !== 'gaz').size > 0
-  })
+    return champsPdlManquants(d, code !== 'gaz').size
+  }
+  /* DEUX FACTURES DU MÊME COMPTEUR (deux mois différents, par exemple) donneraient deux fois le même
+     PDL. On le signale et on bloque : le second serait refusé à l'enregistrement, après le premier. */
+  const numerosEnDouble = useMemo(() => {
+    const vus = new Map<string, number>()
+    for (const d of drafts) {
+      const n = d.numeroPdl.replace(/\s+/g, '').toUpperCase()
+      if (n) vus.set(n, (vus.get(n) ?? 0) + 1)
+    }
+    return new Set([...vus].filter(([, k]) => k > 1).map(([n]) => n))
+  }, [drafts])
+  const estEnDouble = (d: PdlDraft) => numerosEnDouble.has(d.numeroPdl.replace(/\s+/g, '').toUpperCase())
+  const draftsIncomplets = drafts.some((d) => manquantsDe(d) > 0 || (d.status !== 'saved' && estEnDouble(d)))
+  const lectureEnCours = Object.values(factures).some((f) => f.enCours)
+  const aCompleter = drafts.filter((d) => manquantsDe(d) > 0 || (d.status !== 'saved' && estEnDouble(d))).length
+
+  /* ══ LE COMPTEUR AFFICHÉ ══
+     Celui que le parcours désigne ; à défaut — au premier affichage, ou juste après en avoir retiré
+     un — le premier du lot. */
+  const cleActive = lot ? (drafts.some((d) => d.key === lot.actif) ? lot.actif! : drafts[0]?.key) : null
+  const affiches = lot ? drafts.filter((d) => d.key === cleActive) : drafts
+
+  /* LE RAIL SUIT LE LOT. Le rappel passe par une référence : l'objet `lot` est recréé à chaque rendu
+     du parcours, et le mettre en dépendance ferait tourner l'effet en boucle. */
+  const lotRef = useRef(lot)
+  lotRef.current = lot
+  const onEntameRef = useRef(onEntame)
+  onEntameRef.current = onEntame
+  useEffect(() => {
+    const etat: BrouillonLot[] = drafts.map((d) => {
+      const f = factures[d.key]
+      return {
+        cle: d.key,
+        numeroPdl: d.numeroPdl.trim(),
+        nomFichier: f?.fichier.name ?? null,
+        lecture: !f ? null : f.enCours ? 'en_cours' : f.erreur ? 'erreur' : 'lue',
+        manquants: manquantsDe(d),
+        enDouble: d.status !== 'saved' && estEnDouble(d),
+        statut: d.status,
+        entame: Boolean(f) || CHAMPS_SAISIS.some((k) => String(d[k] ?? '').trim() !== ''),
+      }
+    })
+    lotRef.current?.onEtat(etat)
+    onEntameRef.current?.(etat.some((b) => b.statut !== 'saved' && b.entame))
+    // `manquantsDe` et `estEnDouble` ne lisent que `drafts`, `energies` et `numerosEnDouble`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drafts, factures, energies, numerosEnDouble])
+
+  /* LE RESPONSABLE SE REPREND D'UN COMPTEUR À L'AUTRE : la facture ne le donne pas, et trois
+     factures d'un même client ont presque toujours le même interlocuteur. Pré-rempli, pas imposé —
+     le sélecteur reste ouvert sur chaque compteur. */
+  function responsableDuLot(cle: string | null) {
+    return drafts.find((d) => d.key === cle)?.responsableContactId || responsableParDefautId
+  }
+
+  function ajouterAuLot() {
+    const d = emptyPdlDraft(responsableDuLot(cleActive))
+    setDrafts((prev) => [...prev, d])
+    lot?.onActif(d.key)
+  }
+
+  function retirerDuLot(cle: string) {
+    const i = drafts.findIndex((d) => d.key === cle)
+    const voisin = drafts[i + 1] ?? drafts[i - 1]
+    setDrafts((prev) => prev.filter((d) => d.key !== cle))
+    setFactures((prev) => {
+      const reste = { ...prev }
+      delete reste[cle]
+      return reste
+    })
+    if (voisin) lot?.onActif(voisin.key)
+  }
+
+  /* LA FACTURE SE REGARDE AVANT D'ÊTRE ENVOYÉE : elle n'est encore qu'un fichier de l'ordinateur,
+     on la montre donc par une adresse locale, libérée à la fermeture de la visionneuse. */
+  function voirFacture(fichier: File) {
+    setApercu({ url: URL.createObjectURL(fichier), nom: fichier.name })
+  }
+  function fermerApercu() {
+    if (apercu) URL.revokeObjectURL(apercu.url)
+    setApercu(null)
+  }
+
+  const factureDe = (cle: string): FactureDuBrouillon => {
+    const f = factures[cle]
+    return {
+      nom: f?.fichier.name ?? null,
+      enCours: f?.enCours ?? false,
+      erreur: f?.erreur ?? null,
+      onFichiers: (fichiers) => deposerFactures(cle, fichiers),
+      plusieurs: Boolean(lot),
+      onVoir: f ? () => voirFacture(f.fichier) : undefined,
+    }
+  }
 
   function reset() {
     setDrafts([emptyPdlDraft(responsableParDefautId)])
     setSubmitting(false)
     setCreatedCompteurs(null)
-    setFacture(null)
-    setFactureErreur(null)
+    setFactures({})
   }
 
   function patchDraft(key: string, patch: Partial<PdlDraft>) {
@@ -297,6 +466,28 @@ export function CreationCompteurDialog({
         /* LA FACTURE REJOINT LE COMPTEUR. Sans `await` bloquant l'enregistrement : le PDL est ce
            qu'on est venu créer, le fichier est un enrichissement. Un échec de téléversement ne doit
            pas faire croire que le compteur n'existe pas. */
+        /* CE QUE LE COMMERCIAL A RETENU NOURRIT LA LECTURE SUIVANTE. Voir `apprentissageExtraction`. */
+        const lue = factures[d.key]
+        if (lue?.lu) {
+          const estElec = typeEnergie === 'electricite'
+          void enregistrerObservations({
+            compteurId: result.compteur.id,
+            modele: lue.modele ?? '',
+            lu: lue.lu,
+            retenu: {
+              type_energie: typeEnergie,
+              fournisseur_nom: fournisseur?.nom ?? null,
+              ...(estElec
+                ? {
+                    segment: d.segment,
+                    tension: d.tension,
+                    type_utilisation: (utilisationsRef ?? []).find((u) => u.id === d.typeUtilisationId)?.code ?? null,
+                  }
+                : { tarif_distribution: d.tarifDistribution, profil_consommation: d.profilConsommation }),
+            },
+          }).catch(() => {})
+        }
+        const facture = lue?.fichier
         if (facture) {
           void televerser
             .mutateAsync({
@@ -335,8 +526,7 @@ export function CreationCompteurDialog({
            les précédents, pas ce formulaire. */
         setDejaCrees(tous)
         setDrafts([emptyPdlDraft(responsableParDefautId)])
-            setFacture(null)
-        setFactureErreur(null)
+        setFactures({})
         return
       }
       if (onCrees) onCrees(tous)
@@ -414,7 +604,7 @@ export function CreationCompteurDialog({
           responsable. Même moteur de lecture, une étape de moins. */}
       <form onSubmit={handleSubmitPdl} className={cn('space-y-4 overflow-y-auto pr-1', sansCadre ? 'min-h-0 flex-1' : 'max-h-[70vh]')}>
           <PdlDraftRows
-            drafts={drafts}
+            drafts={affiches}
             onChange={patchDraft}
             onRemove={(key) => setDrafts((prev) => prev.filter((d) => d.key !== key))}
             energies={energies}
@@ -427,14 +617,35 @@ export function CreationCompteurDialog({
             existingCompteurs={compteurs ?? []}
             sites={sites}
             responsableParDefautId={responsableParDefautId}
-            facture={{ nom: facture?.name ?? null, enCours: factureEnCours, erreur: factureErreur, onFichier: (f) => void deposerFacture(f) }}
+            facture={factureDe}
           />
           <div className="flex items-center gap-2 border-t border-km-line pt-3">
             {/* ══ « AJOUTER UN COMPTEUR » ENREGISTRE CELUI-CI D'ABORD ══
                 C'est ce qui range le précédent dans le rail et rend l'écran au suivant. Il obéit
                 donc aux mêmes conditions que l'enregistrement : un compteur incomplet ne se range
                 nulle part. */}
-            {unParUn && (
+            {lot && (
+              <>
+                <Button type="button" variant="outline" disabled={submitting} onClick={ajouterAuLot}>
+                  <Plus className="h-3.5 w-3.5" /> Ajouter un compteur
+                </Button>
+                {drafts.length > 1 && cleActive && affiches[0]?.status !== 'saved' && (
+                  <button
+                    type="button"
+                    onClick={() => retirerDuLot(cleActive)}
+                    className="text-[11.5px] font-semibold text-km-muted hover:text-km-red"
+                  >
+                    <Trash2 className="mr-1 inline h-[13px] w-[13px]" />Retirer ce compteur
+                  </button>
+                )}
+                {drafts.length > 1 && aCompleter > 0 && (
+                  <span className="text-km-label text-km-muted">
+                    {aCompleter} à compléter — voir le volet de gauche
+                  </span>
+                )}
+              </>
+            )}
+            {unParUn && !lot && (
               <Button
                 type="button"
                 variant="outline"
@@ -451,12 +662,17 @@ export function CreationCompteurDialog({
             )}
             <span className="flex-1" />
             <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Fermer</Button>
-            <Button type="submit" disabled={submitting || draftsIncomplets || drafts.every((d) => d.status === 'saved')}>
-              {libelleValidation ?? (drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL')}
+            <Button type="submit" disabled={submitting || draftsIncomplets || lectureEnCours || drafts.every((d) => d.status === 'saved')}>
+              {lot
+                ? (drafts.length > 1 ? `Créer les ${drafts.length} compteurs` : 'Créer le compteur')
+                : libelleValidation ?? (drafts.length > 1 ? `Créer les ${drafts.length} PDL` : 'Créer le PDL')}
             </Button>
           </div>
       </form>
       </div>
+      )}
+      {apercu && (
+        <FenetreApercu document={{ id: 'facture-locale', nom: apercu.nom, nom_fichier: apercu.nom, url: apercu.url }} onFermer={fermerApercu} />
       )}
     </>
   )
