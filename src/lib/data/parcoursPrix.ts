@@ -214,7 +214,65 @@ export interface RecoChoisissable {
   /** Le SIRET du compte : c'est par lui qu'une demande Tradeo retrouve son dossier. */
   siret: string | null
   ecriture: boolean
+  /** Le mandat des compteurs de la version courante : voir `mandatDesDossiers`. */
+  mandat: MandatDuDossier
 }
+
+/**
+ * LE MANDAT D'UN DOSSIER, EN UN MOT. Naoëlle, 29/09/2026 : « à chaque fois qu'on cherche un compte
+ * avec ses recommandations ou ses versions, que le mandat est actif, pour rassurer William et
+ * Michel ». On regarde les compteurs de la version COURANTE — ceux qu'on enverrait à Tradeo — par la
+ * même vue que le serveur (`v_compteurs_mandat_actif`).
+ *
+ *   ACTIF          tous couverts        → on peut demander des prix
+ *   PARTIEL        une partie seulement → seuls ceux-là partiront
+ *   AUCUN          aucun                → pas le droit de demander
+ *   SANS_COMPTEUR  version vide, ou pas de version
+ */
+export interface MandatDuDossier {
+  etat: 'ACTIF' | 'PARTIEL' | 'AUCUN' | 'SANS_COMPTEUR'
+  couverts: number
+  total: number
+  /** La référence et la fin du mandat qui couvre le plus de compteurs. */
+  reference: string | null
+  fin: string | null
+}
+
+async function mandatDesDossiers(recoIds: string[]): Promise<Map<string, MandatDuDossier>> {
+  const sortie = new Map<string, MandatDuDossier>()
+  if (recoIds.length === 0) return sortie
+  const { data: versions } = await supabase
+    .from('versions_recommandation')
+    .select('recommandation_id, compteurs:versions_recommandation_compteurs(compteur_id, actif)')
+    .eq('version_actuelle', true)
+    .in('recommandation_id', recoIds)
+  const parReco = new Map<string, string[]>()
+  for (const v of (versions ?? []) as unknown as { recommandation_id: string; compteurs: { compteur_id: string; actif: boolean | null }[] }[]) {
+    parReco.set(v.recommandation_id, v.compteurs.filter((c) => c.actif !== false).map((c) => c.compteur_id))
+  }
+  const tous = [...new Set([...parReco.values()].flat())]
+  const { data: mandats } = tous.length
+    ? await supabase.from('v_compteurs_mandat_actif').select('compteur_id, mandat_reference, date_fin_validite').in('compteur_id', tous)
+    : { data: [] }
+  const parCompteur = new Map(((mandats ?? []) as { compteur_id: string; mandat_reference: string | null; date_fin_validite: string | null }[]).map((m) => [m.compteur_id, m]))
+  for (const id of recoIds) {
+    const compteurs = parReco.get(id) ?? []
+    const couverts = compteurs.map((c) => parCompteur.get(c)).filter((m): m is NonNullable<typeof m> => Boolean(m))
+    const compte = new Map<string, { n: number; fin: string | null }>()
+    for (const m of couverts) compte.set(m.mandat_reference ?? '', { n: (compte.get(m.mandat_reference ?? '')?.n ?? 0) + 1, fin: m.date_fin_validite })
+    const principal = [...compte.entries()].sort((a, b) => b[1].n - a[1].n)[0]
+    sortie.set(id, {
+      etat: compteurs.length === 0 ? 'SANS_COMPTEUR' : couverts.length === compteurs.length ? 'ACTIF' : couverts.length === 0 ? 'AUCUN' : 'PARTIEL',
+      couverts: couverts.length,
+      total: compteurs.length,
+      reference: principal?.[0] || null,
+      fin: principal?.[1].fin ?? null,
+    })
+  }
+  return sortie
+}
+
+const SANS_MANDAT_CONNU: MandatDuDossier = { etat: 'SANS_COMPTEUR', couverts: 0, total: 0, reference: null, fin: null }
 
 export function useRecommandationsPourParcours() {
   return useQuery({
@@ -231,14 +289,16 @@ export function useRecommandationsPourParcours() {
       if (essai.error) throw new Error(essai.error.message)
       if (ouvertes.error) throw new Error(ouvertes.error.message)
       const liste: RecoChoisissable[] = ((essai.data ?? []) as unknown as { id: string; nom: string; compte_id: string; compte: { nom: string; siret: string | null } | null }[])
-        .map((r) => ({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, siret: r.compte?.siret ?? null, ecriture: true }))
+        .map((r) => ({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, siret: r.compte?.siret ?? null, ecriture: true, mandat: SANS_MANDAT_CONNU }))
       const vus = new Set(liste.map((r) => r.id))
       for (const r of (ouvertes.data ?? []) as unknown as { id: string; nom: string; compte_id: string | null; compte: { nom: string; siret: string | null } | null }[]) {
         if (vus.has(r.id)) continue
         vus.add(r.id)
-        liste.push({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, siret: r.compte?.siret ?? null, ecriture: r.compte_id === COMPTE_D_ESSAI_ID })
+        liste.push({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, siret: r.compte?.siret ?? null, ecriture: r.compte_id === COMPTE_D_ESSAI_ID, mandat: SANS_MANDAT_CONNU })
       }
       liste.sort((a, b) => Number(b.ecriture) - Number(a.ecriture) || `${a.compte_nom ?? ''}${a.nom}`.localeCompare(`${b.compte_nom ?? ''}${b.nom}`, 'fr'))
+      const mandats = await mandatDesDossiers(liste.map((r) => r.id))
+      for (const r of liste) r.mandat = mandats.get(r.id) ?? { etat: 'SANS_COMPTEUR', couverts: 0, total: 0, reference: null, fin: null }
       return liste
     },
   })

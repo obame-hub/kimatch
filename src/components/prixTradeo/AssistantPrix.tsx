@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/form'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { useRecommandation } from '@/lib/data/recommandations'
 import { useCompteurs } from '@/lib/data/compteurs'
-import { useRecommandationsPourParcours } from '@/lib/data/parcoursPrix'
+import { useRecommandationsPourParcours, type MandatDuDossier } from '@/lib/data/parcoursPrix'
+import { Badge } from '@/components/ui/badge'
 import { CotationWizard } from '@/components/recommandation/DialoguesReco'
 import { ParcoursVersion } from '@/components/parcoursPrix/ParcoursVersion'
 import { cn } from '@/lib/utils'
@@ -79,6 +80,7 @@ export function AssistantPrix({ onFermer, siretInitial }: { onFermer: () => void
                 {duSiret.map((r) => (
                   <button key={r.id} type="button" onClick={() => choisir(r.id)} className="rounded-km border border-km-line px-3 py-2 text-left text-km-body hover:border-km-green">
                     <span className="font-semibold">{r.compte_nom}</span> <span className="text-km-muted">· {r.nom}</span>
+                    <span className="mt-1 block"><PastilleMandat mandat={r.mandat} /></span>
                   </button>
                 ))}
               </div>
@@ -92,10 +94,12 @@ export function AssistantPrix({ onFermer, siretInitial }: { onFermer: () => void
             onChoisir={(r) => (r ? choisir(r.id) : setRecoId(''))}
             placeholder="Tapez le nom du client ou du dossier…"
             principal={(r) => r.compte_nom ?? r.nom}
-            secondaire={(r) => (r.ecriture ? 'dossier d’essai' : r.nom)}
+            secondaire={(r) => `${texteMandat(r.mandat)} · ${r.ecriture ? 'dossier d’essai' : r.nom}`}
             filtre={(r, q) => `${r.compte_nom ?? ''} ${r.nom}`.toLowerCase().includes(q)}
             totalLibelle={`${recos?.length ?? '…'} dossiers ouverts`}
           />
+
+          {choisie && <p className="mt-2"><PastilleMandat mandat={choisie.mandat} detaillee /></p>}
 
           {recoId && isLoading && <p className="mt-3 flex items-center gap-2 text-km-muted"><Loader2 className="h-4 w-4 animate-spin" /> Lecture du dossier…</p>}
 
@@ -142,4 +146,29 @@ export function AssistantPrix({ onFermer, siretInitial }: { onFermer: () => void
       {wizard && reco && <CotationWizard open onClose={() => setWizard(false)} reco={reco} onCree={(id) => { setVersionId(id); setWizard(false) }} />}
     </Dialog>
   )
+}
+
+/**
+ * LE MANDAT, VISIBLE DÈS LA RECHERCHE. Naoëlle, 29/09/2026 : « pour rassurer William et Michel ».
+ * Le mandat est l'autorisation du client : sans lui, on n'a pas le droit de demander des prix.
+ */
+function texteMandat(m: MandatDuDossier): string {
+  if (m.etat === 'ACTIF') return '✓ mandat actif'
+  if (m.etat === 'PARTIEL') return `mandat sur ${m.couverts}/${m.total} compteurs`
+  if (m.etat === 'AUCUN') return '✗ sans mandat actif'
+  return 'aucun compteur'
+}
+
+function PastilleMandat({ mandat, detaillee = false }: { mandat: MandatDuDossier; detaillee?: boolean }) {
+  const fin = mandat.fin ? ` jusqu’au ${new Date(`${mandat.fin}T12:00:00`).toLocaleDateString('fr-FR')}` : ''
+  if (mandat.etat === 'ACTIF') {
+    return <Badge tone="green">✓ Mandat actif{detaillee && mandat.reference ? ` · ${mandat.reference}${fin}` : ''}</Badge>
+  }
+  if (mandat.etat === 'PARTIEL') {
+    return <Badge tone="amber">Mandat actif sur {mandat.couverts} compteur{mandat.couverts > 1 ? 's' : ''} sur {mandat.total}{detaillee ? ' : seuls ceux-là partiront chez Tradeo' : ''}</Badge>
+  }
+  if (mandat.etat === 'AUCUN') {
+    return <Badge tone="red">✗ Sans mandat actif{detaillee ? ' : on ne peut pas demander de prix à Tradeo' : ''}</Badge>
+  }
+  return <Badge>Aucun compteur dans la version</Badge>
 }
