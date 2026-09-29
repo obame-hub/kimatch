@@ -295,13 +295,21 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
                 </div>
               )}
               <div className="grid min-h-0 grid-cols-2 content-start gap-[9px] overflow-y-auto pr-1">
+                {/* UN CHOIX UNIQUE, UN SEUL CLIC — William, 29/09/2026 : « c'est un choix unique donc le
+                    clic doit faire passer à l'étape suivante ». « Continuer » ne reste que pour
+                    valider un signataire déjà posé (repris de l'opportunité, ou seul du compte). */}
                 {contactsAffiches.map((c) => (
-                  <CarteSignataire key={c.id} contact={c} choisi={c.id === signataireId} onChoisir={() => setSignataireId(c.id)} />
+                  <CarteSignataire
+                    key={c.id}
+                    contact={c}
+                    choisi={c.id === signataireId}
+                    onChoisir={() => { setSignataireId(c.id); setEtape('perimetre') }}
+                  />
                 ))}
                 {compte && (
                   <button
                     type="button"
-                    onClick={() => creerUnContact({ compte: { id: compte.id, nom: compte.nom }, onCree: (ct) => setSignataireId(ct.id) })}
+                    onClick={() => creerUnContact({ compte: { id: compte.id, nom: compte.nom }, onCree: (ct) => { setSignataireId(ct.id); setEtape('perimetre') } })}
                     className="flex min-h-[74px] items-center justify-center gap-2 rounded-[12px] border border-dashed border-km-line text-[12.5px] font-semibold text-km-muted transition-colors hover:border-km-green hover:text-km-green"
                   >
                     <UserPlus className="h-4 w-4" /> Créer un contact
@@ -449,6 +457,11 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
                       <span className="truncate text-[11.5px] text-km-muted">
                         {retenus.length} compteur{retenus.length > 1 ? 's' : ''} · {nomCompte}
                       </span>
+                      {!signataire.email && (
+                        <span className="flex items-center gap-1 text-[11px] font-semibold text-km-red">
+                          <AlertTriangle className="h-3 w-3" /> Sans courriel, la signature ne partira pas
+                        </span>
+                      )}
                     </div>
                     <button type="button" onClick={() => setEtape('signataire')} className="shrink-0 text-[11.5px] font-semibold text-km-green hover:underline">
                       Modifier
