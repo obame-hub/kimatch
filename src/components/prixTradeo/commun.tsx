@@ -50,18 +50,6 @@ export function Verdict({ reponse, succes }: { reponse: ReponseBanc | null; succ
   )
 }
 
-export function Manques({ liste }: { liste: string[] }) {
-  if (liste.length === 0) return null
-  return (
-    <div className="mt-3 rounded-km bg-km-amber-soft px-3 py-2 text-km-body text-km-amber">
-      <p className="font-semibold">Tradeo refusera la demande en l’état :</p>
-      <ul className="mt-1 list-disc pl-5">
-        {liste.map((m) => <li key={m}>{m}</li>)}
-      </ul>
-    </div>
-  )
-}
-
 export function Aide({ children }: { children: ReactNode }) {
   return <p className="mb-3 max-w-[760px] text-km-body text-km-muted">{children}</p>
 }
