@@ -45,6 +45,7 @@ export function ParcoursVersion({
   compteurs,
   peutModifier,
   signaler,
+  avant,
 }: {
   reco: Recommandation
   version: VersionRecommandation
@@ -52,6 +53,11 @@ export function ParcoursVersion({
   compteurs: Compteur[]
   peutModifier: boolean
   signaler?: (message: string) => void
+  /**
+   * Les étapes qui précèdent, quand le parcours suit un autre assistant (le dossier, puis Tradeo) :
+   * la frise les montre faites, et « Retour » depuis la première étape y ramène.
+   */
+  avant?: { titres: string[]; onRetour: () => void }
 }) {
   const [etape, setEtape] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
@@ -71,10 +77,10 @@ export function ParcoursVersion({
       {!peutModifier && (
         <p className="mb-3 rounded-km bg-km-amber-soft px-3 py-2 text-km-label text-km-amber">Lecture seule : vous pouvez tout regarder, rien ne sera enregistré.</p>
       )}
-      <EnteteEtapes titres={TITRES} courante={etape} />
+      <EnteteEtapes titres={[...(avant?.titres ?? []), ...TITRES]} courante={(avant?.titres.length ?? 0) + etape} />
       {message && !signaler && <p className="mb-3 rounded-km bg-km-green-soft px-3 py-2 text-km-body text-km-green">{message}</p>}
 
-      {etape === 0 && <EtapeVersion version={version} parId={parId} peutModifier={peutModifier} dire={dire} onSuivant={() => setEtape(1)} />}
+      {etape === 0 && <EtapeVersion version={version} parId={parId} peutModifier={peutModifier} dire={dire} onRetour={avant?.onRetour} onSuivant={() => setEtape(1)} />}
 
       {etape === 1 && (
         <>
@@ -128,7 +134,7 @@ export function ParcoursVersion({
 
 /* ── 1. La version ───────────────────────────────────────────────────────────────────────────── */
 
-function EtapeVersion({ version, parId, peutModifier, dire, onSuivant }: { version: VersionRecommandation; parId: Map<string, Compteur>; peutModifier: boolean; dire: (m: string) => void; onSuivant: () => void }) {
+function EtapeVersion({ version, parId, peutModifier, dire, onRetour, onSuivant }: { version: VersionRecommandation; parId: Map<string, Compteur>; peutModifier: boolean; dire: (m: string) => void; onRetour?: () => void; onSuivant: () => void }) {
   const maj = useMajDateDebutFourniture()
   const echeances = version.compteurs.map((l) => parId.get(l.compteur_id)?.date_echeance).filter((d): d is string => Boolean(d)).sort()
   const proposee = echeances[0] ? lendemain(echeances[0]) : null
@@ -166,7 +172,7 @@ function EtapeVersion({ version, parId, peutModifier, dire, onSuivant }: { versi
           ) : (version.date_debut_fourniture ? fr(version.date_debut_fourniture) : <span className="text-km-muted">non renseigné</span>)}
         </Ligne>
       </div>
-      <PiedAssistant>
+      <PiedAssistant onRetour={onRetour}>
         <Button variant="primary" onClick={onSuivant}>Suivant</Button>
       </PiedAssistant>
     </>

@@ -211,6 +211,8 @@ export interface RecoChoisissable {
   nom: string
   compte_nom: string | null
   compte_id: string | null
+  /** Le SIRET du compte : c'est par lui qu'une demande Tradeo retrouve son dossier. */
+  siret: string | null
   ecriture: boolean
 }
 
@@ -220,21 +222,21 @@ export function useRecommandationsPourParcours() {
     staleTime: 60 * 1000,
     queryFn: async (): Promise<RecoChoisissable[]> => {
       const [essai, ouvertes] = await Promise.all([
-        supabase.from('recommandations').select('id, nom, compte_id, compte:comptes!recommandations_compte_id_fkey(nom)').eq('compte_id', COMPTE_D_ESSAI_ID).order('date_creation', { ascending: false }),
+        supabase.from('recommandations').select('id, nom, compte_id, compte:comptes!recommandations_compte_id_fkey(nom, siret)').eq('compte_id', COMPTE_D_ESSAI_ID).order('date_creation', { ascending: false }),
         /* TOUS LES DOSSIERS NON CLÔTURÉS, et non la seule vue du Pricing : elle écarte les versions
            closes, donc les 84 dossiers « À réactiver » — ceux qu'on relance pour redemander des prix
            (Naoëlle, 29/09/2026, sur DIMOTRANS - GT: 1 rue de FERCHAUD CREVIN). */
-        supabase.from('recommandations').select('id, nom, compte_id, compte:comptes!recommandations_compte_id_fkey(nom), etape:etapes_recommandation!inner(code)').neq('etape.code', 'CLOTUREE'),
+        supabase.from('recommandations').select('id, nom, compte_id, compte:comptes!recommandations_compte_id_fkey(nom, siret), etape:etapes_recommandation!inner(code)').neq('etape.code', 'CLOTUREE'),
       ])
       if (essai.error) throw new Error(essai.error.message)
       if (ouvertes.error) throw new Error(ouvertes.error.message)
-      const liste: RecoChoisissable[] = ((essai.data ?? []) as unknown as { id: string; nom: string; compte_id: string; compte: { nom: string } | null }[])
-        .map((r) => ({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, ecriture: true }))
+      const liste: RecoChoisissable[] = ((essai.data ?? []) as unknown as { id: string; nom: string; compte_id: string; compte: { nom: string; siret: string | null } | null }[])
+        .map((r) => ({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, siret: r.compte?.siret ?? null, ecriture: true }))
       const vus = new Set(liste.map((r) => r.id))
-      for (const r of (ouvertes.data ?? []) as unknown as { id: string; nom: string; compte_id: string | null; compte: { nom: string } | null }[]) {
+      for (const r of (ouvertes.data ?? []) as unknown as { id: string; nom: string; compte_id: string | null; compte: { nom: string; siret: string | null } | null }[]) {
         if (vus.has(r.id)) continue
         vus.add(r.id)
-        liste.push({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, ecriture: r.compte_id === COMPTE_D_ESSAI_ID })
+        liste.push({ id: r.id, nom: r.nom, compte_id: r.compte_id, compte_nom: r.compte?.nom ?? null, siret: r.compte?.siret ?? null, ecriture: r.compte_id === COMPTE_D_ESSAI_ID })
       }
       liste.sort((a, b) => Number(b.ecriture) - Number(a.ecriture) || `${a.compte_nom ?? ''}${a.nom}`.localeCompare(`${b.compte_nom ?? ''}${b.nom}`, 'fr'))
       return liste

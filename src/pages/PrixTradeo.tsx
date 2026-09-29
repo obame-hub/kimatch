@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Loader2, RefreshCw, Send, Sparkle } from 'lucide-react'
+import { ArrowRight, Loader2, RefreshCw, Sparkle } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { appelerBanc, messageErreur, useEtatTradeo, useOuvreBancTradeo, type ReponseBanc } from '@/lib/data/tradeo'
-import { AssistantDemande, type DepartDemande } from '@/components/prixTradeo/AssistantDemande'
-import { AssistantVersion } from '@/components/prixTradeo/AssistantVersion'
+import { AssistantPrix } from '@/components/prixTradeo/AssistantPrix'
 import { EtapeCalculer } from '@/components/prixTradeo/EtapeCalculer'
 import { Journal } from '@/components/prixTradeo/Journal'
 import PageIntrouvable from '@/pages/PageIntrouvable'
@@ -33,8 +32,9 @@ import PageIntrouvable from '@/pages/PageIntrouvable'
  */
 export default function PrixTradeo() {
   const { data: ouvre, isLoading } = useOuvreBancTradeo()
-  const [assistant, setAssistant] = useState<null | 'demande' | 'version'>(null)
-  const [depart, setDepart] = useState<DepartDemande | undefined>()
+  /* UN SEUL ASSISTANT (29/09/2026) : `undefined` fermé, `''` ouvert sans dossier, un SIRET ouvert
+     depuis « Vos demandes » sur les dossiers de cette société. */
+  const [assistant, setAssistant] = useState<string | undefined>()
 
   if (isLoading) return <div className="p-6 text-km-muted"><Loader2 className="h-4 w-4 animate-spin" /></div>
   if (!ouvre) return <PageIntrouvable />
@@ -47,24 +47,14 @@ export default function PrixTradeo() {
         <EtatConnexion />
         <CommentCaMarche />
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <CarteAction
-            numero={1}
-            icone={<Send className="h-5 w-5" />}
-            titre="Demander des prix à Tradeo"
-            texte="Pour récupérer les prix. On envoie le dossier du client à Tradeo ; quand son équipe l’a accepté, on reçoit les prix de ses fournisseurs."
-            onClick={() => { setDepart(undefined); setAssistant('demande') }}
-          />
-          <CarteAction
-            numero={2}
-            icone={<Sparkle className="h-5 w-5" />}
-            titre="Préparer une version"
-            texte="Pour faire la proposition au client. On reprend les prix reçus, on calcule les budgets avec notre marge, et on valide la version."
-            onClick={() => setAssistant('version')}
-          />
-        </div>
+        <CarteAction
+          icone={<Sparkle className="h-5 w-5" />}
+          titre="Préparer les prix d’un dossier"
+          texte="Choisissez un dossier : Kimatch regarde où il en est chez Tradeo, vous guide pour demander les prix, puis pour en faire la proposition au client."
+          onClick={() => setAssistant('')}
+        />
 
-        <VosDemandes onVoirPrix={(d) => { setDepart(d); setAssistant('demande') }} />
+        <VosDemandes onOuvrir={(siret) => setAssistant(siret)} />
 
         <details className="mt-6 rounded-km border border-km-line bg-km-surface">
           <summary className="cursor-pointer select-none px-4 py-3 text-km-body font-semibold text-km-muted">
@@ -77,8 +67,7 @@ export default function PrixTradeo() {
         </details>
       </div>
 
-      {assistant === 'demande' && <AssistantDemande depart={depart} onFermer={() => setAssistant(null)} />}
-      {assistant === 'version' && <AssistantVersion onFermer={() => setAssistant(null)} />}
+      {assistant !== undefined && <AssistantPrix siretInitial={assistant || undefined} onFermer={() => setAssistant(undefined)} />}
     </div>
   )
 }
@@ -91,14 +80,14 @@ export default function PrixTradeo() {
  */
 function CommentCaMarche() {
   const temps = [
-    { n: '1', titre: 'On demande les prix', texte: 'Kimatch envoie le dossier du client à Tradeo, qui consulte ses fournisseurs.' },
-    { n: '⏳', titre: 'Tradeo répond', texte: 'Son équipe accepte les compteurs, puis Tradeo renvoie le prix de chaque fournisseur.' },
-    { n: '2', titre: 'On prépare la proposition', texte: 'Kimatch calcule le budget de chaque offre avec notre marge ; on valide la version pour le client.' },
+    { n: '1', titre: 'On demande les prix', texte: 'Kimatch envoie le dossier du client à Tradeo, qui consulte ses fournisseurs. Seulement la première fois.' },
+    { n: '2', titre: 'Tradeo accepte', texte: 'Son équipe vérifie les compteurs. Ensuite, les prix arrivent quand on veut.' },
+    { n: '3', titre: 'On prépare la proposition', texte: 'Kimatch calcule le budget de chaque offre avec notre marge ; on valide la version pour le client.' },
   ]
   return (
     <section className="mb-4 rounded-km border border-km-line bg-km-surface p-4">
       <h3 className="text-km-body font-semibold text-km-text">Comment ça marche</h3>
-      <p className="mt-0.5 text-km-label text-km-muted">Le premier assistant récupère les prix ; le second les transforme en proposition pour le client.</p>
+      <p className="mt-0.5 text-km-label text-km-muted">Un seul bouton pour tout : on choisit le dossier, Kimatch dit à quelle étape il en est.</p>
       <ol className="mt-3 grid gap-3 sm:grid-cols-3">
         {temps.map((t) => (
           <li key={t.titre} className="flex gap-2.5">
@@ -114,13 +103,12 @@ function CommentCaMarche() {
   )
 }
 
-function CarteAction({ numero, icone, titre, texte, onClick }: { numero: number; icone: React.ReactNode; titre: string; texte: string; onClick: () => void }) {
+function CarteAction({ icone, titre, texte, onClick }: { icone: React.ReactNode; titre: string; texte: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="group text-left">
       <Card className="flex h-full items-start gap-3 p-4 transition-colors group-hover:border-km-green">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-km bg-km-green-soft text-km-green">{icone}</span>
         <span className="min-w-0 flex-1">
-          <span className="block text-km-label font-semibold uppercase tracking-[0.06em] text-km-green">Étape {numero}</span>
           <span className="block text-km-name font-semibold text-km-text">{titre}</span>
           <span className="mt-1 block text-km-body text-km-muted">{texte}</span>
         </span>
@@ -142,7 +130,7 @@ interface DemandeLue {
  * VOS DEMANDES : une ligne par demande, son état en clair, et la seule action utile. On ne relit pas
  * Tradeo en boucle : une lecture à l'ouverture, puis à la demande — chaque lecture est un appel.
  */
-function VosDemandes({ onVoirPrix }: { onVoirPrix: (d: DepartDemande) => void }) {
+function VosDemandes({ onOuvrir }: { onOuvrir: (siret: string) => void }) {
   const [reponse, setReponse] = useState<ReponseBanc | null>(null)
   const [lecture, setLecture] = useState(false)
   async function lire() {
@@ -184,8 +172,8 @@ function VosDemandes({ onVoirPrix }: { onVoirPrix: (d: DepartDemande) => void })
                     ? <Badge tone="green">{acceptes}/{total} accepté{acceptes > 1 ? 's' : ''}</Badge>
                     : refuses === total && total > 0 ? <Badge tone="red">refusée</Badge> : <Badge tone="amber">en attente de Tradeo</Badge>}
                   <Button size="sm" variant={acceptes > 0 ? 'primary' : 'default'}
-                    onClick={() => onVoirPrix({ demandeId: d.id, siret: d.societe?.siret ?? '', energie: d.type === 'GAZ' ? 'GAZ' : 'ELEC' })}>
-                    {acceptes > 0 ? 'Voir les prix' : 'Suivre'}
+                    onClick={() => onOuvrir(d.societe?.siret ?? '')}>
+                    {acceptes > 0 ? 'Continuer' : 'Suivre'}
                   </Button>
                 </div>
               </li>
