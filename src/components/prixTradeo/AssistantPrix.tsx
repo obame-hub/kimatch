@@ -153,8 +153,9 @@ export function AssistantPrix({ onFermer, siretInitial }: { onFermer: () => void
  * Le mandat est l'autorisation du client : sans lui, on n'a pas le droit de demander des prix.
  */
 function texteMandat(m: MandatDuDossier): string {
-  if (m.etat === 'ACTIF') return '✓ mandat actif'
-  if (m.etat === 'PARTIEL') return `mandat sur ${m.couverts}/${m.total} compteurs`
+  if (m.etat === 'ACTIF') return '✓ mandat Energix actif'
+  if (m.etat === 'PARTIEL') return `mandat Energix sur ${m.couverts}/${m.total} compteurs`
+  if (m.etat === 'KIWEE_SEUL') return '✗ mandat KiWee seulement, pas Energix'
   if (m.etat === 'AUCUN') return '✗ sans mandat actif'
   return 'aucun compteur'
 }
@@ -162,10 +163,17 @@ function texteMandat(m: MandatDuDossier): string {
 function PastilleMandat({ mandat, detaillee = false }: { mandat: MandatDuDossier; detaillee?: boolean }) {
   const fin = mandat.fin ? ` jusqu’au ${new Date(`${mandat.fin}T12:00:00`).toLocaleDateString('fr-FR')}` : ''
   if (mandat.etat === 'ACTIF') {
-    return <Badge tone="green">✓ Mandat actif{detaillee && mandat.reference ? ` · ${mandat.reference}${fin}` : ''}</Badge>
+    return <Badge tone="green">✓ Mandat Energix actif{detaillee && mandat.reference ? ` · ${mandat.reference}${fin}` : ''}</Badge>
   }
   if (mandat.etat === 'PARTIEL') {
-    return <Badge tone="amber">Mandat actif sur {mandat.couverts} compteur{mandat.couverts > 1 ? 's' : ''} sur {mandat.total}{detaillee ? ' : seuls ceux-là partiront chez Tradeo' : ''}</Badge>
+    return <Badge tone="amber">Mandat Energix sur {mandat.couverts} compteur{mandat.couverts > 1 ? 's' : ''} sur {mandat.total}{detaillee ? ' : seuls ceux-là partiront chez Tradeo' : ''}</Badge>
+  }
+  if (mandat.etat === 'KIWEE_SEUL') {
+    return (
+      <Badge tone="red">
+        ✗ Mandat KiWee seulement{detaillee ? ' : Tradeo exige son propre mandat (Energix). Faites signer un mandat Energix pour lui demander des prix.' : ''}
+      </Badge>
+    )
   }
   if (mandat.etat === 'AUCUN') {
     return <Badge tone="red">✗ Sans mandat actif{detaillee ? ' : on ne peut pas demander de prix à Tradeo' : ''}</Badge>

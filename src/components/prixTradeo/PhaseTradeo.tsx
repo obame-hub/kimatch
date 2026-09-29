@@ -58,6 +58,10 @@ export function PhaseTradeo({ versionId, avant, onContinuer }: {
   const [responsable, setResponsable] = useState<ResponsableTradeo>({ sex: '', nom: '', prenom: '', email: '', tele: '', fonction: '' })
   const [aEnvoyer, setAEnvoyer] = useState<CompteurTradeo[]>([])
   const [tous, setTous] = useState<CompteurTradeo[]>([])
+  /* LES COMPTEURS QUI NE PARTENT PAS, ET POURQUOI. Naoëlle, 29/09/2026 : « faudra l'écrire, comme ça
+     les commerciaux savent pourquoi ça s'affiche pas ». Un mandat KiWee seul n'est pas refusé en
+     silence : il est nommé, avec ce qu'il faut faire. */
+  const [exclus, setExclus] = useState<{ num: string; raison: 'KIWEE_SEUL' | 'AUCUN' }[]>([])
   const [etatParNum, setEtatParNum] = useState<Map<string, { etat: EtatCompteur; demandeId: number | null }>>(new Map())
   const [lecture, setLecture] = useState(true)
   const [action, setAction] = useState(false)
@@ -97,10 +101,14 @@ export function PhaseTradeo({ versionId, avant, onContinuer }: {
       try {
         const d = await chargerDossierKimatch(versionId)
         const couverture = await chargerMandatsActifs(d.compteurs.map((c) => c.id))
-        const liste = compteursPourTradeo(d).filter((c) => couverture.has(c.num_compteur))
+        const candidats = compteursPourTradeo(d)
+        const liste = candidats.filter((c) => couverture.get(c.num_compteur)?.energix)
+        const horsTradeo = candidats
+          .filter((c) => !couverture.get(c.num_compteur)?.energix)
+          .map((c) => ({ num: c.num_compteur || '(sans numéro)', raison: couverture.has(c.num_compteur) ? 'KIWEE_SEUL' as const : 'AUCUN' as const }))
         const s = (d.siret ?? '').replace(/\s/g, '')
         if (annule) return
-        setDossier(d); setMandats(couverture); setSiret(s); setResponsable(responsablePourTradeo(d)); setTous(liste)
+        setDossier(d); setMandats(couverture); setSiret(s); setResponsable(responsablePourTradeo(d)); setTous(liste); setExclus(horsTradeo)
         if (liste.length > 0 && /^\d{14}$/.test(s)) await lireTradeo(s, liste)
       } catch (e) {
         if (!annule) setErreur(e instanceof Error ? e.message : String(e))
@@ -168,8 +176,9 @@ export function PhaseTradeo({ versionId, avant, onContinuer }: {
 
       {!lecture && tous.length === 0 && (
         <Explication>
-          Aucun compteur de ce dossier n’est couvert par un <strong>mandat actif</strong> : sans mandat, on ne peut pas demander de prix à
-          Tradeo. Vous pouvez continuer avec les autres fournisseurs.
+          {exclus.some((e) => e.raison === 'KIWEE_SEUL')
+            ? <>Ce dossier n’a qu’un <strong>mandat KiWee</strong>. Tradeo exige <strong>son propre mandat, le mandat Energix</strong> : sans lui, il refuse de donner des prix. Faites signer un mandat Energix au client (case « Mandat Energix » de l’assistant mandat), puis revenez. En attendant, vous pouvez continuer avec les autres fournisseurs.</>
+            : <>Aucun compteur de ce dossier n’est couvert par un <strong>mandat actif</strong> : sans mandat, on ne peut pas demander de prix. Vous pouvez continuer avec les autres fournisseurs.</>}
         </Explication>
       )}
 
@@ -197,11 +206,23 @@ export function PhaseTradeo({ versionId, avant, onContinuer }: {
                 })}
               </span>
             </Ligne>
+            {exclus.length > 0 && (
+              <Ligne libelle="Ne partent pas">
+                <span className="flex flex-col gap-1">
+                  {exclus.map((e) => (
+                    <span key={e.num} className="text-km-label">
+                      <span className="font-mono">{e.num}</span>{' '}
+                      <span className="text-km-red">{e.raison === 'KIWEE_SEUL' ? '— mandat KiWee seulement : Tradeo exige un mandat Energix' : '— aucun mandat actif'}</span>
+                    </span>
+                  ))}
+                </span>
+              </Ligne>
+            )}
             {aEnvoyer.length > 0 && !corriger && (
               <>
                 <Ligne libelle="Société">{dossier?.compte_nom ?? '—'} <span className="font-mono text-km-label text-km-muted">{siret || 'SIRET manquant'}</span></Ligne>
                 <Ligne libelle="Responsable">{[responsable.sex, responsable.prenom, responsable.nom].filter(Boolean).join(' ') || '—'}{responsable.fonction ? `, ${responsable.fonction}` : ''}</Ligne>
-                <Ligne libelle="Autorisation">{acd ? <>le mandat <strong>{acd.mandat_reference}</strong> sera joint</> : <span className="text-km-amber">aucun mandat signé en PDF dans Kimatch</span>}</Ligne>
+                <Ligne libelle="Autorisation">{acd ? <>le mandat Energix <strong>{acd.mandat_reference}</strong> sera joint</> : <span className="text-km-amber">pas de PDF du mandat Energix dans Kimatch : Tradeo risque de refuser</span>}</Ligne>
                 <Ligne libelle="Période">{aEnvoyer[0] ? `du ${fr(aEnvoyer[0].dateDebut)} au ${fr(aEnvoyer[0].dateFin)}` : '—'}</Ligne>
               </>
             )}

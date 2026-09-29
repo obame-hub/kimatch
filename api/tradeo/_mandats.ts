@@ -22,6 +22,8 @@ export interface CouvertureMandat {
   numero_point: string
   mandat_reference: string | null
   document_id: string | null
+  /** Le mandat est-il aussi Energix ? Seul un mandat Energix vaut autorisation pour Tradeo. */
+  energix: boolean
 }
 
 /**
@@ -33,12 +35,13 @@ export async function couvertureMandats(utilisateur: UtilisateurAuthentifie, num
   if (propres.length === 0) return new Map()
   const liste = propres.map((n) => `"${n.replace(/"/g, '')}"`).join(',')
   const r = await fetch(
-    `${process.env.VITE_SUPABASE_URL}/rest/v1/v_compteurs_mandat_actif?select=numero_point,mandat_reference,document_id&numero_point=in.(${encodeURIComponent(liste)})`,
+    `${process.env.VITE_SUPABASE_URL}/rest/v1/v_compteurs_mandat_actif?select=numero_point,mandat_reference,document_id,energix&numero_point=in.(${encodeURIComponent(liste)})`,
     { headers: entetes(utilisateur) },
   ).catch(() => null)
   if (!r?.ok) return null
   const lignes = (await r.json()) as CouvertureMandat[]
-  return new Map(lignes.map((l) => [l.numero_point, l]))
+  /* ENERGIX SEULEMENT (29/09/2026) : un mandat KiWee n'est pas l'autorisation de Tradeo. */
+  return new Map(lignes.filter((l) => l.energix).map((l) => [l.numero_point, l]))
 }
 
 /**

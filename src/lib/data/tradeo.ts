@@ -288,6 +288,8 @@ export interface MandatDuCompteur {
   date_fin_validite: string | null
   document_id: string | null
   document_nom: string | null
+  /** Vrai si le mandat est aussi Energix — la seule autorisation que Tradeo accepte. */
+  energix: boolean
 }
 
 /**
@@ -300,7 +302,7 @@ export async function chargerMandatsActifs(compteurIds: string[]): Promise<Map<s
   if (compteurIds.length === 0) return new Map()
   const { data, error } = await supabase
     .from('v_compteurs_mandat_actif')
-    .select('compteur_id, numero_point, mandat_id, mandat_reference, date_fin_validite, document_id, document_nom')
+    .select('compteur_id, numero_point, mandat_id, mandat_reference, date_fin_validite, document_id, document_nom, energix')
     .in('compteur_id', compteurIds)
   if (error) throw new Error(error.message)
   return new Map(((data ?? []) as MandatDuCompteur[]).map((m) => [(m.numero_point ?? '').replace(/\s/g, ''), m]))

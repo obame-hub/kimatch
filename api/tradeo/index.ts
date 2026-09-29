@@ -257,7 +257,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(403).json({
         ok: false,
         code: 'SANS_MANDAT_ACTIF',
-        message: `Aucun mandat actif ne couvre ${sansMandat.join(', ')} : on n’a pas le droit d’en demander les prix.`,
+        message: `Aucun mandat Energix actif ne couvre ${sansMandat.join(', ')} : Tradeo n’accepte que son propre mandat (Energix), un mandat KiWee seul ne suffit pas.`,
         compteurs: sansMandat,
       })
       return

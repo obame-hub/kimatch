@@ -224,13 +224,17 @@ export interface RecoChoisissable {
  * Michel ». On regarde les compteurs de la version COURANTE — ceux qu'on enverrait à Tradeo — par la
  * même vue que le serveur (`v_compteurs_mandat_actif`).
  *
- *   ACTIF          tous couverts        → on peut demander des prix
- *   PARTIEL        une partie seulement → seuls ceux-là partiront
- *   AUCUN          aucun                → pas le droit de demander
+ * COUVERT VEUT DIRE MANDAT ENERGIX (Naoëlle, même jour : « s'il y a juste un mandat KiWee, ça marche
+ * pas, car c'est pas celui de Tradeo »).
+ *
+ *   ACTIF          tous sous mandat Energix → on peut demander des prix
+ *   PARTIEL        une partie seulement     → seuls ceux-là partiront
+ *   KIWEE_SEUL     mandat KiWee, pas Energix → Tradeo refusera : il faut faire signer l'Energix
+ *   AUCUN          aucun mandat actif        → pas le droit de demander
  *   SANS_COMPTEUR  version vide, ou pas de version
  */
 export interface MandatDuDossier {
-  etat: 'ACTIF' | 'PARTIEL' | 'AUCUN' | 'SANS_COMPTEUR'
+  etat: 'ACTIF' | 'PARTIEL' | 'KIWEE_SEUL' | 'AUCUN' | 'SANS_COMPTEUR'
   couverts: number
   total: number
   /** La référence et la fin du mandat qui couvre le plus de compteurs. */
@@ -252,17 +256,18 @@ async function mandatDesDossiers(recoIds: string[]): Promise<Map<string, MandatD
   }
   const tous = [...new Set([...parReco.values()].flat())]
   const { data: mandats } = tous.length
-    ? await supabase.from('v_compteurs_mandat_actif').select('compteur_id, mandat_reference, date_fin_validite').in('compteur_id', tous)
+    ? await supabase.from('v_compteurs_mandat_actif').select('compteur_id, mandat_reference, date_fin_validite, energix').in('compteur_id', tous)
     : { data: [] }
-  const parCompteur = new Map(((mandats ?? []) as { compteur_id: string; mandat_reference: string | null; date_fin_validite: string | null }[]).map((m) => [m.compteur_id, m]))
+  const parCompteur = new Map(((mandats ?? []) as { compteur_id: string; mandat_reference: string | null; date_fin_validite: string | null; energix: boolean }[]).map((m) => [m.compteur_id, m]))
   for (const id of recoIds) {
     const compteurs = parReco.get(id) ?? []
-    const couverts = compteurs.map((c) => parCompteur.get(c)).filter((m): m is NonNullable<typeof m> => Boolean(m))
+    const couverts = compteurs.map((c) => parCompteur.get(c)).filter((m): m is NonNullable<typeof m> => Boolean(m?.energix))
+    const kiwee = compteurs.filter((c) => parCompteur.get(c) && !parCompteur.get(c)!.energix).length
     const compte = new Map<string, { n: number; fin: string | null }>()
     for (const m of couverts) compte.set(m.mandat_reference ?? '', { n: (compte.get(m.mandat_reference ?? '')?.n ?? 0) + 1, fin: m.date_fin_validite })
     const principal = [...compte.entries()].sort((a, b) => b[1].n - a[1].n)[0]
     sortie.set(id, {
-      etat: compteurs.length === 0 ? 'SANS_COMPTEUR' : couverts.length === compteurs.length ? 'ACTIF' : couverts.length === 0 ? 'AUCUN' : 'PARTIEL',
+      etat: compteurs.length === 0 ? 'SANS_COMPTEUR' : couverts.length === compteurs.length ? 'ACTIF' : couverts.length > 0 ? 'PARTIEL' : kiwee > 0 ? 'KIWEE_SEUL' : 'AUCUN',
       couverts: couverts.length,
       total: compteurs.length,
       reference: principal?.[0] || null,

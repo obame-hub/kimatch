@@ -132,12 +132,12 @@ export async function recupererPrixTradeo(opts: {
   const liens = version.compteurs
     .map((l) => ({ lien: l, compteur: compteurs.get(l.compteur_id) }))
     .map((x) => ({ ...x, pdl: (x.compteur?.numero_pdl ?? '').replace(/\s/g, '') }))
-    .map((x) => ({ ...x, mandat: mandats.has(x.pdl), tradeo: mandats.has(x.pdl) ? acceptes.get(x.pdl) : undefined }))
+    .map((x) => ({ ...x, mandat: Boolean(mandats.get(x.pdl)?.energix), tradeo: mandats.get(x.pdl)?.energix ? acceptes.get(x.pdl) : undefined }))
   const sansMandat = liens.filter((x) => !x.mandat).map((x) => x.compteur?.numero_pdl ?? x.lien.label)
   const absents = liens.filter((x) => x.mandat && !x.tradeo).map((x) => x.compteur?.numero_pdl ?? x.lien.label)
   const presents = liens.filter((x) => x.tradeo)
   if (presents.length === 0 && sansMandat.length > 0 && absents.length === 0) {
-    return { ...rapport, lignes: pourToutes(`Aucun compteur de la version n’a de mandat actif (${sansMandat.join(', ')}) : on n’a pas le droit d’en demander les prix.`) }
+    return { ...rapport, lignes: pourToutes(`Aucun compteur de la version n’a de mandat Energix actif (${sansMandat.join(', ')}) : Tradeo n’accepte que son propre mandat.`) }
   }
   if (presents.length === 0) {
     return { ...rapport, lignes: pourToutes(`Aucun compteur de la version n’est accepté chez Tradeo (${absents.join(', ')}). Déclarez-les depuis l’étape « Déclarer un dossier ».`) }
@@ -212,7 +212,7 @@ export async function recupererPrixTradeo(opts: {
       ecrites += 1
     }
     if (absents.length > 0) morceaux.push(`non déclarés chez Tradeo : ${absents.join(', ')}`)
-    if (sansMandat.length > 0) morceaux.push(`sans mandat actif, non interrogés : ${sansMandat.join(', ')}`)
+    if (sansMandat.length > 0) morceaux.push(`sans mandat Energix actif, non interrogés : ${sansMandat.join(', ')}`)
     rapport.lignes.push({ offreId: offre.id, texte: morceaux.join(' · ') || 'rien à faire', ok: ecrites > 0 && ecrites === version.compteurs.length })
   }
   return rapport
