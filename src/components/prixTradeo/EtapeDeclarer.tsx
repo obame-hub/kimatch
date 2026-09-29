@@ -3,7 +3,7 @@ import { Loader2, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Label, Select } from '@/components/ui/form'
 import { Tableau, TableauTete, TableauCorps } from '@/components/ui/tableau'
-import { appelerBanc, chargerDossierKimatch, useVersionsPourTradeo, type ReponseBanc } from '@/lib/data/tradeo'
+import { appelerBanc, chargerDossierKimatch, chargerMandatsActifs, useVersionsPourTradeo, type MandatDuCompteur, type ReponseBanc } from '@/lib/data/tradeo'
 import {
   compteursPourTradeo,
   manquesDemande,
@@ -39,6 +39,10 @@ export function EtapeDeclarer({ versionInitiale, onChoix, onCree }: {
   const [responsable, setResponsable] = useState<ResponsableTradeo>({ sex: '', nom: '', prenom: '', email: '', tele: '', fonction: '' })
   const [compteurs, setCompteurs] = useState<CompteurTradeo[]>([])
   const [acd, setAcd] = useState<File | null>(null)
+  /* LE MANDAT DE CHAQUE COMPTEUR (29/09/2026). Seuls les compteurs couverts entrent dans la
+     demande ; les autres sont listés à part, avec la raison. `api/tradeo` refait le contrôle. */
+  const [mandats, setMandats] = useState<Map<string, MandatDuCompteur>>(new Map())
+  const [sansMandat, setSansMandat] = useState<string[]>([])
 
   const [confirmer, setConfirmer] = useState(false)
   const [envoi, setEnvoi] = useState(false)
@@ -69,7 +73,12 @@ export function EtapeDeclarer({ versionInitiale, onChoix, onCree }: {
       setDossier(d)
       setSiret((d.siret ?? '').replace(/\s/g, ''))
       setResponsable(responsablePourTradeo(d))
-      setCompteurs(compteursPourTradeo(d))
+      const couverture = await chargerMandatsActifs(d.compteurs.map((c) => c.id))
+      const tous = compteursPourTradeo(d)
+      setMandats(couverture)
+      setCompteurs(tous.filter((c) => couverture.has(c.num_compteur)))
+      setSansMandat(tous.filter((c) => !couverture.has(c.num_compteur)).map((c) => c.num_compteur || '(sans numéro)'))
+      setAcd(null)
     } catch (err) {
       setErreurChargement(err instanceof Error ? err.message : String(err))
     } finally {
@@ -77,13 +86,33 @@ export function EtapeDeclarer({ versionInitiale, onChoix, onCree }: {
     }
   }
 
-  const manques = dossier ? manquesDemande(siret, responsable, compteurs) : []
+  const manques = dossier
+    ? [
+        ...manquesDemande(siret, responsable, compteurs),
+        // Un numéro modifié à la main peut sortir du mandat : on le redit ici, le serveur le refuserait.
+        ...compteurs.filter((c) => !mandats.has(c.num_compteur)).map((c) => `${c.num_compteur || '(vide)'} : aucun mandat actif ne couvre ce compteur.`),
+      ]
+    : []
+
+  /* LE PDF DU MANDAT, JOINT D'OFFICE COMME ACD. Tradeo n'en prend qu'un par demande : celui qui
+     couvre le plus de compteurs déclarés. Un fichier choisi à la main l'emporte. */
+  const acdAuto = useMemo(() => {
+    const parDocument = new Map<string, { m: MandatDuCompteur; n: number }>()
+    for (const c of compteurs) {
+      const m = mandats.get(c.num_compteur)
+      if (!m?.document_id) continue
+      const avant = parDocument.get(m.document_id)
+      parDocument.set(m.document_id, { m, n: (avant?.n ?? 0) + 1 })
+    }
+    return [...parDocument.values()].sort((a, b) => b.n - a.n)
+  }, [compteurs, mandats])
 
   async function envoyer() {
     setEnvoi(true)
     setConfirmer(false)
     const fichiers = acd ? { ACD: await lireFichier(acd) } : undefined
     const r = await appelerBanc('creer_demande', {
+      ...(!acd && acdAuto[0] ? { acd_document_id: acdAuto[0].m.document_id } : {}),
       compteurs: compteurs.map((c) => ({ ...c, site: c.site || undefined })),
       dataSociete: { siret },
       dataResponsable: responsable,
@@ -170,10 +199,16 @@ export function EtapeDeclarer({ versionInitiale, onChoix, onCree }: {
           </section>
 
           <section>
-            <h4 className="mb-2 text-km-name font-semibold text-km-text">Compteurs ({compteurs.length})</h4>
+            <h4 className="mb-2 text-km-name font-semibold text-km-text">Compteurs sous mandat actif ({compteurs.length})</h4>
+            {sansMandat.length > 0 && (
+              <p className="mb-2 rounded-km bg-km-red-soft px-3 py-2 text-km-body text-km-red">
+                Hors de la demande, faute de mandat actif : <span className="font-mono">{sansMandat.join(', ')}</span>. Sans
+                mandat, on n’a pas le droit d’en demander les prix.
+              </p>
+            )}
             <Tableau minWidth={960}>
               <TableauTete>
-                <tr><th>PDL / PCE</th><th>Site</th><th>Énergie</th><th>Régie</th><th>Début</th><th>Fin</th><th /></tr>
+                <tr><th>PDL / PCE</th><th>Site</th><th>Énergie</th><th>Mandat actif</th><th>Régie</th><th>Début</th><th>Fin</th><th /></tr>
               </TableauTete>
               <TableauCorps>
                 {compteurs.map((c, i) => (
@@ -181,6 +216,14 @@ export function EtapeDeclarer({ versionInitiale, onChoix, onCree }: {
                     <td className="min-w-[170px]"><Input className="font-mono" value={c.num_compteur} onChange={(e) => majCompteur(i, { num_compteur: e.target.value.replace(/\s/g, '') })} /></td>
                     <td className="min-w-[160px]"><Input value={c.site} onChange={(e) => majCompteur(i, { site: e.target.value })} /></td>
                     <td className="w-[90px]">{c.type === 'GAZ' ? 'Gaz' : 'Élec'}</td>
+                    <td className="min-w-[150px] text-km-label">
+                      {mandats.get(c.num_compteur)
+                        ? <>
+                            <span className="font-semibold text-km-green">{mandats.get(c.num_compteur)!.mandat_reference ?? 'Mandat'}</span>
+                            <span className="block text-km-muted">{mandats.get(c.num_compteur)!.date_fin_validite ? `jusqu’au ${new Date(mandats.get(c.num_compteur)!.date_fin_validite! + 'T12:00:00').toLocaleDateString('fr-FR')}` : 'sans échéance'}</span>
+                          </>
+                        : <span className="font-semibold text-km-red">aucun</span>}
+                    </td>
                     <td className="w-[90px]">
                       <Select value={c.regie} onChange={(e) => majCompteur(i, { regie: e.target.value as 'oui' | 'non' })}>
                         <option value="non">non</option>
@@ -205,9 +248,18 @@ export function EtapeDeclarer({ versionInitiale, onChoix, onCree }: {
           </section>
 
           <section>
-            <Label htmlFor="tradeo-acd">ACD (PDF, facultatif)</Label>
+            <Label htmlFor="tradeo-acd">ACD</Label>
+            {acdAuto[0] && !acd ? (
+              <p className="mb-1.5 text-km-body text-km-text">
+                Le mandat <strong>{acdAuto[0].m.mandat_reference ?? ''}</strong> sera joint d’office
+                <span className="text-km-muted"> ({acdAuto[0].m.document_nom})</span>.
+                {acdAuto.length > 1 && <span className="text-km-amber"> Les compteurs relèvent de {acdAuto.length} mandats : Tradeo n’en prend qu’un par demande, les autres s’ajoutent ensuite depuis « Suivre les demandes ».</span>}
+              </p>
+            ) : !acd && (
+              <p className="mb-1.5 text-km-body text-km-amber">Aucun PDF de mandat dans Kimatch pour ces compteurs : joignez l’ACD à la main.</p>
+            )}
             <input id="tradeo-acd" type="file" accept="application/pdf" onChange={(e) => setAcd(e.target.files?.[0] ?? null)} className="text-km-body" />
-            <p className="mt-1 text-km-label text-km-muted">Sans ACD, l’équipe Tradeo a peu de raisons d’accepter les compteurs.</p>
+            <p className="mt-1 text-km-label text-km-muted">Un fichier choisi ici remplace le mandat joint d’office.</p>
           </section>
 
           <Manques liste={manques} />

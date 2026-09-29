@@ -257,3 +257,29 @@ export function useFournisseursKimatch(actif: boolean) {
     },
   })
 }
+
+export interface MandatDuCompteur {
+  compteur_id: string
+  numero_point: string
+  mandat_id: string
+  mandat_reference: string | null
+  date_fin_validite: string | null
+  document_id: string | null
+  document_nom: string | null
+}
+
+/**
+ * LE MANDAT ACTIF DE CHAQUE COMPTEUR, par la vue `v_compteurs_mandat_actif` — la même que relit
+ * `api/tradeo` avant tout envoi (Naoëlle, 29/09/2026 : « on ne peut pas demander des prix si on n'a
+ * pas le droit »). Rangé par numéro de point, sans espaces : c'est sous ce numéro que Tradeo connaît
+ * le compteur. Un compteur absent n'est couvert par aucun mandat actif.
+ */
+export async function chargerMandatsActifs(compteurIds: string[]): Promise<Map<string, MandatDuCompteur>> {
+  if (compteurIds.length === 0) return new Map()
+  const { data, error } = await supabase
+    .from('v_compteurs_mandat_actif')
+    .select('compteur_id, numero_point, mandat_id, mandat_reference, date_fin_validite, document_id, document_nom')
+    .in('compteur_id', compteurIds)
+  if (error) throw new Error(error.message)
+  return new Map(((data ?? []) as MandatDuCompteur[]).map((m) => [(m.numero_point ?? '').replace(/\s/g, ''), m]))
+}

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { exigerSession, refuserLesPartenaires, type UtilisateurAuthentifie } from '../_auth.js'
+import { chargerDocument, couvertureMandats } from './_mandats.js'
 import {
   appelerTradeo,
   obtenirJeton,
@@ -230,6 +231,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!construire) {
     res.status(400).json({ ok: false, code: 'ACTION_INCONNUE', message: `Action inconnue : « ${action} ».`, actions: ['etat', ...Object.keys(ACTIONS)] })
     return
+  }
+
+  /* ══ LE MANDAT, AVANT TOUT ENVOI — 29/09/2026 ══
+     Naoëlle : « on ne peut pas demander des prix si on n'a pas le droit ». Chaque compteur déclaré
+     doit être couvert par un mandat actif, relu dans `v_compteurs_mandat_actif` avec le jeton de
+     l'appelant. Un seul compteur non couvert, et rien ne part : une demande partielle serait une
+     demande faite en partie sans autorisation. */
+  if (action === 'creer_demande') {
+    let numeros: string[]
+    try {
+      const liste = typeof corps.compteurs === 'string' ? JSON.parse(corps.compteurs) : corps.compteurs
+      numeros = (Array.isArray(liste) ? liste : []).map((c: { num_compteur?: unknown }) => String(c?.num_compteur ?? ''))
+    } catch {
+      res.status(400).json({ ok: false, code: 'REQUETE_INVALIDE', message: '« compteurs » n’est pas un JSON valide.' })
+      return
+    }
+    const couverture = await couvertureMandats(utilisateur, numeros)
+    if (!couverture) {
+      res.status(503).json({ ok: false, code: 'DROITS_INDISPONIBLES', message: 'Vérification des mandats indisponible. Réessayez dans un instant.' })
+      return
+    }
+    const sansMandat = numeros.filter((n) => !couverture.has(n.replace(/\s/g, '')))
+    if (sansMandat.length > 0) {
+      res.status(403).json({
+        ok: false,
+        code: 'SANS_MANDAT_ACTIF',
+        message: `Aucun mandat actif ne couvre ${sansMandat.join(', ')} : on n’a pas le droit d’en demander les prix.`,
+        compteurs: sansMandat,
+      })
+      return
+    }
+  }
+
+  /* LE PDF DU MANDAT COMME ACD. L'écran envoie l'identifiant du document, pas le fichier : le
+     serveur le relit lui-même (avec le jeton de l'appelant) et le joint. */
+  if ((action === 'creer_demande' || action === 'ajouter_fichier') && typeof corps.acd_document_id === 'string') {
+    const acd = await chargerDocument(utilisateur, corps.acd_document_id)
+    if (!acd) {
+      res.status(404).json({ ok: false, code: 'ACD_INTROUVABLE', message: 'Le PDF du mandat est introuvable ou illisible.' })
+      return
+    }
+    corps.fichiers = { ...((corps.fichiers as Record<string, unknown> | undefined) ?? {}), ACD: acd }
   }
 
   let appel: { chemin: string; corps: CorpsTradeo }

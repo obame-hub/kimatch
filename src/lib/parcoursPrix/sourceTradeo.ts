@@ -1,4 +1,4 @@
-import { appelerBanc, messageErreur } from '@/lib/data/tradeo'
+import { appelerBanc, chargerMandatsActifs, messageErreur } from '@/lib/data/tradeo'
 import type { PrixParCompteur as PrixSaisi } from '@/lib/data/recommandations'
 import { dateFinPour } from '@/lib/tradeo/dossier'
 import { lireOffresTradeo, rapprocherFournisseur, type OffreTradeo } from '@/lib/tradeo/prixUnitaires'
@@ -126,11 +126,19 @@ export async function recupererPrixTradeo(opts: {
       acceptes.set(c.numCompteur, { ...c, energie: energie as 'ELEC' | 'GAZ' })
     }
   }
+  /* LE MANDAT D'ABORD (29/09/2026) : un compteur sans mandat actif n'est pas interrogé, même si
+     Tradeo le connaît — le mandat a pu expirer depuis sa déclaration. */
+  const mandats = await chargerMandatsActifs(version.compteurs.map((l) => l.compteur_id))
   const liens = version.compteurs
     .map((l) => ({ lien: l, compteur: compteurs.get(l.compteur_id) }))
-    .map((x) => ({ ...x, tradeo: acceptes.get((x.compteur?.numero_pdl ?? '').replace(/\s/g, '')) }))
-  const absents = liens.filter((x) => !x.tradeo).map((x) => x.compteur?.numero_pdl ?? x.lien.label)
+    .map((x) => ({ ...x, pdl: (x.compteur?.numero_pdl ?? '').replace(/\s/g, '') }))
+    .map((x) => ({ ...x, mandat: mandats.has(x.pdl), tradeo: mandats.has(x.pdl) ? acceptes.get(x.pdl) : undefined }))
+  const sansMandat = liens.filter((x) => !x.mandat).map((x) => x.compteur?.numero_pdl ?? x.lien.label)
+  const absents = liens.filter((x) => x.mandat && !x.tradeo).map((x) => x.compteur?.numero_pdl ?? x.lien.label)
   const presents = liens.filter((x) => x.tradeo)
+  if (presents.length === 0 && sansMandat.length > 0 && absents.length === 0) {
+    return { ...rapport, lignes: pourToutes(`Aucun compteur de la version n’a de mandat actif (${sansMandat.join(', ')}) : on n’a pas le droit d’en demander les prix.`) }
+  }
   if (presents.length === 0) {
     return { ...rapport, lignes: pourToutes(`Aucun compteur de la version n’est accepté chez Tradeo (${absents.join(', ')}). Déclarez-les depuis l’étape « Déclarer un dossier ».`) }
   }
@@ -204,6 +212,7 @@ export async function recupererPrixTradeo(opts: {
       ecrites += 1
     }
     if (absents.length > 0) morceaux.push(`non déclarés chez Tradeo : ${absents.join(', ')}`)
+    if (sansMandat.length > 0) morceaux.push(`sans mandat actif, non interrogés : ${sansMandat.join(', ')}`)
     rapport.lignes.push({ offreId: offre.id, texte: morceaux.join(' · ') || 'rien à faire', ok: ecrites > 0 && ecrites === version.compteurs.length })
   }
   return rapport
