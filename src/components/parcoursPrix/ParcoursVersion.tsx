@@ -70,6 +70,10 @@ export function ParcoursVersion({
     [offres, version, parId, circuits],
   )
   const liste = [...etats.values()]
+  /* UNE VERSION CLÔTURÉE N'ATTEND PLUS RIEN. Naoëlle, 29/09/2026, sur DIMOTRANS : « explique-moi le
+     en retard ici ». Version close, dossier à réactiver : « en retard » invitait à relancer Primeo
+     sur une demande que plus personne n'attend. Il faut une nouvelle version, et l'écran le dit. */
+  const close = version.statut === 'CLOTUREE'
   const compter = (e: EtatDOffre['etat']) => liste.filter((x) => x.etat === e).length
 
   return (
@@ -84,13 +88,20 @@ export function ParcoursVersion({
 
       {etape === 1 && (
         <>
-          <Explication>
-            Chaque fournisseur consulté répond par une offre. Quand il a donné son prix pour tous les compteurs, l’offre passe
-            <strong> « Prix reçu »</strong>. Sinon, Kimatch dit quand on l’attend.
-          </Explication>
+          {close ? (
+            <Explication>
+              Cette version est <strong>clôturée</strong> : les offres qui n’ont pas répondu ne sont plus attendues. Pour redemander des
+              prix, créez une nouvelle version.
+            </Explication>
+          ) : (
+            <Explication>
+              Chaque fournisseur consulté répond par une offre. Quand il a donné son prix pour tous les compteurs, l’offre passe
+              <strong> « Prix reçu »</strong>. Sinon, Kimatch dit quand on l’attend.
+            </Explication>
+          )}
           <p className="mb-2 flex flex-wrap gap-1.5">
             <Badge tone="green">{compter('DISPONIBLE')} prix reçu{compter('DISPONIBLE') > 1 ? 's' : ''}</Badge>
-            <Badge tone="amber">{compter('EN_ATTENTE')} en attente</Badge>
+            <Badge tone={close ? 'neutral' : 'amber'}>{compter('EN_ATTENTE')} {close ? 'sans réponse' : 'en attente'}</Badge>
             {compter('INDISPONIBLE') > 0 && <Badge tone="red">{compter('INDISPONIBLE')} refusée{compter('INDISPONIBLE') > 1 ? 's' : ''}</Badge>}
           </p>
           {offres.length === 0 ? (
@@ -104,7 +115,7 @@ export function ParcoursVersion({
                     <p className="text-km-label text-km-muted">{offre.duree_mois ? `${offre.duree_mois} mois` : 'durée ?'}{offre.type_prix ? ` · ${offre.type_prix}` : ''}{offre.nature_offre === 'EN_COURS' ? ' · offre en cours' : ''}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Etat etat={etats.get(offre.id)!} />
+                    <Etat etat={etats.get(offre.id)!} close={close} />
                     {peutModifier && <PrixParCompteur offre={offre} version={version} compteurs={compteurs} peutModifier signaler={dire} />}
                   </div>
                 </li>
@@ -230,6 +241,9 @@ function EtapeCalcul({ reco, version, compteurs, parId, offres, circuits, peutMo
   }
 
   const chiffrees = offres.filter((o) => apercu.avant.get(o.offre.id)?.complete)
+  /* ON NE MET EN AVANT QU'UNE OFFRE QUI A SON PRIX : sans lui, aucune marge ne se calcule. Naoëlle,
+     29/09/2026, devant une liste vide : « pourquoi y a rien là ? ». L'option se grise et dit pourquoi. */
+  const candidates = chiffrees.filter((o) => o.offre.nature_offre !== 'EN_COURS')
 
   return (
     <>
@@ -240,13 +254,16 @@ function EtapeCalcul({ reco, version, compteurs, parId, offres, circuits, peutMo
 
       <fieldset className="grid gap-2 sm:grid-cols-3">
         <legend className="sr-only">Marge</legend>
-        {MODES.map((m) => (
-          <label key={m.valeur} className={cn('cursor-pointer rounded-km border p-2.5', mode === m.valeur ? 'border-km-green bg-km-green-soft/50' : 'border-km-line')}>
-            <input type="radio" name="mode-marge" className="sr-only" checked={mode === m.valeur} onChange={() => setMode(m.valeur)} />
-            <span className="block text-km-body font-semibold text-km-text">{m.titre}</span>
-            <span className="block text-km-label text-km-muted">{m.aide}</span>
-          </label>
-        ))}
+        {MODES.map((m) => {
+          const bloque = m.valeur === 'ciblee' && candidates.length === 0
+          return (
+            <label key={m.valeur} className={cn('rounded-km border p-2.5', bloque ? 'cursor-not-allowed opacity-55' : 'cursor-pointer', mode === m.valeur ? 'border-km-green bg-km-green-soft/50' : 'border-km-line')}>
+              <input type="radio" name="mode-marge" className="sr-only" disabled={bloque} checked={mode === m.valeur} onChange={() => setMode(m.valeur)} />
+              <span className="block text-km-body font-semibold text-km-text">{m.titre}</span>
+              <span className="block text-km-label text-km-muted">{bloque ? 'Possible dès qu’une offre a reçu son prix.' : m.aide}</span>
+            </label>
+          )
+        })}
       </fieldset>
 
       {mode !== 'garder' && (
@@ -260,7 +277,7 @@ function EtapeCalcul({ reco, version, compteurs, parId, offres, circuits, peutMo
               <Label htmlFor="pv-cible">Offre à mettre en avant</Label>
               <Select id="pv-cible" value={cibleId} onChange={(e) => setCibleId(e.target.value)}>
                 <option value="">Choisir…</option>
-                {chiffrees.filter((o) => o.offre.nature_offre !== 'EN_COURS').map(({ offre }) => (
+                {candidates.map(({ offre }) => (
                   <option key={offre.id} value={offre.id}>{offre.fournisseur_nom} · {offre.duree_mois ?? '?'} mois</option>
                 ))}
               </Select>
@@ -349,9 +366,10 @@ function EtapeValidation({ reco, version, compteurs, prete, enAttente, disponibl
   )
 }
 
-function Etat({ etat }: { etat: EtatDOffre }) {
+function Etat({ etat, close }: { etat: EtatDOffre; close: boolean }) {
   if (etat.etat === 'DISPONIBLE') return <Badge tone="green">Prix reçu</Badge>
   if (etat.etat === 'INDISPONIBLE') return <Badge tone="red">Refusée</Badge>
+  if (close) return <Badge>Pas de réponse · version clôturée</Badge>
   const d = etat.prevision?.date
   return (
     <Badge tone={etat.enRetard ? 'red' : 'amber'} title={etat.prevision?.raison}>
