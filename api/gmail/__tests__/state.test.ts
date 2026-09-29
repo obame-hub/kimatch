@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeAll } from 'vitest'
+import { createHmac } from 'node:crypto'
 import { encodeState, decodeState } from '../_client.js'
 
 /**
@@ -58,7 +59,6 @@ describe('le state Gmail', () => {
     // Un `state` capturé dans un historique de navigation ne doit pas valoir indéfiniment.
     const vieux = Date.now() - 16 * 60 * 1000
     const charge = `${ATTAQUANT}|https://kimatch.fr|${vieux}`
-    const { createHmac } = require('crypto') as typeof import('crypto')
     const signature = createHmac('sha256', process.env.GMAIL_CLIENT_SECRET as string)
       .update(charge).digest('base64url')
     const state = `${Buffer.from(charge).toString('base64url')}.${signature}`

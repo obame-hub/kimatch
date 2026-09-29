@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { fetchGazData } from './_client.js'
 import { exigerSession, refuserLesPartenaires } from '../_auth.js'
+import { refuserSansMandatActif } from '../_mandatActif.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -22,6 +23,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Paramètres "pce" et "codePostal" requis' })
     return
   }
+
+  /* MÊME RÈGLE QU'EN ÉLECTRICITÉ : `numero_point` porte le PCE côté gaz. */
+  if (await refuserSansMandatActif(pce, res)) return
 
   try {
     const result = await fetchGazData(pce, codePostal)

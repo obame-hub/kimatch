@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { fetchElecData } from './_client.js'
 import { exigerSession, refuserLesPartenaires } from '../_auth.js'
+import { refuserSansMandatActif } from '../_mandatActif.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -21,6 +22,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Paramètre "pdlId" requis' })
     return
   }
+
+  /* LE MANDAT EST LA CONDITION, PAS SEULEMENT LE DÉCLENCHEUR — 29/09/2026. Voir
+     `api/_mandatActif.ts` : la requête envoyée à Enedis déclare l'autorisation du client, elle ne
+     la vérifiait pas. */
+  if (await refuserSansMandatActif(pdlId, res)) return
 
   try {
     const result = await fetchElecData(pdlId)
