@@ -524,7 +524,22 @@ export interface Contact {
   date_modification?: string
 }
 
-export type TypeCompte = 'client' | 'fournisseur' | 'partenaire' | 'kiwee'
+export type TypeCompte = 'client' | 'fournisseur' | 'partenaire' | 'kiwee' | 'vente_indirecte'
+
+/**
+ * ══ UN CONSOMMATEUR, AU SENS DE L'ÉCRAN ══
+ *
+ * Un client de KiWee, OU le client d'un partenaire — la vente indirecte (28/09/2026). Les deux
+ * achètent de l'énergie, ont des compteurs, des contrats, une note interne, une carte Qualité : la
+ * fiche les traite pareil. Ce qui les sépare se décide en base — la vente indirecte sort du vivier
+ * et de la synthèse du patrimoine — et nulle part ici.
+ *
+ * UNE SEULE QUESTION, POSÉE ICI : « est-ce un consommateur ? ». Chaque écran qui testait
+ * `type_compte === 'client'` l'aurait laissée de côté en silence.
+ */
+export function estConsommateur(type: string | null | undefined): boolean {
+  return type === 'client' || type === 'vente_indirecte'
+}
 
 export interface Compte {
   id: string

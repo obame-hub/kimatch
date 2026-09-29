@@ -30,6 +30,7 @@ import { useCreerUnCompte } from '@/lib/creationCompte'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 import { useState } from 'react'
 import type { TypeCompte } from '@/types/domain'
+import { estConsommateur } from '@/types/domain'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
 import { useMonProfil } from '@/lib/data/roles'
 import { useDecompteClientsProspects } from '@/lib/data/comptes'
@@ -40,6 +41,8 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
   fournisseur: { label: 'Fournisseur', tone: 'blue' },
   partenaire: { label: 'Partenaire', tone: 'amber' },
   kiwee: { label: 'KiWee', tone: 'neutral' },
+  /* Dans la teinte du partenaire : c'est son client, et c'est lui qui le suit. */
+  vente_indirecte: { label: 'Vente indirecte', tone: 'amber' },
 }
 
 interface LigneCompte {
@@ -270,7 +273,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
                   <td>
                     {/* La question ne se pose que pour un consommateur : personne ne « démarche »
                         un fournisseur d'énergie, et lui coller « Prospect » serait un contresens. */}
-                    {compte.type_compte === 'client' && typeof compte.est_client === 'boolean' ? (
+                    {estConsommateur(compte.type_compte) && typeof compte.est_client === 'boolean' ? (
                       <Badge tone={compte.est_client ? 'kiwi' : 'neutral'}>
                         {compte.est_client ? 'Client' : 'Prospect'}
                       </Badge>

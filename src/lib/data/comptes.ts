@@ -382,7 +382,7 @@ export function useCreateCompte() {
 
       queryClient.setQueryData<Compte[]>(['comptes'], (old) => (old ? [...old, compte] : [compte]))
 
-      const TYPE_LABELS: Record<TypeCompte, string> = { client: 'Client', fournisseur: 'Fournisseur', partenaire: 'Partenaire', kiwee: 'KiWee' }
+      const TYPE_LABELS: Record<TypeCompte, string> = { client: 'Client', fournisseur: 'Fournisseur', partenaire: 'Partenaire', kiwee: 'KiWee', vente_indirecte: 'Vente indirecte' }
       const tpl = buildAccountCreatedBlocks({
         accountName: compte.nom,
         accountUrl: `${window.location.origin}/comptes/${compte.id}`,

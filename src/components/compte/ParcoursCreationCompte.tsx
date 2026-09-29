@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowRight, Building2, Check, Factory, Handshake, Home, Loader2, Search, Users, Zap,
+  ArrowRight, Building2, Check, Factory, Handshake, Home, Loader2, Network, Search, Users, Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ContactForm } from '@/components/contact/ContactForm'
@@ -89,11 +89,42 @@ const TYPES: TypeDeCompte[] = [
   },
 ]
 
+/**
+ * ══ LA VENTE INDIRECTE ══
+ *
+ * William, 28/09/2026 : « créer un autre genre de compte, Vente indirecte, dans la partie Les
+ * autres. C'est un compte qui est relié à un partenaire — c'est le compte du partenaire, et pas
+ * vraiment celui de KiWee. » Et : « quand je clique sur Vente indirecte, avant même de renseigner
+ * le nom de l'entreprise, on doit me demander à quel compte partenaire le lier ».
+ *
+ * ══ UN GENRE DE COMPTE, PAS UNE TYPOLOGIE ══
+ *
+ * Un compte en vente indirecte EST un syndic ou une entreprise — simplement vendu par un
+ * partenaire. William a tranché le 28/09 : il garde sa vraie typologie. En faire la sienne aurait
+ * effacé ce qu'il est, et les règles propres aux syndics — conseil syndical, copropriétés — ne s'y
+ * seraient plus appliquées. C'est donc son lien au partenaire (`apporteur_partenaire_id`) qui fait
+ * de lui une vente indirecte, et rien d'autre : il n'y a pas de colonne de plus à tenir à jour.
+ *
+ * D'où une carte à part, hors de `TYPES` : elle n'écrit pas de typologie, elle ouvre un détour.
+ */
+const CARTE_VENTE_INDIRECTE: TypeDeCompte = {
+  cle: 'VENTE_INDIRECTE', libelle: 'Vente indirecte', segment: '',
+  typeCompte: 'client', consommateur: false, icone: Network, teinte: 'ambre',
+  quoi: 'Le client d’un partenaire : c’est lui qui le suit, KiWee travaille pour son compte.',
+}
+
 const ETAPES: EtapeParcours[] = [
   { cle: 'type', libelle: 'Type de compte' },
   { cle: 'entreprise', libelle: 'L’entreprise' },
   { cle: 'score', libelle: 'Score et création' },
   { cle: 'suite', libelle: 'Contacts & compteurs' },
+]
+
+/* La vente indirecte passe par le partenaire AVANT l'entreprise : une étape de plus, à sa place. */
+const ETAPES_VENTE_INDIRECTE: EtapeParcours[] = [
+  ETAPES[0],
+  { cle: 'partenaire', libelle: 'Le partenaire' },
+  ...ETAPES.slice(1),
 ]
 
 /**
@@ -198,8 +229,8 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
   const [codePostal, setCodePostal] = useState('')
   const [ville, setVille] = useState('')
 
-  /* ── LE PARTENAIRE D'ORIGINE, demandé à l'étape 3 (voir le commentaire à l'écran) ── */
-  const [vientDunPartenaire, setVientDunPartenaire] = useState(false)
+  /* ── LA VENTE INDIRECTE : le partenaire se demande AVANT l'entreprise (voir `CARTE_VENTE_INDIRECTE`) ── */
+  const [venteIndirecte, setVenteIndirecte] = useState(false)
   const [partenaireId, setPartenaireId] = useState('')
   const [contactPartenaireId, setContactPartenaireId] = useState('')
   const [creerContactPartenaire, setCreerContactPartenaire] = useState(false)
@@ -232,10 +263,21 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
     lireScore.mutate(siren.replace(/\D/g, ''))
   }, [etape, siren, lireScore])
 
+  const etapes = venteIndirecte ? ETAPES_VENTE_INDIRECTE : ETAPES
+  /* LE NUMÉRO D'UNE ÉTAPE SE LIT DANS LE PARCOURS, il ne s'écrit plus en dur : la vente indirecte en
+     compte cinq, les autres quatre, et un « Étape 3 sur 4 » faux fait douter de tout le reste. */
+  const numeroDe = (cle: string) => etapes.findIndex((e) => e.cle === cle) + 1
+  const total = etapes.length
+
   const resumes: Record<string, ResumeEtape | undefined> = {
     /* RIEN SOUS « TYPE DE COMPTE » TANT QUE RIEN N'EST CHOISI — demande de William : le rail ne
        doit pas annoncer un choix qui n'a pas été fait. */
-    type: { lignes: type ? [type.libelle, ...(type.consommateur ? ['Consommateur'] : [])] : [] },
+    type: {
+      lignes: venteIndirecte
+        ? ['Vente indirecte']
+        : type ? [type.libelle, ...(type.consommateur ? ['Consommateur'] : [])] : [],
+    },
+    partenaire: { lignes: [partenaireChoisi?.nom ?? '', type?.libelle ?? ''].filter(Boolean) },
     entreprise: { lignes: [nom, siren].filter(Boolean) },
     score: { lignes: compte ? ['Compte créé'] : lireScore.data?.score ? [`Score ${lireScore.data.score}`] : [] },
     suite: {
@@ -262,8 +304,31 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
    * partout — un mauvais choix se corrige en un clic, lui aussi.
    */
   function choisirType(t: TypeDeCompte) {
+    /* Revenir d'une vente indirecte vers un autre genre efface le partenaire : il ne doit pas partir
+       avec un compte qui n'est plus lié à personne. */
+    setVenteIndirecte(false)
+    setPartenaireId('')
+    setContactPartenaireId('')
     setType(t)
     setEtape('entreprise')
+  }
+
+  /* La vente indirecte n'a pas encore de typologie : elle se choisit à l'étape du partenaire. */
+  function choisirVenteIndirecte() {
+    if (!venteIndirecte) setType(null)
+    setVenteIndirecte(true)
+    setEtape('partenaire')
+  }
+
+  /**
+   * La typologie de la vente indirecte, choisie à l'étape du partenaire.
+   *
+   * UN CLIC, COMME À L'ÉTAPE 1 : si le partenaire est déjà choisi, on part à la recherche aussitôt.
+   * Sinon la carte se coche, et c'est le choix du partenaire qui reste à faire.
+   */
+  function choisirTypologieIndirecte(t: TypeDeCompte) {
+    setType(t)
+    if (partenaireId) setEtape('entreprise')
   }
 
   function choisirEntreprise(c: EllisphereCompany) {
@@ -283,12 +348,17 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
     if (!type) return
     setErreur(null)
     try {
+      /* LA VENTE INDIRECTE EST UN TYPE DE COMPTE, pas une typologie : la typologie reste celle
+         choisie à l'étape du partenaire, le type devient « Vente indirecte ». La base tiendrait
+         l'équivalence d'elle-même (le partenaire est posé), mais le parcours écrit la bonne valeur
+         dès la première écriture — c'est elle que lit le message Slack de création. */
+      const typeCompte: TypeCompte = venteIndirecte ? 'vente_indirecte' : type.typeCompte
       const typeCompteId = (typesComptes ?? []).find(
-        (t) => t.code === type.typeCompte.toUpperCase(),
+        (t) => t.code === typeCompte.toUpperCase(),
       )?.id ?? null
       const { compte: cree } = await creerCompte.mutateAsync({
         segment: type.segment,
-        typeCompte: type.typeCompte,
+        typeCompte,
         typeCompteId,
         nom: nom.trim(),
         rue: rue.trim() || null,
@@ -303,8 +373,8 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
         /* LE PARTENAIRE PART AVEC LE COMPTE, en une seule écriture. Le rattacher après coup, c'est
            ne jamais le rattacher : la preuve en est les 0 comptes renseignés sur 2 779 quand le
            champ n'existait que dans un dialogue. */
-        apporteurPartenaireId: vientDunPartenaire && partenaireId ? partenaireId : null,
-        contactPartenaireId: vientDunPartenaire && contactPartenaireId ? contactPartenaireId : null,
+        apporteurPartenaireId: venteIndirecte && partenaireId ? partenaireId : null,
+        contactPartenaireId: venteIndirecte && contactPartenaireId ? contactPartenaireId : null,
       })
       setCompte(cree)
       setEtape('suite')
@@ -319,8 +389,8 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
   }
 
   const railProps = {
-    titre: nom.trim() || type?.libelle || 'Nouveau compte',
-    etapes: ETAPES,
+    titre: nom.trim() || type?.libelle || (venteIndirecte ? 'Vente indirecte' : 'Nouveau compte'),
+    etapes,
     resumes,
     onFermer: fermer,
   }
@@ -331,7 +401,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
       <FenetreParcours onFermer={fermer}>
         <RailParcours {...railProps} courante="suite" sousTitre="Les compteurs" />
         <PanneauParcours>
-          <EnTeteEtape numero={4} total={4} titre="Les compteurs de ce compte" />
+          <EnTeteEtape numero={numeroDe('suite')} total={total} titre="Les compteurs de ce compte" />
           <CreationCompteurDialog
             sansCadre
             unParUn
@@ -356,6 +426,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
         courante={etape}
         sousTitre={
           etape === 'type' ? 'Ce qu’il est'
+          : etape === 'partenaire' ? 'Pour quel partenaire ?'
           : etape === 'entreprise' ? 'Qui est-ce ?'
           : etape === 'score' ? (compte ? 'Créé' : 'Vérification')
           : 'Ce qu’on y attache'
@@ -363,7 +434,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
         note={
           etape === 'suite'
             ? { titre: 'Le compte existe', texte: 'Vous pouvez vous arrêter là et revenir plus tard.' }
-            : { titre: 'Rien n’est écrit avant l’étape 3', texte: 'Vous pouvez fermer sans rien laisser derrière.' }
+            : { titre: `Rien n’est écrit avant l’étape ${numeroDe('score')}`, texte: 'Vous pouvez fermer sans rien laisser derrière.' }
         }
       />
 
@@ -372,7 +443,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
         {/* ════════ ÉTAPE 1 · LE TYPE ════════ */}
         {etape === 'type' && (
           <>
-            <EnTeteEtape numero={1} total={4} titre="Quel genre de compte créez-vous ?" />
+            <EnTeteEtape numero={1} total={total} titre="Quel genre de compte créez-vous ?" />
             <div className="flex flex-col gap-[18px]">
               <div className="flex flex-col gap-[10px]">
                 <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">
@@ -380,7 +451,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 </span>
                 <div className="grid grid-cols-3 gap-[11px]">
                   {TYPES.filter((t) => t.consommateur).map((t) => (
-                    <CarteType key={t.cle} type={t} choisi={type?.cle === t.cle} onChoisir={() => choisirType(t)} />
+                    <CarteType key={t.cle} type={t} choisi={!venteIndirecte && type?.cle === t.cle} onChoisir={() => choisirType(t)} />
                   ))}
                 </div>
               </div>
@@ -390,8 +461,9 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 </span>
                 <div className="grid grid-cols-3 gap-[11px]">
                   {TYPES.filter((t) => !t.consommateur).map((t) => (
-                    <CarteType key={t.cle} type={t} choisi={type?.cle === t.cle} onChoisir={() => choisirType(t)} />
+                    <CarteType key={t.cle} type={t} choisi={!venteIndirecte && type?.cle === t.cle} onChoisir={() => choisirType(t)} />
                   ))}
+                  <CarteType type={CARTE_VENTE_INDIRECTE} choisi={venteIndirecte} onChoisir={choisirVenteIndirecte} />
                 </div>
               </div>
             </div>
@@ -406,11 +478,116 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
           </>
         )}
 
+        {/* ════════ VENTE INDIRECTE · LE PARTENAIRE, AVANT L'ENTREPRISE ════════
+
+            William, 28/09/2026 : « avant même de renseigner le nom de l'entreprise dans la barre
+            Ellipro, on doit me demander à quel compte partenaire je dois le lier ».
+
+            DEUX QUESTIONS, DANS L'ORDRE OÙ ON LES CONNAÎT : pour quel partenaire — c'est lui qui
+            apporte le dossier, on le sait avant tout le reste —, puis ce qu'est ce compte. La
+            seconde se répond d'un clic, et ce clic mène à la recherche, comme à l'étape 1.
+
+            CE QUE LE RATTACHEMENT OUVRE : `comptes_du_partenaire()` reconnaît
+            `apporteur_partenaire_id`, le compte entre donc dans l'espace du partenaire. Pour les
+            commerciaux rien ne change : il reste visible dans toutes les listes. */}
+        {etape === 'partenaire' && !creerContactPartenaire && (
+          <>
+            <EnTeteEtape numero={numeroDe('partenaire')} total={total} titre="Pour quel partenaire ?" />
+
+            {partenaires.length === 0 ? (
+              /* PAS DE PARTENAIRE, PAS DE VENTE INDIRECTE — et on dit comment en sortir, plutôt
+                 qu'un menu vide. */
+              <div className="rounded-[12px] border border-dashed border-km-line px-[15px] py-[14px]">
+                <p className="text-[13px] font-semibold text-km-text">Aucun partenaire n’existe encore</p>
+                <p className="mt-[3px] text-[12px] leading-snug text-km-muted">
+                  Une vente indirecte se rattache à un compte partenaire. Créez d’abord le partenaire,
+                  avec la carte « Partenaire », puis revenez ici.
+                </p>
+                <Button variant="ghost" className="mt-[10px]" onClick={() => setEtape('type')}>
+                  Retour aux genres de compte
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-[18px]">
+                <div className="grid grid-cols-2 gap-[12px]">
+                  <Champ intitule="Le partenaire">
+                    <select
+                      value={partenaireId}
+                      autoFocus
+                      onChange={(e) => { setPartenaireId(e.target.value); setContactPartenaireId('') }}
+                      className={SAISIE}
+                    >
+                      <option value="">choisir un partenaire…</option>
+                      {partenaires.map((p) => (
+                        <option key={p.id} value={p.id}>{p.nom}</option>
+                      ))}
+                    </select>
+                  </Champ>
+
+                  {/* QUI SUIT L'AFFAIRE CHEZ EUX. S'il n'existe pas encore, on le crée sans quitter
+                      le parcours : sortir d'ici pour aller créer un contact, c'est perdre le compte
+                      en cours. */}
+                  <Champ intitule="Qui le suit, chez eux">
+                    {!partenaireId ? (
+                      <span className="flex h-[40px] items-center text-[12px] text-km-faint">d’abord le partenaire</span>
+                    ) : contactsDuPartenaire.length > 0 ? (
+                      <div className="flex items-center gap-[8px]">
+                        <select
+                          value={contactPartenaireId}
+                          onChange={(e) => setContactPartenaireId(e.target.value)}
+                          className={cn(SAISIE, 'min-w-0 flex-1')}
+                        >
+                          <option value="">aucun pour l’instant</option>
+                          {contactsDuPartenaire.map((ct) => (
+                            <option key={ct.id} value={ct.id}>
+                              {ct.prenom} {ct.nom}{ct.fonction ? ` — ${ct.fonction}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <Button variant="ghost" onClick={() => setCreerContactPartenaire(true)}>Nouveau</Button>
+                      </div>
+                    ) : (
+                      <div className="flex h-[40px] items-center gap-[8px]">
+                        <span className="min-w-0 flex-1 text-[12px] leading-snug text-km-faint">Aucun contact chez ce partenaire.</span>
+                        <Button variant="ghost" onClick={() => setCreerContactPartenaire(true)}>En créer un</Button>
+                      </div>
+                    )}
+                  </Champ>
+                </div>
+
+                <div className="flex flex-col gap-[10px]">
+                  <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">
+                    Ce qu’est ce compte <span className="font-normal normal-case tracking-normal text-km-faint">— il garde sa vraie nature</span>
+                  </span>
+                  <div className="grid grid-cols-3 gap-[11px]">
+                    {TYPES.filter((t) => t.consommateur).map((t) => (
+                      <CarteType key={t.cle} type={t} choisi={type?.cle === t.cle} onChoisir={() => choisirTypologieIndirecte(t)} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-auto flex items-center gap-4 border-t border-km-line-soft pt-4">
+              <span className="text-[11.5px] text-km-faint">
+                {partenaireId && !type
+                  ? 'Un clic sur ce qu’est le compte vous emmène à la recherche.'
+                  : 'Le compte apparaîtra dans l’espace du partenaire, et reste visible pour toute l’équipe.'}
+              </span>
+              <span className="flex-1" />
+              <Button variant="ghost" onClick={() => setEtape('type')}>Précédent</Button>
+              <Button disabled={!partenaireId || !type} onClick={() => setEtape('entreprise')}>
+                Continuer <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </>
+        )}
+
         {/* ════════ ÉTAPE 2 · L'ENTREPRISE ════════ */}
         {etape === 'entreprise' && type && (
           <>
             <EnTeteEtape
-              numero={2} total={4}
+              numero={numeroDe('entreprise')} total={total}
               titre={type.sansSiren ? 'Quelle copropriété ?' : 'Quelle entreprise ?'}
             />
 
@@ -521,7 +698,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
                 {type.sansSiren ? 'Aucun SIREN pour ce type — c’est normal.' : 'Vérifiez avant de continuer : ces champs viennent d’Ellisphere.'}
               </span>
               <span className="flex-1" />
-              <Button variant="ghost" onClick={() => setEtape('type')}>Précédent</Button>
+              <Button variant="ghost" onClick={() => setEtape(venteIndirecte ? 'partenaire' : 'type')}>Précédent</Button>
               <Button
                 disabled={!nom.trim() || (!type.sansSiren && siren.replace(/\D/g, '').length !== 9)}
                 onClick={() => setEtape('score')}
@@ -552,9 +729,9 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
             Naoëlle : « si le contact n'existe pas, il faut donner la possibilité de le créer ».
             Sortir d'ici pour aller le créer ailleurs, c'est perdre le compte en cours de saisie —
             la recherche Ellisphere, le score, tout serait à refaire. */}
-        {etape === 'score' && creerContactPartenaire && partenaireChoisi && (
+        {etape === 'partenaire' && creerContactPartenaire && partenaireChoisi && (
           <>
-            <EnTeteEtape numero={3} total={4} titre={`Un contact chez ${partenaireChoisi.nom}`} />
+            <EnTeteEtape numero={numeroDe('partenaire')} total={total} titre={`Un contact chez ${partenaireChoisi.nom}`} />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               <ContactForm
                 compteId={partenaireChoisi.id}
@@ -571,120 +748,14 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
           </>
         )}
 
-        {etape === 'score' && type && !creerContactPartenaire && (
+        {etape === 'score' && type && (
           <>
-            <EnTeteEtape numero={3} total={4} titre="Ce qu’Ellisphere dit de cette entreprise" />
+            <EnTeteEtape numero={numeroDe('score')} total={total} titre="Ce qu’Ellisphere dit de cette entreprise" />
 
-            {/* ════════ CE COMPTE VIENT-IL D'UN PARTENAIRE ? ════════
-
-                Naoëlle, 25/09/2026 : « il faudrait ajouter au moment de la création de compte,
-                dans tous les formulaires de création de compte, une option qui spécifie si ce
-                compte doit être créé pour un partenaire ou géré par un partenaire ».
-
-                ══ POURQUOI ICI, ET PAS À L'ÉTAPE 1 NI À L'ÉTAPE 4 ══
-
-                À l'étape 1, un clic suffit et emmène directement à la recherche : y ajouter une
-                question casserait ce mouvement. À l'étape 4, le compte est DÉJÀ créé — et un
-                rattachement qui vient après coup ne se fait pas : la colonne `apporteur_partenaire_id`
-                existait depuis des mois, modifiable dans un dialogue, et affichait 0 compte
-                renseigné sur 2 779. Un champ qu'il faut aller chercher ne se remplit jamais.
-
-                Ici, le compte n'est pas encore écrit : le partenaire part AVEC lui, en une seule
-                écriture, et la question se pose au moment où le commercial connaît la réponse.
-
-                ══ CE QUE LE RATTACHEMENT OUVRE, ET CE QU'IL NE CHANGE PAS ══
-
-                `comptes_du_partenaire()` reconnaît `apporteur_partenaire_id` : le compte entre
-                donc dans le périmètre du partenaire, qui le verra dans SON patrimoine.
-
-                Pour les commerciaux, RIEN NE CHANGE : le compte reste un compte ordinaire, dans
-                toutes les listes, sans filtre ni écran à part. Naoëlle : « même si ces comptes
-                sont gérés et à la propriété d'un partenaire, que nos propres commerciaux puissent
-                le voir dans tous les comptes ». C'est le cas — le rattachement AJOUTE un lecteur,
-                il n'en retire aucun. Vérifié à l'écran avant livraison. */}
-            {partenaires.length > 0 && (
-              <div className="mb-[14px] rounded-[12px] border border-km-line bg-km-bg/40 p-[14px]">
-                <label className="flex cursor-pointer items-start gap-[10px]">
-                  <input
-                    type="checkbox"
-                    checked={vientDunPartenaire}
-                    onChange={(e) => {
-                      setVientDunPartenaire(e.target.checked)
-                      if (!e.target.checked) { setPartenaireId(''); setContactPartenaireId('') }
-                    }}
-                    className="mt-[2px] h-[15px] w-[15px] shrink-0 accent-km-green"
-                  />
-                  <span className="flex flex-col gap-[2px]">
-                    <span className="text-[13px] font-semibold text-km-text">
-                      Ce compte vient d’un partenaire
-                    </span>
-                    <span className="text-[11.5px] leading-snug text-km-faint">
-                      Il apparaîtra dans son espace, en plus de rester visible pour toute l’équipe.
-                    </span>
-                  </span>
-                </label>
-
-                {vientDunPartenaire && (
-                  <div className="mt-[12px] flex flex-col gap-[10px] border-t border-km-line-soft pt-[12px]">
-                    <div className="flex flex-col gap-[4px]">
-                      <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">
-                        Lequel
-                      </span>
-                      <select
-                        value={partenaireId}
-                        onChange={(e) => { setPartenaireId(e.target.value); setContactPartenaireId('') }}
-                        className="h-[32px] rounded-[8px] border border-km-line bg-white px-[9px] text-[13px] text-km-text outline-none focus:border-km-green"
-                      >
-                        <option value="">choisir un partenaire…</option>
-                        {partenaires.map((p) => (
-                          <option key={p.id} value={p.id}>{p.nom}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* LE CONTACT CHEZ CE PARTENAIRE — qui suit l'affaire de leur côté.
-                        S'il n'existe pas encore, on le crée sans quitter le parcours : sortir
-                        d'ici pour aller créer un contact, c'est perdre le compte en cours. */}
-                    {partenaireId && (
-                      <div className="flex flex-col gap-[4px]">
-                        <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-km-faint">
-                          Qui le suit, chez eux
-                        </span>
-                        {contactsDuPartenaire.length > 0 ? (
-                          <div className="flex items-center gap-[8px]">
-                            <select
-                              value={contactPartenaireId}
-                              onChange={(e) => setContactPartenaireId(e.target.value)}
-                              className="h-[32px] flex-1 rounded-[8px] border border-km-line bg-white px-[9px] text-[13px] text-km-text outline-none focus:border-km-green"
-                            >
-                              <option value="">aucun pour l’instant</option>
-                              {contactsDuPartenaire.map((ct) => (
-                                <option key={ct.id} value={ct.id}>
-                                  {ct.prenom} {ct.nom}{ct.fonction ? ` — ${ct.fonction}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                            <Button variant="ghost" onClick={() => setCreerContactPartenaire(true)}>
-                              Nouveau
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-[8px]">
-                            <span className="flex-1 text-[11.5px] leading-snug text-km-faint">
-                              Ce partenaire n’a encore aucun contact.
-                            </span>
-                            <Button variant="ghost" onClick={() => setCreerContactPartenaire(true)}>
-                              En créer un
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
+            {/* LE RATTACHEMENT À UN PARTENAIRE N'EST PLUS ICI. Il vivait à cette étape, pour tous les
+                genres de comptes, sous une case « Ce compte vient d'un partenaire » (Naoëlle,
+                25/09/2026). William, 28/09/2026 : il ne s'affiche plus que dans le parcours « Vente
+                indirecte », et AVANT l'entreprise — voir l'étape « Le partenaire ». */}
             {type.sansSiren ? (
               <p className="rounded-[12px] border border-km-line bg-km-bg/40 px-[15px] py-[13px] text-[12.5px] leading-snug text-km-muted">
                 Un syndic non professionnel n’a pas de SIREN : Ellisphere n’a rien à en dire, et
@@ -718,18 +789,18 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
               </span>
               <span className="flex-1" />
               <Button variant="ghost" onClick={() => setEtape('entreprise')}>Précédent</Button>
-              {/* COCHÉ MAIS PAS RENSEIGNÉ : ON N'AVANCE PAS.
-                  Laisser créer le compte ici l'écrirait SANS partenaire, alors que le commercial
-                  vient d'affirmer qu'il en a un — et il faudrait retourner sur la fiche pour
-                  réparer, c'est-à-dire ne jamais le faire. Le bouton dit ce qui manque. */}
+              {/* UNE VENTE INDIRECTE NE SE CRÉE PAS SANS SON PARTENAIRE : l'étape du partenaire ne
+                  laisse pas passer sans lui, et cette garde tient le cas où l'on reviendrait ici
+                  par un autre chemin. Écrit sans partenaire, le compte ne serait plus une vente
+                  indirecte — et il faudrait aller le réparer sur sa fiche, donc ne jamais le faire. */}
               <Button
-                disabled={creerCompte.isPending || (vientDunPartenaire && !partenaireId)}
-                title={vientDunPartenaire && !partenaireId ? 'Choisissez le partenaire, ou décochez.' : undefined}
+                disabled={creerCompte.isPending || (venteIndirecte && !partenaireId)}
+                title={venteIndirecte && !partenaireId ? 'Choisissez le partenaire à l’étape précédente.' : undefined}
                 onClick={() => void creer()}
               >
                 {creerCompte.isPending
                   ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Création…</>
-                  : vientDunPartenaire && !partenaireId
+                  : venteIndirecte && !partenaireId
                     ? 'Choisissez le partenaire'
                     : 'Créer le compte'}
               </Button>
@@ -740,7 +811,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
         {/* ════════ ÉTAPE 4 · CE QU'ON ATTACHE ════════ */}
         {etape === 'suite' && compte && suite === 'choix' && (
           <>
-            <EnTeteEtape numero={4} total={4} titre={`${compte.nom} est créé`} />
+            <EnTeteEtape numero={numeroDe('suite')} total={total} titre={`${compte.nom} est créé`} />
             <p className="mb-[18px] text-[13px] leading-snug text-km-muted">
               Un compte seul ne sert à rien : il lui faut des gens à qui parler, et des compteurs à
               travailler. Faites-le maintenant, ou revenez plus tard depuis sa fiche.
@@ -786,7 +857,7 @@ export function ParcoursCreationCompte({ onFermer }: { onFermer: () => void }) {
         {/* Le contact, dans le formulaire existant. */}
         {etape === 'suite' && compte && suite === 'contact' && (
           <>
-            <EnTeteEtape numero={4} total={4} titre="Un contact pour ce compte" />
+            <EnTeteEtape numero={numeroDe('suite')} total={total} titre="Un contact pour ce compte" />
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               <ContactForm
                 compteId={compte.id}

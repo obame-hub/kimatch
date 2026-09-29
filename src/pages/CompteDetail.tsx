@@ -65,6 +65,7 @@ import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
 import type { Compte, Site, TypeCompte, Contrat, Compteur, Recommandation } from '@/types/domain'
+import { estConsommateur } from '@/types/domain'
 import { OngletContacts } from '@/components/compte/OngletContacts'
 import { OngletCompteurs } from '@/components/compte/OngletCompteurs'
 import { BandeauCompte } from '@/components/compte/BandeauCompte'
@@ -78,6 +79,8 @@ const typeMeta: Record<TypeCompte, { label: string; tone: 'kiwi' | 'blue' | 'amb
   fournisseur: { label: 'Fournisseur', tone: 'blue' },
   partenaire: { label: 'Partenaire', tone: 'amber' },
   kiwee: { label: 'KiWee', tone: 'neutral' },
+  /* Dans la teinte du partenaire : c'est son client, et c'est lui qui le suit. */
+  vente_indirecte: { label: 'Vente indirecte', tone: 'amber' },
 }
 
 // Distinction graphique franche entre Client / Fournisseur / Partenaire / KiWee (demande design
@@ -656,7 +659,7 @@ export default function CompteDetail() {
                     « sans objet ». Les vues de qualité sont désormais restreintes au type
                     consommateur (migration 20260902150000), et la carte suit la même règle : mieux
                     vaut ne rien montrer qu'un chiffre qui n'a pas de sens ici. */}
-                {compte.type_compte === 'client' && <QualiteCompteCard compte={compte} />}
+                {estConsommateur(compte.type_compte) && <QualiteCompteCard compte={compte} />}
                 <HeroScoreEllipro
                   note={noteEllipro}
                   libelle={libelleEllipro}
@@ -723,7 +726,7 @@ export default function CompteDetail() {
                   origine d'acquisition, mandat-cadre actif, apporteur d'affaires et note interne.
                   Les données restent en base et le formulaire de modification les édite toujours —
                   c'est l'affichage permanent qui s'arrête. */}
-              {compte.type_compte !== 'kiwee' && compte.type_compte !== 'client' && (
+              {compte.type_compte !== 'kiwee' && !estConsommateur(compte.type_compte) && (
                 <div className="rounded-xl border border-km-line bg-white p-4">
                   <div className="mb-3 flex items-center justify-between">
                     {/* Même garde : sans type, l'intitulé dit « Détails » tout court plutôt que de planter. */}
@@ -1213,7 +1216,7 @@ export default function CompteDetail() {
       {/* `showEditSubtype &&` en plus du type : ces dialogues restaient montes en permanence, et
           celui des comptes clients faisait lire la liste complete des comptes pour peupler son
           selecteur d'apporteur. */}
-      {showEditSubtype && compte.type_compte === 'client' && (
+      {showEditSubtype && estConsommateur(compte.type_compte) && (
         <EditCompteClientDialog compte={compte} open onClose={() => setShowEditSubtype(false)} />
       )}
       {showEditSubtype && compte.type_compte === 'fournisseur' && (
@@ -1633,7 +1636,35 @@ function IdentiteCard({ compte, onToast }: { compte: Compte; onToast: (msg: stri
         <span className="text-km-label text-km-faint">cliquer une valeur pour modifier · ⧉ pour copier</span>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <InlineField variant="select" label="Type de compte" value={compte.type_compte} options={[{ value: 'client', label: 'Consommateur' }, { value: 'fournisseur', label: 'Fournisseur' }, { value: 'partenaire', label: 'Partenaire' }, { value: 'kiwee', label: 'KiWee' }]} onCommit={(v) => commit({ type_compte: v as TypeCompte })} onSaved={() => onToast('✓ enregistré')} />
+        {/* ══ LA VENTE INDIRECTE SUIT LE PARTENAIRE D'ORIGINE ══
+            Depuis le 28/09/2026, un consommateur rattaché à un partenaire EST une vente indirecte,
+            et la base tient cette équivalence. Choisir « Vente indirecte » sans partenaire, ou
+            « Consommateur » avec un partenaire, serait corrigé aussitôt — et l'écran aurait dit
+            « enregistré » pour un changement qui n'a pas eu lieu. Le champ dit donc ce qu'il faut
+            faire, à l'endroit où l'on se trompe. */}
+        <InlineField
+          variant="select"
+          label="Type de compte"
+          value={compte.type_compte}
+          options={[
+            { value: 'client', label: 'Consommateur' },
+            { value: 'vente_indirecte', label: 'Vente indirecte' },
+            { value: 'fournisseur', label: 'Fournisseur' },
+            { value: 'partenaire', label: 'Partenaire' },
+            { value: 'kiwee', label: 'KiWee' },
+          ]}
+          onCommit={(v) => {
+            if (v === 'vente_indirecte' && !compte.apporteur_partenaire_id) {
+              throw new Error('Une vente indirecte se rattache à un partenaire : choisissez-le dans « Partenaire d’origine ».')
+            }
+            if (v === 'client' && compte.apporteur_partenaire_id) {
+              throw new Error('Ce compte est rattaché à un partenaire : retirez le « Partenaire d’origine » pour en faire un consommateur de KiWee.')
+            }
+            return commit({ type_compte: v as TypeCompte })
+          }}
+          onSaved={() => onToast('✓ enregistré')}
+          onError={(e: Error) => onToast(e.message)}
+        />
         {/* ══ LA TYPOLOGIE SE CHOISIT, ELLE NE SE TAPE PLUS ══
             William, 14/09/2026. C'était un champ libre alors que la table `segments_comptes`
             existait — mais elle avait divergé : une seule de ses six valeurs correspondait au réel,
@@ -2038,14 +2069,14 @@ function CommentaireCard({ compte }: { compte: Compte }) {
   const updateFournisseur = useUpdateCompteFournisseur()
   const updatePartenaire = useUpdateComptePartenaire()
   const isKiwee = compte.type_compte === 'kiwee'
-  const initialValue = isKiwee ? '' : compte.type_compte === 'client' ? (compte.note_interne ?? '') : (compte.commentaire_partenariat ?? '')
+  const initialValue = isKiwee ? '' : estConsommateur(compte.type_compte) ? (compte.note_interne ?? '') : (compte.commentaire_partenariat ?? '')
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(initialValue)
   const pending = updateClient.isPending || updateFournisseur.isPending || updatePartenaire.isPending
 
   async function save() {
-    if (compte.type_compte === 'client') {
+    if (estConsommateur(compte.type_compte)) {
       await updateClient.mutateAsync({
         compteId: compte.id,
         segment_compte_id: compte.segment_compte_id ?? null,
