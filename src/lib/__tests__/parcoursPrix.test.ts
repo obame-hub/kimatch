@@ -154,11 +154,27 @@ describe('ecritureDepuisTradeo', () => {
   }).offres[0]
 
   it('prend la moyenne des années et ne retire la marge que si elle est dans le prix', () => {
-    expect(ecritureDepuisTradeo(annuelle, true, false)).toEqual({ prix_molecule_p0_mwh: 55 })
-    expect(ecritureDepuisTradeo(annuelle, true, true)).toEqual({ prix_molecule_p0_mwh: 53 })
+    expect(ecritureDepuisTradeo(annuelle, true, false)).toMatchObject({ prix_molecule_p0_mwh: 55 })
+    expect(ecritureDepuisTradeo(annuelle, true, true)).toMatchObject({ prix_molecule_p0_mwh: 53 })
+    // L'abonnement est en €/mois chez Tradeo, en €/an dans Kimatch — et la marge ne le touche pas.
+    expect(ecritureDepuisTradeo(annuelle, true, true)).toMatchObject({ abonnement_fourniture_annuel_ht: 480 })
   })
   it('range les prix électriques par classe', () => {
     const elec = lireOffresTradeo({ X: { result: true, resultatFinal: { result: { X: [{ fournisseur: 'EDF', success: true, prixHp: 120, prixHc: 90, abo: 3 }] } } } }).offres[0]
-    expect(ecritureDepuisTradeo(elec, false, false)).toEqual({ p0_mwh_par_classe: { HP: 120, HC: 90 } })
+    expect(ecritureDepuisTradeo(elec, false, false)).toMatchObject({ p0_mwh_par_classe: { HP: 120, HC: 90 }, abonnement_fourniture_annuel_ht: 36 })
+  })
+  it('gaz : reprend CEE, ATRD, accise et CTA du calcul Tradeo (documentation v1.4)', () => {
+    const o = lireOffresTradeo({ GI110001: { result: true, resultatFinal: {
+      dataCta: { CTA: 321.71, ARTD: 8.69, TICGN: 16.39, GRDF_COUT_FIXE: 1301.4 },
+      result: { GI110001: [{ fournisseur: 'Engie', success: true, prixMolucule: 53.46, cee: 0.5 }] },
+    } } }).offres[0]
+    expect(ecritureDepuisTradeo(o, true, false)).toEqual({ prix_molecule_p0_mwh: 53.46, prix_cee_mwh: 0.5, prix_atrd_mwh: 8.69, prix_agn_mwh: 16.39, cta_annuel_ht: 321.71 })
+  })
+  it('élec : la capacité n’est reprise que si Tradeo la donne en valeur', () => {
+    const lire = (typeCapa: string) => lireOffresTradeo({ X: { result: true, resultatFinal: { result: { X: [{
+      fournisseur: 'EDF', success: true, typeCapa, prixHp: 120, prixHc: 90, prixCapaHp: 5.96, prixCapaHc: 4, cee: 7.28,
+    }] } } } }).offres[0]
+    expect(ecritureDepuisTradeo(lire('Valeur'), false, false)).toMatchObject({ capacite_mwh_par_classe: { HP: 5.96, HC: 4 }, prix_cee_mwh: 7.28 })
+    expect(ecritureDepuisTradeo(lire('Coef'), false, false)).not.toHaveProperty('capacite_mwh_par_classe')
   })
 })

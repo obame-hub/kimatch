@@ -55,6 +55,16 @@ export interface OffreTradeo {
   /** La moyenne sur la durée (`lesPrix`), quand Tradeo la donne. */
   prixMoyens: Record<string, number> | null
   sansPrixUnitaire: boolean
+  /**
+   * LES COMPOSANTES RÉGLEMENTÉES DU GAZ, telles que Tradeo les applique — identiques pour tous les
+   * fournisseurs d'un même compteur (`resultatFinal.dataCta`, repris à la racine d'une offre
+   * annuelle). Noms Tradeo : `ARTD` (l'ATRD, part variable en €/MWh — la « TQD » de la
+   * proposition), `TICGN` (l'accise sur le gaz, €/MWh), `CTA` (€/an). `null` en électricité : la
+   * documentation v1.4 ne rend ni TURPE, ni accise, ni CTA pour elle.
+   */
+  reglementaire: { atrd: number | null; accise: number | null; cta: number | null } | null
+  /** Le type de capacité en électricité : `Valeur` (€/MWh), `Coef` (coefficient) ou `Inclus`. */
+  typeCapa: string | null
   brut: Record<string, unknown>
 }
 
@@ -89,7 +99,7 @@ function lirePrix(objet: Record<string, unknown> | undefined | null): Record<str
   return prix
 }
 
-function lireOffre(numCompteur: string, o: Record<string, unknown>): OffreTradeo {
+function lireOffre(numCompteur: string, o: Record<string, unknown>, dataCta?: Record<string, unknown>): OffreTradeo {
   const periodes: PeriodePrix[] = []
 
   const clesPeriodes = Array.isArray(o.lesCleAnnuelleDesPeriode)
@@ -146,6 +156,14 @@ function lireOffre(numCompteur: string, o: Record<string, unknown>): OffreTradeo
     periodes,
     prixMoyens: prixMoyens && Object.keys(prixMoyens).length > 0 ? prixMoyens : null,
     sansPrixUnitaire: succes && sansPrix,
+    reglementaire: (() => {
+      const src = { ...(dataCta ?? {}), ...Object.fromEntries(['ARTD', 'TICGN', 'CTA'].filter((k) => o[k] != null).map((k) => [k, o[k]])) }
+      const atrd = nombre(src.ARTD), accise = nombre(src.TICGN), cta = nombre(src.CTA)
+      return atrd == null && accise == null && cta == null ? null : { atrd, accise, cta }
+    })(),
+    typeCapa: texte(o.typeCapa)
+      ?? texte((clesPeriodes.map((k) => (o[k] as { dataMoyenne?: { lesPrixFinal?: { typeCapa?: unknown } } } | undefined)?.dataMoyenne?.lesPrixFinal?.typeCapa).find(Boolean)))
+      ?? null,
     brut: o,
   }
 }
@@ -161,7 +179,7 @@ export function lireOffresTradeo(reponse: unknown): { offres: OffreTradeo[]; err
 
   for (const [num, bloc] of Object.entries(reponse as Record<string, unknown>)) {
     if (!bloc || typeof bloc !== 'object') continue
-    const b = bloc as { result?: unknown; message?: unknown; resultatFinal?: { result?: Record<string, unknown> } }
+    const b = bloc as { result?: unknown; message?: unknown; resultatFinal?: { result?: Record<string, unknown>; dataCta?: Record<string, unknown> } }
     if (b.result === false) {
       erreurs.push({ numCompteur: num, message: texte(b.message) ?? 'Tradeo a refusé ce compteur.' })
       continue
@@ -170,7 +188,7 @@ export function lireOffresTradeo(reponse: unknown): { offres: OffreTradeo[]; err
     for (const [numInterne, liste] of Object.entries(parCompteur)) {
       if (!Array.isArray(liste)) continue
       for (const o of liste) {
-        if (o && typeof o === 'object') offres.push(lireOffre(numInterne || num, o as Record<string, unknown>))
+        if (o && typeof o === 'object') offres.push(lireOffre(numInterne || num, o as Record<string, unknown>, b.resultatFinal?.dataCta))
       }
     }
   }

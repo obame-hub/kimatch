@@ -78,21 +78,71 @@ function arrondi(n: number) {
   return Math.round(n * 10000) / 10000
 }
 
+/**
+ * ══ CE QU'ON PREND À TRADEO, POSTE PAR POSTE — le modèle de proposition de William (30/09/2026) ══
+ *
+ * William a donné son modèle aussi pour dire « quels prix récupérer chez Tradeo ». Sa page 2, et ce
+ * que la documentation v1.4 rend pour chaque poste :
+ *
+ *   GAZ   abonnement €/mois   `abo`                    → abonnement annuel = abo × 12 (simpleAbo 527,28 = 43,94 × 12)
+ *         molécule €/MWh      `prixMolecule`           → P0 (marge retirée si elle y est — voir plus haut)
+ *         CEE €/MWh           `cee`                    → prix CEE
+ *         CPB €/MWh           ABSENT de la réponse     → reste à saisir
+ *         TQD €/MWh           `dataCta.ARTD`           → ATRD
+ *         accise (AG) €/MWh   `dataCta.TICGN`          → accise gaz
+ *         CTA €/an            `dataCta.CTA`            → CTA
+ *
+ *   ÉLEC  abonnement €/mois   `abo`                    → abonnement annuel = abo × 12
+ *         pointe, HPH… €/MWh  `prixPointe`, `prixHph`… → P0 par poste
+ *         capacité €/MWh      `prixCapaHph`…           → capacité par poste, SEULEMENT si `typeCapa` = Valeur
+ *                                                        (Coef = un coefficient, pas un prix ; Inclus = déjà dans le prix)
+ *         CEE €/MWh           `cee`                    → prix CEE
+ *         accise, CTA, TURPE  ABSENTS de la réponse    → réglementés, identiques pour tous : ils viennent des
+ *                                                        barèmes, pas du fournisseur
+ *
+ * LA MARGE N'EST RETIRÉE QUE DES PRIX D'ÉNERGIE : Tradeo l'applique à la molécule et aux postes
+ * (`margeAppliquer`), pas aux taxes ni à l'abonnement.
+ */
+const CAPACITE_PAR_CHAMP: Record<string, string> = {
+  prixCapaBase: 'BASE', prixCapaHp: 'HP', prixCapaHc: 'HC', prixCapaHph: 'HPH', prixCapaHch: 'HCH',
+  prixCapaHpe: 'HPE', prixCapaHce: 'HCE', prixCapaPointe: 'POINTE',
+}
+
 /** Transforme les prix Tradeo en écriture Kimatch. `null` si aucun prix d'énergie ne s'y trouve. */
 export function ecritureDepuisTradeo(o: OffreTradeo, gaz: boolean, margeInclusePrix: boolean): PrixSaisi | null {
   const lu = prixSurLaDuree(o)
   if (!lu) return null
   const retrait = margeInclusePrix ? (lu.marge ?? MARGE_APPEL_TRADEO) : 0
+  const commun: PrixSaisi = {
+    ...(lu.prix.abo != null ? { abonnement_fourniture_annuel_ht: arrondi(lu.prix.abo * 12) } : {}),
+    ...(lu.prix.cee != null ? { prix_cee_mwh: lu.prix.cee } : {}),
+  }
   if (gaz) {
     const molecule = lu.prix.prixMolecule
-    return molecule == null ? null : { prix_molecule_p0_mwh: arrondi(molecule - retrait) }
+    if (molecule == null) return null
+    const r = o.reglementaire
+    return {
+      ...commun,
+      prix_molecule_p0_mwh: arrondi(molecule - retrait),
+      ...(r?.atrd != null ? { prix_atrd_mwh: r.atrd } : {}),
+      ...(r?.accise != null ? { prix_agn_mwh: r.accise } : {}),
+      ...(r?.cta != null ? { cta_annuel_ht: r.cta } : {}),
+    }
   }
   const p0: Record<string, number> = {}
   for (const [champ, classe] of Object.entries(CLASSE_PAR_CHAMP)) {
     const v = lu.prix[champ]
     if (v != null) p0[classe] = arrondi(v - retrait)
   }
-  return Object.keys(p0).length === 0 ? null : { p0_mwh_par_classe: p0 }
+  if (Object.keys(p0).length === 0) return null
+  const capacite: Record<string, number> = {}
+  if ((o.typeCapa ?? '').toLowerCase() === 'valeur') {
+    for (const [champ, classe] of Object.entries(CAPACITE_PAR_CHAMP)) {
+      const v = lu.prix[champ]
+      if (v != null && classe in p0) capacite[classe] = v
+    }
+  }
+  return { ...commun, p0_mwh_par_classe: p0, ...(Object.keys(capacite).length ? { capacite_mwh_par_classe: capacite } : {}) }
 }
 
 interface CompteurTradeoAccepte { id: number; numCompteur: string; parametreCompteur?: string }
