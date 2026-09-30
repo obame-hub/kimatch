@@ -13,7 +13,7 @@ describe('releveesMensuelles', () => {
     const r = releveesMensuelles([
       ...periode('2026-08-22', '2026-09-21'), ...periode('2026-07-22', '2026-08-22'), ...periode('2026-02-19', '2026-03-22'),
     ], AUJ)
-    expect(r).toEqual([
+    expect(r).toMatchObject([
       { mois: '2026-03-01', debut: '2026-02-19', fin: '2026-03-22', mwh: 4, estimee: false },
       { mois: '2026-08-01', debut: '2026-07-22', fin: '2026-08-22', mwh: 4, estimee: false },
       { mois: '2026-09-01', debut: '2026-08-22', fin: '2026-09-21', mwh: 4, estimee: false },
@@ -44,6 +44,14 @@ describe('releveesMensuelles', () => {
 
   it('ignore une période pas encore finie, et signale une valeur estimée', () => {
     const r = releveesMensuelles([...periode('2026-09-21', '2026-10-22'), m('HPH', '2026-08-22', '2026-09-21', 1000, true), ...periode('2026-08-22', '2026-09-21').slice(1)], AUJ)
-    expect(r).toEqual([{ mois: '2026-09-01', debut: '2026-08-22', fin: '2026-09-21', mwh: 4, estimee: true }])
+    expect(r).toMatchObject([{ mois: '2026-09-01', debut: '2026-08-22', fin: '2026-09-21', mwh: 4, estimee: true }])
+  })
+  it('rend le détail par poste de chaque période — la somme des barres EST le total des postes', () => {
+    const r = releveesMensuelles([...periode('2026-08-22', '2026-09-21', 250), ...periode('2026-07-22', '2026-08-22', 500)], AUJ)
+    const parPoste: Record<string, number> = {}
+    for (const p of r) for (const [k, v] of Object.entries(p.parPosteKwh)) parPoste[k] = (parPoste[k] ?? 0) + v
+    const totalPostes = Object.values(parPoste).reduce((a, b) => a + b, 0) / 1000
+    expect(totalPostes).toBe(r.reduce((s, p) => s + p.mwh, 0))
+    expect(parPoste).toEqual({ HPH: 750, HCH: 750, HPE: 750, HCE: 750 })
   })
 })

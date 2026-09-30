@@ -137,7 +137,7 @@ export interface EnedisElecResult {
 export function releveesMensuelles(
   mesures: { classe: string; debut: string; fin: string; valeurKwh: number; estimee: boolean }[],
   aujourdhui: string = new Date().toISOString().slice(0, 10),
-): { mois: string; debut: string; fin: string; mwh: number; estimee: boolean }[] {
+): { mois: string; debut: string; fin: string; mwh: number; estimee: boolean; parPosteKwh: Record<string, number> }[] {
   const jours = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000)
   /* La fenêtre part de la DERNIÈRE période close, pas d'aujourd'hui : un compteur dont la relève a
      du retard garde ses douze périodes. */
@@ -185,6 +185,7 @@ export function releveesMensuelles(
       fin: p.fin,
       mwh: Math.round(([...p.parClasse.values()].reduce((a, b) => a + b, 0) / 1000) * 1000) / 1000,
       estimee: p.estimee,
+      parPosteKwh: Object.fromEntries(p.parClasse),
     }))
     .sort((a, b) => a.mois.localeCompare(b.mois))
 }
@@ -359,6 +360,19 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     const [classe, dateFin] = key.split('|')
     if (periods12.has(dateFin.slice(0, 7))) conso12[classe] = (conso12[classe] ?? 0) + val
   }
+  /* ══ LES TOTAUX PAR POSTE SUR LES MÊMES DOUZE PÉRIODES QUE LES BARRES (30/09/2026) ══
+     William : « quand j'additionne les 12 mois je suis à 13,54 or le total de conso renseigné est de
+     13,32 ». Deux fenêtres différentes : les postes suivaient les mois de FIN de période en écartant
+     le mois en cours (22/08/2025 → 21/08/2026), les barres les douze dernières périodes closes
+     (21/09/2025 → 21/09/2026). Dès qu'on a des périodes de relève entières, ce sont elles qui font
+     foi pour les deux — le total des postes est alors la somme exacte des douze barres. */
+  const consoMensuelleMwh = calChoisi ? releveesMensuelles(mesuresParCalendrier[calChoisi] ?? []) : []
+  if (consoMensuelleMwh.length > 0) {
+    for (const k of Object.keys(conso12)) delete conso12[k]
+    for (const p of consoMensuelleMwh) {
+      for (const [classe, kwh] of Object.entries(p.parPosteKwh)) conso12[classe] = (conso12[classe] ?? 0) + kwh
+    }
+  }
   const totalMwh = Object.values(conso12).reduce((a, b) => a + b, 0) / 1000
 
   /* Les douze mois civils qui précèdent le mois en cours — le mois en cours n'est jamais complet. */
@@ -369,7 +383,6 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     d.setUTCMonth(d.getUTCMonth() - i)
     douzeMois.add(d.toISOString().slice(0, 7))
   }
-  const consoMensuelleMwh = calChoisi ? releveesMensuelles(mesuresParCalendrier[calChoisi] ?? []) : []
 
   const isHTA = !!segment && /^C[1-4]$/i.test(segment)
   const ORDRE = ['POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
