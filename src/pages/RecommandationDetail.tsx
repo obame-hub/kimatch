@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Trash2,
@@ -193,7 +193,12 @@ export default function RecommandationDetail() {
     [comptesRattachables],
   )
 
-  const [onglet, setOnglet] = useState<CleOnglet>('reco')
+  /* `?onglet=comparatif` : la fiche compteur y mène par « Ouvrir la présentation » (30/09/2026). */
+  const [parametres] = useSearchParams()
+  const [onglet, setOnglet] = useState<CleOnglet>(() => {
+    const demande = parametres.get('onglet')
+    return demande === 'comparatif' || demande === 'perimetre' ? demande : 'reco'
+  })
   const [versionAfficheeId, setVersionAfficheeId] = useState<string | null>(null)
   const [clotureOuverte, setClotureOuverte] = useState(false)
   const [finaliteChoisie, setFinaliteChoisie] = useState<CleFinalite | null>(null)

@@ -26,9 +26,24 @@ import { cleService, urlSupabase } from './_cleService.js'
  *
  * ══ CE QUE ÇA NE COUVRE PAS ═════════════════════════════════════════════════════════════════
  *
- * LA SYNCHRO DÉCLENCHÉE PAR DOCUSIGN N'EST PAS CONCERNÉE : elle appelle `fetchElecData`
- * directement depuis `_grdSync.ts`, sans passer par ce point d'entrée — et pour cause, elle part
- * d'un mandat qui vient d'être signé. Ajouter le contrôle là serait redondant.
+ * LA SYNCHRO DÉCLENCHÉE PAR DOCUSIGN L'EST AUSSI depuis le 30/09/2026 (`_grdSync.ts` appelle
+ * `pointCouvertParMandatKiwee`) : elle part d'un mandat qui vient d'être signé, mais ce mandat peut
+ * n'être qu'un mandat Energix — et « aucune erreur ne doit être possible ».
+ *
+ * ══ UN MANDAT KIWEE, ENCORE VALIDE (30/09/2026) ══════════════════════════════════════════════
+ *
+ * William : « les boutons de synchronisation GRDF et ENEDIS ne doivent être cliquables que si le
+ * compteur est couvert par un mandat KiWee encore actif. Aucune erreur ne doit être possible car
+ * tout appel non couvert pourrait être sanctionné envers l'entreprise. » Le statut ACTIF ne suffit
+ * donc plus. Il faut, EN MÊME TEMPS, sur un même mandat :
+ *   · le lien au compteur non caduc ;
+ *   · le mandat non supprimé (`mandats.actif`) et au statut ACTIF ;
+ *   · le courtier KiWee (`KIWI`) parmi ses mandataires — un mandat Energix seul ne couvre pas un
+ *     appel fait avec le contrat de KiWee ;
+ *   · une fin de validité absente ou pas encore passée, à la date de Paris.
+ * Mesuré le 30/09 : les 1 123 mandats actifs portent tous KiWee et aucun n'est échu — la règle ne
+ * retire rien aujourd'hui, elle empêche la dérive de demain. L'écran applique la même règle pour
+ * griser les boutons (`mandatKiweeCouvre`, `src/lib/couvertureMandat.ts`).
  *
  * ET CE CONTRÔLE EST TECHNIQUE, PAS JURIDIQUE. Il fait correspondre le code à la règle telle que
  * Naoëlle la comprenait. Ce que le contrat Enedis exige exactement reste à confirmer avec Michel.
@@ -41,45 +56,59 @@ import { cleService, urlSupabase } from './_cleService.js'
  *
  * @param colonne `numero_point` porte le PDL en électricité comme le PCE en gaz.
  */
-export async function refuserSansMandatActif(
-  pointDeLivraison: string,
-  res: VercelResponse,
-): Promise<boolean> {
+/** Le point est-il couvert par un mandat KiWee actif et en cours de validité ? `erreur` quand la
+ *  vérification elle-même n'a pas pu se faire — l'appelant doit alors REFUSER, jamais laisser passer. */
+export async function pointCouvertParMandatKiwee(pointDeLivraison: string): Promise<{ couvert: boolean; erreur?: string }> {
   const url = urlSupabase()
   const cle = cleService()
-  if (!url || !cle) {
-    /* SANS MOYEN DE VÉRIFIER, ON REFUSE. Laisser passer « parce qu'on ne sait pas » transformerait
-       une panne de configuration en porte ouverte, et personne ne s'en apercevrait. */
-    res.status(503).json({ error: 'Vérification du mandat impossible : configuration incomplète.' })
-    return true
-  }
-
+  if (!url || !cle) return { couvert: false, erreur: 'Vérification du mandat impossible : configuration incomplète.' }
   const admin = createClient(url, cle, { auth: { persistSession: false } })
 
   const { data, error } = await admin
     .from('mandats_compteurs')
-    .select('mandat_id, caduc_depuis, compteur:compteurs!inner(numero_point), mandat:mandats!inner(statut:statuts_mandats!inner(code))')
+    .select('mandat_id, caduc_depuis, compteur:compteurs!inner(numero_point), mandat:mandats!inner(actif, date_fin_validite, statut:statuts_mandats!inner(code), courtiers:mandats_courtiers(type:types_courtiers_mandat(code)))')
     .eq('compteur.numero_point', pointDeLivraison)
     .is('caduc_depuis', null)
 
-  if (error) {
-    res.status(503).json({ error: `Vérification du mandat impossible : ${error.message}` })
-    return true
-  }
+  if (error) return { couvert: false, erreur: `Vérification du mandat impossible : ${error.message}` }
 
+  const aujourdhui = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const un = <T,>(v: T | T[] | null | undefined): T | undefined => (Array.isArray(v) ? v[0] : v ?? undefined)
+  type LigneMandat = {
+    actif?: boolean
+    date_fin_validite?: string | null
+    statut?: { code?: string } | { code?: string }[]
+    courtiers?: { type?: { code?: string } | { code?: string }[] | null }[] | null
+  }
   const actif = (data ?? []).some((l) => {
-    const m = (l as { mandat?: { statut?: { code?: string } | { code?: string }[] } }).mandat
-    const s = Array.isArray(m?.statut) ? m?.statut[0] : m?.statut
-    return s?.code === 'ACTIF'
+    const m = un((l as { mandat?: LigneMandat | LigneMandat[] }).mandat)
+    if (!m || m.actif === false) return false
+    if (un(m.statut)?.code !== 'ACTIF') return false
+    if (m.date_fin_validite && m.date_fin_validite.slice(0, 10) < aujourdhui) return false
+    return (m.courtiers ?? []).some((c) => un(c.type)?.code === 'KIWI')
   })
 
+  return { couvert: actif }
+}
+
+export async function refuserSansMandatActif(
+  pointDeLivraison: string,
+  res: VercelResponse,
+): Promise<boolean> {
+  /* SANS MOYEN DE VÉRIFIER, ON REFUSE. Laisser passer « parce qu'on ne sait pas » transformerait
+     une panne de configuration en porte ouverte, et personne ne s'en apercevrait. */
+  const { couvert: actif, erreur } = await pointCouvertParMandatKiwee(pointDeLivraison)
+  if (erreur) {
+    res.status(503).json({ error: erreur })
+    return true
+  }
   if (!actif) {
     /* LE MESSAGE DIT CE QU'IL FAUT FAIRE, pas seulement ce qui est refusé : sans cela, l'écran
        affiche « échec » et on cherche une panne réseau pendant dix minutes. */
     res.status(403).json({
       success: false,
-      error: 'Aucun mandat actif ne couvre ce point de livraison. '
-        + 'Les données du gestionnaire de réseau ne peuvent être interrogées qu’avec un mandat signé et actif.',
+      error: 'Aucun mandat KiWee actif ne couvre ce point de livraison. '
+        + 'Les données du gestionnaire de réseau ne peuvent être interrogées qu’avec un mandat KiWee signé, actif et en cours de validité.',
     })
     return true
   }

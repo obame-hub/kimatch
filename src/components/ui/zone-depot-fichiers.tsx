@@ -66,6 +66,8 @@ export function ZoneDepotFichiers({
   onDeposer,
   accept,
   className,
+  apparence = 'standard',
+  ouvrirDepuis,
 }: {
   /** Categories proposees, telles que la table types_documents les nomme. */
   types: { id: string; libelle: string }[]
@@ -73,6 +75,10 @@ export function ZoneDepotFichiers({
   onDeposer: (fichiers: File[], typeDocumentId: string | null) => Promise<void>
   accept?: string
   className?: string
+  /** « compacte » : la zone de la fiche compteur v4 (30/09/2026) — filet fin, sans icône, 16 px. */
+  apparence?: 'standard' | 'compacte'
+  /** Un bouton extérieur (« ＋ Ajouter un fichier ») y range de quoi ouvrir le sélecteur. */
+  ouvrirDepuis?: { current: (() => void) | null }
 }) {
   const [survol, setSurvol] = useState(false)
   const [enCours, setEnCours] = useState(false)
@@ -80,6 +86,8 @@ export function ZoneDepotFichiers({
   const [enAttente, setEnAttente] = useState<File[]>([])
   const [typeId, setTypeId] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  if (ouvrirDepuis) ouvrirDepuis.current = () => inputRef.current?.click()
+  const compacte = apparence === 'compacte'
 
   function recevoir(liste: FileList | null) {
     setErreur(null)
@@ -137,10 +145,12 @@ export function ZoneDepotFichiers({
         onDrop={(e) => { e.preventDefault(); setSurvol(false); recevoir(e.dataTransfer.files) }}
         onClick={() => inputRef.current?.click()}
         className={cn(
-          'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors',
-          survol || enAttenteDe > 0
-            ? 'border-km-green bg-kiwi-50'
-            : 'border-km-line hover:border-kiwi-400 hover:bg-km-bg',
+          compacte
+            ? 'flex cursor-pointer flex-col items-center justify-center gap-1 rounded-[14px] border-[1.5px] border-dashed p-4 text-center text-km-muted transition-colors'
+            : 'flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors',
+          compacte
+            ? (survol || enAttenteDe > 0 ? 'border-km-green bg-[#EAF4F0]' : 'border-[#C9D0CB] bg-white')
+            : (survol || enAttenteDe > 0 ? 'border-km-green bg-kiwi-50' : 'border-km-line hover:border-kiwi-400 hover:bg-km-bg'),
         )}
       >
         {/* LA ZONE ACCUSE RÉCEPTION. Naoëlle, 21/08/2026 : « je trouve qu'on ne capte pas assez qu'un
@@ -156,6 +166,11 @@ export function ZoneDepotFichiers({
             <p className="text-xs text-km-green">
               Choisissez une catégorie ci-dessous — ou glissez-en d'autres
             </p>
+          </>
+        ) : compacte ? (
+          <>
+            <span className="text-[12.5px] font-semibold">Glissez-déposez vos fichiers ici</span>
+            <span className="text-[11px] text-km-faint">PDF, images, e-mails · classés ensuite en un clic</span>
           </>
         ) : (
           <>

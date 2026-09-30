@@ -747,6 +747,26 @@ export interface SyncCompteurElecResult {
   consoTotaleMwh?: number | null
   periodeDebut?: string | null
   periodeFin?: string | null
+  consoMensuelleMwh?: { mois: string; mwh: number; estimee: boolean }[] | null
+}
+
+/** Une ligne `consommations` par mois complet : du 1er au dernier jour, total tous postes. */
+export function lignesMensuelles(compteurId: string, mois: { mois: string; mwh: number; estimee: boolean }[]) {
+  return mois.map((m) => {
+    const [a, mo] = m.mois.split('-').map(Number)
+    const fin = `${m.mois.slice(0, 8)}${String(new Date(Date.UTC(a, mo, 0)).getUTCDate()).padStart(2, '0')}`
+    return {
+      compteur_id: compteurId,
+      date_debut_periode: m.mois,
+      date_fin_periode: fin,
+      quantite: m.mwh,
+      unite: 'MWh',
+      poste_tarifaire: 'TOTAL',
+      type_valeur: m.estimee ? 'ESTIMEE' : 'MESUREE',
+      source: 'Enedis',
+      commentaire: null,
+    }
+  })
 }
 
 export function useSyncCompteurElec() {
@@ -778,21 +798,13 @@ export function useSyncCompteurElec() {
       )
       if (eElec) throw new Error(eElec.message)
 
-      if (result.consoParClasseMwh && result.periodeDebut && result.periodeFin) {
+      /* ══ L'HISTORIQUE MENSUEL, MOIS COMPLETS SEULEMENT (30/09/2026) ══
+         Une ligne par mois civil entier, consommation TOTALE (tous postes) : c'est ce que trace le
+         graphique « 12 derniers mois ». Elles remplacent les lignes annuelles par poste d'avant,
+         dont le détail vit déjà dans `compteurs_electricite` (conso_*_mwh). Voir `moisComplets`. */
+      if (result.consoMensuelleMwh) {
         await supabase.from('consommations').delete().eq('compteur_id', compteurId).eq('source', 'Enedis')
-        const rows = Object.entries(result.consoParClasseMwh)
-          .filter(([, v]) => v > 0)
-          .map(([classe, v]) => ({
-            compteur_id: compteurId,
-            date_debut_periode: result.periodeDebut as string,
-            date_fin_periode: result.periodeFin as string,
-            quantite: v,
-            unite: 'MWh',
-            poste_tarifaire: classe,
-            type_valeur: 'MESUREE',
-            source: 'Enedis',
-            commentaire: null,
-          }))
+        const rows = lignesMensuelles(compteurId, result.consoMensuelleMwh)
         if (rows.length) {
           const { error: eConso } = await supabase.from('consommations').insert(rows)
           if (eConso) throw new Error(eConso.message)
@@ -863,6 +875,26 @@ export function useDeleteCompteur() {
  * Salesforce (6710 et 435 compteurs) et affichés, mais rien ne permettait de les changer. Un
  * responsable qui quitte son poste restait donc inscrit indéfiniment.
  */
+/* ══ LES CARACTÉRISTIQUES TECHNIQUES SE CORRIGENT À LA MAIN ══
+   Fiche compteur v4 (30/09/2026) : segment, FTA, tarif, profil et CAR deviennent modifiables en
+   place. Ils vivent dans les tables filles `compteurs_electricite` / `compteurs_gaz`, une ligne par
+   compteur : on la crée si elle manque (un compteur jamais synchronisé n'en a pas). */
+export function useMajTechniqueCompteur() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ compteurId, energie, patch }: {
+      compteurId: string
+      energie: 'electricite' | 'gaz'
+      patch: Record<string, unknown>
+    }) => {
+      const table = energie === 'electricite' ? 'compteurs_electricite' : 'compteurs_gaz'
+      const { error } = await supabase.from(table).upsert({ compteur_id: compteurId, ...patch }, { onConflict: 'compteur_id' })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['compteurs'] }) },
+  })
+}
+
 export function useUpdateCompteurField() {
   const queryClient = useQueryClient()
   return useMutation({

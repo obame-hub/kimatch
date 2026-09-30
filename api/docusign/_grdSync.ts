@@ -9,6 +9,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchElecData } from '../enedis/_client.js'
 import { fetchGazData } from '../grd/_client.js'
+import { pointCouvertParMandatKiwee } from '../_mandatActif.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any, any, any>
@@ -50,21 +51,24 @@ async function persistElec(admin: Admin, compteurId: string, result: Awaited<Ret
     { onConflict: 'compteur_id' },
   )
 
-  if (result.consoParClasseMwh && result.periodeDebut && result.periodeFin) {
+  /* L'historique mensuel, mois complets seulement — même règle que la synchronisation depuis la
+     fiche (`src/lib/data/compteurs.ts`, `lignesMensuelles`). */
+  if (result.consoMensuelleMwh) {
     await admin.from('consommations').delete().eq('compteur_id', compteurId).eq('source', 'Enedis')
-    const rows = Object.entries(result.consoParClasseMwh)
-      .filter(([, v]) => v > 0)
-      .map(([classe, v]) => ({
+    const rows = result.consoMensuelleMwh.map((m) => {
+      const [a, mo] = m.mois.split('-').map(Number)
+      return {
         compteur_id: compteurId,
-        date_debut_periode: result.periodeDebut,
-        date_fin_periode: result.periodeFin,
-        quantite: v,
+        date_debut_periode: m.mois,
+        date_fin_periode: `${m.mois.slice(0, 8)}${String(new Date(Date.UTC(a, mo, 0)).getUTCDate()).padStart(2, '0')}`,
+        quantite: m.mwh,
         unite: 'MWh',
-        poste_tarifaire: classe,
-        type_valeur: 'MESUREE',
+        poste_tarifaire: 'TOTAL',
+        type_valeur: m.estimee ? 'ESTIMEE' : 'MESUREE',
         source: 'Enedis',
         commentaire: null,
-      }))
+      }
+    })
     if (rows.length) await admin.from('consommations').insert(rows)
   }
 }
@@ -117,6 +121,10 @@ export async function runGrdSyncForMandat(admin: Admin, mandatId: string): Promi
   for (const c of (compteurs ?? []) as unknown as CompteurRow[]) {
     const energie = (c.type_energie?.code ?? '').toLowerCase()
     try {
+      /* LA MÊME GARDE QUE LE BOUTON DE LA FICHE : aucun appel au gestionnaire de réseau sans mandat
+         KiWee actif et valide sur ce point — y compris juste après une signature. */
+      const couverture = await pointCouvertParMandatKiwee(c.numero_point)
+      if (!couverture.couvert) throw new Error(couverture.erreur ?? 'aucun mandat KiWee actif ne couvre ce point')
       if (energie === 'gaz') {
         const codePostal = c.site?.code_postal
         if (!codePostal) throw new Error('code postal du site manquant')

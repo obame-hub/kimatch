@@ -888,6 +888,10 @@ export interface Contrat {
    *  Voir la migration 20260827120000. */
   recommandation_id?: string | null
   recommandation_nom?: string | null
+  /** La date de la recommandation dont le contrat est issu. */
+  recommandation_date?: string | null
+  /** CLIENT = signé par KiWee · PROSPECT = connu, signé sans nous. Null = non renseigné. */
+  nature_contrat?: 'CLIENT' | 'PROSPECT' | null
   contact_signataire_id?: string | null
   contact_signataire_nom?: string
   docusign_envelope_id: string | null

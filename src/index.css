@@ -943,3 +943,11 @@ body[data-modales-ouvertes] .pastille-flottante {
   pointer-events: none;
   transition: opacity .12s ease;
 }
+
+/* ══ FICHE COMPTEUR v4 (30/09/2026) ══
+   Les deux mouvements de la maquette Claude Design, repris à la lettre : l'arrivée d'un onglet ou
+   d'un menu (opacité et 4 px de descente), et le toast qui monte de 8 px. Déclarés ici et non dans
+   `tailwind.config.js` : ils sont appelés en classes arbitraires (`animate-[kmFade_…]`), que le thème
+   ne voit pas. */
+@keyframes kmFade { from { opacity: 0; transform: translateY(-4px) } to { opacity: 1; transform: none } }
+@keyframes kmToast { from { opacity: 0; transform: translate(-50%, 8px) } to { opacity: 1; transform: translate(-50%, 0) } }

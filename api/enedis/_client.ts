@@ -105,6 +105,58 @@ export interface EnedisElecResult {
   consoTotaleKwh?: number | null
   periodeDebut?: string | null
   periodeFin?: string | null
+  /** La consommation TOTALE de chaque mois complet des douze derniers — voir `moisComplets`. */
+  consoMensuelleMwh?: { mois: string; mwh: number; estimee: boolean }[] | null
+}
+
+/**
+ * ══ UN MOIS NE COMPTE QUE S'IL EST ENTIER ══
+ *
+ * William, 30/09/2026 : « il faut renseigner les consommations par mois (consommation totale, pas
+ * par poste). Je souhaite l'historique des 12 derniers mois renseignés — attention aux demi-mois
+ * ou autre ce qui pourrait nuire à la santé de la data. »
+ *
+ * Une mesure Enedis couvre une période de relève, qui ne tombe pas toujours sur un mois civil (relève
+ * au 15, période écourtée par un changement de fournisseur…). On ne garde donc une mesure pour le
+ * mois M que si elle commence le 1er de M et finit le 1er de M+1 (borne exclusive) ou le dernier
+ * jour de M (borne inclusive). Et un mois n'est retenu que si TOUS les postes du calendrier y ont
+ * une mesure entière : un mois où l'heure creuse manque donnerait un total faussement bas. On ne
+ * recoupe ni ne répartit rien — un mois douteux est absent, pas approché.
+ */
+export function moisComplets(
+  mesures: { classe: string; debut: string; fin: string; valeurKwh: number; estimee: boolean }[],
+  moisRetenus: Set<string>,
+): { mois: string; mwh: number; estimee: boolean }[] {
+  const lendemainDuMois = (m: string) => {
+    const [a, mo] = m.split('-').map(Number)
+    return mo === 12 ? `${a + 1}-01-01` : `${a}-${String(mo + 1).padStart(2, '0')}-01`
+  }
+  const dernierJour = (m: string) => {
+    const [a, mo] = m.split('-').map(Number)
+    return `${m}-${String(new Date(Date.UTC(a, mo, 0)).getUTCDate()).padStart(2, '0')}`
+  }
+  /* Les postes attendus : ceux que le calendrier porte SUR LA FENÊTRE, pas sur tout l'historique —
+     un poste disparu depuis un changement de tarif ferait rejeter tous les mois récents. */
+  const classesDuCalendrier = new Set(mesures.filter((x) => moisRetenus.has(x.debut.slice(0, 7))).map((x) => x.classe))
+  const parMois = new Map<string, { parClasse: Map<string, number>; estimee: boolean; douteux: boolean }>()
+  for (const x of mesures) {
+    const mois = x.debut.slice(0, 7)
+    if (!moisRetenus.has(mois)) continue
+    const entier = x.debut === `${mois}-01` && (x.fin === lendemainDuMois(mois) || x.fin === dernierJour(mois))
+    const e = parMois.get(mois) ?? { parClasse: new Map(), estimee: false, douteux: false }
+    if (!entier || e.parClasse.has(x.classe)) e.douteux = true
+    else e.parClasse.set(x.classe, x.valeurKwh)
+    if (x.estimee) e.estimee = true
+    parMois.set(mois, e)
+  }
+  return [...parMois.entries()]
+    .filter(([, e]) => !e.douteux && [...classesDuCalendrier].every((c) => e.parClasse.has(c)))
+    .map(([mois, e]) => ({
+      mois: `${mois}-01`,
+      mwh: Math.round(([...e.parClasse.values()].reduce((a, b) => a + b, 0) / 1000) * 1000) / 1000,
+      estimee: e.estimee,
+    }))
+    .sort((a, b) => a.mois.localeCompare(b.mois))
 }
 
 export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
@@ -139,7 +191,9 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
   const segmentCodesRaw = [...xmlDtc.matchAll(/segment[^>]*code=["']([^"']+)["']/gi)].map((m) => m[1].trim())
   const segmentCx = segmentCodesRaw.find((c) => /^C[1-5]$/i.test(c))?.toUpperCase() ?? null
 
-  const fta = xmlDtc.match(/formuleTarifaireAcheminement[^>]*code=["']([^"']+)["']/)?.[1] ?? null
+  /* LE CODE DE LA FTA (« HTALU5 », « BTSUPCU4 »), jamais son libellé — c'est ce que la fiche affiche
+     et ce que les listes de valeurs proposent. */
+  const fta = xmlDtc.match(/formuleTarifaireAcheminement[^>]*code=["']([^"']+)["']/)?.[1]?.replace(/\s+/g, '').toUpperCase() ?? null
   const ftaLibelleRaw = xmlDtc.match(/<formuleTarifaireAcheminement[^>]*>[\s\S]*?<libelle>([^<]+)<\/libelle>/)?.[1] ?? null
   const ftaLibelle = ftaLibelleRaw ? decodeXml(ftaLibelleRaw) : null
   const puissanceMax = xmlDtc.match(/<puissanceSouscriteMax>[\s\S]*?<valeur>([^<]+)<\/valeur>/)?.[1] ?? null
@@ -214,6 +268,7 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
 
   const allDates: string[] = []
   const parCalendrier: Record<string, Record<string, number>> = {}
+  const mesuresParCalendrier: Record<string, { classe: string; debut: string; fin: string; valeurKwh: number; estimee: boolean }[]> = {}
   for (const sm of [...xmlMesures.matchAll(/<serie[^>]*>([\s\S]*?)<\/serie>/g)]) {
     const sx = sm[1]
     const classe = sx.match(/classeTemporelle[^>]*code=["']([^"']+)["']/)?.[1]
@@ -226,10 +281,16 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
       const mx = mm[1]
       const valeur = mx.match(/<valeur>([^<]+)<\/valeur>/)?.[1]
       const dateFin = mx.match(/<dateFin>([^<]+)<\/dateFin>/)?.[1]?.slice(0, 10)
+      const dateDebut = mx.match(/<dateDebut>([^<]+)<\/dateDebut>/)?.[1]?.slice(0, 10)
       const statut = mx.match(/statut[^>]*code=["']([^"']+)["']/)?.[1]
       if (!valeur || !dateFin || statut === 'ANNULEE') continue
       allDates.push(dateFin)
       parCalendrier[calendrier][`${cls}|${dateFin}`] = (parCalendrier[calendrier][`${cls}|${dateFin}`] ?? 0) + parseFloat(valeur)
+      if (dateDebut && !Number.isNaN(parseFloat(valeur))) {
+        ;(mesuresParCalendrier[calendrier] ??= []).push({
+          classe: cls, debut: dateDebut, fin: dateFin, valeurKwh: parseFloat(valeur), estimee: /ESTIM/i.test(statut ?? ''),
+        })
+      }
     }
   }
 
@@ -265,6 +326,16 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     if (periods12.has(dateFin.slice(0, 7))) conso12[classe] = (conso12[classe] ?? 0) + val
   }
   const totalMwh = Object.values(conso12).reduce((a, b) => a + b, 0) / 1000
+
+  /* Les douze mois civils qui précèdent le mois en cours — le mois en cours n'est jamais complet. */
+  const douzeMois = new Set<string>()
+  for (let i = 1; i <= 12; i++) {
+    const d = new Date()
+    d.setUTCDate(1)
+    d.setUTCMonth(d.getUTCMonth() - i)
+    douzeMois.add(d.toISOString().slice(0, 7))
+  }
+  const consoMensuelleMwh = calChoisi ? moisComplets(mesuresParCalendrier[calChoisi] ?? [], douzeMois) : []
 
   const isHTA = !!segment && /^C[1-4]$/i.test(segment)
   const ORDRE = ['POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
@@ -319,7 +390,11 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     calendrierFournisseur,
     puissanceSouscrite: puissanceMax ? parseFloat(puissanceMax) : null,
     puissanceRaccordement: puissanceRacc ? parseFloat(puissanceRacc) : null,
-    puissancesParClasse: isHTA ? orderObj(puissancesParClasse, true) : null,
+    /* EN C5, UNE SEULE PUISSANCE SOUSCRITE, rangée en BASE — la classe que le formulaire de création
+       emploie déjà pour la « PS unique ». Elle était reçue et jetée. */
+    puissancesParClasse: isHTA
+      ? orderObj(puissancesParClasse, true)
+      : puissanceMax && !Number.isNaN(parseFloat(puissanceMax)) ? { BASE: parseFloat(puissanceMax) } : null,
     adresse: adresseElec,
     codePostalSite: codePostalElec,
     ville: villeElec,
@@ -328,5 +403,6 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     consoTotaleKwh: Math.round(totalMwh * 1000),
     periodeDebut: uniqueMonths.length ? `${uniqueMonths[uniqueMonths.length - 1]}-01` : null,
     periodeFin: uniqueMonths.length ? `${uniqueMonths[0]}-01` : null,
+    consoMensuelleMwh,
   }
 }

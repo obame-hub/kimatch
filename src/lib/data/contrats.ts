@@ -57,8 +57,9 @@ interface RawContrat {
   contact_signataire: { prenom: string; nom: string } | null
   interlocuteur_pricing: { prenom: string; nom: string } | null
   proprietaire: { prenom: string; nom: string } | null
-  recommandation: { nom: string } | null
+  recommandation: { nom: string; date_creation?: string | null } | null
   compte: { nom: string } | null
+  nature_contrat?: 'CLIENT' | 'PROSPECT' | null
   date_creation: string
   date_modification: string
 }
@@ -71,7 +72,7 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       'contrats',
       // `*` plutôt qu'une liste de colonnes fixe : `strategie_tarifaire` vient d'être ajoutée
       // par migration et peut ne pas encore exister en prod au moment du déploiement.
-      '*, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), avancement:statuts_contrats_avancement(code, libelle), valide_par:profils!contrats_valide_par_id_fkey(prenom, nom), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), recommandation:recommandations!contrats_recommandation_id_fkey(nom)',
+      '*, site:sites(nom), fournisseur:comptes!contrats_fournisseur_compte_id_fkey(nom), compte:comptes!contrats_compte_id_fkey(nom), type_energie:types_energies(code), statut:statuts_contrats(code), avancement:statuts_contrats_avancement(code, libelle), valide_par:profils!contrats_valide_par_id_fkey(prenom, nom), contact_signataire:contacts!contrats_contact_signataire_id_fkey(prenom, nom), interlocuteur_pricing:contacts!contrats_interlocuteur_pricing_contact_id_fkey(prenom, nom), proprietaire:profils!contrats_proprietaire_id_fkey(prenom, nom), recommandation:recommandations!contrats_recommandation_id_fkey(nom, date_creation)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (contratId) return q.eq('id', contratId)
@@ -138,6 +139,10 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       proprietaire_nom: c.proprietaire ? `${c.proprietaire.prenom} ${c.proprietaire.nom}` : null,
       recommandation_id: c.recommandation_id ?? null,
       recommandation_nom: c.recommandation?.nom ?? null,
+      recommandation_date: c.recommandation?.date_creation ?? null,
+      /* Client (signé par KiWee) ou prospect (signé sans nous) — saisi, jamais déduit. Voir la
+         migration `un_contrat_dit_s_il_est_client_ou_prospect`. */
+      nature_contrat: c.nature_contrat ?? null,
       contact_signataire_id: c.contact_signataire_id,
       contact_signataire_nom: c.contact_signataire ? `${c.contact_signataire.prenom} ${c.contact_signataire.nom}` : undefined,
       interlocuteur_pricing_contact_id: c.interlocuteur_pricing_contact_id,
@@ -454,6 +459,7 @@ export function useUpdateContrat() {
  * n'existent pas comme colonnes et feraient répondre 400 à PostgREST.
  */
 export type PatchContrat = Partial<{
+  nature_contrat: 'CLIENT' | 'PROSPECT' | null
   statut_id: string | null
   /** Le cycle de signature — Brouillon, Demandé, Réceptionné, Envoyé, Consulté, Signé. */
   statut_avancement_id: string | null

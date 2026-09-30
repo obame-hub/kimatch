@@ -1,476 +1,78 @@
 import { useMemo, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, FileCheck2, FileText, Flame, Plus, RefreshCw, Trash2, Zap } from 'lucide-react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Flame, Trash2, Zap } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
-import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { Badge } from '@/components/ui/badge'
-import { Dialog } from '@/components/ui/dialog'
 import { DialogSuppression } from '@/components/ui/dialog-suppression'
-import { CartesRattachement } from '@/components/compteur/CartesRattachement'
-import { FormField, Input, Select } from '@/components/ui/form'
-import { HistoriqueDiscret } from '@/components/ui/historique-discret'
-import { EntityLink } from '@/components/ui/entity-link'
-import { PDL_FORMAT_RE, useCompteur, useDeleteCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField } from '@/lib/data/compteurs'
-import { nettoyerSaisie } from '@/lib/utils'
+import { InlineField } from '@/components/ui/inline-field'
+import { MenuCreer } from '@/components/layout/MenuCreer'
+import { OpportunitesDuCompteur } from '@/components/compteur/OpportunitesDuCompteur'
+import { CreateRecommandationDialog } from '@/pages/Recommandations'
+import { BlocCaracteristiques, BlocConsommation, BlocLieu, BlocPostes } from '@/components/compteur/fiche/ColonnePrincipale'
+import { BlocCompte, BlocContacts, BlocContratEnCours, BlocQualiteCompte } from '@/components/compteur/fiche/ColonneLaterale'
+import {
+  OngletContrats, OngletFichiers, OngletMandats, OngletRecommandations, useRecommandationsDuCompteur,
+} from '@/components/compteur/fiche/Onglets'
+import {
+  PDL_FORMAT_RE, useCompteur, useDeleteCompteur, useMajTechniqueCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField,
+} from '@/lib/data/compteurs'
+import { nettoyerSaisie, cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useEnedisFetch } from '@/lib/data/enedis'
 import { useGrdFetch } from '@/lib/data/grd'
-import { useConsommations, useCreateConsommation } from '@/lib/data/consommations'
+import { useConsommationsDuCompteur } from '@/lib/data/consommations'
 import { useSite } from '@/lib/data/sites'
-import { useQualiteCompteur, ligneDuBareme, type QualiteCompteur } from '@/lib/data/qualiteCompte'
-import { HeroQualiteCompteur } from '@/components/compte/HerosCompte'
 import { useCompte } from '@/lib/data/comptes'
-import { InlineField } from '@/components/ui/inline-field'
 import { useContacts } from '@/lib/data/contacts'
-import { useContrats } from '@/lib/data/contrats'
-import { HistoriqueContrats } from '@/components/compteur/HistoriqueContrats'
+import { useContrats, useUpdateContratPartiel } from '@/lib/data/contrats'
 import { natureEcheance } from '@/lib/echeance'
-import { BadgeEcheance } from '@/components/compteur/BadgeEcheance'
+import { statutVieContrat } from '@/lib/statutVieContrat'
 import { useMandats } from '@/lib/data/mandats'
-import { OpportunitesDuCompteur } from '@/components/compteur/OpportunitesDuCompteur'
-import { useRecommandationsListe } from '@/lib/data/recommandations'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_STATUTS_MANDATS, STATUT_MANDAT_TONE, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
-import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
+import { FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
+import { useCanManageEnregistrement } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
-import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
-import type { Compteur, Consommation } from '@/types/domain'
 import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
-import { MenuCreer } from '@/components/layout/MenuCreer'
-import { useCreerUnContact, useDeclarerCompteCourant } from '@/lib/creationContact'
-import { contactsPourLaFente } from '@/lib/contactRoles'
-
-const POSTE_OPTIONS = ['TOTAL', 'HP', 'HC', 'POINTE', 'HPH', 'HCH', 'HPE', 'HCE']
-const TYPE_VALEUR_OPTIONS = ['MESUREE', 'ESTIMEE', 'CORRIGEE']
-
-type TabKey = 'apercu' | 'rattachements' | 'contrats' | 'mandats' | 'fichiers'
-
-function AddConsommationDialog({ compteurId, open, onClose }: { compteurId: string; open: boolean; onClose: () => void }) {
-  const createConsommation = useCreateConsommation()
-  const [dateDebut, setDateDebut] = useState('')
-  const [dateFin, setDateFin] = useState('')
-  const [quantite, setQuantite] = useState('')
-  const [unite, setUnite] = useState('MWh')
-  const [posteTarifaire, setPosteTarifaire] = useState('TOTAL')
-  const [typeValeur, setTypeValeur] = useState('MESUREE')
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  function reset() {
-    setDateDebut('')
-    setDateFin('')
-    setQuantite('')
-    setUnite('MWh')
-    setPosteTarifaire('TOTAL')
-    setTypeValeur('MESUREE')
-    setFeedback(null)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const result = await createConsommation.mutateAsync({
-      compteur_id: compteurId,
-      date_debut_periode: dateDebut,
-      date_fin_periode: dateFin,
-      quantite: parseFloat(quantite),
-      unite,
-      poste_tarifaire: posteTarifaire,
-      type_valeur: typeValeur,
-      source: 'Saisie manuelle',
-      commentaire: null,
-    })
-    setFeedback(result.persisted ? 'Période ajoutée.' : 'Ajoutée localement (non synchronisée avec Supabase).')
-    setTimeout(() => {
-      reset()
-      onClose()
-    }, 700)
-  }
-
-  return (
-    <Dialog open={open} onClose={() => { reset(); onClose() }} title="Ajouter une période de consommation" description="Enregistrer un relevé pour ce compteur.">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Début de période">
-            <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} required />
-          </FormField>
-          <FormField label="Fin de période">
-            <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} required />
-          </FormField>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Quantité">
-            <Input type="number" step="0.001" value={quantite} onChange={(e) => setQuantite(e.target.value)} required />
-          </FormField>
-          <FormField label="Unité">
-            <Input value={unite} onChange={(e) => setUnite(e.target.value)} required />
-          </FormField>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Poste tarifaire">
-            <Select value={posteTarifaire} onChange={(e) => setPosteTarifaire(e.target.value)}>
-              {POSTE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-            </Select>
-          </FormField>
-          <FormField label="Type de valeur">
-            <Select value={typeValeur} onChange={(e) => setTypeValeur(e.target.value)}>
-              {TYPE_VALEUR_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-            </Select>
-          </FormField>
-        </div>
-        {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={() => { reset(); onClose() }}>Annuler</Button>
-          <Button type="submit" disabled={createConsommation.isPending}>Ajouter</Button>
-        </div>
-      </form>
-    </Dialog>
-  )
-}
+import { useDeclarerCompteCourant } from '@/lib/creationContact'
+import { useCreerUnMandat } from '@/lib/creationMandat'
+import { mandatKiweeCouvre } from '@/lib/couvertureMandat'
 
 /**
- * ══ LE SCORE DU COMPTEUR, ET LE CALCUL QUI LE PRODUIT ══════════════════════════════════════════
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LA FICHE COMPTEUR — v4
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
- * Naoëlle, 02/09/2026 : « affiche le score des compteurs sur les fiches compteurs avec le calcul
- * qu'a donné Michel, comme ça je peux vérifier si la moyenne est bonne dans l'onglet synthèse. »
+ * William, 30/09/2026 : « Voici tout le prompt qui vient de Claude Design pour redesigner la page
+ * compteur dans Kimatch. Je veux que ce soit pixel perfect. » Le paquet (`handoff-fiche-compteur`)
+ * décrit le volet central ; le bandeau reste celui de la production, hormis l'icône d'énergie qui
+ * inversait les couleurs (l'électricité était bleu ciel).
  *
- * ══ POURQUOI LES TROIS FAITS, ET PAS SEULEMENT LE CHIFFRE ══
+ * ══ CE QUI CHANGE D'ORGANISATION ══
  *
- * Un « 30/100 » seul ne se vérifie pas : il faut savoir CE QUI a été regardé. Le barème de Michel
- * ne pose que trois questions — contrat en cours, échéance à venir, responsable — et la carte les
- * montre dans cet ordre, avec la ligne du barème qui en découle. On peut donc remonter d'un score
- * de compte à la moyenne, de la moyenne à chaque compteur, et de chaque compteur à un fait
- * vérifiable sur cette même fiche.
+ *   Onglets     Compteur · Contrats · Recommandations (nouveau) · Mandats · Fichiers. L'onglet
+ *               « Rattachements » disparaît : compte, contacts et lieu sont sur l'onglet Compteur,
+ *               les opportunités passent dans Recommandations.
+ *   Compteur    deux colonnes — le lieu, la plaque technique, les postes, la consommation à gauche ;
+ *               la qualité du compte, le compte, les contacts et le contrat en cours à droite, qui
+ *               reste visible pendant le défilement.
+ *   Retirés     la carte « Couverture », le barème de qualité du compteur (seule la qualité du
+ *               COMPTE reste), la saisie manuelle d'une consommation et le bloc « Détail du compteur »
+ *               — décisions de William du 30/09/2026.
  *
- * ══ L'ÉCHÉANCE N'EST PAS TOUJOURS REGARDÉE, ET LA CARTE LE DIT ══
- *
- * Sous contrat, le barème s'arrête à la première ligne : l'échéance ne change plus rien. La griser
- * évite de faire chercher pourquoi une échéance dépassée ne coûte rien à un compteur bien tenu.
- *
- * Les six lignes affichées sont celles de son message, mot pour mot — le tableau sert de preuve
- * autant que d'explication, et c'est ce que Naoëlle est venue vérifier.
+ * Les composants vivent dans `src/components/compteur/fiche/`. Cette page ne fait que charger les
+ * données, porter les écritures et poser les blocs.
  */
-/*
- * Le barème de Michel, VERSION DU 02/09/2026 — il a corrigé la sienne de la veille : « là où c'est
- * faux, c'est parce que moi je t'ai donné des calculs faux ». L'ancienne notait « sans contrat mais
- * échéance connue et responsable » à 80, au-dessus de « sous contrat sans responsable » à 70 : un
- * compteur qu'on ne fournit pas passait devant un compteur qu'on fournit.
- *
- * L'ORDRE D'AFFICHAGE SUIT LES POINTS, PAS L'ÉNONCÉ. Michel les dicte dans l'ordre du CASE — le
- * contrat, puis l'échéance, puis le reste — mais lu sur une fiche, un barème se parcourt du meilleur
- * au pire : c'est ainsi qu'on situe son compteur d'un coup d'œil, ce que Naoëlle est venue faire ici.
- */
-const BAREME: { libelle: string; points: number }[] = [
-  { libelle: 'Contrat + responsable', points: 100 },
-  { libelle: 'Contrat + sans responsable', points: 80 },
-  { libelle: 'Sans contrat + échéance future + responsable', points: 60 },
-  { libelle: 'Sans contrat + échéance future + sans responsable', points: 40 },
-  { libelle: 'Sans contrat + échéance absente ou dépassée + responsable', points: 20 },
-  { libelle: 'Sans contrat + échéance absente ou dépassée + sans responsable', points: 0 },
-]
 
-function ScoreQualiteCard({ q }: { q: QualiteCompteur }) {
-  const [detail, setDetail] = useState(false)
-  const ligne = ligneDuBareme(q)
-
-  const faits: { libelle: string; vrai: boolean; precision?: string; ignore?: boolean }[] = [
-    { libelle: 'Contrat en cours', vrai: q.a_contrat },
-    {
-      libelle: 'Échéance à venir',
-      vrai: q.echeance_future,
-      precision: q.date_echeance
-        ? new Date(q.date_echeance).toLocaleDateString('fr-FR')
-        : 'aucune échéance',
-      // Sous contrat, la première ligne du barème gagne : l'échéance n'entre plus dans le calcul.
-      ignore: q.a_contrat,
-    },
-    { libelle: 'Responsable', vrai: q.a_responsable, precision: q.responsable_nom || undefined },
-  ]
-
-  return (
-    <div className="rounded-xl border border-km-line bg-white p-3.5">
-      {/* Le chiffre et sa couleur sont portés par le héros à gauche : le répéter ici en ferait
-          deux affirmations à rapprocher plutôt qu'une seule à lire. Cette carte explique. */}
-      <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">
-        Ce que le barème a regardé
-      </p>
-
-      <div className="flex flex-col gap-1.5">
-        {faits.map((f) => (
-          <div
-            key={f.libelle}
-            className={cn(
-              'flex items-center justify-between rounded-lg border border-navy-50 bg-km-bg/60 px-2 py-1.5',
-              f.ignore && 'opacity-45',
-            )}
-          >
-            <span className="text-km-label font-semibold text-km-text">
-              {f.libelle}
-              {f.ignore && <span className="ml-1 font-normal text-km-faint">· non regardée</span>}
-            </span>
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-km-tiny font-bold',
-                f.ignore ? 'bg-km-soft text-km-muted' : f.vrai ? 'bg-kiwi-50 text-km-green' : 'bg-red-100 text-km-red',
-              )}
-            >
-              {f.vrai ? f.precision ?? 'Oui' : f.precision ?? 'Non'}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <p className="mt-2 text-km-tiny italic text-km-faint">
-        {ligne} = {q.score}
-      </p>
-
-      {/* LE BARÈME ENTIER SE DÉPLIE. Vérifier une moyenne, c'est comparer un compteur aux cinq
-          autres cas possibles : les cacher obligerait à ouvrir un autre écran au moment précis où
-          l'on doute. Replié par défaut, parce qu'on ne doute pas à chaque visite. */}
-      <button
-        type="button"
-        onClick={() => setDetail((d) => !d)}
-        className="mt-1 text-km-tiny font-bold text-km-green hover:underline"
-      >
-        {detail ? 'Masquer le barème' : 'Voir le barème complet'}
-      </button>
-      {detail && (
-        <div className="mt-1.5 flex flex-col gap-0.5 border-t border-km-line-soft pt-1.5">
-          {BAREME.map((b) => (
-            <div
-              key={b.libelle}
-              className={cn(
-                'flex items-baseline justify-between gap-2 text-km-tiny',
-                b.libelle === ligne ? 'font-bold text-km-text' : 'text-km-faint',
-              )}
-            >
-              <span className="min-w-0 flex-1">{b.libelle}</span>
-              <span className="font-mono tabular-nums">{b.points}</span>
-            </div>
-          ))}
-          <p className="mt-1 text-km-tiny italic text-km-faint">
-            Le score d'un compte est la moyenne des scores de ses compteurs.
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* La couverture comptait quatre lignes ; « Signaux » a été retirée le 02/09/2026 avec le sujet
-   (voir `cycleNavItems`). Le score passe donc sur trois, et c'est plus juste : « aucun signal
-   ouvert » comptait comme un point de couverture alors que ça ne couvre rien — c'était une absence
-   de mauvaise nouvelle, pas une protection. Les trois qui restent — mandat, reco, contrat — sont
-   bien des choses qu'on met en place. */
-function CouvertureCard({
-  mandatCouvert,
-  recoEnCours,
-  contratCouvert,
-  onMandat,
-  onReco,
-  onContrat,
-}: {
-  mandatCouvert: boolean
-  recoEnCours: boolean
-  contratCouvert: boolean
-  onMandat?: () => void
-  onReco?: () => void
-  onContrat?: () => void
-}) {
-  const items = [
-    { lbl: 'Mandat', ok: mandatCouvert, val: mandatCouvert ? 'Couvert ✓' : 'Non couvert', onClick: mandatCouvert ? onMandat : undefined },
-    { lbl: 'Reco', ok: true, warn: recoEnCours, val: recoEnCours ? 'En cours' : 'Aucune', onClick: recoEnCours ? onReco : undefined },
-    { lbl: 'Contrat', ok: contratCouvert, val: contratCouvert ? 'Couvert ✓' : 'Aucun', onClick: contratCouvert ? onContrat : undefined },
-  ]
-  const score = items.filter((i) => i.ok).length
-  return (
-    <div className="rounded-xl border border-km-line bg-white p-3.5">
-      <div className="mb-2.5 flex items-center gap-1.5">
-        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Couverture</span>
-        <div className="flex-1" />
-        <span className={cn('rounded px-1.5 py-0.5 font-mono text-km-xs font-bold', score === items.length ? 'bg-kiwi-50 text-km-green' : 'bg-km-amber-soft text-amber-700')}>
-          {score}/{items.length}
-        </span>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        {items.map((it) => (
-          <div
-            key={it.lbl}
-            onClick={it.onClick}
-            className={cn(
-              'flex items-center justify-between rounded-lg border border-navy-50 bg-km-bg/60 px-2 py-1.5',
-              it.onClick && 'cursor-pointer hover:bg-km-soft/60',
-            )}
-          >
-            <span className="text-km-label font-semibold text-km-text">{it.lbl}</span>
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-km-tiny font-bold',
-                !it.ok ? 'bg-red-100 text-km-red' : it.warn ? 'bg-km-amber-soft text-amber-700' : 'bg-kiwi-50 text-km-green',
-              )}
-            >
-              {it.val}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/**
- * « POSTES HORAIRES — CONSO & PUISSANCE » de la maquette de William.
- *
- * Les données existaient déjà en base (`compteurs_electricite.conso_*_mwh` et `puissance_*_kva`,
- * remontées par le hook dans `consoParClasseMwh` / `puissanceParClasseKva`) mais n'étaient
- * affichées nulle part : le conseiller voyait la consommation totale sans savoir comment elle se
- * répartissait, alors que c'est précisément là que se joue l'optimisation.
- *
- * Le design annonce « optimisation ≈ 640 €/an » sous le dépassement de puissance. Ce chiffre
- * suppose les coefficients TURPE, qui ne sont pas encore branchés (tâche « étude TURPE
- * automatique »). On affiche donc l'écart réel en kVA — un fait — sans inventer l'euro, comme
- * pour la frise PEG/BASE.
- */
-const ORDRE_POSTES = ['POINTE', 'HPH', 'HCH', 'HPE', 'HCE', 'HP', 'HC', 'BASE'] as const
-
-function PostesHorairesCard({ compteur }: { compteur: Compteur }) {
-  const conso = compteur.consoParClasseMwh ?? {}
-  const puissances = compteur.puissanceParClasseKva ?? {}
-
-  /* Un poste est affiché s'il porte une conso OU une puissance : sur un C5 en Base, sept des huit
-     classes sont vides et les afficher ne dirait rien.
-
-     ══ SAUF QUAND IL N'Y EN A AUCUN ══════════════════════════════════════════════════════════════
-
-     La carte disparaissait alors complètement, et c'est ce que Naoëlle a relevé le 03/09/2026 :
-     « quand un compteur n'a pas de conso, il faudrait voir quand même le bloc postes horaires conso
-     et puissance, même quand ce n'est pas renseigné ». Michel disait la même chose la veille sur le
-     compteur GEOPETROL : « même si les consos sont à 0, on devrait quand même voir les postes ».
-
-     ILS ONT RAISON, ET L'ENJEU N'EST PAS DÉCORATIF. Une carte absente se lit « ce compteur n'a pas
-     de postes horaires » ; une carte vide se lit « personne ne les a remontés ». C'est la seconde
-     phrase qui est vraie, et c'est la seule des deux sur laquelle on peut agir. Sur 4 820 compteurs
-     électricité, 793 seulement portent une répartition : la carte manquait donc sur la très grande
-     majorité des fiches, exactement là où le trou de donnée méritait d'être vu.
-
-     On affiche alors les huit classes à « — », dans l'ordre du barème, avec la phrase qui dit d'où
-     ces valeurs devraient venir. */
-  const renseignes = ORDRE_POSTES.filter((p) => conso[p] != null || puissances[p] != null)
-  const vide = renseignes.length === 0
-
-  /* ══ SUR UN COMPTEUR GAZ, LA CARTE NE S'AFFICHE PAS DU TOUT ══
-     POINTE, HPH, HCH… sont les classes temporelles de l'ÉLECTRICITÉ. Les afficher vides sur les
-     3 095 compteurs gaz ne dirait pas « on ne les a pas remontées » mais quelque chose de faux :
-     ces postes n'existent pas pour le gaz, qui se décrit par son CAR et son profil. La carte vide
-     répond à un trou de donnée, pas à une donnée sans objet. */
-  if (vide && compteur.type_energie !== 'electricite') return null
-
-  const postes = vide ? ORDRE_POSTES : renseignes
-
-  const consoMax = Math.max(...postes.map((p) => conso[p] ?? 0), 0)
-  const valeursPuissance = postes.map((p) => puissances[p]).filter((v): v is number => v != null)
-  const puissanceMaxAtteinte = valeursPuissance.length > 0 ? Math.max(...valeursPuissance) : null
-
-  return (
-    <div className="rounded-xl border border-km-line bg-white p-4">
-      <div className="mb-3 flex flex-wrap items-baseline gap-2">
-        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Postes horaires — conso &amp; puissance</span>
-        {puissanceMaxAtteinte != null && (
-          <span className="ml-auto font-mono text-km-xs text-km-faint">
-            Max atteint : {puissanceMaxAtteinte.toLocaleString('fr-FR')} kVA
-          </span>
-        )}
-      </div>
-
-      {vide && (
-        <p className="mb-3 text-km-label leading-relaxed text-km-muted">
-          Aucune répartition remontée pour ce compteur — ni par la reprise Salesforce, ni par une
-          synchronisation. Les huit classes sont listées vides : rien n'est calculé ni supposé ici.
-        </p>
-      )}
-
-      <div className={cn('space-y-2', vide && 'opacity-55')}>
-        {postes.map((poste) => {
-          const mwh = conso[poste]
-          const kva = puissances[poste]
-          return (
-            <div key={poste} className="flex items-center gap-3">
-              <span className="w-14 shrink-0 font-mono text-km-xs font-bold text-km-muted">{poste}</span>
-              <div className="h-2.5 flex-1 rounded-full bg-km-soft">
-                {mwh != null && consoMax > 0 && (
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-kiwi-500 to-kiwi-400"
-                    style={{ width: `${Math.max(2, (mwh / consoMax) * 100)}%` }}
-                  />
-                )}
-              </div>
-              <span className="w-20 shrink-0 text-right font-mono text-km-label font-semibold text-km-text">
-                {mwh != null ? `${mwh.toLocaleString('fr-FR')} MWh` : '—'}
-              </span>
-              <span className="w-16 shrink-0 text-right font-mono text-km-label text-km-muted">
-                {kva != null ? `${kva.toLocaleString('fr-FR')} kVA` : '—'}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function ConsommationChart({ consommations }: { consommations: Consommation[] }) {
-  const sorted = useMemo(
-    () => [...consommations].sort((a, b) => new Date(a.date_debut_periode).getTime() - new Date(b.date_debut_periode).getTime()),
-    [consommations],
-  )
-  const max = Math.max(...sorted.map((c) => c.quantite), 1)
-  const postesUniques = [...new Set(sorted.map((c) => c.poste_tarifaire))]
-  const palette = ['bg-kiwi-500', 'bg-sky-500', 'bg-amber-500', 'bg-violet-500', 'bg-navy-500']
-  const posteColor = (poste: string) => palette[postesUniques.indexOf(poste) % palette.length]
-
-  return (
-    <div className="rounded-xl border border-km-line bg-white p-4">
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Consommation</span>
-        <span className="rounded bg-km-soft px-1.5 py-0.5 text-km-tiny font-bold text-km-muted">{sorted[0]?.unite ?? 'MWh'}</span>
-        {postesUniques.length > 1 && (
-          <div className="ml-auto flex flex-wrap gap-2.5">
-            {postesUniques.map((p) => (
-              <span key={p} className="flex items-center gap-1 text-km-xs text-km-muted">
-                <span className={cn('h-2 w-2 rounded-sm', posteColor(p))} />
-                {p}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="flex items-end gap-2 overflow-x-auto pb-1" style={{ height: 140 }}>
-        {sorted.map((c) => (
-          <div key={c.id} className="flex min-w-[28px] flex-1 flex-col items-center gap-1.5" title={`${c.quantite} ${c.unite} · ${c.poste_tarifaire} · ${c.type_valeur}`}>
-            <span className="text-km-tiny font-semibold text-km-muted">{c.quantite}</span>
-            <div className="flex w-full flex-1 items-end">
-              <div className={cn('w-full rounded-t', posteColor(c.poste_tarifaire), c.type_valeur !== 'MESUREE' && 'opacity-60')} style={{ height: `${Math.max(6, (c.quantite / max) * 100)}%` }} />
-            </div>
-            <span className="whitespace-nowrap text-km-tiny text-km-faint">
-              {new Date(c.date_debut_periode).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+type CleOnglet = 'apercu' | 'contrats' | 'recos' | 'mandats' | 'fichiers'
 
 export default function CompteurDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  // Perimetre de la fiche, lu cote serveur : ces lectures parcouraient le CRM entier pour en
-  // garder une ligne ou quelques-unes (meme correctif que les fiches compte et site).
   const { data: compteur } = useCompteur(id)
 
-  /* La fiche signale son ouverture : c'est ce qui alimente les « Récents » de la palette.
-     L'écriture part en arrière-plan et attend que le nom soit chargé — voir consultationsRecentes.ts. */
   useNoterConsultation({
     type: 'compteur',
     id: compteur?.id,
@@ -478,57 +80,24 @@ export default function CompteurDetail() {
     sousLibelle: compteur ? [compteur.site_nom, compteur.ville].filter(Boolean).join(' · ') : null,
     chemin: `/compteurs/${id}`,
   })
-  const { data: consommations } = useConsommations()
-  // Le site et le compte sont lus PAR IDENTIFIANT, pas cherches dans la liste complete.
-  // La fiche telechargeait les 6356 sites et les 2762 comptes pour afficher deux lignes de fil
-  // d'Ariane ; sur un poste lent la hierarchie restait vide le temps que tout arrive, et on
-  // voyait un compteur sans compte ni site au-dessus (constate en production le 16/08/2026).
+
+  const { data: consommations } = useConsommationsDuCompteur(id)
   const { data: siteDuCompteur } = useSite(compteur?.site_id)
-  /* ══ LE COMPTE SE LIT SUR LE COMPTEUR ══
-     Il se lisait `siteDuCompteur?.compte_id`, c'est-à-dire À TRAVERS LE SITE. Or c'est
-     `compteurs.compte_id` qui fait foi partout ailleurs — l'onglet Compteurs du compte, les listes,
-     la recherche. Les deux ont divergé sur les deux seuls déplacements jamais effectués : la fiche
-     affichait la nouvelle société pendant que le compteur restait dans le portefeuille de
-     l'ancienne, ce qui a rendu la panne invisible pendant cinq jours.
-     Le repli sur le site ne sert que le temps du chargement du compteur. */
-  const { data: compteDuCompteur } = useCompte(compteur?.compte_id ?? siteDuCompteur?.compte_id)
-  /* Le compte de cette fiche, pour que « Créer › Contact » parte avec le bon client. */
-  useDeclarerCompteCourant(compteDuCompteur?.id, compteDuCompteur?.nom)
+  /* LE COMPTE SE LIT SUR LE COMPTEUR (`compteurs.compte_id`), jamais à travers le site : c'est lui
+     qui fait foi partout ailleurs. Le repli sur le site ne sert que le temps du chargement. */
+  const { data: compte } = useCompte(compteur?.compte_id ?? siteDuCompteur?.compte_id)
+  useDeclarerCompteCourant(compte?.id, compte?.nom)
   const { data: contrats } = useContrats()
   const { data: mandats } = useMandats()
-  const { data: recommandations } = useRecommandationsListe()
-  // Le score du compteur, lu dans la vue que le compte moyenne — voir `ScoreQualiteCard`.
-  const { data: qualite } = useQualiteCompteur(id)
   const { data: documents } = useDocuments()
-  /* PLUS DE RÉFÉRENTIEL `statuts_contrats` ICI. La chronologie ne lit plus la colonne mélangée :
-     elle déduit « terminé / en cours / à venir » des dates du contrat (`statutVieContrat`), comme
-     la fiche contrat depuis le 09/09/2026. Un compteur dont le dernier contrat porte encore
-     « Actif » alors que sa date de fin est passée affichait « Actif » ici aussi. */
-  const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
-  const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
-  const { data: typesUtilisation } = useReferenceTable('types_utilisations_compteur')
-  const isAdmin = useIsAdmin()
-  const { data: profilsAdmin } = useProfilsAdmin()
+  const { data: typesDocsRef } = useReferenceTable('types_documents')
+  const typesDocs = typesDocsRef && typesDocsRef.length > 0 ? typesDocsRef : FALLBACK_TYPES_DOCUMENTS
+  const canManage = useCanManageEnregistrement(compteur?.proprietaire_id)
+  const creerUnMandat = useCreerUnMandat()
 
-  const consommationsDuCompteur = useMemo(() => consommations?.filter((c) => c.compteur_id === id) ?? [], [consommations, id])
-  const site = siteDuCompteur ?? undefined
-  const compte = compteDuCompteur ?? undefined
   const contratsDuCompteur = useMemo(() => contrats?.filter((ct) => ct.compteurs.some((cc) => cc.id === id)) ?? [], [contrats, id])
-  /* ══ DEUX QUESTIONS DIFFÉRENTES, ET UNE SEULE RÉPONSE JUSQU'ICI ══
-   *
-   * « Quels mandats ont porté ce compteur ? » et « ce compteur est-il couvert AUJOURD'HUI ? » ne se
-   * répondent pas pareil, et la fiche les confondait dans une seule ligne.
-   *
-   * ELLE CHERCHAIT PAR SITE — `m.site_ids.includes(compteur.site_id)`. Un mandat couvrant le
-   * compteur VOISIN du même immeuble faisait donc passer celui-ci pour couvert : 105 compteurs sont
-   * dans ce cas, et sur chacun d'eux la fiche autorisait une consultation qu'aucun mandat ne couvre.
-   * On cherche maintenant par compteur, ce que `compteur_ids` permet.
-   *
-   * ET LE PÉRIMÈTRE CADUQUE NE DOIT PAS FAIRE DISPARAÎTRE LE MANDAT. William, 15/09/2026, sur le
-   * compteur qu'on venait de rattacher à DIMOTRANS : « pourquoi je ne vois rien dans l'onglet
-   * mandat ? » Son mandat était devenu caduc, donc absent de `compteur_ids` — et l'onglet, qui ne
-   * lisait que celui-là, s'est vidé. C'est ma faute, du jour même : un document signé doit rester
-   * visible sur le compteur qu'il a couvert, avec sa caducité écrite dessus. */
+  /* LES MANDATS PAR COMPTEUR, le caduc compris (règle du 15/09/2026) : un document signé reste
+     visible sur le compteur qu'il a couvert, avec sa caducité écrite dessus. */
   const mandatsDuCompteur = useMemo(
     () =>
       (mandats ?? [])
@@ -536,71 +105,52 @@ export default function CompteurDetail() {
         .map((m) => ({ mandat: m, caduc: Boolean(compteur && m.compteur_ids_caducs.includes(compteur.id)) })),
     [mandats, compteur],
   )
-  /** Celui qui COUVRE, au sens où l'on peut consulter des fournisseurs : lien vivant, statut actif. */
-  const mandatDuCompteur = mandatsDuCompteur.find((x) => !x.caduc && x.mandat.statut === 'ACTIF')?.mandat
   const documentsDuCompteur = useMemo(() => documents?.filter((d) => d.entite_type === 'compteur' && d.entite_id === id) ?? [], [documents, id])
-  // Prouvée ou estimée : diapositive 6 de Michel. La preuve est le contrat rattaché, donc elle se
-  // déduit ici et ne se stocke nulle part — voir src/lib/echeance.ts.
-  const echeance = useMemo(
-    () => natureEcheance(compteur?.date_echeance, contratsDuCompteur),
-    [compteur?.date_echeance, contratsDuCompteur],
-  )
-  const recoActiveDuSite = useMemo(
-    () => recommandations?.find((r) => compteur && r.sites.some((s) => s.id === compteur.site_id) && !['ACCEPTEE', 'REFUSEE', 'ABANDONNEE'].includes(r.etape)),
-    [recommandations, compteur],
+  const echeance = useMemo(() => natureEcheance(compteur?.date_echeance, contratsDuCompteur), [compteur?.date_echeance, contratsDuCompteur])
+  const aujourdhui = new Date().toISOString().slice(0, 10)
+  const contratEnCours = useMemo(
+    () => contratsDuCompteur.find((c) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation) === 'EN_COURS') ?? null,
+    [contratsDuCompteur, aujourdhui],
   )
 
-  const [tab, setTab] = useState<TabKey>('apercu')
-  const [showAdd, setShowAdd] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-
-  const televerser = useTeleverserDocuments()
-
-  const { data: typesDocsRef } = useReferenceTable('types_documents')
-
-  const typesDocs = typesDocsRef && typesDocsRef.length > 0 ? typesDocsRef : FALLBACK_TYPES_DOCUMENTS
-  // 7883 compteurs sur 7884 n'ont pas de propriétaire : useCanManage aurait réservé toute
-  // modification aux administrateurs. Même motif que sur les contacts.
-  const canManage = useCanManageEnregistrement(compteur?.proprietaire_id)
-
-  // Les contacts proposés sont ceux du compte auquel appartient le site du compteur : proposer les
-  // 3380 contacts de la base rendrait le choix inutilisable, et rattacher un compteur à un contact
-  // d'un autre client n'a pas de sens.
   const { data: tousContacts } = useContacts()
   const contactsDuCompte = useMemo(
     () => (compte ? (tousContacts ?? []).filter((c) => c.comptes.some((l) => l.id === compte.id)) : []),
     [tousContacts, compte],
   )
 
-  const majChampCompteur = useUpdateCompteurField()
+  const [onglet, setOnglet] = useState<CleOnglet>('apercu')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [lancerReco, setLancerReco] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
-
   function showToast(message: string) {
     setToast(message)
-    window.setTimeout(() => setToast(null), 2600)
+    window.setTimeout(() => setToast((t) => (t === message ? null : t)), 2200)
   }
+
+  const majChampCompteur = useUpdateCompteurField()
+  const majTechnique = useMajTechniqueCompteur()
+  const majContrat = useUpdateContratPartiel()
+  const televerser = useTeleverserDocuments()
 
   async function majCompteur(patch: Record<string, unknown>) {
     if (!compteur) return
     await majChampCompteur.mutateAsync({ id: compteur.id, patch })
   }
+  async function majTech(patch: Record<string, unknown>) {
+    if (!compteur) return
+    await majTechnique.mutateAsync({ compteurId: compteur.id, energie: compteur.type_energie, patch })
+  }
 
   /**
-   * Changer le numéro du point de livraison.
-   *
-   * LE DOUBLON SE CHERCHE EN BASE, pas dans une liste déjà chargée : la fiche d'un compteur ne
-   * charge pas les 4 000 autres, et `findCompteurByNumero` ne sait dédoublonner que ce qu'on lui
-   * donne. Une requête ciblée coûte moins qu'un chargement complet, et elle voit TOUT.
+   * Changer le numéro du point de livraison. LE DOUBLON SE CHERCHE EN BASE ; le vide bloque ; le
+   * format inhabituel alerte sans bloquer (règle de `PDL_FORMAT_RE`). Tous les espaces partent.
    */
   async function commitNumeroPdl(saisi: string) {
     if (!compteur) return
-    /* `nettoyerSaisie` retire les espaces insécables et les caractères invisibles que colle un
-       copier-coller depuis un PDF de facture — ils ressortent en tiret ou en virgule sur le mandat.
-       Même nettoyage qu'à la création (voir `creerCompteur`). */
     const numero = nettoyerSaisie(saisi).replace(/\s+/g, '')
     if (!numero) throw new Error('Un compteur ne peut pas être sans numéro.')
     if (numero === compteur.numero_pdl) return
-
     const { data: deja, error } = await supabase
       .from('compteurs')
       .select('id, reference')
@@ -608,30 +158,22 @@ export default function CompteurDetail() {
       .neq('id', compteur.id)
       .limit(1)
     if (error) throw new Error(error.message)
-    if (deja && deja.length > 0) {
-      throw new Error(`Ce numéro est déjà porté par le compteur ${deja[0].reference ?? deja[0].id}.`)
-    }
-
+    if (deja && deja.length > 0) throw new Error(`Ce numéro est déjà porté par le compteur ${deja[0].reference ?? deja[0].id}.`)
     await majCompteur({ numero_point: numero })
-    /* L'ALERTE DE FORMAT ARRIVE APRÈS L'ENREGISTREMENT, à dessein : elle informe, elle n'empêche
-       pas. Un PCE gaz fait le plus souvent quatorze chiffres lui aussi, mais tous les points ne
-       rentrent pas dans le motif — refuser aurait été plus faux que d'accepter. */
-    if (!PDL_FORMAT_RE.test(numero)) {
-      showToast('✓ enregistré — format inhabituel (ni 14 chiffres ni GI + 6)')
-    }
+    if (!PDL_FORMAT_RE.test(numero)) showToast('✓ enregistré — format inhabituel (ni 14 chiffres ni GI + 6)')
   }
+
   const deleteCompteur = useDeleteCompteur()
-  /* LE REPLI N'EST PLUS `/sites` : la liste des sites est supprimée depuis le 09/09/2026. Tant
-     qu'on connaît le compteur, le retour mène au regroupement d'adresse qui le contient ; sinon,
-     à la liste des compteurs. */
   const goBack = useGoBack(compteur ? `/sites/${compteur.site_id}` : '/compteurs')
   const enedisFetch = useEnedisFetch()
   const syncCompteurElec = useSyncCompteurElec()
   const grdFetch = useGrdFetch()
   const syncCompteurGaz = useSyncCompteurGaz()
-  const [syncFeedback, setSyncFeedback] = useState<string | null>(null)
-
   const suppression = useSuppression()
+  const synchroEnCours = enedisFetch.isPending || syncCompteurElec.isPending || grdFetch.isPending || syncCompteurGaz.isPending
+  /* ══ AUCUN APPEL AU GESTIONNAIRE DE RÉSEAU SANS MANDAT KIWEE ACTIF (30/09/2026) ══
+     Tant que les mandats ne sont pas chargés, la réponse est « non » : on grise d'abord. */
+  const synchroAutorisee = Boolean(compteur && mandats && mandatKiweeCouvre(mandats, compteur.id))
 
   function handleDelete() {
     if (!compteur) return
@@ -641,56 +183,31 @@ export default function CompteurDetail() {
     )
   }
 
-  async function handleSyncEnedis() {
-    if (!compteur) return
-    setSyncFeedback(null)
-    try {
-      const result = await enedisFetch.mutateAsync(compteur.numero_pdl)
-      if (!result.success) {
-        setSyncFeedback(result.error ?? 'Échec de la synchronisation Enedis.')
-        return
-      }
-      await syncCompteurElec.mutateAsync({ compteurId: compteur.id, result })
-      setSyncFeedback('Synchronisation Enedis réussie.')
-    } catch (err) {
-      setSyncFeedback(err instanceof Error ? err.message : 'Échec de la synchronisation Enedis.')
-    }
-  }
-
-  async function handleSyncGrd() {
-    if (!compteur) return
-    const codePostal = site?.code_postal
-    if (!codePostal) {
-      setSyncFeedback("Impossible de synchroniser : le site n'a pas de code postal renseigné.")
+  async function synchroniser() {
+    if (!compteur || synchroEnCours) return
+    const estElec = compteur.type_energie === 'electricite'
+    if (!synchroAutorisee) {
+      showToast('Aucun mandat KiWee actif ne couvre ce compteur : synchronisation impossible.')
       return
     }
-    setSyncFeedback(null)
     try {
-      const result = await grdFetch.mutateAsync({ pce: compteur.numero_pdl, codePostal })
-      if (!result.success) {
-        setSyncFeedback(result.error ?? 'Échec de la synchronisation GRDF.')
-        return
+      if (estElec) {
+        const result = await enedisFetch.mutateAsync(compteur.numero_pdl)
+        if (!result.success) { showToast(result.error ?? 'Échec de la synchronisation Enedis.'); return }
+        await syncCompteurElec.mutateAsync({ compteurId: compteur.id, result })
+        showToast('✓ Synchronisation Enedis réussie')
+      } else {
+        const codePostal = compteur.code_postal ?? siteDuCompteur?.code_postal
+        if (!codePostal) { showToast('Impossible de synchroniser : aucun code postal sur ce compteur.'); return }
+        const result = await grdFetch.mutateAsync({ pce: compteur.numero_pdl, codePostal })
+        if (!result.success) { showToast(result.error ?? 'Échec de la synchronisation GRDF.'); return }
+        await syncCompteurGaz.mutateAsync({ compteurId: compteur.id, result })
+        showToast('✓ Synchronisation GRDF réussie')
       }
-      await syncCompteurGaz.mutateAsync({ compteurId: compteur.id, result })
-      setSyncFeedback('Synchronisation GRDF réussie.')
     } catch (err) {
-      setSyncFeedback(err instanceof Error ? err.message : 'Échec de la synchronisation GRDF.')
+      showToast(err instanceof Error ? err.message : `Échec de la synchronisation ${estElec ? 'Enedis' : 'GRDF'}.`)
     }
   }
-
-  const TABS: { key: TabKey; label: string; badge?: string }[] = [
-    { key: 'apercu', label: 'Compteur' },
-    /* La hiérarchie compte → site → compteur est une NAVIGATION, pas une liste d'objets :
-       elle dit d'où l'on vient. Elle rejoint tout de même cet onglet, parce que c'est la même
-       question — à quoi ce compteur est-il accroché (Michel et Naoëlle, 31/08/2026). */
-    { key: 'rattachements', label: 'Rattachements' },
-    { key: 'contrats', label: 'Contrats', badge: contratsDuCompteur.length ? String(contratsDuCompteur.length) : undefined },
-    /* LE BADGE « ! » DIT L'ABSENCE DE COUVERTURE, pas l'absence de mandat : un compteur dont le
-       mandat est devenu caduc est découvert, et c'est justement là qu'il faut le signaler. */
-    { key: 'mandats', label: 'Mandats', badge: mandatDuCompteur ? undefined : '!' },
-    { key: 'fichiers', label: 'Fichiers', badge: documentsDuCompteur.length ? String(documentsDuCompteur.length) : undefined },
-  ]
-
 
   if (!compteur && id) {
     return (
@@ -700,59 +217,37 @@ export default function CompteurDetail() {
       </div>
     )
   }
-
   if (!compteur) {
     return (
       <div>
         <TitreOnglet crumb="Compteurs" title="Compteur" />
         <div className="p-4 sm:p-6">
-          <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}>
-            <ArrowLeft className="h-4 w-4" />
-            Retour au site
-          </Button>
+          <Button variant="ghost" size="sm" className="mb-4" onClick={goBack}><ArrowLeft className="h-4 w-4" />Retour au site</Button>
           <p className="text-sm text-km-muted">Compteur introuvable.</p>
         </div>
       </div>
     )
   }
 
-  const Icon = compteur.type_energie === 'electricite' ? Zap : Flame
-  const energyClasses = compteur.type_energie === 'electricite' ? 'bg-sky-100 text-sky-500' : 'bg-km-amber-soft text-amber-600'
+  const estElec = compteur.type_energie === 'electricite'
+  const Icone = estElec ? Zap : Flame
 
   return (
     <div>
-      {/* « Compteurs » et non « Sites » : le fil d'Ariane annonçait encore la liste supprimée. */}
       <TitreOnglet crumb="Compteurs" title={`Compteur ${compteur.numero_pdl}`} />
 
-      {/* Bandeau compteur */}
+      {/* ══ LE BANDEAU — celui de la production ══
+          Seul changement v4 : l'icône d'énergie, dorée pour l'électricité et bleutée pour le gaz. */}
       <div className="flex flex-wrap items-center gap-3.5 border-b border-km-line bg-white px-4 py-3.5 sm:px-6">
-        <Button variant="ghost" size="icon" onClick={goBack} title="Retour au site">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]', energyClasses)}>
-          <Icon className="h-[18px] w-[18px]" />
+        <Button variant="ghost" size="icon" onClick={goBack} title="Retour au site"><ArrowLeft className="h-4 w-4" /></Button>
+        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]', estElec ? 'bg-km-elec-soft text-km-elec' : 'bg-km-gaz-soft text-km-gaz')}>
+          <Icone className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-xl font-bold tracking-tight text-km-text">{compteur.utilisation || compteur.numero_pdl}</p>
+            <p className="truncate text-xl font-bold tracking-tight text-km-text">{compteur.utilisation || compteur.libelle_site || compteur.numero_pdl}</p>
             <Badge tone={compteur.statut === 'actif' ? 'kiwi' : 'neutral'}>{compteur.statut}</Badge>
           </div>
-          {/* ══ LE NUMÉRO DU POINT SE CORRIGE ICI ══
-
-              William, 22/09/2026 : « sur la page des compteurs, possibilité de changer le numéro du
-              compteur, c'est très important ».
-
-              IL ÉTAIT EN LECTURE SEULE DEPUIS TOUJOURS, et c'est le champ le plus souvent faux :
-              il arrive d'une facture scannée, d'un import Salesforce ou d'une saisie au téléphone,
-              et un seul chiffre de travers rend le point introuvable chez Enedis comme chez le GRD.
-              Le corriger demandait de supprimer le compteur et de le recréer — donc de perdre son
-              historique, ses contrats et ses rattachements.
-
-              TROIS GARDES, ET UNE SEULE BLOQUE. Le doublon bloque : deux compteurs sur le même
-              point de livraison, c'est une donnée fausse quelque part. Le format ne bloque PAS, il
-              alerte — c'est la règle écrite dans `compteurs.ts` pour `PDL_FORMAT_RE`, et elle vaut
-              ici : un point exotique existe, un écran qui le refuse ne sert personne. Le vide
-              bloque, parce qu'un compteur sans numéro n'est plus un compteur. */}
           <div className="max-w-[22rem]">
             <InlineField
               variant="text"
@@ -772,522 +267,123 @@ export default function CompteurDetail() {
         </div>
         {canManage && (
           <div className="flex gap-1.5">
-            {/* ══ « CRÉER » DESCEND DE LA BARRE SUPPRIMÉE ══
-                William, 16/09/2026 : « Créer existe déjà en tant que bouton dans le header des fiches,
-                ajoute-le simplement aux headers des fiches qui ne l'ont pas encore ». La fiche compte
-                a son hub de création depuis le 14/09 ; celle-ci n'avait rien, et la barre du haut était
-                son seul accès. */}
             <MenuCreer />
-            {/* Plus de bouton « Modifier » : les champs s'editent dans « Détail du compteur ». */}
-            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}>
-              <Trash2 className="h-3.5 w-3.5" />
-              Supprimer
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}><Trash2 className="h-3.5 w-3.5" />Supprimer</Button>
           </div>
         )}
       </div>
 
-      {/* Onglets */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-km-line bg-white px-4 pt-2.5 lg:gap-0.5 lg:pt-0 sm:px-6">
-        {TABS.map((t) => {
-          const isActive = tab === t.key
-          const badgeTone = t.key === 'mandats' ? 'bg-amber-200 text-amber-700' : 'bg-km-soft text-km-muted'
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={cn(
-                'mb-2.5 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-km-body font-semibold transition-colors lg:mb-0 lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2.5 lg:font-normal',
-                isActive
-                  ? 'bg-ink-800 text-white lg:border-navy-800 lg:bg-transparent lg:font-semibold lg:text-km-text'
-                  : 'border border-km-line bg-white text-km-muted hover:bg-km-bg lg:border-0 lg:border-b-2 lg:border-transparent lg:text-km-muted lg:hover:bg-transparent lg:hover:text-km-text',
-              )}
-            >
-              {t.label}
-              {t.badge && (
-                <span className={cn('rounded px-1.5 py-0.5 text-km-tiny font-bold', isActive ? 'bg-white/20 text-white lg:bg-km-soft lg:text-km-muted' : badgeTone)}>
-                  {t.badge}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      <BarreOnglets
+        courant={onglet}
+        onChoisir={setOnglet}
+        nbContrats={contratsDuCompteur.length}
+        nbFichiers={documentsDuCompteur.length}
+        compteur={compteur}
+      />
 
-      <div className="grid grid-cols-1">
-        {/* Centre */}
-        <div className="bg-km-bg p-4 sm:p-5">
-          {/* La hiérarchie et les rattachements, sortis du volet gauche. */}
-          {tab === 'rattachements' && (
-            <div className="flex max-w-[560px] flex-col gap-3.5">
-        {/* ══ LES TROIS RATTACHEMENTS, EN CARDS ══════════════════════════════════════════════
-
-            William, 15/09/2026, maquette validée : « afficher les enregistrements rattachés
-            (compte, contact principal (responsable), contact CS) sous forme de card. Très important
-            de pouvoir changer rapidement de rattachement. »
-
-            CE QUI ÉTAIT LÀ : un arbre « compte › lieu › compteur » qui décrivait une STRUCTURE,
-            avec un bouton « Déplacer » ouvrant une fenêtre où l'on choisissait un SITE d'une autre
-            société. On ne pouvait donc pas rattacher un compteur à une société qui n'en a aucun —
-            et le geste ne changeait pas `compteurs.compte_id`, ce qui laissait le compteur dans le
-            portefeuille de l'ancienne société. Voir CartesRattachement.tsx et la migration
-            20260915084931. */}
-        <CartesRattachement
-          compteur={compteur}
-          compte={compte}
-          canManage={canManage}
-          onModifierContacts={() => setTab('apercu')}
-        />
-
-        {/* ══ LE LIEN QUI NE SE LISAIT QUE D'UN CÔTÉ ══
-            L'audit des rattachements le signalait depuis le 10/09 : « opportunité ↔ compteur —
-            CompteurDetail : AUCUN ÉCRAN NE LE MONTRE ». Les 54 liens existaient en base, mais
-            depuis un compteur on ignorait qu'une affaire le concernait. C'est pourtant la question
-            qu'on se pose en décrochant : a-t-on déjà quelque chose en cours ici ? */}
-        <OpportunitesDuCompteur compteurId={compteur?.id} />
-
-        {/* ══ LE LIEU DU COMPTEUR, ET C'EST LUI QUI FAIT FOI ══════════════════════════════════
-
-            Trois champs, dans l'ordre où on les lit : comment s'appelle l'endroit, où il est, et
-            où trouver le compteur en arrivant sur place.
-
-            LE LIBELLÉ EST ÉDITABLE ICI, et c'est nouveau. William, 10/09/2026 : « le champ
-            libellé, c'est hyper important de ne pas le perdre, c'est vraiment très très
-            important. » Il ne se perd pas — 0 compteur sans libellé sur 7 923, vérifié — mais il
-            n'était modifiable que sur la fiche du site, qui s'en va. Le corriger demandait donc
-            de passer par un écran qui ne devrait plus exister.
-
-            PLUS DE « SI DIFFÉRENTE DU SITE ». Le bloc disait « préciser si différente du site »
-            puis « non renseignée, c'est l'adresse du site qui fait foi » : deux phrases qui
-            présentaient l'adresse du compteur comme une exception facultative. Depuis que le site
-            part, elle est la seule qu'il y ait — et depuis le 10/09 elle est obligatoire à la
-            création. */}
-        <div className="rounded-xl border border-km-line bg-white p-3.5">
-          <p className="mb-2 text-km-xs font-bold uppercase tracking-wide text-km-faint">Libellé du lieu</p>
-          <InlineField
-            variant="text"
-            value={compteur.libelle_site ?? compteur.site_nom ?? ''}
-            emptyLabel="nommer le lieu"
-            disabled={!canManage}
-            onCommit={(v) => majCompteur({ libelle_site: v.trim() || null })}
-            onSaved={() => showToast('✓ enregistré')}
-            onError={(e) => showToast(`Erreur : ${e.message}`)}
-          />
-
-          <p className="mb-2 mt-3.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Localisation sur place</p>
-          <InlineField
-            variant="text"
-            value={compteur.localisation_site ?? ''}
-            emptyLabel="où le trouver sur place"
-            disabled={!canManage}
-            onCommit={(v) => majCompteur({ localisation_site: v.trim() || null })}
-            onSaved={() => showToast('✓ enregistré')}
-            onError={(e) => showToast(`Erreur : ${e.message}`)}
-          />
-
-          <p className="mb-2 mt-3.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Adresse</p>
-          <InlineField
-            variant="address"
-            label=""
-            rue={compteur.adresse ?? ''}
-            codePostal={compteur.code_postal ?? ''}
-            ville={compteur.ville ?? ''}
-            emptyLabel="renseigner l’adresse"
-            disabled={!canManage}
-            onCommit={({ rue, codePostal, ville }) =>
-              majCompteur({ adresse: rue || null, code_postal: codePostal || null, ville: ville || null })
-            }
-            onSaved={() => showToast('✓ enregistré')}
-            onError={(e) => showToast(`Erreur : ${e.message}`)}
-          />
-          {/* UNE ADRESSE MANQUANTE EST UN MANQUE, et la fiche le dit maintenant comme tel : c'est
-              par elle qu'on retrouve un compteur dans la recherche depuis le retrait du site. */}
-          {/* ══ L'AVERTISSEMENT DISAIT LE CONTRAIRE DE CE QUI S'AFFICHAIT AU-DESSUS ══
-              Naoëlle, 10/09/2026, capture à l'appui : le champ montrait « 27100 VAL-DE-REUIL » et
-              la ligne en dessous annonçait « non renseignée ». Les deux étaient vrais séparément —
-              la VILLE et le CODE POSTAL sont là, la RUE ne l'est pas — mais la phrase parlait de
-              l'adresse entière.
-
-              On distingue donc les deux manques, parce qu'ils ne coûtent pas la même chose : sans
-              rien, le compteur est introuvable ; sans rue, il se confond avec les autres de la
-              même commune — et 170 noms de lieu sont partagés dans la base. */}
-          {!compteur.adresse && !compteur.ville && !compteur.code_postal ? (
-            <p className="mt-1.5 text-km-xs italic text-km-amber">
-              Aucune adresse — ce compteur ne se retrouvera pas par son adresse.
-            </p>
-          ) : !compteur.adresse ? (
-            <p className="mt-1.5 text-km-xs italic text-km-faint">
-              Rue non renseignée — seule la commune permet de le situer.
-            </p>
-          ) : null}
-        </div>
-
-        <CouvertureCard
-          mandatCouvert={Boolean(mandatDuCompteur)}
-          recoEnCours={Boolean(recoActiveDuSite)}
-          contratCouvert={contratsDuCompteur.length > 0}
-          onMandat={() => setTab('mandats')}
-          onReco={() => recoActiveDuSite && navigate(`/recommandations/${recoActiveDuSite.id}`)}
-          onContrat={() => setTab('contrats')}
-        />
-            </div>
-          )}
-
-          {tab === 'apercu' && (
-            <div className="flex flex-col gap-3.5">
-              {/* ══ LE SCORE EN TÊTE DE FICHE ══
-                  Naoëlle, 02/09/2026 : « comme la card de qualité de compte sur la page d'un
-                  compte, sur 100, avec les codes couleur ». Même composant visuel, mêmes seuils :
-                  le score d'un compte étant la moyenne de ceux-ci, les peindre autrement
-                  obligerait à traduire d'un écran à l'autre pour vérifier une moyenne.
-
-                  Il était d'abord posé dans l'onglet « Rattachements » — invisible depuis l'onglet
-                  qu'on ouvre en arrivant, donc invisible tout court. */}
-              {qualite && (
-                <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
-                  <HeroQualiteCompteur
-                    score={qualite.score}
-                    ligneBareme={ligneDuBareme(qualite).toLowerCase()}
-                  />
-                  <ScoreQualiteCard q={qualite} />
-                </div>
-              )}
-              {consommationsDuCompteur.length > 0 && <ConsommationChart consommations={consommationsDuCompteur} />}
-              <PostesHorairesCard compteur={compteur} />
-              <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
-              <div className="rounded-xl border border-km-line bg-white p-4">
-                <p className="mb-2.5 text-km-xs font-bold uppercase tracking-wide text-km-faint">Détail du compteur</p>
-                <div className="space-y-1.5 text-xs text-km-text">
-                  <p><span className="text-km-faint">Type d'énergie :</span> {compteur.type_energie === 'electricite' ? 'Électricité' : 'Gaz'}</p>
-                  {/* Edition en place, comme partout ailleurs depuis le 16/08/2026. Le libelle et
-                      la consommation annuelle etaient les deux seuls champs que la modale
-                      « Modifier » savait changer, et ils ne s'affichaient meme pas quand ils
-                      etaient vides. Segment, tension, tarif et CAR restent en lecture : ils
-                      viennent du gestionnaire de reseau (Enedis / GRDF) et se corrigent par une
-                      synchronisation, pas a la main. */}
-                  {canManage ? (
-                    <>
-                      <InlineField
-                        variant="text"
-                        label="Libellé"
-                        emptyLabel="nommer ce compteur"
-                        value={compteur.utilisation}
-                        onCommit={(v) => majCompteur({ libelle: v.trim() || null })}
-                        onSaved={() => showToast('✓ enregistré')}
-                        onError={(e) => showToast(`Erreur : ${e.message}`)}
-                      />
-                      <InlineField
-                        variant="select"
-                        label="Type d'utilisation"
-                        emptyLabel="choisir"
-                        value={compteur.type_utilisation_compteur_id ?? ''}
-                        options={(typesUtilisation ?? []).map((t) => ({ value: t.id, label: t.libelle }))}
-                        onCommit={(v) => majCompteur({ type_utilisation_compteur_id: v || null })}
-                        onSaved={() => showToast('✓ enregistré')}
-                        onError={(e) => showToast(`Erreur : ${e.message}`)}
-                      />
-                      <InlineField
-                        variant="number"
-                        label="Consommation annuelle"
-                        unit="MWh"
-                        value={compteur.consommation_annuelle_mwh}
-                        onCommit={(v) => majCompteur({ consommation_annuelle_mwh: v })}
-                        onSaved={() => showToast('✓ enregistré')}
-                        onError={(e) => showToast(`Erreur : ${e.message}`)}
-                      />
-                      {/* Le proprietaire commande la visibilite : administrateurs seuls, comme
-                          dans l'ancienne modale. */}
-                      {isAdmin && (
-                        <InlineField
-                          variant="select"
-                          label="Propriétaire"
-                          emptyLabel="aucun"
-                          value={compteur.proprietaire_id ?? ''}
-                          options={(profilsAdmin ?? []).map((p) => ({ value: p.id, label: `${p.prenom} ${p.nom}` }))}
-                          onCommit={(v) => majCompteur({ proprietaire_id: v || null })}
-                          onSaved={() => showToast('✓ enregistré')}
-                          onError={(e) => showToast(`Erreur : ${e.message}`)}
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {compteur.type_utilisation_compteur && <p><span className="text-km-faint">Type d'utilisation :</span> {compteur.type_utilisation_compteur}</p>}
-                      {compteur.consommation_annuelle_mwh != null && <p><span className="text-km-faint">Consommation annuelle :</span> {compteur.consommation_annuelle_mwh} MWh</p>}
-                    </>
-                  )}
-                  {compteur.segment && <p><span className="text-km-faint">Segment :</span> {compteur.segment}</p>}
-                  {compteur.tension && <p><span className="text-km-faint">Tension :</span> {compteur.tension}</p>}
-                  {compteur.tarif_distribution && <p><span className="text-km-faint">Tarif :</span> {compteur.tarif_distribution}</p>}
-                  {compteur.car_mwh != null && <p><span className="text-km-faint">CAR :</span> {compteur.car_mwh} MWh</p>}
-                  {compteur.profil_consommation && <p><span className="text-km-faint">Profil :</span> {compteur.profil_consommation}</p>}
-                  {compteur.zone_tarifaire && <p><span className="text-km-faint">Zone tarifaire :</span> {compteur.zone_tarifaire}</p>}
-                  {/* Responsable et conseil syndical : repris de Salesforce (6710 et 435
-                      compteurs) mais jusque-là figés. Modifiables au clic, avec les contacts du
-                      compte pour choix — un responsable qui change de poste restait sinon inscrit
-                      indéfiniment. Le lien vers la fiche est conservé à côté du champ. */}
-                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <ChampContactCompteur
-                      libelle="Responsable"
-                      fente="responsable"
-                      compte={compte ? { id: compte.id, nom: compte.nom } : null}
-                      contactId={compteur.responsable_contact_id ?? null}
-                      contactNom={compteur.responsable_contact_nom ?? null}
-                      contactsDuCompte={contactsDuCompte}
-                      modifiable={canManage}
-                      onCommit={(v) => majCompteur({ responsable_contact_id: v })}
-                      onToast={showToast}
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <ChampContactCompteur
-                      libelle="Contact conseil syndical"
-                      fente="conseilSyndical"
-                      compte={compte ? { id: compte.id, nom: compte.nom } : null}
-                      contactId={compteur.contact_conseil_syndical_id ?? null}
-                      contactNom={compteur.contact_conseil_syndical_nom ?? null}
-                      contactsDuCompte={contactsDuCompte}
-                      modifiable={canManage}
-                      onCommit={(v) => majCompteur({ contact_conseil_syndical_id: v })}
-                      onToast={showToast}
-                    />
-                  </div>
-                  {compteur.fournisseur_actuel_compte_id && (
-                    <p>
-                      <span className="text-km-faint">Fournisseur actuel (avant KiWee) :</span>{' '}
-                      <EntityLink to={`/comptes/${compteur.fournisseur_actuel_compte_id}`}>{compteur.fournisseur_actuel_nom}</EntityLink>
-                    </p>
-                  )}
-                  {/* L'ÉCHÉANCE S'AFFICHE MÊME ABSENTE. « Sans échéance contractuelle — prouvée ou
-                      estimée — la piste reste à qualifier » : une ligne qui disparaît quand la donnée
-                      manque ne dit pas qu'il faut aller la chercher, elle laisse croire qu'il n'y a
-                      rien à savoir. 588 compteurs sont dans ce cas. */}
-                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-km-faint">Échéance :</span>
-                    <span>{echeance.date ? new Date(echeance.date + 'T12:00:00').toLocaleDateString('fr-FR') : '—'}</span>
-                    <BadgeEcheance e={echeance} dense />
-                  </p>
-                  {/* ══ LA DATE DÉCLARÉE SE CORRIGE ICI ══
-                      Michel, 31/08/2026 : « donner la possibilité de modifier directement les dates
-                      d'échéance au niveau des compteurs ».
-
-                      ELLE EST SÉPARÉE DE LA LIGNE AU-DESSUS, et c'est volontaire. La ligne
-                      « Échéance » montre la date QUI FAIT FOI — celle du contrat rattaché quand il y
-                      en a un. Ce champ-ci porte la date DÉCLARÉE sur le compteur. Les confondre
-                      donnerait un champ qui s'enregistre sans que l'affichage bouge, et personne ne
-                      comprendrait pourquoi.
-
-                      Quand les deux se contredisent, le message rouge juste en dessous le dit
-                      déjà. */}
-                  {canManage && (
-                    <InlineField
-                      variant="date"
-                      label="Échéance déclarée sur le compteur"
-                      emptyLabel="non renseignée"
-                      value={compteur.date_echeance ? compteur.date_echeance.slice(0, 10) : null}
-                      onCommit={(date_echeance) => majCompteur({ date_echeance: date_echeance || null })}
-                      onSaved={() => showToast('✓ Échéance enregistrée')}
-                      onError={(e: Error) => showToast(`Erreur : ${e.message}`)}
-                    />
-                  )}
-                  {echeance.contredit && echeance.dateDeclaree && (
-                    <p className="text-km-label italic text-km-red">
-                      Date déclarée sur le compteur : {new Date(echeance.dateDeclaree + 'T12:00:00').toLocaleDateString('fr-FR')} — c’est la
-                      fin du contrat rattaché qui est retenue ci-dessus.
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-km-faint">
-                    <p>
-                      {compteur.synchro_eneo
-                        ? `Synchronisé le ${compteur.date_derniere_synchro_eneo ? new Date(compteur.date_derniere_synchro_eneo).toLocaleDateString('fr-FR') : '—'}`
-                        : 'Jamais synchronisé'}
-                    </p>
-                    {compteur.type_energie === 'electricite' && canManage && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={enedisFetch.isPending || syncCompteurElec.isPending}
-                        onClick={handleSyncEnedis}
-                      >
-                        <RefreshCw className={cn('h-3.5 w-3.5', (enedisFetch.isPending || syncCompteurElec.isPending) && 'animate-spin')} />
-                        Synchroniser Enedis
-                      </Button>
-                    )}
-                    {compteur.type_energie === 'gaz' && canManage && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={grdFetch.isPending || syncCompteurGaz.isPending}
-                        onClick={handleSyncGrd}
-                      >
-                        <RefreshCw className={cn('h-3.5 w-3.5', (grdFetch.isPending || syncCompteurGaz.isPending) && 'animate-spin')} />
-                        Synchroniser GRDF
-                      </Button>
-                    )}
-                  </div>
-                  {syncFeedback && <p className="text-km-muted">{syncFeedback}</p>}
-                </div>
-                <HistoriqueDiscret tableNom="compteurs" ligneId={compteur.id} />
-              </div>
-
-              <div className="rounded-xl border border-km-line bg-white p-4">
-                <div className="mb-2.5 flex items-center justify-between">
-                  <span className="text-km-xs font-bold uppercase tracking-wide text-km-faint">Historique de consommation</span>
-                  <Button type="button" size="sm" variant="outline" onClick={() => setShowAdd(true)}>
-                    <Plus className="h-3.5 w-3.5" /> Ajouter
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {consommationsDuCompteur.length === 0 && <p className="text-xs text-km-faint">Aucune période enregistrée.</p>}
-                  {consommationsDuCompteur.map((c) => (
-                    <div key={c.id} className="rounded-lg border border-km-line p-3 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-km-text">
-                          {new Date(c.date_debut_periode).toLocaleDateString('fr-FR')} → {new Date(c.date_fin_periode).toLocaleDateString('fr-FR')}
-                        </span>
-                        <span className="font-semibold text-km-text">{c.quantite} {c.unite}</span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-km-muted">
-                        <Badge tone="neutral">{c.poste_tarifaire}</Badge>
-                        <Badge tone={c.type_valeur === 'MESUREE' ? 'kiwi' : 'amber'}>{c.type_valeur}</Badge>
-                        {c.source && <span>{c.source}</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              </div>
-            </div>
-          )}
-
-          {/* ══ L'ONGLET CONTRATS DEVIENT UNE CHRONOLOGIE ══════════════════════════════════
-
-              William, 09/09/2026, après avoir REFUSÉ la même chose sur la fiche contrat : « un
-              contrat, je n'ai pas besoin de savoir ce qui s'est passé avant ni après, la page
-              contrat se focus sur ça. Par contre un compteur, lui, il a une vie beaucoup plus
-              longue que le contrat. Donc je veux savoir ce qu'il a fait avant, où il en est
-              actuellement, et je veux même savoir s'il a déjà prévu un truc après. »
-
-              La liste plate qui était ici affichait les contrats sans ordre ni époque : sur MEMPHIS
-              BRUAY-LA-BUISSIÈRE, quatre lignes dont il fallait lire les huit dates pour
-              reconstituer 2023 → 2025 → 2026 → 2029. */}
-          {tab === 'contrats' && <HistoriqueContrats contrats={contratsDuCompteur} />}
-
-          {tab === 'mandats' && (
-            <div className="flex flex-col gap-2.5">
-              {/* TOUS LES MANDATS QUI ONT PORTÉ CE COMPTEUR, le caduc compris. Ne montrer que celui
-                  qui couvre ferait disparaître l'historique au moment précis où il devient utile :
-                  quand on cherche pourquoi ce PDL n'est plus couvert. */}
-              {mandatsDuCompteur.map(({ mandat: m, caduc }) => (
-                <div
-                  key={m.id}
-                  onClick={() => navigate(`/mandats/${m.id}`)}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 transition-colors',
-                    caduc ? 'border-km-red-line bg-km-red-soft/40 hover:bg-km-red-soft' : 'border-km-line bg-white hover:bg-km-bg/60',
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]',
-                      caduc ? 'bg-white text-km-red' : 'bg-km-amber-soft text-amber-600',
-                    )}
-                  >
-                    <FileCheck2 className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-km-text">
-                      <Link to={`/mandats/${m.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                        {m.reference ?? `Mandat ${m.compte_nom}`}
-                      </Link>
-                      <span className="font-normal text-km-faint"> · {m.compte_nom}</span>
-                    </p>
-                    {caduc ? (
-                      /* LA PHRASE DIT LE GESTE SUIVANT, pas seulement l'état : « caduc » sans la
-                         suite laisserait chercher ce qu'il faut faire. */
-                      <p className="truncate text-km-xs text-km-red">
-                        Ne couvre plus ce compteur depuis son passage chez {compte?.nom ?? 'une autre société'} — un nouveau mandat est nécessaire.
-                      </p>
-                    ) : (
-                      <p className="truncate text-km-xs text-km-faint">{m.contact_signataire_nom ?? 'Signataire non renseigné'}</p>
-                    )}
-                  </div>
-                  <Badge tone={STATUT_MANDAT_TONE[m.statut] ?? 'neutral'}>{statutsMandats.find((s) => s.code === m.statut)?.libelle ?? m.statut}</Badge>
-                </div>
-              ))}
-
-              {/* L'APPEL À L'ACTION SUIT LA COUVERTURE, PAS LA LISTE : un compteur qui porte un
-                  mandat caduc a bien quelque chose à montrer, et n'en est pas moins découvert. */}
-              {!mandatDuCompteur && (
-                <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 p-4">
-                  <p className="text-sm font-bold text-amber-700">Aucun mandat actif ne couvre ce compteur</p>
-                  <p className="mt-1 text-xs text-amber-600">Impossible de lancer une consultation tant qu'un mandat signé ne couvre pas ce PDL.</p>
-                  <Button size="sm" className="mt-2.5" onClick={() => navigate('/mandats')}>
-                    <Plus className="h-3.5 w-3.5" />
-                    Préparer un mandat
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {tab === 'fichiers' && (
-            <div className="flex flex-col gap-3.5">
-              {/* PAS DE BOUTON « Ajouter un fichier ». Naoelle, 21/08/2026 : « si on peut cliquer
-                  ou deposer c'est bon, pas besoin de bruit visuel avec un bouton », puis « fais le
-                  menage partout ». La zone juste en dessous dit les deux gestes et les accepte tous
-                  les deux ; le bouton doublait l'un d'eux. Le rattachement par lien, qui n'etait
-                  accessible que par lui, se fait desormais dans la zone — en y glissant le lien, ou
-                  en le collant. */}
-              {/* Depot reel de fichiers — possible depuis que le bucket « documents » a des
-                  politiques d'ecriture (migration 20260816130000). */}
-              <ZoneDepotFichiers
-                types={typesDocs}
-                onDeposer={async (fichiers, typeDocumentId) => {
-                  await televerser.mutateAsync({
-                    fichiers,
-                    entite_type: 'compteur',
-                    entite_id: compteur.id,
-                    type_document_id: typeDocumentId,
-                    type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
-                  })
-                }}
+      {/* LA HAUTEUR DE LIGNE DE LA MAQUETTE : celle du navigateur (« normal »), pas le 1,5 que Kimatch
+          impose partout. C'est elle qui donne aux cartes leur hauteur exacte — mesurée bloc par bloc
+          contre la référence, de 3 à 19 px d'écart sans ce réglage. */}
+      <div className="bg-km-bg px-6 pb-[90px] pt-5 leading-[normal]">
+        {onglet === 'apercu' && (
+          <div className="grid animate-[kmFade_.18s_ease-out] grid-cols-[minmax(0,1fr)_320px] items-start gap-4">
+            <div className="flex min-w-0 flex-col gap-[14px]">
+              <BlocLieu compteur={compteur} modifiable={canManage} enregistrer={majCompteur} onToast={showToast} />
+              <BlocCaracteristiques
+                compteur={compteur}
+                echeance={echeance}
+                modifiable={canManage}
+                enregistrerCompteur={majCompteur}
+                enregistrerTechnique={majTech}
+                commitNumero={commitNumeroPdl}
+                onToast={showToast}
+                synchroniser={() => void synchroniser()}
+                synchroEnCours={synchroEnCours}
+                synchroAutorisee={synchroAutorisee}
               />
-              {documentsDuCompteur.length === 0 ? (
-                <p className="text-sm text-km-faint">Aucun fichier pour ce compteur.</p>
-              ) : (
-                <div className="overflow-hidden rounded-xl border border-km-line bg-white">
-                  {documentsDuCompteur.map((d) => (
-                    <div
-                      key={d.id}
-                      onClick={() => navigate(`/documents/${d.id}`)}
-                      className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-4 py-3 last:border-b-0 hover:bg-km-bg/60"
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-km-soft text-km-muted">
-                        <FileText className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-km-text">
-                          <Link to={`/documents/${d.id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
-                            {d.nom}
-                          </Link>
-                        </p>
-                        <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
-                      </div>
-                      <Badge tone="neutral">{d.type_document}</Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {estElec && <BlocPostes compteur={compteur} />}
+              <BlocConsommation compteur={compteur} consommations={consommations ?? []} />
             </div>
-          )}
-        </div>
+            <div className="sticky top-0 flex flex-col gap-[14px]">
+              <BlocQualiteCompte compteId={compteur.compte_id ?? compte?.id} />
+              <BlocCompte compteur={compteur} compte={compte ?? undefined} modifiable={canManage} />
+              <BlocContacts
+                compteur={compteur}
+                compte={compte ?? undefined}
+                contactsDuCompte={contactsDuCompte}
+                modifiable={canManage}
+                enregistrer={majCompteur}
+                onToast={showToast}
+              />
+              <BlocContratEnCours
+                contrat={contratEnCours}
+                echeance={echeance}
+                compteur={compteur}
+                modifiable={canManage}
+                onNature={async (nature) => {
+                  if (!contratEnCours) return
+                  try {
+                    await majContrat.mutateAsync({ id: contratEnCours.id, patch: { nature_contrat: nature } })
+                    showToast('✓ enregistré')
+                  } catch (e) {
+                    showToast(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                  }
+                }}
+                onVoirContrats={() => setOnglet('contrats')}
+              />
+            </div>
+          </div>
+        )}
+
+        {onglet === 'contrats' && <OngletContratsDuCompteur compteur={compteur} contrats={contratsDuCompteur} />}
+
+        {onglet === 'recos' && (
+          <OngletRecosDuCompteur
+            compteur={compteur}
+            contratEnCours={contratEnCours}
+            echeance={echeance.date}
+            onLancer={() => setLancerReco(true)}
+          />
+        )}
+
+        {onglet === 'mandats' && (
+          <OngletMandats
+            compteur={compteur}
+            mandats={mandatsDuCompteur}
+            onSynchroniser={() => void synchroniser()}
+            synchroEnCours={synchroEnCours}
+            synchroAutorisee={synchroAutorisee}
+            onPreparer={() => creerUnMandat({ compte: compte ? { id: compte.id, nom: compte.nom } : undefined, compteurIds: [compteur.id] })}
+            modifiable={canManage}
+          />
+        )}
+
+        {onglet === 'fichiers' && (
+          <OngletFichiers
+            documents={documentsDuCompteur}
+            types={typesDocs}
+            onDeposer={async (fichiers, typeDocumentId) => {
+              await televerser.mutateAsync({
+                fichiers,
+                entite_type: 'compteur',
+                entite_id: compteur.id,
+                type_document_id: typeDocumentId,
+                type_document_libelle: typesDocs.find((x) => x.id === typeDocumentId)?.libelle ?? '',
+              })
+            }}
+          />
+        )}
       </div>
 
-      <AddConsommationDialog compteurId={compteur.id} open={showAdd} onClose={() => setShowAdd(false)} />
+      {lancerReco && (
+        <CreateRecommandationDialog
+          open
+          onClose={() => setLancerReco(false)}
+          initialCompteId={compteur.compte_id ?? compte?.id}
+          initialCompteurIds={[compteur.id]}
+          onCreated={(recoId) => { setLancerReco(false); navigate(`/recommandations/${recoId}`) }}
+        />
+      )}
       <DialogSuppression
         ouvert={confirmDelete}
         onFermer={() => { suppression.reinitialiser(); setConfirmDelete(false) }}
@@ -1299,7 +395,7 @@ export default function CompteurDetail() {
         erreur={suppression.erreur}
       />
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-800 px-4 py-2.5 text-xs font-semibold text-white shadow-lg">
+        <div className="fixed bottom-[70px] left-1/2 z-50 -translate-x-1/2 animate-[kmToast_.2s_ease-out] whitespace-nowrap rounded-[10px] bg-ink-800 px-[14px] py-2 text-[13px] text-white shadow-[0_6px_20px_rgba(0,0,0,.25)]">
           {toast}
         </div>
       )}
@@ -1307,113 +403,77 @@ export default function CompteurDetail() {
   )
 }
 
-/**
- * Un champ « contact » du compteur : lecture cliquable vers la fiche, et modification au clic quand
- * l'utilisateur en a le droit. Le lien vers la fiche est conservé à côté du sélecteur — le rendre
- * éditable sans cela ferait perdre l'accès au contact en un clic.
- */
-function ChampContactCompteur({
-  libelle,
-  fente,
-  compte,
-  contactId,
-  contactNom,
-  contactsDuCompte,
-  modifiable,
-  onCommit,
-  onToast,
-}: {
-  libelle: string
-  /** Laquelle des deux fentes du compteur : elles n'acceptent pas les mêmes gens. */
-  fente: 'responsable' | 'conseilSyndical'
-  compte: { id: string; nom: string } | null
-  contactId: string | null
-  contactNom: string | null
-  contactsDuCompte: { id: string; prenom: string; nom: string; roles?: readonly string[] | null }[]
-  modifiable: boolean
-  onCommit: (valeur: string | null) => Promise<void>
-  onToast: (message: string) => void
+/* ══ LA BARRE D'ONGLETS ══ — 13 px, soulignement de 2 px, badges de 9 px. Le badge des
+   Recommandations dit « n en cours » dès qu'une reco ouverte couvre le compteur. */
+function BarreOnglets({ courant, onChoisir, nbContrats, nbFichiers, compteur }: {
+  courant: CleOnglet
+  onChoisir: (o: CleOnglet) => void
+  nbContrats: number
+  nbFichiers: number
+  compteur: NonNullable<ReturnType<typeof useCompteur>['data']>
 }) {
-  const creerUnContact = useCreerUnContact()
-  const eligibles = contactsPourLaFente(contactsDuCompte, fente, contactId)
-  if (!modifiable) {
-    if (!contactId) return null
-    return (
-      <p>
-        <span className="text-km-faint">{libelle} :</span>{' '}
-        <EntityLink to={`/contacts/${contactId}`}>{contactNom}</EntityLink>
-      </p>
-    )
-  }
-
-  /* ══ UNE LISTE VIDE DOIT PROPOSER LA SORTIE, PAS UN « AUCUN » MUET ══
-     Le filtre a une conséquence immédiate : un cabinet dont aucun contact n'est encore membre du
-     conseil syndical ne verra plus personne dans cette liste. Sans ce chemin, l'écran serait un
-     cul-de-sac — une liste vide et rien à faire. Le parcours s'ouvre avec le bon type déjà choisi,
-     et le contact créé vient directement occuper la fente. */
-  if (eligibles.length === 0 && !contactId && compte) {
-    return (
-      <p className="flex flex-wrap items-baseline gap-x-1.5">
-        <span className="text-km-faint">{libelle} :</span>
-        <span className="text-km-faint">
-          {fente === 'conseilSyndical' ? 'aucun membre du conseil syndical sur ce compte' : 'aucun contact sur ce compte'}
-        </span>
-        <button
-          type="button"
-          onClick={() =>
-            creerUnContact({
-              compte,
-              type: fente === 'conseilSyndical' ? 'membreCS' : 'contact',
-              onCree: (c) => { void onCommit(c.id) },
-            })
-          }
-          className="rounded-km-sm border border-dashed border-km-line px-1.5 py-0.5 text-km-name text-km-faint transition-colors hover:border-km-green hover:text-km-green"
-        >
-          ＋ {fente === 'conseilSyndical' ? 'Créer un membre CS' : 'Créer un contact'}
-        </button>
-      </p>
-    )
-  }
-
+  const { ouvertes, passees } = useRecommandationsDuCompteur(compteur)
+  const badgeRecos = ouvertes.length > 0 ? `${ouvertes.length} en cours` : passees.length > 0 ? String(passees.length) : null
+  const onglets: { cle: CleOnglet; libelle: string; badge: string | null; bleu?: boolean }[] = [
+    { cle: 'apercu', libelle: 'Compteur', badge: null },
+    { cle: 'contrats', libelle: 'Contrats', badge: nbContrats ? String(nbContrats) : null },
+    { cle: 'recos', libelle: 'Recommandations', badge: badgeRecos, bleu: ouvertes.length > 0 },
+    { cle: 'mandats', libelle: 'Mandats', badge: null },
+    { cle: 'fichiers', libelle: 'Fichiers', badge: nbFichiers ? String(nbFichiers) : null },
+  ]
   return (
-    /* ══ LE NOM EST LE RATTACHEMENT, PAS UN LIEN POSÉ À CÔTÉ ══
-       William, réunion du 10/09/2026, en regardant cette fiche : « il y a marqué responsable et on
-       peut choisir, mais le problème c'est que c'est un champ, un champ liste en réalité, ALORS QUE
-       LE RESPONSABLE DEVRAIT VRAIMENT ÊTRE UN RATTACHEMENT. » Puis, sur le conseil syndical : « si
-       je choisis Jacqueline Delier, je ne peux pas cliquer dessus, je n'ai pas de lien vers le
-       contact. »
+    <div className="flex overflow-x-auto border-b border-km-line bg-white leading-[normal]">
+      <div className="flex items-stretch gap-0.5 px-[18px]">
+        {onglets.map((o) => {
+          const actif = o.cle === courant
+          return (
+            <button
+              key={o.cle}
+              type="button"
+              onClick={() => onChoisir(o.cle)}
+              className={cn(
+                '-mb-px flex select-none items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-[13px]',
+                actif ? 'border-ink-800 font-semibold text-km-text' : 'border-transparent font-normal text-km-muted hover:text-km-text',
+              )}
+            >
+              {o.libelle}
+              {o.badge && (
+                <span
+                  className="rounded-[5px] px-1.5 py-px text-[9px] font-bold"
+                  style={o.bleu ? { color: '#3F6E9C', background: '#EAF1F8' } : { color: '#69716C', background: '#F3F5F2' }}
+                >
+                  {o.badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
-       Il y avait bien un lien — un « ouvrir la fiche → » en petit, POSÉ À CÔTÉ du menu déroulant.
-       Il ne l'a pas vu, et c'est normal : ce qui a l'air d'un champ de formulaire se lit comme un
-       champ de formulaire, et personne ne cherche un lien à côté d'une valeur qu'on croit inerte.
+function OngletContratsDuCompteur({ compteur, contrats }: { compteur: NonNullable<ReturnType<typeof useCompteur>['data']>; contrats: Parameters<typeof OngletContrats>[0]['contrats'] }) {
+  const { ouvertes } = useRecommandationsDuCompteur(compteur)
+  return <OngletContrats compteur={compteur} contrats={contrats} recoOuverte={ouvertes[0] ?? null} />
+}
 
-       Michel voyait juste sur la conséquence : « il faudrait de toute manière mettre une référence,
-       c'est beaucoup plus pertinent ». Et William sur le pourquoi : « le fait que ce soit une
-       référence, ça veut dire qu'en base on a des membres de conseil syndical, et à partir de là on
-       peut faire des emailings, on peut les appeler, on peut suivre. Quand c'est un champ texte pur,
-       tu peux rien faire. »
-
-       LA DONNÉE ÉTAIT DÉJÀ SAINE : `responsable_contact_id` (6 745 compteurs sur 7 923) et
-       `contact_conseil_syndical_id` (435) sont des clés étrangères vers `contacts`. Il l'a
-       d'ailleurs constaté lui-même en fin de discussion : « là je peux faire ouvrir la fiche, donc
-       ça c'est la preuve. En fait ce n'est pas un problème de référence, c'est juste un problème
-       d'affichage. »
-
-       C'est donc l'affichage qu'on corrige, avec le même mécanisme que le signataire d'un contrat
-       (09/09) : le nom devient le lien, un crayon discret à côté ouvre la liste. Deux gestes
-       séparés, comme la carte « Signataire » du mandat. */
-    <InlineField
-      variant="select"
-      label={libelle}
-      value={contactId ?? ''}
-      lien={contactId ? `/contacts/${contactId}` : undefined}
-      options={[
-        { value: '', label: 'Aucun' },
-        ...eligibles.map((c) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
-      ]}
-      onCommit={(v) => onCommit(v || null)}
-      onSaved={() => onToast('✓ enregistré')}
-      onError={(err) => onToast(`Erreur : ${err.message}`)}
+function OngletRecosDuCompteur({ compteur, contratEnCours, echeance, onLancer }: {
+  compteur: NonNullable<ReturnType<typeof useCompteur>['data']>
+  contratEnCours: Parameters<typeof OngletRecommandations>[0]['contratEnCours']
+  echeance: string | null
+  onLancer: () => void
+}) {
+  const { ouvertes, passees } = useRecommandationsDuCompteur(compteur)
+  return (
+    <OngletRecommandations
+      ouvertes={ouvertes}
+      passees={passees}
+      contratEnCours={contratEnCours}
+      echeance={echeance}
+      contratProspect={contratEnCours?.nature_contrat === 'PROSPECT'}
+      onLancer={onLancer}
+      opportunites={<OpportunitesDuCompteur compteurId={compteur.id} />}
     />
   )
 }

@@ -266,7 +266,7 @@ const REPONSES_RESPONSABLE: { cle: ActionResponsable; titre: (n: string) => stri
   },
 ]
 
-function ChangementDeCompte({
+export function ChangementDeCompte({
   compteur,
   compteActuel,
   responsableNom,
@@ -619,7 +619,7 @@ function ChangementDeCompte({
 
 /* ═══════════════════════════════ LE RÉSULTAT ══════════════════════════════════════════════════ */
 
-function ResultatRattache({ r, onFermer }: { r: ResultatRattachement; onFermer: () => void }) {
+export function ResultatRattache({ r, onFermer }: { r: ResultatRattachement; onFermer: () => void }) {
   return (
     <div className="rounded-xl border border-km-green-line bg-km-green-soft p-3.5">
       <p className="flex items-center gap-1.5 text-km-body font-bold text-km-green">

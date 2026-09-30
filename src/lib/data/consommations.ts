@@ -20,6 +20,25 @@ export function useConsommations() {
   return useQuery({ queryKey: ['consommations'], queryFn: fetchConsommations })
 }
 
+/* ══ LES CONSOMMATIONS D'UN SEUL COMPTEUR, FILTRÉES PAR LA BASE ══
+   La fiche compteur chargeait toute la table pour en garder quelques lignes. Même correctif que
+   `useCompteur` : on ne lit que ce qu'on affiche. */
+export function useConsommationsDuCompteur(compteurId: string | undefined) {
+  return useQuery({
+    queryKey: ['consommations', 'compteur', compteurId],
+    enabled: !!compteurId,
+    queryFn: async (): Promise<Consommation[]> => {
+      const { data, error } = await supabase
+        .from('consommations')
+        .select('id, compteur_id, date_debut_periode, date_fin_periode, quantite, unite, poste_tarifaire, type_valeur, source, commentaire')
+        .eq('compteur_id', compteurId as string)
+        .order('date_debut_periode', { ascending: false })
+      if (error) relancer('useConsommationsDuCompteur', error)
+      return (data ?? []) as unknown as Consommation[]
+    },
+  })
+}
+
 interface CreateConsommationInput {
   compteur_id: string
   date_debut_periode: string
