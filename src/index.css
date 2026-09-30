@@ -951,3 +951,12 @@ body[data-modales-ouvertes] .pastille-flottante {
    ne voit pas. */
 @keyframes kmFade { from { opacity: 0; transform: translateY(-4px) } to { opacity: 1; transform: none } }
 @keyframes kmToast { from { opacity: 0; transform: translate(-50%, 8px) } to { opacity: 1; transform: translate(-50%, 0) } }
+
+/* Les boutons + / − de la carte d'un lieu, dans la langue de Kimatch plutôt que celle de Leaflet. */
+.carte-lieu .leaflet-control-zoom { border: 1px solid rgb(var(--km-line)); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(25,40,33,.12); }
+.carte-lieu .leaflet-control-zoom a { width: 26px; height: 26px; line-height: 26px; font-size: 15px; color: rgb(var(--km-text)); border-bottom-color: rgb(var(--km-line)); }
+.carte-lieu .leaflet-control-zoom a:hover { background: rgb(var(--km-soft)); }
+.carte-lieu .leaflet-container:focus-visible { outline: 2px solid rgb(var(--km-green)); outline-offset: -2px; }
+/* Tailwind borne toutes les images (`max-width:100%; height:auto`) : sur les tuiles de Leaflet, ça
+   laisse un filet blanc entre deux rangées. On rend aux tuiles leur taille exacte. */
+.carte-lieu .leaflet-container img.leaflet-tile { max-width: none !important; max-height: none !important; width: 256px; height: 256px; }

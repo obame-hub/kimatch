@@ -1,96 +1,131 @@
+import { useEffect, useRef, useState } from 'react'
+import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
- * LA CARTE D'UN LIEU — vue aérienne, sans texte
+ * LA CARTE D'UN LIEU — un plan qu'on parcourt
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  *
  * Fiche compteur v4 (Claude Design, 30/09/2026), bloc « Le lieu ». Écrite comme composant partagé
  * pour servir aussi la fiche d'un site.
  *
- * ══ UN PLAN, PLUS UNE VUE AÉRIENNE (30/09/2026) ══
+ * ══ CE QUI A CHANGÉ DEPUIS LA MAQUETTE ══
  *
- * William : « serait-il possible d'afficher une map du style plan ou Google Map ? » La maquette
- * posait Esri World Imagery passée au gris ; on garde le même fournisseur, sans clé, mais son fond
- * « World Street Map » — rues, noms, couleurs d'un plan routier — et sans filtre gris.
+ *   · un PLAN, plus une vue aérienne grise (William : « une map du style plan ou Google Map ») —
+ *     Esri World Street Map, sans clé ;
+ *   · une carte qu'on PARCOURT (« nous faire naviguer avec du zoom, dézoom, navigation gauche droite
+ *     haut et bas ») : glisser pour se déplacer, + / − pour zoomer, les flèches du clavier une fois
+ *     la carte sélectionnée, et « Recentrer » pour revenir au compteur ;
+ *   · plus large et plus loin (zoom 15 au lieu de 18) pour voir le quartier.
  *
- * ══ DES TUILES, PAS UNE BIBLIOTHÈQUE ══
+ * Leaflet, déjà employé par la carte des sites. La molette ne zoome qu'après un clic sur la carte :
+ * sinon, faire défiler la fiche au-dessus de la carte la ferait zoomer sans qu'on l'ait voulu.
  *
- * Esri sert des tuiles raster 256 px sans clé. Il suffit d'en poser
- * 5 × 3 autour du point, décalées de la fraction de tuile où il tombe : le point est alors au centre
- * exact du cadre, quelle que soit sa taille. Charger Leaflet pour une image fixe serait 40 Ko pour
- * rien. Adresse des tuiles en z/y/x — l'ordre d'Esri, pas celui d'OpenStreetMap.
- *
- * La mention des sources est obligatoire (conditions d'Esri). Sans coordonnées, le cadre reste
- * neutre et sans marqueur : une carte factice ferait croire à une position connue.
+ * Sans coordonnées, le cadre reste neutre et sans marqueur : une carte factice ferait croire à une
+ * position connue. La mention des sources est obligatoire (conditions d'Esri).
  */
-const TAILLE = 256
-/* 17 plutôt que 18 : un plan se lit avec ses rues voisines, là où la vue aérienne se lisait au
-   bâtiment près. */
-const ZOOM = 17
+const ZOOM_INITIAL = 15
 
-function tuiles(lat: number, lon: number) {
-  const n = 2 ** ZOOM
-  const r = (lat * Math.PI) / 180
-  const fx = ((lon + 180) / 360) * n
-  const fy = ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n
-  const tx = Math.floor(fx)
-  const ty = Math.floor(fy)
-  const ox = (fx - tx) * TAILLE
-  const oy = (fy - ty) * TAILLE
-  const sortie: { cle: string; left: string; top: string; url: string }[] = []
-  for (let dx = -2; dx <= 2; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      sortie.push({
-        cle: `${dx}:${dy}`,
-        left: `calc(50% + ${dx * TAILLE - ox}px)`,
-        top: `calc(50% + ${dy * TAILLE - oy}px)`,
-        url: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${ZOOM}/${ty + dy}/${tx + dx}`,
-      })
-    }
-  }
-  return sortie
+const MARQUEUR = L.divIcon({
+  className: '',
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+  html: `<span style="position:absolute;inset:0;border-radius:50%;background:rgba(13,122,95,.14)"></span>
+         <span style="position:absolute;left:15px;top:15px;width:14px;height:14px;border-radius:50%;background:#0D7A5F;border:3px solid #fff;box-shadow:0 2px 6px rgba(25,40,33,.3);box-sizing:border-box"></span>`,
+})
+
+/** La molette ne zoome qu'une fois la carte choisie, et plus dès que la souris la quitte. */
+function MoletteAuClic() {
+  const map = useMap()
+  useEffect(() => {
+    const activer = () => map.scrollWheelZoom.enable()
+    const desactiver = () => map.scrollWheelZoom.disable()
+    map.on('click', activer)
+    map.on('mouseout', desactiver)
+    return () => { map.off('click', activer); map.off('mouseout', desactiver) }
+  }, [map])
+  return null
 }
 
-export function CarteLieu({ lat, lon, hauteurMin = 170 }: {
+/** Le bouton « Recentrer » n'apparaît que lorsqu'on s'est éloigné du compteur. */
+function Recentrer({ lat, lon }: { lat: number; lon: number }) {
+  const map = useMap()
+  const [eloigne, setEloigne] = useState(false)
+  useEffect(() => {
+    const verifier = () => {
+      const centre = map.getCenter()
+      setEloigne(map.getZoom() !== ZOOM_INITIAL || map.latLngToContainerPoint(centre).distanceTo(map.latLngToContainerPoint([lat, lon])) > 8)
+    }
+    map.on('moveend', verifier)
+    map.on('zoomend', verifier)
+    return () => { map.off('moveend', verifier); map.off('zoomend', verifier) }
+  }, [map, lat, lon])
+  if (!eloigne) return null
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); map.setView([lat, lon], ZOOM_INITIAL) }}
+      className="absolute bottom-6 right-2 z-[1000] rounded-[8px] border border-km-line bg-white px-[9px] py-1 text-[11px] font-semibold text-km-text shadow-[0_2px_8px_rgba(25,40,33,.12)] hover:bg-km-soft"
+    >
+      Recentrer
+    </button>
+  )
+}
+
+/** Le cadre peut changer de taille après le premier rendu (colonne, onglet) : on prévient Leaflet. */
+function SuivreLaTaille({ cadre }: { cadre: React.RefObject<HTMLDivElement> }) {
+  const map = useMap()
+  useEffect(() => {
+    const el = cadre.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const obs = new ResizeObserver(() => map.invalidateSize())
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [map, cadre])
+  return null
+}
+
+export function CarteLieu({ lat, lon, hauteurMin = 190 }: {
   lat: number | null | undefined
   lon: number | null | undefined
   hauteurMin?: number
 }) {
+  const cadre = useRef<HTMLDivElement>(null)
   const connue = lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)
   return (
-    <div className="relative border-l border-km-line bg-km-line-soft" style={{ minHeight: hauteurMin }}>
-      <div className="absolute inset-0 overflow-hidden bg-[#F2F3F0]">
-        {connue && (
-          <>
-            {tuiles(lat, lon).map((t) => (
-              <span
-                key={t.cle}
-                aria-hidden="true"
-                className="absolute"
-                style={{
-                  width: TAILLE,
-                  height: TAILLE,
-                  left: t.left,
-                  top: t.top,
-                  background: `url("${t.url}") center/100% 100% no-repeat`,
-                }}
-              />
-            ))}
-            <span aria-hidden="true" className="absolute left-1/2 top-1/2 -ml-[22px] -mt-[22px] h-[44px] w-[44px] rounded-full bg-[rgba(13,122,95,.14)]" />
-            <span aria-hidden="true" className="absolute left-1/2 top-1/2 -ml-[7px] -mt-[7px] h-[14px] w-[14px] rounded-full border-[3px] border-white bg-km-green shadow-[0_2px_6px_rgba(25,40,33,.3)]" />
-          </>
-        )}
-      </div>
+    <div ref={cadre} className="carte-lieu relative isolate border-l border-km-line bg-[#F2F3F0]" style={{ minHeight: hauteurMin }}>
       {connue && (
-        <a
-          href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`}
-          target="_blank"
-          rel="noreferrer"
-          className="absolute right-2 top-2 rounded-[8px] border border-km-line bg-white px-[9px] py-1 text-[11px] font-semibold text-km-text no-underline shadow-[0_2px_8px_rgba(25,40,33,.12)] hover:text-km-text hover:no-underline"
-        >
-          Ouvrir ↗
-        </a>
+        <>
+          <MapContainer
+            key={`${lat},${lon}`}
+            center={[lat, lon]}
+            zoom={ZOOM_INITIAL}
+            minZoom={5}
+            maxZoom={19}
+            scrollWheelZoom={false}
+            keyboard
+            attributionControl={false}
+            style={{ position: 'absolute', inset: 0, background: '#F2F3F0' }}
+          >
+            <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" maxNativeZoom={19} />
+            <Marker position={[lat, lon]} icon={MARQUEUR} interactive={false} keyboard={false} />
+            <MoletteAuClic />
+            <Recentrer lat={lat} lon={lon} />
+            <SuivreLaTaille cadre={cadre} />
+          </MapContainer>
+          <a
+            href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute right-2 top-2 z-[1000] rounded-[8px] border border-km-line bg-white px-[9px] py-1 text-[11px] font-semibold text-km-text no-underline shadow-[0_2px_8px_rgba(25,40,33,.12)] hover:text-km-text hover:no-underline"
+          >
+            Ouvrir ↗
+          </a>
+          <span className="pointer-events-none absolute bottom-1 left-1.5 z-[1000] rounded-[3px] bg-white/70 px-1 text-[8.5px] text-km-muted">© Esri, HERE, Garmin, OpenStreetMap</span>
+        </>
       )}
-      {connue && <span className="absolute bottom-1 left-1.5 text-[8.5px] text-km-faint">© Esri, HERE, Garmin, OpenStreetMap</span>}
     </div>
   )
 }

@@ -63,7 +63,9 @@ export function BlocLieu({ compteur, modifiable, enregistrer, onToast }: {
   const ko = (e: Error) => onToast(e.message.startsWith('Ce champ') ? e.message : `Erreur : ${e.message}`)
 
   return (
-    <Carte relief className="grid grid-cols-[minmax(0,1fr)_minmax(220px,300px)] overflow-hidden">
+    /* LA CARTE S'ÉLARGIT (William, 30/09/2026) : près de la moitié de la carte, au lieu des 300 px de
+       la maquette — assez pour voir le quartier et s'y déplacer. */
+    <Carte relief className="grid grid-cols-[minmax(0,1fr)_minmax(320px,48%)] overflow-hidden">
       <div className="flex min-w-0 flex-col justify-center gap-[14px] px-[18px] py-4">
         {/* Le libellé, sans intitulé : c'est le nom du lieu. */}
         <div className="flex items-center gap-3 border-b border-km-line-soft pb-3">
@@ -114,7 +116,7 @@ export function BlocLieu({ compteur, modifiable, enregistrer, onToast }: {
           </div>
         </div>
       </div>
-      <CarteLieu lat={lat} lon={lon} hauteurMin={170} />
+      <CarteLieu lat={lat} lon={lon} hauteurMin={190} />
     </Carte>
   )
 }
