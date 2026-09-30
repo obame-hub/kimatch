@@ -107,6 +107,9 @@ export interface EnedisElecResult {
   periodeFin?: string | null
   /** La consommation TOTALE de chaque mois complet des douze derniers — voir `moisComplets`. */
   consoMensuelleMwh?: { mois: string; mwh: number; estimee: boolean }[] | null
+  /** RELEVÉ TECHNIQUE TEMPORAIRE (30/09/2026) : la forme des mesures reçues, sans leurs valeurs —
+   *  retiré de la réponse par `fetch-elec.ts`, rangé dans `diagnostics_enedis`. */
+  diagnostic?: Record<string, unknown>
 }
 
 /**
@@ -266,6 +269,8 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     }
   }
 
+  let exempleMesure: string | null = null
+  let exempleSerie: string | null = null
   const allDates: string[] = []
   const parCalendrier: Record<string, Record<string, number>> = {}
   const mesuresParCalendrier: Record<string, { classe: string; debut: string; fin: string; valeurKwh: number; estimee: boolean }[]> = {}
@@ -277,8 +282,10 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     if (!classe || unite !== 'kwh') continue
     const cls = normClasse(classe)
     ;(parCalendrier[calendrier] ??= {})
+    if (!exempleSerie) exempleSerie = sx.replace(/<mesure>[\s\S]*<\/mesure>/, '<mesure>…</mesure>').slice(0, 800)
     for (const mm of [...sx.matchAll(/<mesure>([\s\S]*?)<\/mesure>/g)]) {
       const mx = mm[1]
+      if (!exempleMesure) exempleMesure = mx.replace(/<valeur>[^<]*<\/valeur>/, '<valeur>·</valeur>').slice(0, 800)
       const valeur = mx.match(/<valeur>([^<]+)<\/valeur>/)?.[1]
       const dateFin = mx.match(/<dateFin>([^<]+)<\/dateFin>/)?.[1]?.slice(0, 10)
       const dateDebut = mx.match(/<dateDebut>([^<]+)<\/dateDebut>/)?.[1]?.slice(0, 10)
@@ -404,5 +411,17 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     periodeDebut: uniqueMonths.length ? `${uniqueMonths[uniqueMonths.length - 1]}-01` : null,
     periodeFin: uniqueMonths.length ? `${uniqueMonths[0]}-01` : null,
     consoMensuelleMwh,
+    diagnostic: {
+      nbSeries: [...xmlMesures.matchAll(/<serie[^>]*>/g)].length,
+      nbMesures: [...xmlMesures.matchAll(/<mesure>/g)].length,
+      balises: [...new Set([...xmlMesures.matchAll(/<([a-zA-Z][\w:]*)[\s>]/g)].map((m) => m[1]))].slice(0, 80),
+      exempleSerie,
+      exempleMesure,
+      calendriers: Object.keys(parCalendrier),
+      calChoisi,
+      douzeMois: [...douzeMois],
+      periodes: (calChoisi ? mesuresParCalendrier[calChoisi] ?? [] : []).map((x) => `${x.classe} ${x.debut}→${x.fin}`).slice(-80),
+      moisRetenus: consoMensuelleMwh.map((m) => m.mois),
+    },
   }
 }

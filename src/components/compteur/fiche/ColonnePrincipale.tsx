@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { Building, MapPin, RefreshCw, Tag, Zap } from 'lucide-react'
 import { CarteLieu } from '@/components/ui/carte-lieu'
-import { searchAddressBAN, type BanAddress } from '@/lib/banAddress'
+import { useQuery } from '@tanstack/react-query'
+import { geocoderPrecis, searchAddressBAN, type BanAddress } from '@/lib/banAddress'
 import { partMensuelleCar } from '@/lib/profilsGaz'
 import { cn } from '@/lib/utils'
 import type { EcheanceCompteur } from '@/lib/echeance'
@@ -47,6 +48,17 @@ export function BlocLieu({ compteur, modifiable, enregistrer, onToast }: {
   onToast: (m: string) => void
 }) {
   const t = teintesEnergie(compteur.type_energie === 'electricite')
+  /* SANS COORDONNÉES EN BASE, on localise l'adresse à l'affichage — voir `geocoderPrecis`. Rien
+     n'est écrit : la position enregistrée ne change que quand on modifie l'adresse. */
+  const aDesCoordonnees = compteur.latitude != null && compteur.longitude != null
+  const { data: localisee } = useQuery({
+    queryKey: ['geocodage', compteur.adresse, compteur.code_postal, compteur.ville],
+    enabled: !aDesCoordonnees,
+    staleTime: Infinity,
+    queryFn: () => geocoderPrecis(compteur.adresse, compteur.code_postal, compteur.ville).catch(() => null),
+  })
+  const lat = aDesCoordonnees ? compteur.latitude : localisee?.latitude
+  const lon = aDesCoordonnees ? compteur.longitude : localisee?.longitude
   const ok = () => onToast('✓ enregistré')
   const ko = (e: Error) => onToast(e.message.startsWith('Ce champ') ? e.message : `Erreur : ${e.message}`)
 
@@ -102,7 +114,7 @@ export function BlocLieu({ compteur, modifiable, enregistrer, onToast }: {
           </div>
         </div>
       </div>
-      <CarteLieu lat={compteur.latitude} lon={compteur.longitude} hauteurMin={170} />
+      <CarteLieu lat={lat} lon={lon} hauteurMin={170} />
     </Carte>
   )
 }
@@ -445,6 +457,8 @@ export function BlocPostes({ compteur }: { compteur: Compteur }) {
   const postes = vide ? [...ORDRE_POSTES] : renseignes
   const total = postes.reduce((s, p) => s + (conso[p] ?? 0), 0)
   const nb = postes.length
+  /* DEUX DÉCIMALES AU PLUS — William, 30/09/2026 : Enedis en donne trois (« 5,978 »), illisible. */
+  const deux = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 2 }).replace(/\u202f/g, '\u00a0')
 
   return (
     <Carte relief>
@@ -463,7 +477,8 @@ export function BlocPostes({ compteur }: { compteur: Compteur }) {
         )}
         <div
           className={cn('grid items-center gap-1.5 tabular-nums', vide && 'opacity-55')}
-          style={{ gridTemplateColumns: `100px repeat(${nb},minmax(0,1fr)) 92px` }}
+          /* LE TOTAL S'ÉLARGIT AVEC SON CHIFFRE : 92 px au moins, la largeur du nombre au-delà. */
+          style={{ gridTemplateColumns: `100px repeat(${nb},minmax(0,1fr)) minmax(92px,max-content)` }}
         >
           <span />
           {postes.map((p) => (
@@ -477,7 +492,7 @@ export function BlocPostes({ compteur }: { compteur: Compteur }) {
             return (
               <div key={p} className="rounded-[10px] bg-[#FBF7E8] px-2 pb-[7px] pt-2 text-center">
                 <div className="whitespace-nowrap font-mono text-[13px] font-semibold">
-                  {v != null ? nombreFr(v) : '—'}
+                  {v != null ? deux(v) : '—'}
                   {v != null && total > 0 && (
                     <> <span className="text-[10.5px] font-medium text-km-faint">({Math.round((v / total) * 100)}{'\u202f'}%)</span></>
                   )}
@@ -487,14 +502,14 @@ export function BlocPostes({ compteur }: { compteur: Compteur }) {
           })}
           <div className="row-span-2 flex flex-col justify-center gap-0.5 self-stretch rounded-[12px] bg-km-elec-soft p-2 text-center">
             <div className="text-[9px] font-bold uppercase tracking-[.06em] text-km-amber">Total</div>
-            <div className="font-mono text-[24px] font-bold leading-[1.1] tracking-[-.02em] text-[#8A6508]">{total > 0 ? nombreFr(total) : '—'}</div>
+            <div className="whitespace-nowrap px-1 font-mono text-[24px] font-bold leading-[1.1] tracking-[-.02em] text-[#8A6508]">{total > 0 ? deux(total) : '—'}</div>
             <div className="text-[10px] text-km-amber">MWh</div>
           </div>
 
           <span className="text-[12px] font-semibold leading-[1.3]">Puissance<br /><span className="font-medium text-km-faint">kVA</span></span>
           {postes.map((p) => (
             <div key={p} className="rounded-[10px] bg-km-soft p-2 text-center font-mono text-[14px] font-semibold">
-              {puissances[p] != null ? nombreFr(puissances[p]) : '—'}
+              {puissances[p] != null ? deux(puissances[p]) : '—'}
             </div>
           ))}
         </div>

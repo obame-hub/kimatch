@@ -53,7 +53,8 @@ async function persistElec(admin: Admin, compteurId: string, result: Awaited<Ret
 
   /* L'historique mensuel, mois complets seulement — même règle que la synchronisation depuis la
      fiche (`src/lib/data/compteurs.ts`, `lignesMensuelles`). */
-  if (result.consoMensuelleMwh) {
+  /* Rien reçu, rien effacé : un historique vide ne remplace pas l'historique existant. */
+  if (result.consoMensuelleMwh?.length) {
     await admin.from('consommations').delete().eq('compteur_id', compteurId).eq('source', 'Enedis')
     const rows = result.consoMensuelleMwh.map((m) => {
       const [a, mo] = m.mois.split('-').map(Number)

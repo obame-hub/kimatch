@@ -802,7 +802,8 @@ export function useSyncCompteurElec() {
          Une ligne par mois civil entier, consommation TOTALE (tous postes) : c'est ce que trace le
          graphique « 12 derniers mois ». Elles remplacent les lignes annuelles par poste d'avant,
          dont le détail vit déjà dans `compteurs_electricite` (conso_*_mwh). Voir `moisComplets`. */
-      if (result.consoMensuelleMwh) {
+      /* RIEN REÇU, RIEN EFFACÉ : un historique vide ne remplace pas l'historique existant. */
+      if (result.consoMensuelleMwh?.length) {
         await supabase.from('consommations').delete().eq('compteur_id', compteurId).eq('source', 'Enedis')
         const rows = lignesMensuelles(compteurId, result.consoMensuelleMwh)
         if (rows.length) {

@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { fetchElecData } from './_client.js'
 import { exigerSession, refuserLesPartenaires } from '../_auth.js'
 import { refuserSansMandatActif } from '../_mandatActif.js'
+import { createClient } from '@supabase/supabase-js'
+import { cleService, urlSupabase } from '../_cleService.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -30,7 +32,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const result = await fetchElecData(pdlId)
-    res.status(200).json(result)
+    /* RELEVÉ TECHNIQUE TEMPORAIRE (30/09/2026) — la forme des mesures, pour caler la lecture
+       mensuelle. Il ne part pas au navigateur, et son échec n'arrête rien. À retirer une fois calé. */
+    const { diagnostic, ...reponse } = result
+    try {
+      const url = urlSupabase()
+      const cle = cleService()
+      if (url && cle && diagnostic) {
+        await createClient(url, cle, { auth: { persistSession: false } })
+          .from('diagnostics_enedis')
+          .insert({ numero_point: pdlId, detail: diagnostic })
+      }
+    } catch { /* un relevé manqué ne doit pas faire échouer la synchronisation */ }
+    res.status(200).json(reponse)
   } catch (err) {
     res.status(200).json({ success: false, error: err instanceof Error ? err.message : 'Erreur Enedis inconnue' })
   }

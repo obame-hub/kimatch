@@ -315,6 +315,10 @@ export default function CompteurDetail() {
                 enregistrer={majCompteur}
                 onToast={showToast}
               />
+              {/* SANS CONTRAT EN COURS RATTACHÉ, PAS DE CARTE. William, 30/09/2026 : une carte
+                  « Fournisseur inconnu » tirée de la seule échéance déclarée affichait de fausses
+                  infos. L'échéance déclarée reste lisible sur la plaque technique. */}
+              {contratEnCours && (
               <BlocContratEnCours
                 contrat={contratEnCours}
                 echeance={echeance}
@@ -331,6 +335,7 @@ export default function CompteurDetail() {
                 }}
                 onVoirContrats={() => setOnglet('contrats')}
               />
+              )}
             </div>
           </div>
         )}
