@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowUpRight, CalendarClock, CalendarX, Check, ChevronDown, GripVertical, Mail, Phone, Search, X, Zap } from 'lucide-react'
+import { ArrowUpRight, CalendarClock, CalendarX, Check, ChevronDown, GripVertical, Mail, Phone, Plus, Search, X, Zap } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import { SprintCockpit } from '@/components/cockpit/SprintCockpit'
 import { CockpitEnConstruction } from '@/components/cockpit/OuvertureCockpit'
 import { cockpitOuvert } from '@/lib/cockpitOuvert'
 import { correspond } from '@/lib/recherche'
+import { DialogPiste } from '@/components/prospection/DialogPiste'
 import {
   LIBELLE_CRITERE,
   LIBELLE_SOURCE,
@@ -298,6 +299,7 @@ function CockpitOuvert() {
      maintenant de l'écran, comme elles sortent du pipe. */
   const { data: mesPistes } = useMesPistes(false)
   const [enSprint, setEnSprint] = useState(false)
+  const [creationPiste, setCreationPiste] = useState(false)
   /**
    * ══ ARRIVER DEPUIS LE BANDEAU DE RAPPEL ══
    *
@@ -731,10 +733,26 @@ function CockpitOuvert() {
           ))}
         </div>
 
+        {/* ══ CRÉER UNE PISTE SANS QUITTER LE COCKPIT ══ (William, 30/09/2026) — seulement sur
+            « Mes pistes », là où l'on en a besoin. Elle y apparaît dès sa création. */}
+        {zone === 'pistes' ? (
+          <button
+            type="button"
+            onClick={() => setCreationPiste(true)}
+            className="ml-auto inline-flex items-center gap-2 rounded-km border border-km-line bg-km-surface px-3.5 py-2.5 text-km-body font-semibold text-km-text hover:border-km-muted"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Nouvelle piste
+          </button>
+        ) : null}
+
         <button
           onClick={() => setEnSprint(true)}
           disabled={affichees.length === 0}
-          className="ml-auto inline-flex items-center gap-2.5 rounded-km bg-km-text px-4 py-2.5 text-km-body font-semibold text-white hover:bg-[#2A3340] disabled:opacity-45"
+          className={cn(
+            'inline-flex items-center gap-2.5 rounded-km bg-km-text px-4 py-2.5 text-km-body font-semibold text-white hover:bg-[#2A3340] disabled:opacity-45',
+            zone !== 'pistes' && 'ml-auto',
+          )}
         >
           <Zap className="h-4 w-4" aria-hidden="true" />
           Lancer un sprint
@@ -1314,6 +1332,8 @@ function CockpitOuvert() {
           tout en bas, hors du regard. Le bouton remonte en tête de la zone, où il devient l'un des
           deux gestes phares ; la phrase disparaît — « le pipe est arrêté pour la journée » est déjà
           écrit dans la barre du haut, à côté de la date. */}
+
+      {creationPiste ? <DialogPiste onFermer={() => setCreationPiste(false)} signaler={signaler} /> : null}
     </div>
   )
 }

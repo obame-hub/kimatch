@@ -267,7 +267,12 @@ export function useCreerPiste() {
       if (error) throw new Error(messageDErreur(error.message))
       return (data as { id: string }).id
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pistes'] }) },
+    /* « Mes pistes » du Cockpit a sa propre requête : sans elle, la piste créée depuis le Cockpit
+       n'apparaîtrait qu'au rechargement. */
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pistes'] })
+      qc.invalidateQueries({ queryKey: ['cockpit', 'mes-pistes'] })
+    },
   })
 }
 
