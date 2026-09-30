@@ -248,7 +248,21 @@ export interface OffreFournisseur {
    * `PROPOSEE`, ce que sont toutes les offres existantes.
    */
   nature_offre?: string | null
+  /** Les clauses contractuelles de l'offre (proposition commerciale, page 2). Voir ClausesOffre. */
+  clauses?: ClausesOffre
   details_par_compteur: OffreFournisseurCompteur[]
+}
+
+/**
+ * Les clauses contractuelles d'une offre — propres au fournisseur ET à l'affaire (William, 30/09/2026).
+ * « Contrat sécurisé » n'y est pas : il se déduit du type de prix (fixe = sécurisé).
+ */
+export interface ClausesOffre {
+  tacite_reconduction: boolean
+  depot_garantie: boolean
+  engagement_consommation: boolean
+  renegociation_anticipee: boolean
+  swap: boolean
 }
 
 export interface SuiviConsultationFournisseur {
@@ -614,6 +628,15 @@ export interface Compte {
   tariffs?: string[]
   profiles?: string[]
   min_consumption?: number | null
+  /** L'identité du fournisseur, présentée en page 3 de la proposition commerciale (30/09/2026). */
+  qualification?: string | null
+  pays_origine?: string | null
+  annee_creation?: number | null
+  presentation?: string | null
+  siege?: string | null
+  clientele?: string | null
+  /** Trois au plus. Nommé ainsi pour ne pas se confondre avec d'autres « tags ». */
+  tags_fournisseur?: string[]
   max_consumption?: number | null
   min_ellipro_score?: number | null
   max_ddf?: string | null

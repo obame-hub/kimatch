@@ -169,6 +169,12 @@ interface RawOffreFournisseur {
    *  nomme, mais l'écran doit rester debout si la migration n'est pas encore appliquée. */
   type_prix?: string | null
   prix_moyen_mwh?: number | null
+  /** Les clauses contractuelles (migration 20260930100000). Optionnelles tant qu'elle n'est pas appliquée. */
+  clause_tacite_reconduction?: boolean
+  clause_depot_garantie?: boolean
+  clause_engagement_consommation?: boolean
+  clause_renegociation_anticipee?: boolean
+  clause_swap?: boolean
   compte_fournisseur: { compte: { nom: string } | null } | null
 }
 
@@ -588,6 +594,14 @@ async function fetchRecommandations(
         date_validite: o.date_validite ?? null,
         est_offre_recommandee: o.est_offre_recommandee,
         est_offre_reference: o.est_offre_reference ?? false,
+        // Les défauts de William (30/09/2026) quand la migration n'est pas encore là : tacite oui, le reste non.
+        clauses: {
+          tacite_reconduction: o.clause_tacite_reconduction ?? true,
+          depot_garantie: o.clause_depot_garantie ?? false,
+          engagement_consommation: o.clause_engagement_consommation ?? false,
+          renegociation_anticipee: o.clause_renegociation_anticipee ?? false,
+          swap: o.clause_swap ?? false,
+        },
         // Repli sur PROPOSEE tant que la migration 20260821120000 n'est pas appliquée : c'est ce
         // que sont les 39 offres existantes, aucune n'a jamais pu être autre chose.
         nature_offre: o.nature_offre ?? 'PROPOSEE',
@@ -2420,6 +2434,12 @@ export interface PatchOffre {
   date_reception?: string | null
   date_validite?: string | null
   commentaire_interne?: string | null
+  /** Les clauses contractuelles (migration 20260930100000). */
+  clause_tacite_reconduction?: boolean
+  clause_depot_garantie?: boolean
+  clause_engagement_consommation?: boolean
+  clause_renegociation_anticipee?: boolean
+  clause_swap?: boolean
 }
 
 /** Libellé d'une offre : ce qui la distingue des autres du même fournisseur. */

@@ -45,6 +45,14 @@ interface RawCompteFournisseur {
   notice_days?: number | null
   partner_category?: string | null
   is_active?: boolean
+  /** L'identité du fournisseur, pour la proposition commerciale (migration 20260930100000). */
+  qualification?: string | null
+  pays_origine?: string | null
+  annee_creation?: number | null
+  presentation?: string | null
+  siege?: string | null
+  clientele?: string | null
+  tags?: string[] | null
 }
 
 interface RawComptePartenaire {
@@ -129,6 +137,13 @@ async function fetchComptes(compteId?: string): Promise<Compte[]> {
               notice_days: fournisseur.notice_days ?? null,
               partner_category: fournisseur.partner_category ?? null,
               fournisseur_actif: fournisseur.is_active ?? true,
+              qualification: fournisseur.qualification ?? null,
+              pays_origine: fournisseur.pays_origine ?? null,
+              annee_creation: fournisseur.annee_creation ?? null,
+              presentation: fournisseur.presentation ?? null,
+              siege: fournisseur.siege ?? null,
+              clientele: fournisseur.clientele ?? null,
+              tags_fournisseur: fournisseur.tags ?? [],
             }
           : {}),
         ...(partenaire
@@ -629,6 +644,15 @@ export interface ConditionsFournisseur {
   min_ellipro_score?: number | null
   response_delay_days?: number | null
   min_consumption?: number | null
+  /* L'identité, pour la page 3 de la proposition commerciale (30/09/2026). Même table, même
+     écriture : ce ne sont pas des critères d'éligibilité, mais ils vivent sur la même ligne. */
+  qualification?: string | null
+  pays_origine?: string | null
+  annee_creation?: number | null
+  presentation?: string | null
+  siege?: string | null
+  clientele?: string | null
+  tags?: string[]
 }
 
 /**

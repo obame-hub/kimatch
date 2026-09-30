@@ -866,6 +866,109 @@ export default function CompteDetail() {
                           />
                         </div>
 
+                        {/* ══ LA PRÉSENTATION DANS LA PROPOSITION COMMERCIALE — 30/09/2026 ══
+                            William : « il va falloir qu'on travaille aussi sur notre base à bien
+                            travailler les fournisseurs […] origine, création, ancienneté, un petit
+                            texte, où est le siège, quels sont ses clients, et trois tags ». C'est la
+                            page 3 de la proposition. L'ancienneté n'est pas un champ : elle se
+                            déduit de l'année de création. */}
+                        <div className="mt-3 space-y-1.5 border-t border-km-line pt-3">
+                          <p className="text-km-label font-semibold uppercase tracking-[0.06em] text-km-muted">Présentation dans la proposition</p>
+                          <div className="flex items-start gap-1.5">
+                            <span className="shrink-0 text-km-faint">Qualification :</span>
+                            <InlineField
+                              variant="text"
+                              label=""
+                              emptyLabel="ex. Fournisseur indépendant"
+                              value={compte.qualification ?? ''}
+                              disabled={!canManage}
+                              onCommit={(v) => majConditionsFournisseur(compte.id, { qualification: v.trim() || null }).then(() => showToast('✓ Qualification enregistré(e)'))}
+                              onSaved={() => undefined}
+                              onError={(err) => showToast(`Erreur : ${err.message}`)}
+                            />
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="shrink-0 text-km-faint">Origine :</span>
+                            <InlineField
+                              variant="text"
+                              label=""
+                              emptyLabel="ex. France"
+                              value={compte.pays_origine ?? ''}
+                              disabled={!canManage}
+                              onCommit={(v) => majConditionsFournisseur(compte.id, { pays_origine: v.trim() || null }).then(() => showToast('✓ Origine enregistré(e)'))}
+                              onSaved={() => undefined}
+                              onError={(err) => showToast(`Erreur : ${err.message}`)}
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-km-faint">Création :</span>
+                            <InlineField
+                              variant="number"
+                              label=""
+                              emptyLabel="année"
+                              unit=""
+                              value={compte.annee_creation ?? null}
+                              disabled={!canManage}
+                              onCommit={(v) => majConditionsFournisseur(compte.id, { annee_creation: v }).then(() => showToast('✓ Année de création enregistrée'))}
+                              onSaved={() => undefined}
+                              onError={(err) => showToast(`Erreur : ${err.message}`)}
+                            />
+                            {compte.annee_creation ? <span className="text-km-faint">· {new Date().getFullYear() - compte.annee_creation} ans</span> : null}
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="shrink-0 text-km-faint">Siège :</span>
+                            <InlineField
+                              variant="text"
+                              label=""
+                              emptyLabel="ex. Lyon (69)"
+                              value={compte.siege ?? ''}
+                              disabled={!canManage}
+                              onCommit={(v) => majConditionsFournisseur(compte.id, { siege: v.trim() || null }).then(() => showToast('✓ Siège enregistré(e)'))}
+                              onSaved={() => undefined}
+                              onError={(err) => showToast(`Erreur : ${err.message}`)}
+                            />
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="shrink-0 text-km-faint">Clients :</span>
+                            <InlineField
+                              variant="text"
+                              label=""
+                              emptyLabel="ex. PME, copropriétés"
+                              value={compte.clientele ?? ''}
+                              disabled={!canManage}
+                              onCommit={(v) => majConditionsFournisseur(compte.id, { clientele: v.trim() || null }).then(() => showToast('✓ Clients enregistré(e)'))}
+                              onSaved={() => undefined}
+                              onError={(err) => showToast(`Erreur : ${err.message}`)}
+                            />
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="shrink-0 text-km-faint">Tags (3 au plus) :</span>
+                            <InlineField
+                              variant="text"
+                              label=""
+                              emptyLabel="ex. Gaz naturel, Chauffage collectif"
+                              value={(compte.tags_fournisseur ?? []).join(', ')}
+                              disabled={!canManage}
+                              onCommit={(v) => majConditionsFournisseur(compte.id, { tags: v.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 3) }).then(() => showToast('✓ Tags (3 au plus) enregistré(e)'))}
+                              onSaved={() => undefined}
+                              onError={(err) => showToast(`Erreur : ${err.message}`)}
+                            />
+                          </div>
+                          <div className="flex items-start gap-1.5">
+                            <span className="shrink-0 text-km-faint">Présentation :</span>
+                            <InlineField
+                              variant="longtext"
+                              label=""
+                              emptyLabel="deux ou trois lignes pour le client"
+                              value={compte.presentation ?? ''}
+                              disabled={!canManage}
+                              onCommit={(v) => majConditionsFournisseur(compte.id, { presentation: v.trim() || null }).then(() => showToast('✓ Présentation enregistré(e)'))}
+                              onSaved={() => undefined}
+                              onError={(err) => showToast(`Erreur : ${err.message}`)}
+                            />
+                          </div>
+                        </div>
+
                         {/* ══ LA PART DE LA MARGE QUI REVIENT À KIWEE ══
                             William, 03/09/2026 : « non pas toujours par 2, et certains fournisseurs
                             on prend moins que ça ». Le taux était une constante dans le code depuis

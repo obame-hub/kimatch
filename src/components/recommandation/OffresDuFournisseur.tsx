@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Trash2, Star, Check, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChampNombre } from '@/components/ui/champ-nombre'
+import { ConditionsOffre } from '@/components/recommandation/ConditionsOffre'
 import { PrixParCompteur } from '@/components/recommandation/PrixParCompteur'
 import { CarteOffreEtude } from '@/components/recommandation/CarteOffreEtude'
 import { FichierOffre } from '@/components/recommandation/FichierOffre'
@@ -468,6 +469,9 @@ export function OffresDuFournisseur({
                         peutModifier={peutModifier}
                         signaler={signaler}
                       />
+                      {/* LES CONDITIONS À CÔTÉ DES PRIX (William, 30/09/2026) : validité et clauses se
+                          lisent dans la même réponse du fournisseur. */}
+                      <ConditionsOffre offre={offre} peutModifier={peutModifier} signaler={signaler} />
                       <PrixParCompteur
                         offre={offre}
                         version={version}

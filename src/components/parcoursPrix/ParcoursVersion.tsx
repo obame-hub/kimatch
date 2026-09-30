@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input, Label, Select } from '@/components/ui/form'
 import { PrixParCompteur } from '@/components/recommandation/PrixParCompteur'
+import { ConditionsOffre } from '@/components/recommandation/ConditionsOffre'
 import { DocumentComparatif } from '@/components/recommandation/DocumentComparatif'
 import { EnteteEtapes, Explication, Ligne, PiedAssistant } from '@/components/prixTradeo/assistant'
 import { useCompte } from '@/lib/data/comptes'
@@ -18,6 +19,7 @@ import {
 } from '@/lib/data/parcoursPrix'
 import { etatDOffre, versionPrete, type CircuitFournisseur, type EtatDOffre } from '@/lib/parcoursPrix/etatOffres'
 import { calculerOffre, margeCiblee } from '@/lib/parcoursPrix/calcul'
+import { donneesProposition } from '@/lib/proposition/donneesProposition'
 import { cn } from '@/lib/utils'
 import type { Compteur, Recommandation, VersionRecommandation } from '@/types/domain'
 
@@ -116,6 +118,7 @@ export function ParcoursVersion({
                   </div>
                   <div className="flex items-center gap-2">
                     <Etat etat={etats.get(offre.id)!} close={close} />
+                    <ConditionsOffre offre={offre} peutModifier={peutModifier} signaler={dire} />
                     {peutModifier && <PrixParCompteur offre={offre} version={version} compteurs={compteurs} peutModifier signaler={dire} />}
                   </div>
                 </li>
@@ -337,6 +340,13 @@ function EtapeValidation({ reco, version, compteurs, prete, enAttente, disponibl
   const [document, setDocument] = useState(false)
   const { data: compte } = useCompte(reco.compte_id)
   const disponible = version.statut === 'DISPONIBLE'
+  /* LE COMPARATIF DE LA PROPOSITION, tel que le document l'affichera (modèle du 30/09/2026) : on le
+     voit ici avant même que le document existe, et c'est la même fonction qui le remplira. */
+  const proposition = useMemo(
+    () => donneesProposition({ version, compteurs: new Map(compteurs.map((c) => [c.id, c])), offres: offresDeLaVersion(version) }),
+    [version, compteurs],
+  )
+  const chiffrees = proposition.lignes.filter((l) => l.total != null)
 
   return (
     <>
@@ -351,6 +361,23 @@ function EtapeValidation({ reco, version, compteurs, prete, enAttente, disponibl
             ? <><CheckCircle2 className="h-4 w-4 text-km-green" /> Toutes les offres ont répondu : la version peut être validée.</>
             : <>Encore <strong>{enAttente}</strong> offre{enAttente > 1 ? 's' : ''} en attente : revenez quand elles auront répondu.</>}
       </p>
+      {chiffrees.length > 0 && (
+        <div className="mt-3 rounded-km border border-km-line">
+          <p className="border-b border-km-line px-3 py-2 text-km-label font-semibold text-km-muted">
+            Ce que la proposition affichera
+            {proposition.economie && <span className="ml-1 text-km-green">· économie {euros(proposition.economie.an)}/an ({proposition.economie.pourcentage.toLocaleString('fr-FR')} %)</span>}
+          </p>
+          <ul className="divide-y divide-km-line">
+            {chiffrees.map((l) => (
+              <li key={l.offreId} className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-1.5 text-km-body">
+                <span>{l.rang ? `${l.rang}. ` : ''}<strong>{l.fournisseur}</strong> <span className="text-km-label text-km-muted">{l.actuelle ? 'offre actuelle' : `${l.typePrix ?? ''} · ${l.dureeMois ?? '?'} mois`}</span></span>
+                <span className="tabular-nums">{euros(l.total)}{l.ecartAn != null && <span className={l.ecartAn < 0 ? 'ml-1.5 text-km-green' : 'ml-1.5 text-km-red'}>{l.ecartAn < 0 ? '−' : '+'}{euros(Math.abs(l.ecartAn))}</span>}</span>
+              </li>
+            ))}
+          </ul>
+          {!proposition.actuelle && <p className="border-t border-km-line px-3 py-1.5 text-km-label text-km-amber">Pas d’offre actuelle chiffrée : ni écart ni économie ne peuvent être annoncés au client.</p>}
+        </div>
+      )}
       <PiedAssistant onRetour={onRetour}>
         <Button disabled={disponibles === 0} onClick={() => setDocument(true)}><FileText className="h-4 w-4" /> Générer le document</Button>
         <Button variant="primary" disabled={!peutModifier || !prete || disponible || valider.isPending}
