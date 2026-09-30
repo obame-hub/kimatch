@@ -197,6 +197,11 @@ interface CreateMandatInput {
   contact_signataire_nom?: string
   courtier_codes: string[]
   courtier_type_ids: string[]
+  /** ══ LE MANDAT D'UN TIERS, DÉJÀ SIGNÉ (30/09/2026) ══
+   *  Un mandat recueilli par un partenaire arrive signé : il ne passe pas par DocuSign et naît
+   *  directement au statut de sa période — `ACTIF`, ou `EXPIRE` si elle est déjà écoulée. Absent,
+   *  c'est « À préparer », comme tout mandat qui partira à la signature. */
+  statut_code?: 'A_PREPARER' | 'ACTIF' | 'EXPIRE'
 }
 
 /**
@@ -212,7 +217,7 @@ interface CreateMandatInput {
  * doit suivre. C'est le serveur qui fait foi : lui recalcule à la signature, celle-ci ne pose qu'une
  * valeur provisoire à la création, quand aucune signature n'existe encore.
  */
-function addMonthsISO(dateISO: string, months: number): string {
+export function addMonthsISO(dateISO: string, months: number): string {
   const [annee, mois, jour] = dateISO.slice(0, 10).split('-').map(Number)
   if (!annee || !mois || !jour) return dateISO.slice(0, 10)
   // Le jour 0 du mois suivant EST le dernier jour du mois visé.
@@ -244,7 +249,7 @@ export function useCreateMandat() {
         id_salesforce: null,
         compte_id: input.compte_id,
         compte_nom: input.compte_nom,
-        statut: 'A_PREPARER',
+        statut: input.statut_code ?? 'A_PREPARER',
         date_signature: input.date_signature,
         date_envoi: null,
         date_debut_validite: dateDebut,
@@ -267,7 +272,7 @@ export function useCreateMandat() {
       // et repartait sans statut — donc invisible dans tous les filtres qui s'appuient dessus.
       const [{ data: utilisateur }, { data: statutInitial }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('statuts_mandats').select('id').eq('code', 'A_PREPARER').maybeSingle(),
+        supabase.from('statuts_mandats').select('id').eq('code', input.statut_code ?? 'A_PREPARER').maybeSingle(),
       ])
       const creePar = utilisateur.user?.id ?? null
       const statutId = (statutInitial as { id: string } | null)?.id ?? null

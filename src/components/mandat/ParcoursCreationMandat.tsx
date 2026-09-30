@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, Flame, Loader2, Mail, Search, UserPlus, Zap } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Eye, FileText, Flame, Loader2, Mail, Search, Upload, UserPlus, X, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import { WizardConnectionGate } from '@/components/ui/connection-gate'
 import { ChoixDureeMandats, DUREE_DEFAUT } from '@/components/mandat/ChoixDureeMandats'
+import { FenetreApercu } from '@/components/document/FenetreApercu'
 import {
   EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours, useSortieParcours,
   type EtapeParcours, type ResumeEtape,
@@ -12,7 +13,8 @@ import {
 import { useComptes } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { useCompteursParCompte } from '@/lib/data/compteurs'
-import { useMandats } from '@/lib/data/mandats'
+import { addMonthsISO, useCreateMandat, useMandats } from '@/lib/data/mandats'
+import { useTeleverserDocuments } from '@/lib/data/documents'
 import { useEnvoiMandat } from '@/lib/data/envoiMandat'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_COURTIERS_MANDAT } from '@/lib/referenceFallbacks'
@@ -46,17 +48,38 @@ import type { Compte, Contact } from '@/types/domain'
  *   LE MANDAT       durée, KiWee et Energix, puis « Préparer le mandat » : DocuSign s'ouvre en
  *                   brouillon, c'est le commercial qui clique « Envoyer ».
  *
+ * ══ LE MANDAT D'UN TIERS — une cinquième étape, 30/09/2026 ══
+ *
+ * William : « si le compte lié est celui d'un partenaire ou d'une vente indirecte, alors à l'étape 4
+ * je dois avoir un bouton "Enregistrer le mandat d'un tiers". Aucun envoi via DocuSign mais […] joindre
+ * le ou les fichiers signés, renseigner la date de signature (et donc la date de début). En fonction
+ * de la durée, cela déduira la date de fin. »
+ *
+ * Le mandat a été recueilli ailleurs, il arrive signé : il naît donc au statut de sa période —
+ * `ACTIF`, ou `EXPIRE` si elle est déjà écoulée, la même règle que le retour de DocuSign
+ * (`api/docusign/_decision.ts`) — et ses fichiers rejoignent ses documents. La fin se calcule comme
+ * à la signature DocuSign (`addMonthsISO`, qui s'arrête au dernier jour du mois).
+ * Le signataire reste obligatoire, et le choix KiWee / Energix reste le même (décisions de William).
+ *
  * Ce que l'appelant sait se reprend (une opportunité connaît son contact et ses compteurs) mais
  * reste modifiable : règle du 18/09/2026, un rattachement affiché se change là où il s'affiche.
  */
 
-const ETAPES: EtapeParcours[] = [
+const ETAPES_DE_BASE: EtapeParcours[] = [
   { cle: 'compte', libelle: 'Le compte' },
   { cle: 'signataire', libelle: 'Le signataire' },
   { cle: 'perimetre', libelle: 'Le périmètre' },
   { cle: 'mandat', libelle: 'Le mandat' },
 ]
-type CleEtape = 'compte' | 'signataire' | 'perimetre' | 'mandat'
+/* LA CINQUIÈME ÉTAPE N'APPARAÎT QUE POUR UN MANDAT DE TIERS, au moment où on le choisit. */
+const ETAPE_SIGNATURE: EtapeParcours = { cle: 'signature', libelle: 'La signature' }
+type CleEtape = 'compte' | 'signataire' | 'perimetre' | 'mandat' | 'signature'
+
+/** Aujourd'hui, à Paris — la borne haute d'une date de signature. */
+function aujourdhuiParis(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+}
+const dateFr = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR')
 
 type Echeance = 'expiree' | 'proche' | 'lointaine' | 'aucune'
 function bucketEcheance(iso: string | null | undefined): Echeance {
@@ -104,6 +127,14 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
   const [filtreEnergie, setFiltreEnergie] = useState<'electricite' | 'gaz' | null>(null)
   const [filtresEcheance, setFiltresEcheance] = useState<Echeance[]>([])
   const [mandatCreeId, setMandatCreeId] = useState<string | null>(null)
+  /* Le mandat d'un tiers : ses fichiers signés, sa date de signature, et l'état de l'enregistrement. */
+  const [modeTiers, setModeTiers] = useState(false)
+  const [fichiersSignes, setFichiersSignes] = useState<File[]>([])
+  const [dateSignature, setDateSignature] = useState('')
+  const [enregistrement, setEnregistrement] = useState<{ enCours: boolean; erreur: string | null }>({ enCours: false, erreur: null })
+  const [apercu, setApercu] = useState<{ url: string; nom: string } | null>(null)
+  const creerMandat = useCreateMandat()
+  const televerser = useTeleverserDocuments()
 
   const { envoyer, etat } = useEnvoiMandat((id) => {
     setMandatCreeId(id)
@@ -113,6 +144,9 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
   const comptesPossibles = useMemo(() => (comptes ?? []).filter((c) => c.type_compte !== 'fournisseur'), [comptes])
   const compte: Compte | undefined = comptesPossibles.find((c) => c.id === compteId)
   const nomCompte = compte?.nom ?? (demande.compte?.id === compteId ? demande.compte?.nom : undefined)
+  /* UN COMPTE PARTENAIRE OU DE VENTE INDIRECTE peut apporter un mandat déjà signé ailleurs. */
+  const peutEtreDeTiers = compte?.type_compte === 'partenaire' || compte?.type_compte === 'vente_indirecte'
+  const ETAPES = modeTiers ? [...ETAPES_DE_BASE, ETAPE_SIGNATURE] : ETAPES_DE_BASE
   const { data: compteursDuCompte } = useCompteursParCompte(compteId || undefined)
 
   /* Un contact rattaché au compte à quelque titre que ce soit — on lit `comptes`, pas `compte_id`. */
@@ -185,6 +219,65 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
     })
   }
 
+  /* ══ LA PÉRIODE DU MANDAT DE TIERS ══ — du jour de signature, pour la durée choisie. */
+  const finTiers = dateSignature && dureeMois > 0 ? addMonthsISO(dateSignature, dureeMois) : null
+  const statutTiers: 'ACTIF' | 'EXPIRE' = finTiers && finTiers < aujourdhuiParis() ? 'EXPIRE' : 'ACTIF'
+  const dateInvalide = Boolean(dateSignature) && dateSignature > aujourdhuiParis()
+
+  async function enregistrerTiers() {
+    if (!compte || !signataire || fichiersSignes.length === 0 || !dateSignature || dateInvalide) return
+    setEnregistrement({ enCours: true, erreur: null })
+    let mandatId = mandatCreeId
+    try {
+      if (!mandatId) {
+        const codes = avecEnergix ? ['KIWI', 'ENERGIX'] : ['KIWI']
+        const r = await creerMandat.mutateAsync({
+          compte_id: compte.id,
+          compte_nom: compte.nom,
+          compteur_ids: compteursRetenus.map((c) => c.id),
+          compteurs: compteursRetenus.map((c) => ({ id: c.id, site_id: c.site_id })),
+          date_signature: dateSignature,
+          duree_mois: dureeMois,
+          contact_signataire_id: signataire.id,
+          contact_signataire_nom: `${signataire.prenom} ${signataire.nom}`,
+          courtier_codes: codes,
+          courtier_type_ids: courtiers.filter((c) => codes.includes(c.code)).map((c) => c.id),
+          statut_code: statutTiers,
+        })
+        if (!r.persisted) throw new Error('Le mandat n’a pas pu être enregistré dans la base.')
+        mandatId = r.mandat.id
+        setMandatCreeId(mandatId)
+        demande.onCree?.(mandatId)
+      }
+      /* LES FICHIERS APRÈS LE MANDAT : ils ont besoin de son identifiant. S'ils échouent, le mandat
+         existe déjà — on le dit, et on ne le recrée pas au clic suivant. */
+      await televerser.mutateAsync({
+        fichiers: fichiersSignes,
+        entite_type: 'mandat',
+        entite_id: mandatId,
+        type_document_id: null,
+        type_document_libelle: 'Mandat signé',
+      })
+      onFermer()
+      navigate(`/mandats/${mandatId}`)
+    } catch (e) {
+      setEnregistrement({
+        enCours: false,
+        erreur: `${e instanceof Error ? e.message : 'Erreur inconnue'}${mandatId ? ' — le mandat est créé : réessayez, seuls les fichiers repartiront.' : ''}`,
+      })
+      return
+    }
+    setEnregistrement({ enCours: false, erreur: null })
+  }
+
+  function voirFichier(f: File) {
+    setApercu({ url: URL.createObjectURL(f), nom: f.name })
+  }
+  function fermerApercu() {
+    if (apercu) URL.revokeObjectURL(apercu.url)
+    setApercu(null)
+  }
+
   /* ══ CE QUE FERMER FERAIT PERDRE ══ — voir `useSortieParcours`. Ce qui a été repris de l'appelant
      ne compte pas : fermer sans y avoir touché ne perd rien. Une fois le mandat créé, il existe. */
   const initial = useRef({ signataireId, retenus: [...retenus].sort().join(',') })
@@ -194,10 +287,12 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
     || [...retenus].sort().join(',') !== initial.current.retenus
     || dureeMois !== DUREE_DEFAUT
     || !avecEnergix
+    || fichiersSignes.length > 0
+    || dateSignature !== ''
   )
   const sortie = useSortieParcours({
     entame,
-    bloque: etat.enCours,
+    bloque: etat.enCours || enregistrement.enCours,
     onFermer: () => {
       onFermer()
       if (mandatCreeId) navigate(`/mandats/${mandatCreeId}`)
@@ -215,6 +310,12 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
       lignes: retenus.length > 0 ? [`${retenus.length} compteur${retenus.length > 1 ? 's' : ''}`] : [],
     },
     mandat: { lignes: [`${dureeMois} mois`, avecEnergix ? 'KiWee et Energix' : 'KiWee seul'] },
+    signature: {
+      lignes: [
+        ...(dateSignature ? [`Signé le ${dateFr(dateSignature)}`] : []),
+        ...(fichiersSignes.length > 0 ? [`${fichiersSignes.length} fichier${fichiersSignes.length > 1 ? 's' : ''}`] : []),
+      ],
+    },
   }
 
   const piedEtape = (contenu: React.ReactNode) => (
@@ -231,6 +332,7 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
           etape === 'compte' ? 'Pour quel client ?'
           : etape === 'signataire' ? 'Qui signe ?'
           : etape === 'perimetre' ? `${retenus.length} compteur${retenus.length > 1 ? 's' : ''} retenu${retenus.length > 1 ? 's' : ''}`
+          : etape === 'signature' ? 'Le mandat d’un tiers, déjà signé'
           : 'Durée et mandats'
         }
         resumes={resumes}
@@ -244,8 +346,10 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
 
       <PanneauParcours>
         {/* LA CONNEXION DOCUSIGN SE VÉRIFIE D'ABORD : mieux vaut buter sur l'autorisation avant de
-            remplir que juste avant d'envoyer. */}
-        <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">
+            remplir que juste avant d'envoyer. SAUF pour un compte qui peut apporter un mandat de
+            tiers : celui-là s'enregistre sans DocuSign, la garde l'empêcherait pour rien. Le choix
+            du compte, lui, n'est jamais bloqué — c'est lui qui dit de quel cas il s'agit. */}
+        <GardeDocusign active={etape !== 'compte' && !peutEtreDeTiers}>
           {/* ════════ ÉTAPE 1 · LE COMPTE ════════ */}
           {etape === 'compte' && (
             <>
@@ -498,6 +602,15 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
                   </span>
                   <span className="flex-1" />
                   <Button variant="ghost" disabled={etat.enCours} onClick={() => setEtape('perimetre')}>Précédent</Button>
+                  {peutEtreDeTiers && (
+                    <Button
+                      variant="outline"
+                      disabled={!compte || !signataire || retenus.length === 0 || dureeMois <= 0 || etat.enCours || Boolean(mandatCreeId)}
+                      onClick={() => { setModeTiers(true); setEtape('signature') }}
+                    >
+                      Enregistrer le mandat d’un tiers
+                    </Button>
+                  )}
                   <Button
                     disabled={!compte || !signataire || retenus.length === 0 || dureeMois <= 0 || etat.enCours || Boolean(mandatCreeId)}
                     onClick={preparer}
@@ -510,7 +623,83 @@ export function ParcoursCreationMandat({ demande, onFermer }: { demande: Demande
               )}
             </>
           )}
-        </WizardConnectionGate>
+          {/* ════════ ÉTAPE 5 · LA SIGNATURE D'UN MANDAT DE TIERS ════════ */}
+          {etape === 'signature' && (
+            <>
+              <EnTeteEtape numero={numero('signature')} total={ETAPES.length} titre="Le mandat signé" />
+              <p className="mb-[14px] text-[13px] leading-snug text-km-muted">
+                Le mandat a été signé en dehors de Kimatch : pas d’envoi DocuSign. Joignez le ou les
+                fichiers signés et la date de signature — c’est elle qui ouvre la période du mandat.
+              </p>
+              <div className="flex flex-col gap-[14px]">
+                <DepotFichiersSignes
+                  fichiers={fichiersSignes}
+                  onAjouter={(fs) => setFichiersSignes((p) => [...p, ...fs.filter((f) => !p.some((x) => x.name === f.name && x.size === f.size))])}
+                  onRetirer={(f) => setFichiersSignes((p) => p.filter((x) => x !== f))}
+                  onVoir={voirFichier}
+                />
+                <div className="grid grid-cols-2 gap-[13px]">
+                  <label className="flex flex-col gap-[7px] rounded-[12px] border border-km-line bg-km-bg/40 p-[13px]">
+                    <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">
+                      Date de signature <span className="text-km-muted">*</span>
+                    </span>
+                    <input
+                      type="date"
+                      value={dateSignature}
+                      max={aujourdhuiParis()}
+                      onChange={(e) => setDateSignature(e.target.value)}
+                      className="rounded-[9px] border border-km-line bg-white px-[11px] py-[7px] font-mono text-[13px] text-km-text outline-none focus:border-km-green"
+                    />
+                    {dateInvalide && <span className="text-[11px] font-semibold text-km-red">Une signature ne peut pas être dans le futur.</span>}
+                  </label>
+                  <div className="flex flex-col gap-[7px] rounded-[12px] border border-km-line bg-km-bg/40 p-[13px]">
+                    <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Période du mandat</span>
+                    {dateSignature && finTiers && !dateInvalide ? (
+                      <>
+                        <span className="font-mono text-[13px] tabular-nums text-km-text">
+                          {dateFr(dateSignature)} → {dateFr(finTiers)}
+                        </span>
+                        <span className={cn('text-[11px] font-semibold', statutTiers === 'ACTIF' ? 'text-km-green' : 'text-km-red')}>
+                          {statutTiers === 'ACTIF' ? `Actif · ${dureeMois} mois` : 'Déjà échu : il sera enregistré « Expiré »'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[11.5px] text-km-faint">Se calcule avec la date de signature et la durée ({dureeMois} mois).</span>
+                    )}
+                  </div>
+                </div>
+                {enregistrement.erreur && (
+                  <div className="flex items-start gap-2 rounded-[10px] border border-km-red-line bg-km-red-soft px-[13px] py-[9px]">
+                    <AlertTriangle className="mt-0.5 h-[14px] w-[14px] shrink-0 text-km-red" />
+                    <span className="text-[12px] text-red-700">{enregistrement.erreur}</span>
+                  </div>
+                )}
+              </div>
+              {piedEtape(
+                <>
+                  <span className="text-[11.5px] leading-tight text-km-faint">
+                    Enregistré directement signé,<br />sans passer par DocuSign.
+                  </span>
+                  <span className="flex-1" />
+                  <Button variant="ghost" disabled={enregistrement.enCours || Boolean(mandatCreeId)} onClick={() => { setModeTiers(false); setEtape('mandat') }}>
+                    Précédent
+                  </Button>
+                  <Button
+                    disabled={fichiersSignes.length === 0 || !dateSignature || dateInvalide || enregistrement.enCours}
+                    onClick={() => void enregistrerTiers()}
+                  >
+                    {enregistrement.enCours
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enregistrement…</>
+                      : 'Enregistrer le mandat signé'}
+                  </Button>
+                </>,
+              )}
+            </>
+          )}
+        </GardeDocusign>
+        {apercu && (
+          <FenetreApercu document={{ id: 'mandat-signe-local', nom: apercu.nom, nom_fichier: apercu.nom, url: apercu.url }} onFermer={fermerApercu} />
+        )}
       </PanneauParcours>
     </FenetreParcours>
   )
@@ -558,4 +747,67 @@ function Pastille({ actif, onClick, children }: { actif: boolean; onClick: () =>
       {children}
     </button>
   )
+}
+
+/** ══ LES FICHIERS SIGNÉS ══ — une zone de dépôt qui accepte plusieurs fichiers, et leur liste. */
+function DepotFichiersSignes({ fichiers, onAjouter, onRetirer, onVoir }: {
+  fichiers: File[]
+  onAjouter: (f: File[]) => void
+  onRetirer: (f: File) => void
+  onVoir: (f: File) => void
+}) {
+  const champ = useRef<HTMLInputElement>(null)
+  const [survol, setSurvol] = useState(false)
+  return (
+    <div className="flex flex-col gap-[7px] rounded-[12px] border border-km-line bg-km-bg/40 p-[13px]">
+      <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">
+        Fichiers signés <span className="text-km-muted">*</span>
+      </span>
+      <button
+        type="button"
+        onClick={() => champ.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setSurvol(true) }}
+        onDragLeave={() => setSurvol(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setSurvol(false)
+          const fs = Array.from(e.dataTransfer.files ?? [])
+          if (fs.length > 0) onAjouter(fs)
+        }}
+        className={cn(
+          'flex min-h-[62px] flex-col items-center justify-center gap-[3px] rounded-[11px] border border-dashed px-3 py-2 text-center transition-colors',
+          survol ? 'border-km-green bg-km-green-tint' : 'border-km-line bg-white hover:bg-km-bg',
+        )}
+      >
+        <input
+          ref={champ}
+          type="file"
+          accept=".pdf,image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length > 0) onAjouter(fs); e.target.value = '' }}
+        />
+        <Upload className="h-[15px] w-[15px] text-km-faint" />
+        <span className="text-[11.5px] font-semibold text-km-muted">Déposer le ou les fichiers signés</span>
+        <span className="text-[10.5px] text-km-faint">PDF ou photo — ils rejoignent les documents du mandat</span>
+      </button>
+      {fichiers.map((f) => (
+        <div key={`${f.name}-${f.size}`} className="flex items-center gap-[9px] rounded-[9px] border border-km-green-line bg-km-green-tint px-[11px] py-[7px]">
+          <FileText className="h-[13px] w-[13px] shrink-0 text-km-green" />
+          <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-km-text">{f.name}</span>
+          <button type="button" onClick={() => onVoir(f)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-km-green hover:underline">
+            <Eye className="h-[12px] w-[12px]" /> Voir
+          </button>
+          <button type="button" aria-label={`Retirer ${f.name}`} onClick={() => onRetirer(f)} className="text-km-muted hover:text-km-red">
+            <X className="h-[13px] w-[13px]" />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function GardeDocusign({ active, children }: { active: boolean; children: React.ReactNode }) {
+  if (!active) return <>{children}</>
+  return <WizardConnectionGate required={['crm', 'docusign']} feature="création de mandat">{children}</WizardConnectionGate>
 }
