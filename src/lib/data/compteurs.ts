@@ -747,18 +747,17 @@ export interface SyncCompteurElecResult {
   consoTotaleMwh?: number | null
   periodeDebut?: string | null
   periodeFin?: string | null
-  consoMensuelleMwh?: { mois: string; mwh: number; estimee: boolean }[] | null
+  consoMensuelleMwh?: { mois: string; debut: string; fin: string; mwh: number; estimee: boolean }[] | null
 }
 
-/** Une ligne `consommations` par mois complet : du 1er au dernier jour, total tous postes. */
-export function lignesMensuelles(compteurId: string, mois: { mois: string; mwh: number; estimee: boolean }[]) {
-  return mois.map((m) => {
-    const [a, mo] = m.mois.split('-').map(Number)
-    const fin = `${m.mois.slice(0, 8)}${String(new Date(Date.UTC(a, mo, 0)).getUTCDate()).padStart(2, '0')}`
+/** Une ligne `consommations` par période de relève entière : ses VRAIES bornes, total tous postes.
+ *  Le graphique la range sous le mois de son milieu — voir `releveesMensuelles` côté serveur. */
+export function lignesMensuelles(compteurId: string, periodes: { mois: string; debut: string; fin: string; mwh: number; estimee: boolean }[]) {
+  return periodes.map((m) => {
     return {
       compteur_id: compteurId,
-      date_debut_periode: m.mois,
-      date_fin_periode: fin,
+      date_debut_periode: m.debut,
+      date_fin_periode: m.fin,
       quantite: m.mwh,
       unite: 'MWh',
       poste_tarifaire: 'TOTAL',
@@ -798,10 +797,10 @@ export function useSyncCompteurElec() {
       )
       if (eElec) throw new Error(eElec.message)
 
-      /* ══ L'HISTORIQUE MENSUEL, MOIS COMPLETS SEULEMENT (30/09/2026) ══
-         Une ligne par mois civil entier, consommation TOTALE (tous postes) : c'est ce que trace le
+      /* ══ L'HISTORIQUE MENSUEL, PÉRIODES DE RELÈVE ENTIÈRES (30/09/2026) ══
+         Une ligne par période de relève d'environ un mois, consommation TOTALE (tous postes) : c'est ce que trace le
          graphique « 12 derniers mois ». Elles remplacent les lignes annuelles par poste d'avant,
-         dont le détail vit déjà dans `compteurs_electricite` (conso_*_mwh). Voir `moisComplets`. */
+         dont le détail vit déjà dans `compteurs_electricite` (conso_*_mwh). Voir `releveesMensuelles`. */
       /* RIEN REÇU, RIEN EFFACÉ : un historique vide ne remplace pas l'historique existant. */
       if (result.consoMensuelleMwh?.length) {
         await supabase.from('consommations').delete().eq('compteur_id', compteurId).eq('source', 'Enedis')

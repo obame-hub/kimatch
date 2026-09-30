@@ -105,59 +105,86 @@ export interface EnedisElecResult {
   consoTotaleKwh?: number | null
   periodeDebut?: string | null
   periodeFin?: string | null
-  /** La consommation TOTALE de chaque mois complet des douze derniers — voir `moisComplets`. */
-  consoMensuelleMwh?: { mois: string; mwh: number; estimee: boolean }[] | null
+  /** La consommation TOTALE des douze dernières périodes de relève entières — voir `releveesMensuelles`. */
+  consoMensuelleMwh?: { mois: string; debut: string; fin: string; mwh: number; estimee: boolean }[] | null
   /** RELEVÉ TECHNIQUE TEMPORAIRE (30/09/2026) : la forme des mesures reçues, sans leurs valeurs —
    *  retiré de la réponse par `fetch-elec.ts`, rangé dans `diagnostics_enedis`. */
   diagnostic?: Record<string, unknown>
 }
 
 /**
- * ══ UN MOIS NE COMPTE QUE S'IL EST ENTIER ══
+ * ══ UN MOIS, C'EST UNE PÉRIODE DE RELÈVE ENTIÈRE ══
  *
  * William, 30/09/2026 : « il faut renseigner les consommations par mois (consommation totale, pas
  * par poste). Je souhaite l'historique des 12 derniers mois renseignés — attention aux demi-mois
  * ou autre ce qui pourrait nuire à la santé de la data. »
  *
- * Une mesure Enedis couvre une période de relève, qui ne tombe pas toujours sur un mois civil (relève
- * au 15, période écourtée par un changement de fournisseur…). On ne garde donc une mesure pour le
- * mois M que si elle commence le 1er de M et finit le 1er de M+1 (borne exclusive) ou le dernier
- * jour de M (borne inclusive). Et un mois n'est retenu que si TOUS les postes du calendrier y ont
- * une mesure entière : un mois où l'heure creuse manque donnerait un total faussement bas. On ne
- * recoupe ni ne répartit rien — un mois douteux est absent, pas approché.
+ * CE QU'ENEDIS ENVOIE VRAIMENT (relevé du 30/09/2026 sur le PDL 30000630420723, un C4) : pas des
+ * mois civils, mais des PÉRIODES DE RELÈVE calées sur le cycle du compteur — 22/08 → 21/09,
+ * 22/07 → 22/08, 19/02 → 22/03… Consécutives, d'environ un mois, tous les postes sur les mêmes
+ * bornes. Ma première règle n'acceptait que des mois commençant le 1er : elle les rejetait toutes.
+ *
+ * ON NE DÉCOUPE RIEN. Chaque période garde ses vraies bornes et sa vraie consommation ; elle est
+ * seulement RANGÉE sous le mois de son milieu, qui est aussi celui où tombent la plupart de ses
+ * jours (22/08 → 21/09 : septembre). Répartir au prorata des jours inventerait une consommation
+ * jour par jour qu'Enedis n'a pas mesurée.
+ *
+ * Une période est écartée — absente, jamais approchée — si :
+ *   · elle ne fait pas entre 25 et 35 jours (demi-mois, période écourtée, trou de relève) ;
+ *   · un poste attendu y manque, ou y figure deux fois ;
+ *   · une autre période retenue tombe dans le même mois.
  */
-export function moisComplets(
+export function releveesMensuelles(
   mesures: { classe: string; debut: string; fin: string; valeurKwh: number; estimee: boolean }[],
-  moisRetenus: Set<string>,
-): { mois: string; mwh: number; estimee: boolean }[] {
-  const lendemainDuMois = (m: string) => {
-    const [a, mo] = m.split('-').map(Number)
-    return mo === 12 ? `${a + 1}-01-01` : `${a}-${String(mo + 1).padStart(2, '0')}-01`
+  aujourdhui: string = new Date().toISOString().slice(0, 10),
+): { mois: string; debut: string; fin: string; mwh: number; estimee: boolean }[] {
+  const jours = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000)
+  /* La fenêtre part de la DERNIÈRE période close, pas d'aujourd'hui : un compteur dont la relève a
+     du retard garde ses douze périodes. */
+  const closes = mesures.filter((x) => x.fin <= aujourdhui)
+  const derniere = closes.reduce((m, x) => (x.fin > m ? x.fin : m), '')
+  if (!derniere) return []
+  const unAnAvant = new Date(`${derniere}T00:00:00Z`)
+  unAnAvant.setUTCMonth(unAnAvant.getUTCMonth() - 13)
+  const borne = unAnAvant.toISOString().slice(0, 10)
+
+  /* Les postes attendus : ceux de cette année-là — un poste disparu avec un ancien tarif ne doit
+     pas faire rejeter les périodes récentes. */
+  const recentes = closes.filter((x) => x.fin > borne)
+  const attendus = new Set(recentes.map((x) => x.classe))
+
+  const parPeriode = new Map<string, { debut: string; fin: string; parClasse: Map<string, number>; double: boolean; estimee: boolean }>()
+  for (const x of recentes) {
+    const cle = `${x.debut}|${x.fin}`
+    const p = parPeriode.get(cle) ?? { debut: x.debut, fin: x.fin, parClasse: new Map(), double: false, estimee: false }
+    if (p.parClasse.has(x.classe)) p.double = true
+    else p.parClasse.set(x.classe, x.valeurKwh)
+    if (x.estimee) p.estimee = true
+    parPeriode.set(cle, p)
   }
-  const dernierJour = (m: string) => {
-    const [a, mo] = m.split('-').map(Number)
-    return `${m}-${String(new Date(Date.UTC(a, mo, 0)).getUTCDate()).padStart(2, '0')}`
-  }
-  /* Les postes attendus : ceux que le calendrier porte SUR LA FENÊTRE, pas sur tout l'historique —
-     un poste disparu depuis un changement de tarif ferait rejeter tous les mois récents. */
-  const classesDuCalendrier = new Set(mesures.filter((x) => moisRetenus.has(x.debut.slice(0, 7))).map((x) => x.classe))
-  const parMois = new Map<string, { parClasse: Map<string, number>; estimee: boolean; douteux: boolean }>()
-  for (const x of mesures) {
-    const mois = x.debut.slice(0, 7)
-    if (!moisRetenus.has(mois)) continue
-    const entier = x.debut === `${mois}-01` && (x.fin === lendemainDuMois(mois) || x.fin === dernierJour(mois))
-    const e = parMois.get(mois) ?? { parClasse: new Map(), estimee: false, douteux: false }
-    if (!entier || e.parClasse.has(x.classe)) e.douteux = true
-    else e.parClasse.set(x.classe, x.valeurKwh)
-    if (x.estimee) e.estimee = true
-    parMois.set(mois, e)
-  }
-  return [...parMois.entries()]
-    .filter(([, e]) => !e.douteux && [...classesDuCalendrier].every((c) => e.parClasse.has(c)))
-    .map(([mois, e]) => ({
-      mois: `${mois}-01`,
-      mwh: Math.round(([...e.parClasse.values()].reduce((a, b) => a + b, 0) / 1000) * 1000) / 1000,
-      estimee: e.estimee,
+
+  const valides = [...parPeriode.values()]
+    .filter((p) => {
+      const d = jours(p.debut, p.fin)
+      return d >= 25 && d <= 35 && !p.double && [...attendus].every((c) => p.parClasse.has(c))
+    })
+    .map((p) => {
+      const milieu = new Date(Date.parse(`${p.debut}T00:00:00Z`) + (jours(p.debut, p.fin) / 2) * 86_400_000)
+      return { ...p, mois: `${milieu.toISOString().slice(0, 7)}-01` }
+    })
+    .sort((a, b) => b.fin.localeCompare(a.fin))
+    .slice(0, 12)
+
+  const parMois = new Map<string, number>()
+  for (const p of valides) parMois.set(p.mois, (parMois.get(p.mois) ?? 0) + 1)
+  return valides
+    .filter((p) => parMois.get(p.mois) === 1)
+    .map((p) => ({
+      mois: p.mois,
+      debut: p.debut,
+      fin: p.fin,
+      mwh: Math.round(([...p.parClasse.values()].reduce((a, b) => a + b, 0) / 1000) * 1000) / 1000,
+      estimee: p.estimee,
     }))
     .sort((a, b) => a.mois.localeCompare(b.mois))
 }
@@ -342,7 +369,7 @@ export async function fetchElecData(pdlId: string): Promise<EnedisElecResult> {
     d.setUTCMonth(d.getUTCMonth() - i)
     douzeMois.add(d.toISOString().slice(0, 7))
   }
-  const consoMensuelleMwh = calChoisi ? moisComplets(mesuresParCalendrier[calChoisi] ?? [], douzeMois) : []
+  const consoMensuelleMwh = calChoisi ? releveesMensuelles(mesuresParCalendrier[calChoisi] ?? []) : []
 
   const isHTA = !!segment && /^C[1-4]$/i.test(segment)
   const ORDRE = ['POINTE', 'HPH', 'HCH', 'HPE', 'HCE']

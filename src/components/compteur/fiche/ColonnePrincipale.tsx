@@ -527,9 +527,10 @@ const MOIS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 's
 /**
  * Douze mois glissants, jusqu'au mois courant.
  *
- * ÉLECTRICITÉ : les consommations mesurées. Une ligne ne compte que si elle décrit UN mois (au plus
- * 31 jours) : les relevés annuels d'Enedis couvrent onze ou douze mois d'un coup, et les répartir
- * entre les mois serait inventer une saisonnalité. Un mois sans donnée garde sa piste vide.
+ * ÉLECTRICITÉ : les consommations mesurées, une ligne par période de relève (22/08 → 21/09 chez
+ * Enedis, pas du 1er au 1er). Une ligne compte si elle fait entre 25 et 35 jours ; elle est rangée
+ * sous le mois de son milieu, sans être découpée. Deux lignes pour un même mois, ou un relevé annuel
+ * de onze mois d'un coup : le mois reste vide plutôt que faux.
  *
  * GAZ : William, 30/09/2026 — « la consommation des 12 derniers mois on ne peut pas l'avoir. En
  * revanche, par rapport aux profils, on connaît quel pourcentage de la CAR est consommé en moyenne
@@ -552,26 +553,32 @@ export function BlocConsommation({ compteur, consommations }: { compteur: Compte
       const estimees = cles.map((cle) => {
         const mois = Number(cle.slice(5, 7)) - 1
         const part = partMensuelleCar(compteur.profil_consommation, mois)
-        return { cle, mois: MOIS[mois], valeur: car != null && car > 0 && part != null ? (car * part) / 100 : null, part }
+        return { cle, mois: MOIS[mois], valeur: car != null && car > 0 && part != null ? (car * part) / 100 : null, part, releve: null as { debut: string; fin: string } | null }
       })
       return { barres: estimees, types: new Set(estimees.some((b) => b.valeur != null) ? ['PROFIL'] : []) }
     }
-    const somme = new Map<string, number>()
-    const vus = new Set<string>()
+    const parMois = new Map<string, { mwh: number; debut: string; fin: string; nb: number; type: string }>()
     for (const c of consommations) {
-      const debut = new Date(c.date_debut_periode)
-      const fin = new Date(c.date_fin_periode)
-      if ((fin.getTime() - debut.getTime()) / 86_400_000 > 31) continue
-      const cle = c.date_debut_periode.slice(0, 7)
+      const debut = Date.parse(`${c.date_debut_periode.slice(0, 10)}T00:00:00Z`)
+      const fin = Date.parse(`${c.date_fin_periode.slice(0, 10)}T00:00:00Z`)
+      const jours = (fin - debut) / 86_400_000
+      if (!(jours >= 25 && jours <= 35)) continue
+      const cle = new Date(debut + (jours / 2) * 86_400_000).toISOString().slice(0, 7)
       if (!cles.includes(cle)) continue
       const mwh = (c.unite ?? '').toLowerCase() === 'kwh' ? c.quantite / 1000 : c.quantite
-      somme.set(cle, (somme.get(cle) ?? 0) + mwh)
-      vus.add(c.type_valeur)
+      const deja = parMois.get(cle)
+      parMois.set(cle, deja
+        ? { ...deja, nb: deja.nb + 1 }
+        : { mwh, debut: c.date_debut_periode.slice(0, 10), fin: c.date_fin_periode.slice(0, 10), nb: 1, type: c.type_valeur })
     }
-    return {
-      barres: cles.map((cle) => ({ cle, mois: MOIS[Number(cle.slice(5, 7)) - 1], valeur: somme.get(cle) ?? null, part: null as number | null })),
-      types: vus,
-    }
+    const vus = new Set<string>()
+    const barres = cles.map((cle) => {
+      const p = parMois.get(cle)
+      const sure = p && p.nb === 1
+      if (sure) vus.add(p.type)
+      return { cle, mois: MOIS[Number(cle.slice(5, 7)) - 1], valeur: sure ? p.mwh : null, part: null as number | null, releve: sure ? { debut: p.debut, fin: p.fin } : null }
+    })
+    return { barres, types: vus }
   }, [consommations, estElec, compteur.car_mwh, compteur.profil_consommation])
 
   const max = Math.max(...barres.map((b) => b.valeur ?? 0), 0) * 1.08
@@ -599,7 +606,7 @@ export function BlocConsommation({ compteur, consommations }: { compteur: Compte
           <div
             key={b.cle}
             title={b.valeur != null
-              ? `${b.mois} · ${nombreFr(Math.round(b.valeur * 10) / 10)} MWh${b.part != null ? ` (${nombreFr(b.part)}\u202f% de la CAR)` : ''}`
+              ? `${b.mois} · ${nombreFr(Math.round(b.valeur * 100) / 100)} MWh${b.part != null ? ` (${nombreFr(b.part)}\u202f% de la CAR)` : ''}${b.releve ? ` · relève du ${dateFr(b.releve.debut)} au ${dateFr(b.releve.fin)}` : ''}`
               : `${b.mois} · aucune donnée`}
             className="flex min-w-0 flex-1 flex-col items-center gap-[5px]"
           >
@@ -616,7 +623,7 @@ export function BlocConsommation({ compteur, consommations }: { compteur: Compte
                 >
                   {/* L'entier arrondi de la maquette — sauf sous 10 MWh, où l'arrondi écrirait « 0 » sur
                       une vraie consommation d'été : on garde alors une décimale. */}
-                  <span className="font-mono text-[10.5px] font-bold text-white">{b.valeur < 10 ? nombreFr(Math.round(b.valeur * 10) / 10) : Math.round(b.valeur)}</span>
+                  <span className="font-mono text-[10.5px] font-bold text-white">{b.valeur < 10 ? nombreFr(Math.round(b.valeur * 100) / 100) : Math.round(b.valeur)}</span>
                 </div>
               )}
             </div>

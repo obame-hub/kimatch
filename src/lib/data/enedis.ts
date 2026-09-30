@@ -24,8 +24,8 @@ export interface EnedisElecResult {
   consoTotaleKwh?: number | null
   periodeDebut?: string | null
   periodeFin?: string | null
-  /** La consommation totale de chaque mois complet des douze derniers (voir `moisComplets`). */
-  consoMensuelleMwh?: { mois: string; mwh: number; estimee: boolean }[] | null
+  /** La consommation totale de chaque mois complet des douze derniers (voir `releveesMensuelles`). */
+  consoMensuelleMwh?: { mois: string; debut: string; fin: string; mwh: number; estimee: boolean }[] | null
 }
 
 export function useEnedisFetch() {
