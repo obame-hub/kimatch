@@ -100,6 +100,7 @@ interface VersionExtra {
   types_prix: string[] | null
   date_souhaitee: string | null
   date_debut_fourniture?: string | null
+  reference_appel_offres?: string | null
   lien_eneo?: string | null
   id_salesforce?: string | null
 }
@@ -175,6 +176,7 @@ interface RawOffreFournisseur {
   clause_engagement_consommation?: boolean
   clause_renegociation_anticipee?: boolean
   clause_swap?: boolean
+  indice_indexation?: string | null
   compte_fournisseur: { compte: { nom: string } | null } | null
 }
 
@@ -309,7 +311,7 @@ async function fetchRecommandations(
       // la fiche s'affiche sans le lien, au lieu de perdre toutes les versions.
       listeSeule ? aucune<VersionExtra>() : fetchAllRows<VersionExtra>(
         'versions_recommandation',
-        'id, types_prix, date_souhaitee, date_debut_fourniture, lien_eneo, id_salesforce',
+        'id, types_prix, date_souhaitee, date_debut_fourniture, reference_appel_offres, lien_eneo, id_salesforce',
         cible ? surColonne('id', versionIds) : undefined,
       ).catch(() => [] as VersionExtra[]),
       listeSeule ? aucune<RawOptimisation>() : fetchAllRows<RawOptimisation>(
@@ -595,6 +597,7 @@ async function fetchRecommandations(
         est_offre_recommandee: o.est_offre_recommandee,
         est_offre_reference: o.est_offre_reference ?? false,
         // Les défauts de William (30/09/2026) quand la migration n'est pas encore là : tacite oui, le reste non.
+        indice_indexation: o.indice_indexation ?? null,
         clauses: {
           tacite_reconduction: o.clause_tacite_reconduction ?? true,
           depot_garantie: o.clause_depot_garantie ?? false,
@@ -739,6 +742,7 @@ async function fetchRecommandations(
         types_prix: extraParVersion.get(v.id)?.types_prix ?? [],
         date_souhaitee: extraParVersion.get(v.id)?.date_souhaitee ?? null,
         date_debut_fourniture: extraParVersion.get(v.id)?.date_debut_fourniture ?? null,
+        reference_appel_offres: extraParVersion.get(v.id)?.reference_appel_offres ?? null,
         lien_eneo: extraParVersion.get(v.id)?.lien_eneo ?? null,
         id_salesforce: extraParVersion.get(v.id)?.id_salesforce ?? null,
       })
@@ -2440,6 +2444,7 @@ export interface PatchOffre {
   clause_engagement_consommation?: boolean
   clause_renegociation_anticipee?: boolean
   clause_swap?: boolean
+  indice_indexation?: string | null
 }
 
 /** Libellé d'une offre : ce qui la distingue des autres du même fournisseur. */

@@ -37,6 +37,7 @@ export function ConditionsOffre({ offre, peutModifier, signaler }: {
   const clauses = offre.clauses ?? { tacite_reconduction: true, depot_garantie: false, engagement_consommation: false, renegociation_anticipee: false, swap: false }
   const [brouillon, setBrouillon] = useState<ClausesOffre>(clauses)
   const [validite, setValidite] = useState(offre.date_validite?.slice(0, 10) ?? '')
+  const [indice, setIndice] = useState(offre.indice_indexation ?? '')
   // Ce qui a été changé par rapport au défaut de William : c'est ce que le bouton annonce.
   const particularites = CLAUSES.filter((c) => clauses[c.cle] !== c.defaut).length
   const securise = contratSecurise(offre.type_prix)
@@ -47,6 +48,8 @@ export function ConditionsOffre({ offre, peutModifier, signaler }: {
         offreId: offre.id,
         patch: {
           date_validite: validite || null,
+          // L'indice n'a de sens que sur une offre indexée : sur une offre fixe, il reste vide.
+          indice_indexation: securise ? null : indice.trim() || null,
           clause_tacite_reconduction: brouillon.tacite_reconduction,
           clause_depot_garantie: brouillon.depot_garantie,
           clause_engagement_consommation: brouillon.engagement_consommation,
@@ -65,7 +68,7 @@ export function ConditionsOffre({ offre, peutModifier, signaler }: {
     <>
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); setBrouillon(clauses); setValidite(offre.date_validite?.slice(0, 10) ?? ''); setOuvert(true) }}
+        onClick={(e) => { e.stopPropagation(); setBrouillon(clauses); setValidite(offre.date_validite?.slice(0, 10) ?? ''); setIndice(offre.indice_indexation ?? ''); setOuvert(true) }}
         className={cn(
           'inline-flex items-center gap-1 rounded-km border px-2 py-1 text-km-label font-semibold',
           particularites > 0 ? 'border-km-amber bg-km-amber-soft text-km-amber' : 'border-km-line text-km-muted hover:text-km-text',
@@ -84,6 +87,19 @@ export function ConditionsOffre({ offre, peutModifier, signaler }: {
               <Label htmlFor={`validite-${offre.id}`}>Offre valable jusqu’au</Label>
               <Input id={`validite-${offre.id}`} type="date" className="w-[180px]" disabled={!peutModifier} value={validite} onChange={(e) => setValidite(e.target.value)} />
             </div>
+
+            {/* L'INDICE D'UNE OFFRE INDEXÉE (30/09/2026) : la proposition écrit « Indexé PEG ». C'est ce
+                qui dit au client sur quoi son prix va bouger. */}
+            {!securise && (
+              <div>
+                <Label htmlFor={`indice-${offre.id}`}>Indice d’indexation</Label>
+                <Input id={`indice-${offre.id}`} className="w-[220px]" list={`indices-${offre.id}`} disabled={!peutModifier} value={indice}
+                  onChange={(e) => setIndice(e.target.value)} placeholder="PEG, TTF, Spot…" />
+                <datalist id={`indices-${offre.id}`}>
+                  {['PEG', 'PEG DA', 'TTF', 'EPEX Spot', 'Spot'].map((v) => <option key={v} value={v} />)}
+                </datalist>
+              </div>
+            )}
 
             <div>
               <p className="mb-1.5 text-km-label font-semibold text-km-muted">Clauses</p>

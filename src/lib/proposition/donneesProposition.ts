@@ -160,6 +160,8 @@ export function ligneElec(detail: OffreFournisseurCompteur | undefined, compteur
 
 export interface DonneesProposition {
   energie: 'gaz' | 'electricite'
+  /** « AO-2026-0418 » : la référence d'appel d'offres de la version. */
+  reference: string | null
   /** « Valable jusqu'au » : la plus proche des validités d'offres, faute de quoi celle de la version. */
   validite: string | null
   consultation: string
@@ -203,7 +205,8 @@ export function donneesProposition(opts: {
         offreId: offre.id,
         fournisseur: offre.fournisseur_nom,
         fournisseurCompteId,
-        typePrix: offre.type_prix ?? null,
+        // « Indexé PEG » : le type de prix, suivi de l'indice quand l'offre est indexée.
+        typePrix: [offre.type_prix, contratSecurise(offre.type_prix) ? null : offre.indice_indexation].filter(Boolean).join(' ') || null,
         dureeMois: offre.duree_mois,
         actuelle: offre.nature_offre === 'EN_COURS' || (offre.est_offre_reference && offre.nature_offre !== 'PROPOSEE'),
         abonnement: r2(abonnement), energie: r2(energie), turpe: r2(turpe), taxes: r2(taxes),
@@ -237,6 +240,7 @@ export function donneesProposition(opts: {
 
   return {
     energie: gaz ? 'gaz' : 'electricite',
+    reference: version.reference_appel_offres ?? null,
     validite: validites[0] ?? null,
     consultation: version.date_creation.slice(0, 10),
     lignes: [...(actuelle ? [actuelle] : []), ...proposees],

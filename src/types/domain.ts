@@ -108,6 +108,8 @@ export interface VersionRecommandation {
   date_souhaitee: string | null
   /** Premier jour de fourniture demandé (Michel, 28/09/2026). NULL sur les versions plus anciennes. */
   date_debut_fourniture?: string | null
+  /** « AO-2026-0418 » : la référence d'appel d'offres, attribuée à la création (30/09/2026). */
+  reference_appel_offres?: string | null
 }
 
 /**
@@ -250,6 +252,8 @@ export interface OffreFournisseur {
   nature_offre?: string | null
   /** Les clauses contractuelles de l'offre (proposition commerciale, page 2). Voir ClausesOffre. */
   clauses?: ClausesOffre
+  /** L'indice d'une offre indexée — PEG, TTF, Spot… Vide sur une offre fixe. */
+  indice_indexation?: string | null
   details_par_compteur: OffreFournisseurCompteur[]
 }
 

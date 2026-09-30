@@ -95,3 +95,21 @@ describe('clauses', () => {
     expect(pointsDesClauses({ ...CLAUSES, swap: true, depot_garantie: true }, 'Fixe')).toMatchObject({ protections: 2, contraintes: 2 })
   })
 })
+
+describe('référence et indice', () => {
+  const compteur = { id: 'c', type_energie: 'gaz', car_mwh: 285 } as unknown as Compteur
+  const detail = { prix_gaz: { prix_energie_mwh: 41.3, prix_cee_mwh: 7.1, prix_cpb_mwh: 1.8, prix_atrd_mwh: 10.62, prix_agn_mwh: 16.39, cta_annuel_ht: 318, abonnement_fourniture_annuel_ht: 300 } } as unknown as Partial<OffreFournisseurCompteur>
+  const d = donneesProposition({
+    version: { ...version, reference_appel_offres: 'AO-2026-0418' } as VersionRecommandation,
+    compteurs: new Map([['c', compteur]]),
+    offres: [
+      offre('Picoty', detail, { type_prix: 'Indexé', indice_indexation: 'PEG' }),
+      offre('GME', detail, { indice_indexation: 'PEG' }),
+    ],
+  })
+  it('porte la référence de l’appel d’offres', () => expect(d.reference).toBe('AO-2026-0418'))
+  it('écrit « Indexé PEG », et ignore un indice sur une offre fixe', () => {
+    expect(d.lignes.find((l) => l.fournisseur === 'Picoty')?.typePrix).toBe('Indexé PEG')
+    expect(d.lignes.find((l) => l.fournisseur === 'GME')?.typePrix).toBe('Fixe')
+  })
+})
