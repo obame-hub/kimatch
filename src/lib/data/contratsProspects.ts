@@ -91,7 +91,11 @@ export function useEnregistrerContratProspect() {
       if (error) throw new Error(error.message)
       return (data as { id: string }).id
     },
-    onSuccess: (_id, v) => { void queryClient.invalidateQueries({ queryKey: ['contrats_prospects', v.compteur_id] }) },
+    /* Le compteur aussi : la base vient peut-être de le faire passer Client ↔ Prospect. */
+    onSuccess: (_id, v) => {
+      void queryClient.invalidateQueries({ queryKey: ['contrats_prospects', v.compteur_id] })
+      void queryClient.invalidateQueries({ queryKey: ['compteurs'] })
+    },
   })
 }
 
@@ -103,6 +107,9 @@ export function useSupprimerContratProspect() {
       if (error) throw new Error(error.message)
       if (!count) throw new Error('Ce contrat n’a pas pu être supprimé.')
     },
-    onSuccess: (_r, v) => { void queryClient.invalidateQueries({ queryKey: ['contrats_prospects', v.compteur_id] }) },
+    onSuccess: (_r, v) => {
+      void queryClient.invalidateQueries({ queryKey: ['contrats_prospects', v.compteur_id] })
+      void queryClient.invalidateQueries({ queryKey: ['compteurs'] })
+    },
   })
 }

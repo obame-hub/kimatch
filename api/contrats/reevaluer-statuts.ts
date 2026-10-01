@@ -126,6 +126,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .not('date_debut', 'is', null)
     .gt('date_debut', aujourdhui)
 
+  /* LE STATUT CLIENT / PROSPECT DES COMPTEURS (01/10/2026). Un contrat expire sans qu'aucune ligne ne
+     change, donc sans qu'aucun déclencheur le voie : c'est ici, chaque nuit, qu'un compteur dont le
+     contrat client vient d'expirer passe « Prospect » (règle de William, voir la migration
+     `un_contrat_client_expire_rend_le_compteur_prospect`). Un échec ne fait pas tomber la tâche. */
+  const { data: statutsRecalcules, error: erreurStatutsCompteurs } = await admin.rpc('fn_reevaluer_statuts_contractuels')
+  if (erreurStatutsCompteurs) console.error('[contrats/reevaluer-statuts] statut contractuel des compteurs', erreurStatutsCompteurs.message)
+
   const liste = (passesActifs ?? []).map((c) => ({
     id: c.id as string,
     reference: (c.reference as string | null) ?? '(sans référence)',
@@ -140,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     jour: aujourdhui,
     passes_actifs: liste.length,
     contrats: liste,
+    compteurs_statut_recalcule: erreurStatutsCompteurs ? null : (statutsRecalcules ?? 0),
     // Ce que la tâche a vu mais n'a pas touché, faute d'arbitrage.
     en_attente_arbitrage: {
       a_terminer_si_pas_de_tacite: aTerminer ?? 0,

@@ -733,6 +733,9 @@ export interface Compteur {
   localisation_site?: string | null
   /** Bâtiment, escalier, lieu-dit… — ligne 2 de l'adresse, facultative (01/10/2026). */
   complement_adresse?: string | null
+  /** CLIENT ou PROSPECT selon le dernier contrat connu (contrat KiWee signé ou contrat prospect),
+   *  `null` sans contrat. Calculé et tenu à jour par la base (01/10/2026). */
+  statut_contractuel?: 'CLIENT' | 'PROSPECT' | null
   consommation_annuelle_mwh: number | null
   synchro_eneo: boolean
   date_derniere_synchro_eneo: string | null

@@ -27,6 +27,7 @@ import { useCompte } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { useContrats } from '@/lib/data/contrats'
 import { echeanceDuCompteur } from '@/lib/echeance'
+import { CartoucheStatutContractuel } from '@/components/compteur/CartoucheStatutContractuel'
 import { useContratsProspects, useSupprimerContratProspect } from '@/lib/data/contratsProspects'
 import { ConfirmerSuppression, ParcoursEcheance } from '@/components/compteur/ParcoursEcheance'
 import type { ContratProspect } from '@/types/domain'
@@ -270,6 +271,7 @@ export default function CompteurDetail() {
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-xl font-bold tracking-tight text-km-text">{compteur.utilisation || compteur.libelle_site || compteur.numero_pdl}</p>
             <Badge tone={compteur.statut === 'actif' ? 'kiwi' : 'neutral'}>{compteur.statut}</Badge>
+            <CartoucheStatutContractuel statut={compteur.statut_contractuel ?? null} />
           </div>
           <div className="max-w-[22rem]">
             <InlineField
