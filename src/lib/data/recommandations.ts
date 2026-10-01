@@ -1589,7 +1589,7 @@ async function appliquerSuiviApresPerte(recommandationId: string, suivi: SuiviAp
  * Slack est en panne : l'inverse — perdre une clôture parce qu'un message n'est pas parti — serait
  * absurde.
  */
-async function annoncerLeDealGagne(recommandationId: string): Promise<void> {
+export async function annoncerLeDealGagne(recommandationId: string): Promise<void> {
   try {
     const { data, error } = await supabase
       .from('recommandations')

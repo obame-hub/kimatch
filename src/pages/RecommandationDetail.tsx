@@ -14,6 +14,7 @@ import {
   ArrowLeftRight,
   CheckCheck,
   RotateCcw,
+  X,
 } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
@@ -38,7 +39,10 @@ import {
 } from '@/components/recommandation/DialoguesReco'
 import { ContratWizard } from '@/components/contrat/ContratWizard'
 import { useContratsDeRecommandation } from '@/lib/data/contrats'
-import { FINALITES_RECOMMANDATION, CLES_FINALITES, exigeDateReactivation, type CleFinalite } from '@/lib/finalitesRecommandation'
+import { FINALITES_RECOMMANDATION, CLES_FINALITES, type CleFinalite } from '@/lib/finalitesRecommandation'
+import { ParcoursAcceptee } from '@/components/recommandation/cloture/ParcoursAcceptee'
+import { ParcoursRefusee } from '@/components/recommandation/cloture/ParcoursRefusee'
+import { ParcoursExpiree } from '@/components/recommandation/cloture/ParcoursExpiree'
 import { cn } from '@/lib/utils'
 import {
   useRecommandation,
@@ -46,20 +50,17 @@ import {
   useUpdateVersionPartiel,
   useAvancerEtapeRecommandation,
   useRendreEtapeAuCalcul,
-  useCloturerRecommandation,
   useRouvrirRecommandation,
   useDeleteRecommandation,
   useDeleteVersion,
   useChangerStatutConsultation,
   CODES_STATUT_CONSULTATION_PROPOSES,
-  echeanceDansLAnnee,
   type PatchRecommandation,
 } from '@/lib/data/recommandations'
 import { useObjectifsRecommandation } from '@/lib/data/objectifsClient'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContactsParCompte } from '@/lib/data/contacts'
-import { useCompte, useComptesRattachables } from '@/lib/data/comptes'
-import { ChoixParRecherche } from '@/components/ui/choix-recherche'
+import { useCompte } from '@/lib/data/comptes'
 import { useCompteurs } from '@/lib/data/compteurs'
 import { useInteractionsParRecommandation } from '@/lib/data/interactions'
 import { useActionsParRecommandation } from '@/lib/data/actions'
@@ -173,7 +174,6 @@ export default function RecommandationDetail() {
   const updateVersion = useUpdateVersionPartiel()
   const avancerEtape = useAvancerEtapeRecommandation()
   const rendreAuCalcul = useRendreEtapeAuCalcul()
-  const cloturerReco = useCloturerRecommandation()
   const rouvrirReco = useRouvrirRecommandation()
   const deleteRecommandation = useDeleteRecommandation()
   const deleteVersion = useDeleteVersion()
@@ -185,13 +185,6 @@ export default function RecommandationDetail() {
   // Les contrats nés de cette recommandation — voir le bloc « Ce que cette recommandation a produit ».
 
   const { data: contratsIssus } = useContratsDeRecommandation(reco?.id)
-  /* La liste des fournisseurs, pour dire chez qui le client est parti quand on le suit malgre une
-     cloture perdue. Le hook rend aussi les partenaires : on filtre a l affichage. */
-  const { data: comptesRattachables } = useComptesRattachables()
-  const fournisseurs = useMemo(
-    () => (comptesRattachables ?? []).filter((c) => c.type_compte === 'fournisseur'),
-    [comptesRattachables],
-  )
 
   /* `?onglet=comparatif` : la fiche compteur y mène par « Ouvrir la présentation » (30/09/2026). */
   const [parametres] = useSearchParams()
@@ -200,17 +193,11 @@ export default function RecommandationDetail() {
     return demande === 'comparatif' || demande === 'perimetre' ? demande : 'reco'
   })
   const [versionAfficheeId, setVersionAfficheeId] = useState<string | null>(null)
-  const [clotureOuverte, setClotureOuverte] = useState(false)
-  const [finaliteChoisie, setFinaliteChoisie] = useState<CleFinalite | null>(null)
-  const [motifBrouillon, setMotifBrouillon] = useState('')
-  const [dateClotureBrouillon, setDateClotureBrouillon] = useState('')
-  const [reactivationBrouillon, setReactivationBrouillon] = useState('')
-  /* « Voulez-vous suivre le client ? » (Michel, 20/09/2026). `null` tant que personne n'a répondu :
-     on distingue « pas encore répondu » de « répondu non », sans quoi le bouton de clôture partirait
-     sur un choix que le commercial n'a pas fait. */
-  const [suivreClient, setSuivreClient] = useState<boolean | null>(null)
-  const [nouvelleEcheanceBrouillon, setNouvelleEcheanceBrouillon] = useState('')
-  const [nouveauFournisseurBrouillon, setNouveauFournisseurBrouillon] = useState('')
+  /* ══ LA CLÔTURE EN TROIS PARCOURS (William, 01/10/2026) ══
+     Trois boutons à la place de « Clôturer », puis la fenêtre de l'issue choisie. L'ancien panneau qui s'ouvrait dans la
+     fiche — finalité, motif, date, « voulez-vous suivre le client ? » — est remplacé par eux. */
+  const [choixClotureOuvert, setChoixClotureOuvert] = useState(false)
+  const [parcoursCloture, setParcoursCloture] = useState<CleFinalite | null>(null)
   const [nouvelleVersionOuverte, setNouvelleVersionOuverte] = useState(false)
   const [wizardCotation, setWizardCotation] = useState<{ prefill: PrefillCotation | null } | null>(null)
   const [showContratWizard, setShowContratWizard] = useState(false)
@@ -469,109 +456,27 @@ export default function RecommandationDetail() {
 
      Sans ce changement le rail affichait « Étape "Active" : ancien cycle de vie, hors rail », parce
      qu'on lui donnait les statuts de version et le statut du dossier. */
-  /* ══ ON NE CLÔTURE PAS « GAGNÉ » SANS CONTRAT ═══════════════════════════════════════════════
+  /* ══ ON NE CLÔTURE PAS « GAGNÉ » SANS CONTRAT VALIDÉ ══════════════════════════════════════════
 
      Michel, appel du 31/08/2026 : « même si l'opportunité je l'indique gagner, tant que je n'ai
-     pas le contrat valide, je ne peux pas la clôturer en gagné. »
+     pas le contrat valide, je ne peux pas la clôturer en gagné. » La règle se lisait jusqu'ici
+     « contrat signé ».
 
-     CE QUE « VALIDE » VEUT DIRE ICI : la signature est obtenue. Les trois statuts d'avant
-     signature — Nouveau, En préparation, À signer — sont des intentions, et « Annulé » est une
-     intention abandonnée : aucun des quatre ne prouve un gain. Les autres impliquent tous qu'une
-     signature a eu lieu, y compris « Résilié » : un contrat rompu plus tard a bien été gagné.
+     William l'a durcie le 01/10/2026 : « impossible de clôturer en "Acceptée" une recommandation si
+     le contrat lié n'a pas été validé au préalable ». VALIDÉ, c'est `date_validation` : le geste
+     par lequel un administrateur a relu les dates et les montants repris du contrat, et qui ouvre
+     son suivi. Un contrat signé qui attend cette relecture ne suffit plus.
 
      Cette règle ne touche QUE la finalité « Acceptée ». Un dossier refusé ou expiré se ferme sans
-     contrat, c'est même le cas normal — le lui interdire enfermerait les dossiers perdus. */
-  const STATUTS_CONTRAT_SIGNE = ['SIGNE', 'A_VENIR', 'ACTIF', 'TERMINE', 'RESILIE']
-  const contratValide = (contratsIssus ?? []).some((ct) =>
-    /* Le statut du contrat et celui de sa signature sont deux cycles différents. Un contrat peut
-       encore être « Nouveau » côté métier alors que DocuSign l'a déjà marqué SIGNE et daté — c'est
-       précisément le cas de GAZ EUROPEEN sur cette recommandation. La preuve de signature doit
-       donc primer sur l'avancement administratif du contrat. */
-    ct.statut_signature === 'SIGNE'
-    || Boolean(ct.date_signature)
-    || STATUTS_CONTRAT_SIGNE.includes(ct.statut),
-  )
-
-  const clotureValide = Boolean(
-    finaliteChoisie
-    && motifBrouillon.trim()
-    && dateClotureBrouillon
-    && (finaliteChoisie !== 'ACCEPTEE' || contratValide)
-    && (!exigeDateReactivation(finaliteChoisie) || reactivationBrouillon.trim())
-    /* Une clôture perdue ne part pas tant que la question n'a pas de réponse : c'est tout l'objet
-       de la demande de Michel, et un défaut silencieux ferait perdre des clients sans que personne
-       ne s'en aperçoive. */
-    && (finaliteChoisie !== 'REFUSEE' || suivreClient !== null),
-  )
-
-  /* CE QU'ON ENVERRA EN CAS DE SUIVI. Les deux champs sont facultatifs : « oui sans rien changer »
-     est le premier cas de Michel — le client ne s'est pas encore décidé. */
-  const suiviAEnvoyer =
-    finaliteChoisie === 'REFUSEE' && suivreClient
-      ? {
-          nouvelleEcheance: nouvelleEcheanceBrouillon || null,
-          nouveauFournisseurId: nouveauFournisseurBrouillon || null,
-        }
-      : null
-
-  async function confirmerCloture() {
-    if (!reco || !finaliteChoisie) return signaler('Choisissez une qualification finale')
-    if (!motifBrouillon.trim()) return signaler('Le motif est obligatoire')
-    /* Le même contrôle qu'à l'écran, refait ici : un bouton désactivé empêche le clic, il
-       n'empêche pas l'appel. */
-    if (finaliteChoisie === 'ACCEPTEE' && !contratValide) {
-      return signaler('Il faut un contrat signé pour clôturer en « Acceptée »')
-    }
-    if (exigeDateReactivation(finaliteChoisie) && !reactivationBrouillon.trim()) {
-      return signaler('La date de réactivation est obligatoire')
-    }
-    if (finaliteChoisie === 'REFUSEE' && suivreClient === null) {
-      return signaler('Dites si vous voulez suivre ce client')
-    }
-    try {
-      const resultat = await cloturerReco.mutateAsync({
-        id: reco.id,
-        finalite: finaliteChoisie,
-        motif: motifBrouillon,
-        dateCloture: dateClotureBrouillon,
-        dateReactivation: reactivationBrouillon || null,
-        /* ══ L'ÉCRAN N'INSCRIT PLUS L'ÉTAPE ══════════════════════════════════════════════════
-
-           Il visait ACCEPTEE, REFUSEE ou ABANDONNEE — trois étapes qui portaient ZÉRO dossier au
-           31/08/2026, parce que la base n'écrit que les quatre statuts de Michel : Brouillon,
-           Active, À réactiver, Clôturée. Un dossier fermé depuis la fiche tombait donc dans une
-           étape qu'aucune liste ni aucun filtre ne connaît, et le premier recalcul — une version
-           qui bouge, un contrat qui arrive — l'en ressortait.
-
-           LES TROIS ISSUES SONT LA FINALITÉ, PAS LE STATUT. « Clôturée · Acceptée » dit les deux
-           choses séparément, et c'est déjà ce qu'affiche l'en-tête.
-
-           Désormais l'écran écrit des faits — finalité, motif, date de clôture manuelle — et un
-           déclencheur en base en déduit le statut (migration 20260831160000), comme il le fait
-           déjà quand une version ou un contrat bouge. Un seul auteur, donc plus de contradiction
-           possible entre la fiche et la liste. */
-        etapeClotureId: null,
-        suivi: suiviAEnvoyer,
-      })
-      setClotureOuverte(false)
-      /* ON DIT CE QUI S'EST PASSÉ, Y COMPRIS QUAND RIEN N'A ÉTÉ CRÉÉ. Un commercial qui répond
-         « oui, je veux le suivre » et ne voit rien se produire croira à une panne, alors que la
-         règle des douze mois a simplement joué. */
-      signaler(
-        finaliteChoisie === 'ACCEPTEE'
-          ? '✓ Recommandation acceptée'
-          : finaliteChoisie === 'EXPIREE'
-            ? '— Recommandation expirée'
-            : resultat?.opportuniteId
-              ? '✗ Refusée — une opportunité de suivi a été créée'
-              : suiviAEnvoyer
-                ? '✗ Refusée — échéance au-delà d’un an, pas d’opportunité créée'
-                : '✗ Recommandation refusée',
-      )
-    } catch (e) {
-      signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-    }
-  }
+     contrat, c'est même le cas normal. */
+  const contratValide = (contratsIssus ?? []).some((ct) => Boolean(ct.date_validation))
+  /* Le contrat qui bloque, quand il y en a un : signé, pas encore validé. La fenêtre de choix y
+     mène directement plutôt que de dire seulement « il manque quelque chose ». */
+  const contratAValider = useMemo(() => {
+    if (contratValide) return null
+    const c = (contratsIssus ?? []).find((ct) => ct.date_signature || ct.statut_signature === 'SIGNE')
+    return c ? { id: c.id, libelle: c.fournisseur_nom ? `${c.fournisseur_nom}${c.reference_fournisseur ? ` (${c.reference_fournisseur})` : ''}` : (c.reference_fournisseur ?? '') } : null
+  }, [contratsIssus, contratValide])
 
   async function rouvrir() {
     if (!reco) return
@@ -985,17 +890,55 @@ export default function RecommandationDetail() {
               <RotateCcw className="h-3.5 w-3.5" />
               Rouvrir
             </Button>
+          ) : choixClotureOuvert ? (
+            /* ══ LES TROIS ISSUES PRENNENT LA PLACE DU BOUTON ══
+               William, 01/10/2026 : « je veux pas une grosse popup pour choisir. Le clic sur le
+               bouton fait apparaître 3 autres boutons correspondant à ces statuts. » Le parcours,
+               lui, s'ouvre en fenêtre au clic sur l'un d'eux.
+
+               « ACCEPTÉE » RESTE VISIBLE MAIS INERTE sans contrat validé : la masquer laisserait
+               croire que l'issue n'existe pas. L'infobulle dit ce qui manque. Elle est posée sur
+               l'enveloppe, parce qu'un bouton désactivé n'affiche pas la sienne. */
+            <span className="inline-flex items-center gap-1 rounded-km border border-km-line bg-km-bg p-0.5">
+              {CLES_FINALITES.map((cle) => {
+                const f = FINALITES_RECOMMANDATION[cle]
+                const interdit = cle === 'ACCEPTEE' && !contratValide
+                return (
+                  <span
+                    key={cle}
+                    title={interdit
+                      ? (contratAValider
+                        ? `Le contrat ${contratAValider.libelle} est signé mais pas encore validé.`
+                        : 'Il faut un contrat validé pour clôturer en « Acceptée ».')
+                      : undefined}
+                  >
+                    <button
+                      type="button"
+                      disabled={interdit}
+                      onClick={() => { setChoixClotureOuvert(false); setParcoursCloture(cle) }}
+                      className="h-6 rounded-km-sm border px-2.5 text-km-label font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+                      style={{ color: f.couleur, background: f.fond, borderColor: f.bordure }}
+                    >
+                      {cle === 'ACCEPTEE' ? '✓ ' : cle === 'REFUSEE' ? '✗ ' : '— '}
+                      {f.libelle}
+                    </button>
+                  </span>
+                )
+              })}
+              <button
+                type="button"
+                aria-label="Ne pas clôturer"
+                onClick={() => setChoixClotureOuvert(false)}
+                className="flex h-6 w-6 items-center justify-center rounded-km-sm text-km-faint hover:bg-km-soft hover:text-km-text"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
           ) : (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setOnglet('reco')
-                setClotureOuverte((v) => !v)
-                setFinaliteChoisie(null)
-                setMotifBrouillon('')
-                setDateClotureBrouillon(new Date().toISOString().slice(0, 10))
-              }}
+              onClick={() => setChoixClotureOuvert(true)}
             >
               <CheckCheck className="h-3.5 w-3.5" />
               Clôturer
@@ -1071,6 +1014,39 @@ export default function RecommandationDetail() {
           )}
         </div>
       </div>
+
+      {/* ══ L'ISSUE DU DOSSIER, EN HAUT DE LA FICHE ══
+          William, 01/10/2026 : le motif d'une recommandation refusée « s'affiche en rouge en haut
+          de la recommandation », celui d'une expirée en gris. L'encadré vivait jusque-là au milieu
+          de l'onglet, sous le hero : il fallait défiler pour apprendre pourquoi le dossier était
+          fermé — la première question qu'on se pose en l'ouvrant.
+
+          UNE BANDE, PAS UNE CARTE : elle court sur toute la largeur, sous l'en-tête, et porte les
+          couleurs de la finalité. Une acceptée s'y annonce aussi, en vert, sans motif à dire. */}
+      {estClose && finalite && FINALITES_RECOMMANDATION[finalite] && (
+        <div
+          className="flex flex-none flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-4 py-2.5 sm:px-6"
+          style={{ background: FINALITES_RECOMMANDATION[finalite].fond, borderColor: FINALITES_RECOMMANDATION[finalite].bordure }}
+        >
+          <span className="text-km-label font-extrabold uppercase tracking-[.08em]" style={{ color: FINALITES_RECOMMANDATION[finalite].couleur }}>
+            {finalite === 'ACCEPTEE' ? '✓ ' : finalite === 'REFUSEE' ? '✗ ' : '— '}
+            {FINALITES_RECOMMANDATION[finalite].libelle}
+          </span>
+          {reco.motif_cloture ? (
+            <span className="min-w-0 flex-1 text-km-name font-semibold" style={{ color: finalite === 'ACCEPTEE' ? undefined : FINALITES_RECOMMANDATION[finalite].couleur }}>
+              {reco.motif_cloture}
+            </span>
+          ) : (
+            <span className="min-w-0 flex-1 text-km-body text-km-muted">
+              {finalite === 'ACCEPTEE' ? 'Affaire gagnée.' : 'Motif non renseigné — cette recommandation a été close avant que le motif ne soit demandé.'}
+            </span>
+          )}
+          <span className="font-mono text-km-label text-km-muted">
+            {reco.date_cloture && `close le ${new Date(reco.date_cloture).toLocaleDateString('fr-FR')}`}
+            {reco.date_reactivation && ` · à reprendre le ${new Date(reco.date_reactivation).toLocaleDateString('fr-FR')}`}
+          </span>
+        </div>
+      )}
 
       {/* ── Onglets ── */}
       {/* ══ LA BARRE D'ONGLETS PARTAGE LA GRILLE DU CONTENU ══
@@ -1192,12 +1168,7 @@ export default function RecommandationDetail() {
                     signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
                   }
                 }}
-                onOuvrirCloture={() => {
-                  setClotureOuverte(true)
-                  setFinaliteChoisie(null)
-                  setMotifBrouillon('')
-                  setDateClotureBrouillon(new Date().toISOString().slice(0, 10))
-                }}
+                onOuvrirCloture={() => setChoixClotureOuvert(true)}
               />
 
               {/* ══════════ LE HERO : LE MONTANT, LA PROPOSITION, LE CLIENT ══════════
@@ -1246,185 +1217,6 @@ export default function RecommandationDetail() {
                 }}
               />
 
-              {clotureOuverte && !estClose && (
-                <div className="mt-2.5 animate-km-fade-slide rounded-km-lg border-[1.5px] border-[#dcc39c] bg-km-amber-soft px-[13px] py-[11px]">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    {/* « Quelle clôture a eu lieu ? » suivi de trois boutons donnait à croire
-                        qu'on choisissait un statut de clôture. On choisit un RÉSULTAT : le statut,
-                        lui, sera Clôturée quel que soit le bouton. */}
-                    <span className="min-w-[160px] flex-1 self-center text-km-body text-km-muted">
-                      Résultat de ce dossier ?
-                    </span>
-                    {/* Les trois finalités de la base, pas les cinq du dessin : remapper aurait
-                        réinterprété 1573 recommandations closes (décision du 16/08/2026). */}
-                    {CLES_FINALITES.map((cle) => {
-                      const f = FINALITES_RECOMMANDATION[cle]
-                      const actif = finaliteChoisie === cle
-                      /* « Acceptée » reste visible mais inerte sans contrat signé : la masquer
-                         laisserait croire que la finalité n'existe pas, alors que le problème est
-                         qu'il manque une pièce — et l'infobulle dit laquelle. */
-                      const interdit = cle === 'ACCEPTEE' && !contratValide
-                      return (
-                        <button
-                          key={cle}
-                          type="button"
-                          disabled={interdit}
-                          title={interdit ? 'Il faut un contrat signé pour clôturer en « Acceptée ».' : undefined}
-                          onClick={() => setFinaliteChoisie(cle)}
-                          className={cn(
-                            'rounded-km px-3.5 py-2 text-km-body font-bold transition-colors',
-                            interdit && 'cursor-not-allowed opacity-45',
-                          )}
-                          style={{
-                            color: actif ? '#fff' : f.couleur,
-                            background: actif ? f.couleur : '#fff',
-                            border: `1.5px solid ${f.bordure}`,
-                            boxShadow: actif ? `0 3px 9px ${f.couleur}4d` : 'none',
-                          }}
-                        >
-                          {cle === 'ACCEPTEE' ? '✓ ' : cle === 'REFUSEE' ? '✗ ' : '— '}
-                          {f.libelle}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {!contratValide && (
-                    <p className="mb-2 text-km-label text-km-muted">
-                      « Acceptée » demande un contrat signé sur ce dossier — il n'y en a pas encore.
-                    </p>
-                  )}
-                  <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="motif-cloture">
-                    Motif <span className="text-km-red">*</span>
-                  </label>
-                  <textarea
-                    id="motif-cloture"
-                    rows={2}
-                    value={motifBrouillon}
-                    onChange={(e) => setMotifBrouillon(e.target.value)}
-                    placeholder="Pourquoi cette recommandation est-elle close ?"
-                    className="w-full rounded-km border border-km-line bg-white px-2.5 py-1.5 text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
-                  />
-                  <div className="mt-2">
-                    <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="date-cloture">
-                      Date de clôture <span className="text-km-red">*</span>
-                    </label>
-                    <input
-                      id="date-cloture"
-                      type="date"
-                      value={dateClotureBrouillon}
-                      onChange={(e) => setDateClotureBrouillon(e.target.value)}
-                      className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
-                    />
-                    <p className="mt-1 text-km-label text-km-faint">Préremplie avec aujourd’hui ; modifiez-la si la décision a eu lieu un autre jour.</p>
-                  </div>
-                  {/* ══ « VOULEZ-VOUS SUIVRE LE CLIENT ? » (Michel, 20/09/2026) ══
-                      Perdre une consultation n'est pas perdre un client. La question ne se pose
-                      qu'à la clôture REFUSÉE : une recommandation acceptée n'a personne à suivre,
-                      et une expirée n'a pas de décision du client à enregistrer. */}
-                  {finaliteChoisie === 'REFUSEE' && (
-                    <div className="mt-2.5 rounded-km border border-km-line bg-white px-2.5 py-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="min-w-[180px] flex-1 text-km-body font-bold text-km-text">
-                          Voulez-vous suivre ce client ?
-                        </span>
-                        {([['oui', true], ['non', false]] as const).map(([libelle, valeur]) => (
-                          <button
-                            key={libelle}
-                            type="button"
-                            onClick={() => setSuivreClient(valeur)}
-                            className={cn(
-                              'rounded-km border px-3.5 py-1.5 text-km-body font-bold transition-colors',
-                              suivreClient === valeur
-                                ? 'border-km-green bg-km-green text-white'
-                                : 'border-km-line bg-white text-km-muted hover:border-km-green',
-                            )}
-                          >
-                            {libelle === 'oui' ? 'Oui' : 'Non'}
-                          </button>
-                        ))}
-                      </div>
-
-                      {suivreClient === true && (
-                        <div className="mt-2.5 border-t border-km-line pt-2.5">
-                          <p className="mb-2 text-km-label text-km-muted">
-                            S’il a signé ailleurs, dites où et jusqu’à quand — c’est ce qui permettra
-                            de le rappeler au bon moment. Laissez vide s’il ne s’est pas encore décidé.
-                          </p>
-                          <div className="flex flex-wrap gap-3">
-                            <div>
-                              <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="suivi-echeance">
-                                Nouvelle échéance
-                              </label>
-                              <input
-                                id="suivi-echeance"
-                                type="date"
-                                value={nouvelleEcheanceBrouillon}
-                                onChange={(e) => setNouvelleEcheanceBrouillon(e.target.value)}
-                                className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
-                              />
-                            </div>
-                            <div className="min-w-[220px] flex-1">
-                              <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint">
-                                Nouveau fournisseur
-                              </label>
-                              {/* PAS DE LISTE DÉROULANTE. Naoëlle, 21/08/2026 puis 20/09/2026 :
-                                  « c'est encore une liste de sélection déroulante ». Cinquante-deux
-                                  fournisseurs dans un `<select>` natif ouvrent un panneau qui
-                                  déborde l'écran, sans recherche possible. `ChoixParRecherche` est
-                                  le motif déjà en place partout ailleurs — on le réemploie plutôt
-                                  que d'en inventer un troisième. */}
-                              <ChoixParRecherche
-                                items={fournisseurs}
-                                valeur={nouveauFournisseurBrouillon}
-                                onChoisir={(f) => setNouveauFournisseurBrouillon(f?.id ?? '')}
-                                placeholder="Chercher un fournisseur…"
-                                principal={(f) => f.nom}
-                                filtre={(f, q) => f.nom.toLowerCase().includes(q)}
-                                aucun="Aucun fournisseur à ce nom."
-                                totalLibelle={`${fournisseurs.length} fournisseurs`}
-                              />
-                            </div>
-                          </div>
-                          {/* LA RÈGLE DES DOUZE MOIS, ANNONCÉE AVANT LE CLIC. Elle se voit ici ou
-                              elle se découvre après coup, quand rien ne s'est produit. */}
-                          <p className="mt-2 text-km-label text-km-faint">
-                            {nouvelleEcheanceBrouillon && !echeanceDansLAnnee(nouvelleEcheanceBrouillon)
-                              ? 'Cette échéance dépasse un an : le dossier sera clôturé avec ces informations, sans créer d’opportunité.'
-                              : 'Une opportunité de suivi sera créée si l’échéance tombe dans les douze mois.'}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* La date de réactivation n'apparaît que si la finalité l'exige. Aucune des
-                      trois valeurs actuelles ne le fait ; le champ est prêt pour le jour où une
-                      finalité de report sera ajoutée. */}
-                  {finaliteChoisie && exigeDateReactivation(finaliteChoisie) && (
-                    <div className="mt-2">
-                      <label className="mb-1 block text-km-label font-bold uppercase tracking-wide text-km-faint" htmlFor="date-reactivation">
-                        Date de réactivation <span className="text-km-red">*</span>
-                      </label>
-                      <input
-                        id="date-reactivation"
-                        type="date"
-                        value={reactivationBrouillon}
-                        onChange={(e) => setReactivationBrouillon(e.target.value)}
-                        className="rounded-km border border-km-line bg-white px-2.5 py-1.5 font-mono text-km-name text-km-text outline-none focus:ring-1 focus:ring-km-green"
-                      />
-                    </div>
-                  )}
-                  <div className="mt-2.5 flex items-center justify-end gap-2">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setClotureOuverte(false)}>
-                      Annuler
-                    </Button>
-                    <Button type="button" size="sm" onClick={confirmerCloture} disabled={!clotureValide || cloturerReco.isPending}>
-                      {cloturerReco.isPending ? 'Clôture…' : 'Confirmer la clôture'}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
               {/* ══════════ « CE QUE CETTE RECOMMANDATION A PRODUIT » EST RETIRÉ ══════════
 
                   William, 18/09/2026 : « du coup le bloc "Contrat issu de cette recommandation" est
@@ -1458,42 +1250,6 @@ export default function RecommandationDetail() {
                   >
                     Consigner une relance
                   </button>
-                </div>
-              )}
-
-              {/* Une fois close, la fiche dit laquelle et pourquoi — c'est tout l'objet du motif
-                  obligatoire : le dossier se relit sans avoir à demander à son auteur. */}
-              {estClose && finalite && (
-                <div
-                  className="rounded-km-lg border px-3.5 py-3"
-                  style={{
-                    /* `?.` par précaution : les trois finalités connues couvrent 100 % de la
-                       base aujourd'hui, mais une quatrième valeur ajoutée en référence ferait
-                       planter la fiche au rendu — le même défaut que sur la fiche compte. */
-                    background: FINALITES_RECOMMANDATION[finalite]?.fond,
-                    borderColor: FINALITES_RECOMMANDATION[finalite]?.bordure,
-                  }}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    {reco.date_cloture && (
-                      <span className="font-mono text-km-body text-km-muted">
-                        close le {new Date(reco.date_cloture).toLocaleDateString('fr-FR')}
-                      </span>
-                    )}
-                    {reco.date_reactivation && (
-                      <span className="font-mono text-km-body text-km-muted">
-                        · à reprendre le {new Date(reco.date_reactivation).toLocaleDateString('fr-FR')}
-                      </span>
-                    )}
-                  </div>
-                  {reco.motif_cloture ? (
-                    <p className="mt-1.5 text-km-name text-km-muted">{reco.motif_cloture}</p>
-                  ) : (
-                    <p className="mt-1.5 text-km-body italic text-km-faint">
-                      Motif non renseigné — cette recommandation a été close avant que le motif ne
-                      soit demandé.
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -1675,6 +1431,16 @@ export default function RecommandationDetail() {
           }}
         />
       )}
+      {parcoursCloture === 'ACCEPTEE' && (
+        <ParcoursAcceptee reco={reco} onFermer={() => setParcoursCloture(null)} onToast={signaler} />
+      )}
+      {parcoursCloture === 'REFUSEE' && (
+        <ParcoursRefusee reco={reco} compteurs={compteursDuPerimetre} onFermer={() => setParcoursCloture(null)} onToast={signaler} />
+      )}
+      {parcoursCloture === 'EXPIREE' && (
+        <ParcoursExpiree reco={reco} onFermer={() => setParcoursCloture(null)} onToast={signaler} />
+      )}
+
       {showContratWizard && (
         <ContratWizard open onClose={() => setShowContratWizard(false)} reco={reco} onCreated={() => setShowContratWizard(false)} />
       )}

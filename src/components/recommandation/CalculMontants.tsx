@@ -55,7 +55,7 @@ import { euros } from '@/lib/euros'
  * Sur une commission, le centime n'est pas du détail : c'est ce qui se rapproche d'un relevé.
  */
 
-function pourcent(t: number | null | undefined): string | null {
+export function pourcent(t: number | null | undefined): string | null {
   return t == null ? null : `${(t * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`
 }
 
@@ -137,6 +137,45 @@ function Ligne({
   )
 }
 
+/**
+ * LE CALCUL LUI-MÊME, sorti du composant le 01/10/2026 : la clôture en « Acceptée » le refait dans
+ * sa fenêtre, sur les valeurs en cours de saisie. Deux copies de la soustraction auraient fini par
+ * ne plus donner le même chiffre.
+ */
+export function calculerMontants({
+  montants, margeBrute, margeNette, commissionApporteur, commissionIntermediaire, chiffreAffaires: chiffreAffaires_, montantReference,
+}: {
+  montants: MontantsRecommandation | null | undefined
+  margeBrute: number | null
+  margeNette: number | null
+  commissionApporteur: number | null
+  commissionIntermediaire: number | null
+  chiffreAffaires: number | null
+  montantReference: number | null
+}) {
+  const calculAbouti = montants?.montant_brut != null
+  const apporteur = commissionApporteur ?? 0
+
+  const brut = calculAbouti ? montants!.montant_brut : margeBrute
+  /* Faute de calcul, la valeur enregistrée ; faute des deux, zéro plutôt que rien — une CIP absente
+     et une CIP nulle produisent le même chiffre d'affaires, et afficher « — » à cette étape
+     casserait la lecture de la soustraction. La ligne dit d'où vient le zéro. */
+  const cip = calculAbouti ? (montants!.commission_intermediaire ?? 0) : (commissionIntermediaire ?? 0)
+  const chiffreAffaires = calculAbouti
+    ? montants!.chiffre_affaires
+    : (chiffreAffaires_ ?? (brut == null ? null : brut - cip))
+  const montantNet = calculAbouti
+    ? montants!.montant_net
+    : chiffreAffaires != null
+      ? chiffreAffaires - apporteur
+      : margeNette
+  const montantCalcule = calculAbouti ? montants!.montant_reference : null
+  const montant = montantReference ?? montantCalcule
+
+  const intermediaire = montants?.intermediaire_nom ?? null
+  return { calculAbouti, apporteur, brut, cip, chiffreAffaires, montantNet, montantCalcule, montant, intermediaire }
+}
+
 export function CalculMontants({
   montants,
   margeBrute,
@@ -167,26 +206,8 @@ export function CalculMontants({
   onMontantReference: (v: number | null) => Promise<void>
   retour: { onSaved: () => void; onError: (e: Error) => void }
 }) {
-  const calculAbouti = montants?.montant_brut != null
-  const apporteur = commissionApporteur ?? 0
-
-  const brut = calculAbouti ? montants!.montant_brut : margeBrute
-  /* Faute de calcul, la valeur enregistrée ; faute des deux, zéro plutôt que rien — une CIP absente
-     et une CIP nulle produisent le même chiffre d'affaires, et afficher « — » à cette étape
-     casserait la lecture de la soustraction. La ligne dit d'où vient le zéro. */
-  const cip = calculAbouti ? (montants!.commission_intermediaire ?? 0) : (commissionIntermediaire ?? 0)
-  const chiffreAffaires = calculAbouti
-    ? montants!.chiffre_affaires
-    : (chiffreAffaires_ ?? (brut == null ? null : brut - cip))
-  const montantNet = calculAbouti
-    ? montants!.montant_net
-    : chiffreAffaires != null
-      ? chiffreAffaires - apporteur
-      : margeNette
-  const montantCalcule = calculAbouti ? montants!.montant_reference : null
-  const montant = montantReference ?? montantCalcule
-
-  const intermediaire = montants?.intermediaire_nom ?? null
+  const { calculAbouti, apporteur, brut, cip, chiffreAffaires, montantNet, montantCalcule, montant, intermediaire } =
+    calculerMontants({ montants, margeBrute, margeNette, commissionApporteur, commissionIntermediaire, chiffreAffaires: chiffreAffaires_, montantReference })
 
   return (
     <div className="rounded-km-md border border-km-line bg-km-bg/40 px-3.5 py-3">

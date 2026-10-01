@@ -271,7 +271,9 @@ function Pastille({ etat, numero }: { etat: 'faite' | 'courante' | 'avenir'; num
   )
 }
 
-export function RailParcours({ titre, reference, etapes, courante, sousTitre, resumes, note, onFermer }: {
+export function RailParcours({ surtitre = 'Création', titre, reference, etapes, courante, sousTitre, resumes, note, onFermer }: {
+  /** Le petit mot au-dessus du titre : « Création » pour la plupart, « Clôture » pour une recommandation qu'on ferme. */
+  surtitre?: string
   titre: string
   reference?: string | null
   etapes: EtapeParcours[]
@@ -290,7 +292,7 @@ export function RailParcours({ titre, reference, etapes, courante, sousTitre, re
 
       <div className="flex items-start gap-[10px]">
         <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
-          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-km-side-faint">Création</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-km-side-faint">{surtitre}</span>
           <span className="text-[18px] font-semibold leading-[1.25] text-white">{titre}</span>
           {reference && <span className="font-mono text-[10.5px] text-km-side-faint">{reference}</span>}
         </div>
