@@ -163,12 +163,14 @@ describe('ecritureDepuisTradeo', () => {
     const elec = lireOffresTradeo({ X: { result: true, resultatFinal: { result: { X: [{ fournisseur: 'EDF', success: true, prixHp: 120, prixHc: 90, abo: 3 }] } } } }).offres[0]
     expect(ecritureDepuisTradeo(elec, false, false)).toMatchObject({ p0_mwh_par_classe: { HP: 120, HC: 90 }, abonnement_fourniture_annuel_ht: 36 })
   })
-  it('gaz : reprend CEE, ATRD, accise et CTA du calcul Tradeo (documentation v1.4)', () => {
+  it('gaz : reprend la molécule et les CEE, PAS les communs (ATRD, accise, CTA — décision du 01/10/2026)', () => {
     const o = lireOffresTradeo({ GI110001: { result: true, resultatFinal: {
       dataCta: { CTA: 321.71, ARTD: 8.69, TICGN: 16.39, GRDF_COUT_FIXE: 1301.4 },
       result: { GI110001: [{ fournisseur: 'Engie', success: true, prixMolucule: 53.46, cee: 0.5 }] },
     } } }).offres[0]
-    expect(ecritureDepuisTradeo(o, true, false)).toEqual({ prix_molecule_p0_mwh: 53.46, prix_cee_mwh: 0.5, prix_atrd_mwh: 8.69, prix_agn_mwh: 16.39, cta_annuel_ht: 321.71 })
+    expect(ecritureDepuisTradeo(o, true, false)).toEqual({ prix_molecule_p0_mwh: 53.46, prix_cee_mwh: 0.5 })
+    // Lus, pour comparer aux barèmes, mais jamais écrits.
+    expect(o.reglementaire).toEqual({ atrd: 8.69, accise: 16.39, cta: 321.71 })
   })
   it('élec : la capacité n’est reprise que si Tradeo la donne en valeur', () => {
     const lire = (typeCapa: string) => lireOffresTradeo({ X: { result: true, resultatFinal: { result: { X: [{

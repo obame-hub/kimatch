@@ -87,18 +87,26 @@ function arrondi(n: number) {
  *   GAZ   abonnement €/mois   `abo`                    → abonnement annuel = abo × 12 (simpleAbo 527,28 = 43,94 × 12)
  *         molécule €/MWh      `prixMolecule`           → P0 (marge retirée si elle y est — voir plus haut)
  *         CEE €/MWh           `cee`                    → prix CEE
- *         CPB €/MWh           ABSENT de la réponse     → reste à saisir
- *         TQD €/MWh           `dataCta.ARTD`           → ATRD
- *         accise (AG) €/MWh   `dataCta.TICGN`          → accise gaz
- *         CTA €/an            `dataCta.CTA`            → CTA
+ *         CPB, TQD, accise, CTA   NON REPRIS — voir « les communs » plus bas
  *
  *   ÉLEC  abonnement €/mois   `abo`                    → abonnement annuel = abo × 12
  *         pointe, HPH… €/MWh  `prixPointe`, `prixHph`… → P0 par poste
  *         capacité €/MWh      `prixCapaHph`…           → capacité par poste, SEULEMENT si `typeCapa` = Valeur
  *                                                        (Coef = un coefficient, pas un prix ; Inclus = déjà dans le prix)
  *         CEE €/MWh           `cee`                    → prix CEE
- *         accise, CTA, TURPE  ABSENTS de la réponse    → réglementés, identiques pour tous : ils viennent des
- *                                                        barèmes, pas du fournisseur
+ *         accise, CTA, TURPE  NON REPRIS — voir « les communs » plus bas
+ *
+ * ══ LES COMMUNS NE VIENNENT PAS DE TRADEO — décision du 01/10/2026 ══
+ *
+ * William : la TICGN, la CTA, l'ATRD, le CPB et le TURPE sont fixés par la régulation, identiques
+ * chez tous les fournisseurs, et « tout ce qui est calculable et automatisable de notre côté, il ne
+ * faut pas que tu le récupères […] parce que notre moteur de pricing doit fonctionner aussi quand un
+ * fournisseur nous envoie un PDF ou un fichier Excel ». Ils viendront de tables datées (TICGN, CTA,
+ * ATRD par tarif T1–T4, CPB, TURPE), que William construit.
+ *
+ * La version du 30/09 les reprenait de la réponse Tradeo (`dataCta`) ; elle ne le fait plus. On les
+ * lit encore (`OffreTradeo.reglementaire`), pour pouvoir comparer les barèmes de Tradeo aux nôtres,
+ * mais ils ne s'écrivent pas.
  *
  * LA MARGE N'EST RETIRÉE QUE DES PRIX D'ÉNERGIE : Tradeo l'applique à la molécule et aux postes
  * (`margeAppliquer`), pas aux taxes ni à l'abonnement.
@@ -120,14 +128,8 @@ export function ecritureDepuisTradeo(o: OffreTradeo, gaz: boolean, margeIncluseP
   if (gaz) {
     const molecule = lu.prix.prixMolecule
     if (molecule == null) return null
-    const r = o.reglementaire
-    return {
-      ...commun,
-      prix_molecule_p0_mwh: arrondi(molecule - retrait),
-      ...(r?.atrd != null ? { prix_atrd_mwh: r.atrd } : {}),
-      ...(r?.accise != null ? { prix_agn_mwh: r.accise } : {}),
-      ...(r?.cta != null ? { cta_annuel_ht: r.cta } : {}),
-    }
+    // Les communs (ATRD, TICGN, CTA) ne s'écrivent pas : ils viendront des tables réglementées.
+    return { ...commun, prix_molecule_p0_mwh: arrondi(molecule - retrait) }
   }
   const p0: Record<string, number> = {}
   for (const [champ, classe] of Object.entries(CLASSE_PAR_CHAMP)) {
