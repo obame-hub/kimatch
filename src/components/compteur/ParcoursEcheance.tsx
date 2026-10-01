@@ -215,7 +215,7 @@ export function ParcoursEcheance({ compteur, contratsClients, prospects, initial
                   onClick={() => partirDe(p)}
                   className="flex items-center gap-3 rounded-[12px] border border-km-line bg-white px-4 py-[12px] text-left transition-colors hover:border-km-green hover:bg-km-bg"
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#EAF1F8] text-[#3F6E9C]"><CalendarClock className="h-4 w-4" /></span>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#F2ECFB] text-[#5E3F94]"><CalendarClock className="h-4 w-4" /></span>
                   <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
                     <span className="truncate text-[13.5px] font-semibold text-km-text">{p.fournisseur_nom ?? 'Fournisseur indéterminé'}</span>
                     <span className="font-mono text-[11.5px] text-km-muted">{libelleProspect(p)}</span>

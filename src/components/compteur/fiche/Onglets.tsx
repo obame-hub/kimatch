@@ -58,11 +58,12 @@ function etatProspect(p: ContratProspect, aujourdhui: string): 'EN_COURS' | 'A_V
 
 const LIBELLE_ETAT = { EN_COURS: 'En cours', A_VENIR: 'À venir', TERMINE: 'Terminé', RESILIE: 'Résilié', EXPIRE: 'Terminé' } as const
 
-/* Les deux couloirs de la frise : les contrats KiWee en haut, les contrats prospects en dessous.
-   William, 01/10/2026 : « très important de les distinguer des contrats clients ». */
-const COULOIR_UNIQUE = { top: 7, height: 66 }
-const COULOIR_CLIENTS = { top: 7, height: 52 }
-const COULOIR_PROSPECTS = { top: 67, height: 52 }
+/* ══ UNE SEULE LIGNE, DEUX FAMILLES QUI NE SE CONFONDENT PAS — William, 01/10/2026 ══
+   « Les contrats prospects et clients sont sur la même ligne, en revanche il faut une vraie
+   différence graphique permettant de les distinguer. » La chronologie reste continue ; les contrats
+   KiWee gardent le vert (et le gris une fois terminés), les contrats prospects prennent le violet,
+   hachuré, avec leur mot écrit dans la barre. La couleur n'est jamais seule à le dire. */
+const PROSPECT = { fg: '#5E3F94', bord: '#9A7CCB', fond: 'repeating-linear-gradient(135deg,#F2ECFB 0 8px,#E6DAF7 8px 16px)', doux: '#F2ECFB', rangee: '#FBF8FE' }
 
 export function OngletContrats({ compteur, contrats, prospects, recoOuverte, modifiable, onEditerEcheance, onSupprimerProspect }: {
   compteur: Compteur
@@ -83,7 +84,6 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
   )
   const statut = (c: Contrat) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation)
   const enCours = tries.find((c) => statut(c) === 'EN_COURS') ?? null
-  const avecProspects = prospects.length > 0
 
   /* L'AXE : du début du premier contrat moins un an, à la fin du dernier plus un an — contrats
      prospects compris. Une fin Indéterminée pousse l'axe d'un an après son début. */
@@ -109,8 +109,6 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
     el.scrollLeft = Math.max(0, (el.scrollWidth * maintenant) / 100 - el.clientWidth * 0.7)
   }, [maintenant, tries.length])
 
-  const couloirClients = avecProspects ? COULOIR_CLIENTS : COULOIR_UNIQUE
-
   /* LA LISTE : clients et prospects ensemble, du plus récent au plus ancien — une fin Indéterminée
      passe devant, comme pour l'échéance. */
   const lignes = [
@@ -128,7 +126,7 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
             <span className="flex items-center gap-[5px]"><span className="h-[9px] w-4 rounded-[3px] bg-km-green" />en cours</span>
             <span className="flex items-center gap-[5px]"><span className="h-[9px] w-4 rounded-[3px] bg-[#DCE2DE]" />terminé</span>
             <span className="flex items-center gap-[5px]"><span className="h-[9px] w-4 rounded-[3px] border border-dashed border-km-green bg-km-green-soft" />à venir</span>
-            <span className="flex items-center gap-[5px]"><span className="h-[9px] w-4 rounded-[3px] border border-[#BCD0E4] bg-[#EAF1F8]" />prospect</span>
+            <span className="flex items-center gap-[5px]"><span className="h-[9px] w-4 rounded-[3px] border" style={{ borderColor: PROSPECT.bord, background: PROSPECT.fond }} />contrat prospect</span>
             <span className="flex items-center gap-[5px]"><span className="h-[11px] w-0.5 rounded-[1px] bg-km-red" />aujourd’hui</span>
           </span>
           {modifiable && (
@@ -142,17 +140,9 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
             </button>
           )}
         </div>
-        <div className="flex gap-2">
-          {avecProspects && (
-            <div className="flex w-[64px] shrink-0 flex-col pt-1.5 text-[10px] font-bold uppercase tracking-[.06em] text-km-faint">
-              <span className="flex h-[60px] items-center">Clients KiWee</span>
-              <span className="flex h-[60px] items-center text-[#3F6E9C]">Prospects</span>
-            </div>
-          )}
-          <div ref={defilement} className="-mx-0.5 min-w-0 flex-1 overflow-x-auto pb-1 pt-1.5">
+        <div ref={defilement} className="-mx-0.5 overflow-x-auto pb-1 pt-1.5">
             <div className="min-w-[1500px] px-0.5">
-              <div className={cn('relative rounded-[14px] bg-km-soft', avecProspects ? 'h-[126px]' : 'h-20')}>
-                {avecProspects && <span className="absolute inset-x-2 top-[63px] h-px bg-km-line" aria-hidden="true" />}
+              <div className="relative h-20 rounded-[14px] bg-km-soft">
                 {tries.map((c) => {
                   const s = statut(c)
                   const nature = s === 'EN_COURS' ? 'cur' : s === 'A_VENIR' ? 'fut' : 'old'
@@ -162,7 +152,6 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
                     <BarreFrise
                       key={c.id}
                       nature={nature}
-                      couloir={couloirClients}
                       gauche={a}
                       largeur={Math.max(0.8, b - a)}
                       fournisseur={c.fournisseur_nom}
@@ -175,7 +164,6 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
                 {recoOuverte && enCours?.date_fin && (
                   <BarreFrise
                     nature="fut"
-                    couloir={couloirClients}
                     gauche={pos(enCours.date_fin) + 0.4}
                     largeur={Math.max(0.8, 99.4 - (pos(enCours.date_fin) + 0.4))}
                     fournisseur={null}
@@ -195,8 +183,7 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
                   return (
                     <BarreFrise
                       key={p.id}
-                      nature="prospect"
-                      couloir={COULOIR_PROSPECTS}
+                      nature={etatProspect(p, aujourdhui) === 'TERMINE' ? 'prospect-old' : 'prospect'}
                       fondu={!p.date_debut && !p.date_fin ? 'deux' : !p.date_debut ? 'gauche' : !p.date_fin ? 'droite' : undefined}
                       gauche={a}
                       largeur={Math.max(0.8, b - a)}
@@ -216,7 +203,6 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
               </div>
             </div>
           </div>
-        </div>
         <div className="mt-1 text-[10.5px] text-km-faint">← Faites défiler pour parcourir la chronologie →</div>
       </Carte>
 
@@ -230,9 +216,9 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
             const nom = p.fournisseur_nom ?? 'Fournisseur indéterminé'
             const [bg, fg] = teinteDe(p.fournisseur_nom || '?')
             return (
-              <div key={p.id} className="grid grid-cols-[76px_30px_minmax(0,1fr)_170px_92px_48px_104px] items-center gap-2.5 border-b border-km-line-soft bg-[#F7FAFD] px-[18px] py-3 last:border-b-0 hover:bg-[#EEF4FA]">
+              <div key={p.id} className="grid grid-cols-[76px_30px_minmax(0,1fr)_170px_92px_48px_104px] items-center gap-2.5 border-b border-km-line-soft px-[18px] py-3 last:border-b-0 hover:brightness-[.985]" style={{ background: PROSPECT.rangee }}>
                 <span className="flex flex-col items-stretch gap-[3px]">
-                  <span className="rounded-[6px] bg-[#EAF1F8] px-2 py-[2px] text-center text-[10px] font-bold text-[#3F6E9C]">Prospect</span>
+                  <span className="rounded-[6px] border px-2 py-[1px] text-center text-[10px] font-bold" style={{ color: PROSPECT.fg, background: PROSPECT.doux, borderColor: PROSPECT.bord }}>Prospect</span>
                   <span className="text-center text-[9.5px] font-semibold text-km-faint">{LIBELLE_ETAT[etat]}</span>
                 </span>
                 <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-[9px] font-bold" style={{ background: bg, color: fg }}>
@@ -303,9 +289,8 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
   )
 }
 
-function BarreFrise({ nature, couloir = COULOIR_UNIQUE, fondu, gauche, largeur, fournisseur, initialesForcees, libelle, sous, titre, onClick }: {
-  nature: 'cur' | 'old' | 'fut' | 'prospect'
-  couloir?: { top: number; height: number }
+function BarreFrise({ nature, fondu, gauche, largeur, fournisseur, initialesForcees, libelle, sous, titre, onClick }: {
+  nature: 'cur' | 'old' | 'fut' | 'prospect' | 'prospect-old'
   /** Une borne inconnue (contrat prospect) : la barre se fond de ce côté. */
   fondu?: 'gauche' | 'droite' | 'deux'
   gauche: number
@@ -317,6 +302,7 @@ function BarreFrise({ nature, couloir = COULOIR_UNIQUE, fondu, gauche, largeur, 
   titre: string
   onClick?: () => void
 }) {
+  const prospect = nature === 'prospect' || nature === 'prospect-old'
   const masque = fondu === 'gauche'
     ? 'linear-gradient(90deg,transparent,#000 18%)'
     : fondu === 'droite'
@@ -329,16 +315,21 @@ function BarreFrise({ nature, couloir = COULOIR_UNIQUE, fondu, gauche, largeur, 
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter') { e.preventDefault(); onClick() } } : undefined}
-      className={cn('absolute flex items-center gap-[9px] overflow-hidden rounded-[13px] px-2.5', onClick && 'cursor-pointer transition-[filter] hover:brightness-[.97]')}
+      className={cn(
+        'absolute bottom-[7px] top-[7px] flex items-center gap-[9px] overflow-hidden px-2.5',
+        /* LA FORME DIT AUSSI LA FAMILLE : arrondi plein pour un contrat KiWee, angles serrés pour un
+           contrat prospect — lisible même sans distinguer les couleurs. */
+        prospect ? 'rounded-[6px]' : 'rounded-[13px]',
+        onClick && 'cursor-pointer transition-[filter] hover:brightness-[.97]',
+      )}
       style={{
-        top: couloir.top,
-        height: couloir.height,
         left: `${gauche}%`,
         width: `${largeur}%`,
-        background: nature === 'cur' ? 'linear-gradient(90deg,#0D7A5F,#199B78)' : nature === 'fut' ? 'repeating-linear-gradient(135deg,#F3F5F2 0 7px,#E7F4EF 7px 14px)' : nature === 'prospect' ? '#EAF1F8' : '#DCE2DE',
-        border: nature === 'fut' ? '1.5px dashed #0D7A5F' : nature === 'prospect' ? '1.5px solid #BCD0E4' : 'none',
-        color: nature === 'cur' ? '#fff' : nature === 'fut' ? '#0D7A5F' : nature === 'prospect' ? '#2F5A84' : '#45473F',
+        background: nature === 'cur' ? 'linear-gradient(90deg,#0D7A5F,#199B78)' : nature === 'fut' ? 'repeating-linear-gradient(135deg,#F3F5F2 0 7px,#E7F4EF 7px 14px)' : prospect ? PROSPECT.fond : '#DCE2DE',
+        border: nature === 'fut' ? '1.5px dashed #0D7A5F' : prospect ? `2px solid ${PROSPECT.bord}` : 'none',
+        color: nature === 'cur' ? '#fff' : nature === 'fut' ? '#0D7A5F' : prospect ? PROSPECT.fg : '#45473F',
         boxShadow: nature === 'cur' ? '0 3px 10px rgba(13,122,95,.3)' : 'none',
+        opacity: nature === 'prospect-old' ? 0.6 : undefined,
         maskImage: masque,
         WebkitMaskImage: masque,
         paddingLeft: fondu === 'gauche' || fondu === 'deux' ? 28 : undefined,
@@ -348,7 +339,14 @@ function BarreFrise({ nature, couloir = COULOIR_UNIQUE, fondu, gauche, largeur, 
         ? <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[8px] bg-white text-[10px] font-extrabold text-[#45473F]">{initialesForcees}</span>
         : <LogoFournisseur nom={fournisseur} taille={30} rayon={8} part={80} bordure={false} />}
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="whitespace-nowrap text-[12px] font-bold">{libelle}</span>
+        <span className="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-bold">
+          {prospect && (
+            <span className="rounded-[4px] px-[5px] py-px text-[8.5px] font-extrabold uppercase tracking-[.08em] text-white" style={{ background: PROSPECT.fg }}>
+              Prospect
+            </span>
+          )}
+          {libelle}
+        </span>
         <span className="whitespace-nowrap font-mono text-[10px] font-semibold opacity-90">{sous}</span>
       </span>
     </span>
