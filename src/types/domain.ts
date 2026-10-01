@@ -69,6 +69,8 @@ export interface VersionRecommandation {
   version_actuelle: boolean
   est_figee: boolean
   date_publication: string | null
+  /** Quand le pricing a publié le comparatif aux commerciaux (01/10/2026). NULL : chiffrage en cours. */
+  date_publication_comparatif?: string | null
   date_presentation_client: string | null
   date_decision_client: string | null
   compteur_ids: string[]

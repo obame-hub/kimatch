@@ -84,6 +84,7 @@ interface RawVersion {
   version_actuelle: boolean
   est_figee: boolean
   date_publication: string | null
+  date_publication_comparatif?: string | null
   date_presentation_client: string | null
   date_decision_client: string | null
   date_creation: string
@@ -272,7 +273,7 @@ async function fetchRecommandations(
       ).catch(() => [] as RawRecoCompteur[]),
       fetchAllRows<RawVersion>(
         'versions_recommandation',
-        'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
+        'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_publication_comparatif, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
         // « Les versions doivent s'afficher du plus recent au plus ancien » (reunion du
         // 12/08/2026). Le tri porte sur numero_version, qui EST le rang metier de la version,
         // plutot que sur la date qui n'en est qu'un indice : rien n'interdit de reprendre une
@@ -730,6 +731,7 @@ async function fetchRecommandations(
         version_actuelle: v.version_actuelle,
         est_figee: v.est_figee,
         date_publication: v.date_publication,
+        date_publication_comparatif: v.date_publication_comparatif ?? null,
         date_presentation_client: v.date_presentation_client,
         date_decision_client: v.date_decision_client,
         compteur_ids: compteurIdsParVersion.get(v.id) ?? [],
@@ -1242,7 +1244,8 @@ export function useCreateVersion() {
       // qui échoue ne doit plus se contenter d'une ligne de console (voir plus bas).
       let offresCreees = 0
       let offresEchouees = 0
-      let fournisseursSansFiche = 0
+      // La base crée désormais la fiche fournisseur qui manquait : plus aucun fournisseur sans offre.
+      const fournisseursSansFiche = 0
 
       let optimisationId: string | null = null
       if (input.fournisseur_ids.length > 0) {
@@ -1259,134 +1262,32 @@ export function useCreateVersion() {
           .single()
         optimisationId = (optimisation as { id: string } | null)?.id ?? null
         if (optimisationId) {
-          // Les fournisseurs consultés. On récupère leurs identifiants : ils servent juste après
-          // à créer l'offre attendue de chacun.
-          const { data: consultes } = await supabase
+          /* ══ LA COMMANDE DE CHAQUE FOURNISSEUR, ET LA BASE QUI EN TIRE LES OFFRES (01/10/2026) ══
+             William : la commande se porte par fournisseur consulté (`durees_mois`, `types_prix`),
+             et « toutes les offres doivent exister sous cette version ». C'est désormais la base qui
+             crée une offre par durée × type commandé (`fn_offres_suivent_la_commande`, déclenchée à
+             l'insertion) — y compris la fiche fournisseur qui manquait à 33 comptes sur 52 et
+             privait leurs offres d'exister. Les durées sont celles de la version, les mêmes pour
+             tous ses compteurs : « une version correspond à un appel d'offres ». */
+          const dureesDemandees = [...new Set(Object.values(input.durees_par_compteur).flat())].sort((a, b) => a - b)
+          const typesDemandes = input.types_prix.length > 0 ? input.types_prix : ['Fixe']
+          const { error: eConsultes } = await supabase
             .from('optimisations_fournisseurs')
-            .insert(input.fournisseur_ids.map((fournisseur_compte_id) => ({ optimisation_id: optimisationId, fournisseur_compte_id })))
-            .select('id, fournisseur_compte_id')
-
-          // Une OFFRE PAR FOURNISSEUR CONSULTÉ, créée dès la consultation (demande de Michel,
-          // 16/08/2026). La table `offres_fournisseurs` existait avec la bonne clé étrangère
-          // (`optimisation_fournisseur_id`) mais comptait ZÉRO ligne : personne ne la remplissait,
-          // donc le statut d'une offre n'était visible nulle part et il fallait le déduire de
-          // l'historique de consultation.
-          //
-          // Le statut de départ n'est PAS le défaut de la colonne (RECUE) : au moment de la
-          // consultation, rien n'a encore été reçu. Marquer « reçue » d'emblée ferait croire à une
-          // réponse fournisseur qui n'existe pas.
-          //
-          // Vocabulaire de l'offre : voir STATUTS_OFFRE. Il est distinct de celui du fournisseur
-          // consulté, parce qu'il répond à une autre question — « ce fournisseur accepte-t-il de
-          // coter CETTE durée ? » et non « où en est la demande ? ».
-          const lignesConsultees = (consultes ?? []) as { id: string; fournisseur_compte_id: string }[]
-          if (lignesConsultees.length > 0) {
-            // `compte_fournisseur_id` est NOT NULL et référence `comptes_fournisseurs(compte_id)`,
-            // PAS `comptes(id)`. Or au 16/08/2026 seuls 19 des 52 comptes de type fournisseur ont
-            // une ligne dans `comptes_fournisseurs` : insérer une offre pour l'un des 33 autres
-            // partirait en violation de clé étrangère et, en lot, ferait échouer TOUTES les offres
-            // de la cotation. On ne crée donc l'offre que pour ceux qui peuvent en porter une.
-            const { data: eligibles } = await supabase
-              .from('comptes_fournisseurs')
-              .select('compte_id')
-              .in('compte_id', lignesConsultees.map((cf) => cf.fournisseur_compte_id))
-            const idsEligibles = new Set(((eligibles ?? []) as { compte_id: string }[]).map((e) => e.compte_id))
-
-            const avecOffre = lignesConsultees.filter((cf) => idsEligibles.has(cf.fournisseur_compte_id))
-            const sansOffre = lignesConsultees.filter((cf) => !idsEligibles.has(cf.fournisseur_compte_id))
-            if (sansOffre.length > 0) {
-              // Tracé et non tu : le fournisseur reste bien consulté, mais son offre ne peut pas
-              // être suivie tant que sa fiche fournisseur n'est pas complétée. Le silence ferait
-              // croire à un oubli de l'application.
-              console.warn(
-                `${sansOffre.length} fournisseur(s) consulté(s) sans fiche dans comptes_fournisseurs : `
-                + "aucune offre créée pour eux. Compléter leur fiche fournisseur pour pouvoir suivre l'offre.",
-                sansOffre.map((cf) => cf.fournisseur_compte_id),
-              )
-            }
-
-            fournisseursSansFiche = sansOffre.length
-
-            if (avecOffre.length > 0) {
-              /**
-               * UNE OFFRE ATTENDUE PAR COMBINAISON DEMANDÉE, et non une seule par fournisseur.
-               *
-               * Demande de Michel du 17/08/2026 : « il faut qu'on voie sous chaque fournisseur
-               * consulté la ou les offres différentes, sinon la version ne sert à rien. » Un
-               * fournisseur consulté sur 24 et 36 mois, en fixe et en indexé, répond plusieurs
-               * offres — c'est entre elles qu'on arbitre. La grille créée ici EST la consultation
-               * envoyée : chaque ligne est une offre demandée, en attente de réponse, que le
-               * conseiller complète quand elle arrive.
-               *
-               * Les durées sont l'union de celles demandées par PDL (au plus 3 par compteur), les
-               * types de prix ceux cochés (« Fixe » et/ou « Indexé ») : en pratique 1 à 6 lignes
-               * par fournisseur, pas une combinatoire folle.
-               */
-              const dureesDemandees = [...new Set(Object.values(input.durees_par_compteur).flat())].sort((a, b) => a - b)
-              const typesDemandes = input.types_prix.length > 0 ? input.types_prix : [null]
-              const combinaisons: { duree: number | null; typePrix: string | null }[] =
-                dureesDemandees.length > 0
-                  ? dureesDemandees.flatMap((duree) => typesDemandes.map((typePrix) => ({ duree, typePrix })))
-                  // Sans durée demandée (cas qui ne devrait pas passer le wizard), une seule ligne
-                  // d'attente plutôt que rien : le fournisseur est consulté, ça doit se voir.
-                  : [{ duree: null, typePrix: typesDemandes[0] }]
-
-              const lignes = avecOffre.flatMap((cf) =>
-                combinaisons.map((c, i) => ({
-                  optimisation_id: optimisationId,
-                  optimisation_fournisseur_id: cf.id,
-                  compte_fournisseur_id: cf.fournisseur_compte_id,
-                  // `nom` est NOT NULL SANS valeur par défaut. C'est ce qui faisait échouer toutes
-                  // les insertions depuis le 16/08 (erreur 23502), en silence puisque l'échec
-                  // n'était que journalisé : `offres_fournisseurs` est restée à 0 ligne. Le libellé
-                  // dit ce qui a été demandé, c'est aussi ce que l'écran affiche.
-                  nom: [c.duree ? `${c.duree} mois` : null, c.typePrix].filter(Boolean).join(' — ') || 'Offre attendue',
-                  duree_mois: c.duree,
-                  type_prix: c.typePrix,
-                  // « En attente » et non « envoyée » : la demande, elle, est portée par le
-                  // fournisseur consulté ; l'offre attend de savoir si ce fournisseur accepte de
-                  // coter CETTE durée (réunion du 17/08/2026, statuts à deux étages).
-                  statut: 'EN_ATTENTE',
-                  est_offre_recommandee: false,
-                  ordre_classement: i + 1,
-                })),
-              )
-
-              const { error: eOffres } = await supabase.from('offres_fournisseurs').insert(lignes)
-              if (eOffres) {
-                // `type_prix` vient d'une migration du 17/08/2026. Si le code est déployé avant
-                // qu'elle soit appliquée, PostgREST rejette la colonne inconnue (PGRST204 / 42703)
-                // et TOUTES les offres repartiraient à zéro — exactement la panne qu'on vient de
-                // corriger. On retente donc sans la colonne, en le disant.
-                const colonneAbsente = eOffres.code === 'PGRST204' || eOffres.code === '42703'
-                if (colonneAbsente) {
-                  const { error: eRepli } = await supabase.from('offres_fournisseurs').insert(
-                    lignes.map(({ type_prix, ...reste }) => {
-                      void type_prix
-                      return reste
-                    }),
-                  )
-                  if (eRepli) {
-                    offresEchouees = lignes.length
-                    console.error('Création des offres fournisseurs échouée', eRepli)
-                  } else {
-                    offresCreees = lignes.length
-                    console.warn(
-                      "offres_fournisseurs.type_prix absent : offres créées sans le type de prix. "
-                      + 'Appliquer la migration 20260817140000_offres_fournisseurs_type_prix.sql.',
-                    )
-                  }
-                } else {
-                  // Non bloquant : la cotation est déjà créée à ce stade, on ne perd ni la version
-                  // ni les fournisseurs consultés. Mais le compte est remonté à l'appelant, qui le
-                  // dit au conseiller — c'est le silence qui a laissé le bug vivre une journée.
-                  offresEchouees = lignes.length
-                  console.error('Création des offres fournisseurs échouée', eOffres)
-                }
-              } else {
-                offresCreees = lignes.length
-              }
-            }
+            .insert(input.fournisseur_ids.map((fournisseur_compte_id) => ({
+              optimisation_id: optimisationId,
+              fournisseur_compte_id,
+              durees_mois: dureesDemandees,
+              types_prix: typesDemandes,
+            })))
+          if (eConsultes) {
+            console.error('Consultation des fournisseurs échouée', eConsultes)
+            offresEchouees = input.fournisseur_ids.length * Math.max(1, dureesDemandees.length) * typesDemandes.length
+          } else {
+            const { count } = await supabase
+              .from('offres_fournisseurs')
+              .select('id', { count: 'exact', head: true })
+              .eq('optimisation_id', optimisationId)
+            offresCreees = count ?? 0
           }
         }
       }
@@ -1866,9 +1767,23 @@ export function useAjouterFournisseurConsulte() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: { optimisationId: string; fournisseurCompteId: string; fournisseurNom: string }) => {
+      /* UN FOURNISSEUR AJOUTÉ APRÈS COUP REÇOIT LA COMMANDE DE LA VERSION (01/10/2026). Il n'avait
+         jusque-là aucune offre : « ça c'est pas logique […] toutes les offres doivent exister sous
+         cette version » (William). Sa commande reprend les durées et types déjà commandés aux
+         autres ; la base en crée les offres, et le pricing l'ajuste ensuite fournisseur par
+         fournisseur. */
+      const { data: autres } = await supabase
+        .from('optimisations_fournisseurs')
+        .select('durees_mois, types_prix')
+        .eq('optimisation_id', input.optimisationId)
+      const lignes = (autres ?? []) as { durees_mois: number[] | null; types_prix: string[] | null }[]
+      const durees = [...new Set(lignes.flatMap((l) => l.durees_mois ?? []))].sort((a, b) => a - b)
+      const types = [...new Set(lignes.flatMap((l) => l.types_prix ?? []))]
       const { error } = await supabase.from('optimisations_fournisseurs').insert({
         optimisation_id: input.optimisationId,
         fournisseur_compte_id: input.fournisseurCompteId,
+        durees_mois: durees,
+        types_prix: types,
       })
       if (error) throw new Error(error.message)
     },

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { ChevronUp, LogOut, ShieldCheck, User, X, Zap } from 'lucide-react'
+import { ChevronUp, Euro, Layers, LogOut, ShieldCheck, User, X, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import kiweePicto from '@/assets/kiwee-picto.png'
 import { useSidebar } from '@/lib/layout'
-import { useIsAdmin, useEstPartenaire, useMonProfil } from '@/lib/data/roles'
+import { useCurrentAccess, useIsAdmin, useEstPartenaire, useMonProfil } from '@/lib/data/roles'
 import { useAuth } from '@/lib/auth'
 import { navItems, cycleNavItems, productionNavItems, cockpitNavItems, bancTradeoNavItem, bottomNavItems, partenaireNavItems, partenaireBottomNavItems } from '@/lib/navItems'
 import { useOuvreBancTradeo } from '@/lib/data/tradeo'
@@ -137,28 +137,69 @@ function SidebarLink({ to, label, icon: Icon, end, onClick }: NavItem & { onClic
  * fabriquait un faux gras, plus large encore. La flèche est partie, le libellé est en 600 et ne se
  * tronque plus : dans 195 px utiles, il lui en reste 145.
  */
-function BoutonSprint({ onClick }: { onClick: () => void }) {
+/** L'habillage commun aux boutons d'action du bas du rail : plein, vert vif, lueur dessous. */
+const BOUTON_ACTION = cn(
+  'group/sprint relative flex h-10 w-full items-center gap-2 overflow-hidden rounded-km-lg bg-km-side-green pl-1.5 pr-3',
+  'text-km-body font-semibold text-[#0B241C]',
+  /* Un liseré clair en haut et une lueur de la même teinte dessous : il se détache du rail
+     sans ombre grise, qui salirait l'anthracite. */
+  'shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_8px_20px_-10px_rgb(var(--km-side-green)/0.75)]',
+  'transition-[filter,transform] duration-150 hover:brightness-[1.07] active:scale-[0.98]',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-km-side-bas',
+  'motion-reduce:transition-none motion-reduce:active:scale-100',
+)
+
+function PastilleAction({ icone: Icone }: { icone: typeof Zap }) {
   return (
-    <div className="px-2.5 pb-2.5 pt-1.5">
-      <Link
-        to="/cockpit?sprint=1"
-        onClick={onClick}
-        className={cn(
-          'group/sprint relative flex h-10 items-center gap-2 overflow-hidden rounded-km-lg bg-km-side-green pl-1.5 pr-3',
-          'text-km-body font-semibold text-[#0B241C]',
-          /* Un liseré clair en haut et une lueur de la même teinte dessous : il se détache du rail
-             sans ombre grise, qui salirait l'anthracite. */
-          'shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_8px_20px_-10px_rgb(var(--km-side-green)/0.75)]',
-          'transition-[filter,transform] duration-150 hover:brightness-[1.07] active:scale-[0.98]',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-km-side-bas',
-          'motion-reduce:transition-none motion-reduce:active:scale-100',
-        )}
-      >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-km bg-[#0B241C]/15 transition-transform duration-150 group-hover/sprint:scale-110 motion-reduce:transition-none">
-          <Zap className="h-3.5 w-3.5" fill="currentColor" strokeWidth={2.2} aria-hidden="true" />
-        </span>
-        <span className="whitespace-nowrap">Lancer mon sprint</span>
-      </Link>
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-km bg-[#0B241C]/15 transition-transform duration-150 group-hover/sprint:scale-110 motion-reduce:transition-none">
+      <Icone className="h-3.5 w-3.5" fill={Icone === Zap ? 'currentColor' : 'none'} strokeWidth={2.2} aria-hidden="true" />
+    </span>
+  )
+}
+
+/**
+ * ══ LE BOUTON D'ACTION DÉPEND DU MÉTIER — William, 01/10/2026 ══
+ *
+ * « Pour les profils pricing comme Erwan, le bouton Lancer un sprint est remplacé par un bouton
+ * "Pricer". Les commerciaux ne le voient donc pas et voient juste "Lancer un sprint". Pour les
+ * administrateurs comme moi, je veux un bouton "Actions" qui propose au clic les deux autres. »
+ * Michel (super-administrateur) a « Actions » comme les admins ; le service client n'a aucun bouton.
+ *
+ * Le rôle se lit sur son CODE pour le pricing (rôle créé par William le 01/10/2026), et sur ses
+ * drapeaux pour le reste : « ouvre l'administration » fait l'administrateur, « vue service client »
+ * le service client — la même source que le reste de l'écran (`useCurrentAccess`).
+ */
+function BoutonAction({ onClick }: { onClick: () => void }) {
+  const { data: acces } = useCurrentAccess()
+  const [ouvert, setOuvert] = useState(false)
+  if (!acces) return null
+  if (acces.vueServiceClient) return null
+  const lienSprint = (
+    <Link to="/cockpit?sprint=1" onClick={() => { setOuvert(false); onClick() }} className={BOUTON_ACTION}>
+      <PastilleAction icone={Zap} /><span className="whitespace-nowrap">Lancer mon sprint</span>
+    </Link>
+  )
+  const lienPricer = (
+    <Link to="/pricer" onClick={() => { setOuvert(false); onClick() }} className={BOUTON_ACTION}>
+      <PastilleAction icone={Euro} /><span className="whitespace-nowrap">Pricer</span>
+    </Link>
+  )
+  if (acces.roleCode === 'PRICING') return <div className="px-2.5 pb-2.5 pt-1.5">{lienPricer}</div>
+  if (!acces.ouvreAdministration) return <div className="px-2.5 pb-2.5 pt-1.5">{lienSprint}</div>
+  return (
+    <div className="relative px-2.5 pb-2.5 pt-1.5">
+      {/* Les deux gestes s'ouvrent AU-DESSUS du bouton : en bas du rail, il n'y a pas de place dessous. */}
+      {ouvert && (
+        <div className="absolute inset-x-2.5 bottom-[calc(100%-2px)] z-20 flex flex-col gap-1.5 rounded-km-md border border-km-side-line bg-km-side p-1.5 shadow-kw-panel">
+          {lienSprint}
+          {lienPricer}
+        </div>
+      )}
+      <button type="button" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)} className={BOUTON_ACTION}>
+        <PastilleAction icone={Layers} />
+        <span className="flex-1 whitespace-nowrap text-left">Actions</span>
+        <ChevronUp className={cn('h-4 w-4 transition-transform', !ouvert && 'rotate-180')} aria-hidden="true" />
+      </button>
     </div>
   )
 }
@@ -458,7 +499,7 @@ export function Sidebar() {
         </div>
 
         {/* Pas pour un partenaire : il n'a ni Cockpit ni pistes (Naoëlle, 24/09/2026). */}
-        {!estPartenaire && <BoutonSprint onClick={close} />}
+        {!estPartenaire && <BoutonAction onClick={close} />}
 
         <nav className="space-y-0.5 border-t border-km-side-line px-2.5 py-2.5">
           {bottomItems.map((item) =>

@@ -8,6 +8,7 @@ import { InlineField } from '@/components/ui/inline-field'
 import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournisseur'
 import { PropositionsFournisseur } from '@/components/recommandation/PropositionsFournisseur'
 import { PropositionCommerciale } from '@/components/recommandation/PropositionCommerciale'
+import { ComparatifPublie } from '@/components/recommandation/ComparatifPublie'
 import { PastilleStatutConsultation } from '@/components/recommandation/PastilleStatutConsultation'
 import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 import { cn } from '@/lib/utils'
@@ -440,6 +441,13 @@ export function DetailVersion({
           Rien n'est supprimé en base. Ce sont des colonnes qu'on cesse de montrer, pas des données
           qu'on efface — la distinction que Naoëlle avait demandé de tenir le 25/08/2026.
           ══════════════════════════════════════════════════════════════════════════════════════ */}
+      {/* ══ PUBLIÉ, LE COMPARATIF REMPLACE LES COMMANDES FOURNISSEURS — William, 01/10/2026 ══
+          « Quand le pricing publie l'offre, je veux que le commercial, dans l'encart de la version,
+          puisse voir 3 tableaux (onglets) […]. Ça s'affiche en lieu et place des commandes
+          fournisseurs. » Avant la publication, rien ne change : les cartes ci-dessous. */}
+      {version.date_publication_comparatif ? (
+        <ComparatifPublie versionId={version.id} />
+      ) : (
       <div className="px-[17px] py-3.5">
         {version.optimisations.length === 0 ? (
           <p className="text-km-body text-km-faint">Aucun fournisseur consulté sur cette version.</p>
@@ -612,6 +620,7 @@ export function DetailVersion({
             rien dater. Deux boutons « envoyer » dans le même écran pour deux destinataires
             différents : le risque n'était pas l'encombrement, c'était l'erreur d'envoi. */}
       </div>
+      )}
 
       {/* ══ LA PROPOSITION COMMERCIALE CLÔT LE BLOC ══
           Une version se lit en trois temps : ce qu'on a demandé, qui a répondu, ce qu'on envoie.

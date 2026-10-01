@@ -67,6 +67,7 @@ const MonProfil = lazy(() => chargerPage(() => import('@/pages/MonProfil')))
 const Support = lazy(() => chargerPage(() => import('@/pages/Support')))
 const Nouveautes = lazy(() => chargerPage(() => import('@/pages/Nouveautes')))
 const Pricing = lazy(() => chargerPage(() => import('@/pages/Pricing')))
+const Pricer = lazy(() => chargerPage(() => import('@/pages/Pricer')))
 const PrixTradeo = lazy(() => chargerPage(() => import('@/pages/PrixTradeo')))
 
 function App() {
@@ -111,6 +112,9 @@ function App() {
         <Route path="/partenaire" element={<EspacePartenaire />} />
 
       <Route element={<ProtectedRoute />}>
+        {/* PRICER, EN PLEIN ÉCRAN comme le sprint : hors du cadre de l'application, sans rail
+            (William, 01/10/2026 — « pour gagner un max de place »). */}
+        <Route path="/pricer" element={<Pricer />} />
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />
           {/* ══ PLUS AUCUNE PAGE DE SITE, NI LISTE NI FICHE ═══════════════════════════════════
@@ -142,6 +146,7 @@ function App() {
           <Route path="/opportunites" element={<Opportunites />} />
           <Route path="/opportunites/:id" element={<OpportuniteDetail />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/pricing/offres" element={<Navigate to="/pricer" replace />} />
           <Route path="/prix-tradeo" element={<PrixTradeo />} />
           <Route path="/requetes" element={<Requetes />} />
           <Route path="/requetes/:id" element={<RequeteDetail />} />
