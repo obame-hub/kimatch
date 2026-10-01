@@ -126,6 +126,16 @@ export default function CompteurDetail() {
     () => contratsDuCompteur.find((c) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation) === 'EN_COURS') ?? null,
     [contratsDuCompteur, aujourdhui],
   )
+  /* LE CONTRAT DE LA CARTE : celui en cours, sinon le prochain à venir — William, 01/10/2026 :
+     « quand un contrat client est à venir ou en cours, il doit apparaître dans la card prévue à cet
+     effet ». Le premier à venir suit aussi un contrat en cours, en une ligne sous lui. */
+  const contratAVenir = useMemo(
+    () => contratsDuCompteur
+      .filter((c) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation) === 'A_VENIR')
+      .sort((a, b) => (a.date_debut ?? '').localeCompare(b.date_debut ?? ''))[0] ?? null,
+    [contratsDuCompteur, aujourdhui],
+  )
+  const contratCarte = contratEnCours ?? contratAVenir
 
   const { data: tousContacts } = useContacts()
   const contactsDuCompte = useMemo(
@@ -332,12 +342,13 @@ export default function CompteurDetail() {
                 enregistrer={majCompteur}
                 onToast={showToast}
               />
-              {/* SANS CONTRAT EN COURS RATTACHÉ, PAS DE CARTE. William, 30/09/2026 : une carte
+              {/* SANS CONTRAT KIWEE EN COURS OU À VENIR, PAS DE CARTE. William, 30/09/2026 : une carte
                   « Fournisseur inconnu » tirée de la seule échéance déclarée affichait de fausses
-                  infos. L'échéance déclarée reste lisible sur la plaque technique. */}
-              {contratEnCours && (
+                  infos. L'échéance déclarée reste lisible dans le bloc provisoire. */}
+              {contratCarte && (
               <BlocContratEnCours
-                contrat={contratEnCours}
+                contrat={contratCarte}
+                suivant={contratEnCours ? contratAVenir : null}
                 echeance={echeance}
                 compteur={compteur}
                 onVoirContrats={() => setOnglet('contrats')}

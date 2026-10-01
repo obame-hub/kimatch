@@ -347,13 +347,17 @@ export function LogoFournisseur({ nom, taille, rayon, part, bordure = true }: {
    Elle se posait à la main sur un contrat de la table `contrats` : un contrat KiWee pouvait ainsi
    être marqué « prospect » par erreur. Les contrats signés sans nous ont désormais leur propre table
    (`contrats_prospects`, « Éditer l'échéance ») ; tout contrat affiché ici est signé par KiWee. */
-export function BlocContratEnCours({ contrat, echeance, compteur, onVoirContrats }: {
+export function BlocContratEnCours({ contrat, suivant, echeance, compteur, onVoirContrats }: {
   contrat: Contrat | null
+  /** Le contrat KiWee à venir qui prendra la suite de celui en cours, s'il y en a un. */
+  suivant?: Contrat | null
   echeance: EcheanceCompteur
   compteur: Compteur
   onVoirContrats: () => void
 }) {
   const debut = contrat?.date_debut?.slice(0, 10) ?? null
+  /* UN CONTRAT À VENIR (signé, pas encore commencé) : le compte à rebours mène à son DÉBUT. */
+  const aVenir = Boolean(debut && debut > new Date().toISOString().slice(0, 10))
   const fin = contrat?.date_fin?.slice(0, 10) ?? echeance.date
   const fournisseur = contrat?.fournisseur_nom || compteur.fournisseur_actuel_nom || null
 
@@ -367,7 +371,7 @@ export function BlocContratEnCours({ contrat, echeance, compteur, onVoirContrats
     )
   }
 
-  const jours = joursJusqua(fin)
+  const jours = joursJusqua(aVenir ? debut : fin)
   const total = debut && fin ? new Date(fin).getTime() - new Date(debut).getTime() : 0
   const ecoule = debut ? Date.now() - new Date(debut).getTime() : 0
   const part = total > 0 ? Math.max(0, Math.min(100, (ecoule / total) * 100)) : 0
@@ -376,7 +380,11 @@ export function BlocContratEnCours({ contrat, echeance, compteur, onVoirContrats
 
   return (
     <Carte className="flex flex-col gap-3 px-[18px] py-4">
-      <Sourcil>Contrat en cours</Sourcil>
+      <div className="flex items-center gap-2">
+        <Sourcil>{aVenir ? 'Contrat à venir' : 'Contrat en cours'}</Sourcil>
+        <span className="flex-1" />
+        {aVenir && <span className="rounded-full border border-dashed border-km-green bg-km-green-soft px-2 py-[2px] text-[10px] font-bold text-km-green">À venir</span>}
+      </div>
 
       {contrat && (
         <div className="-mt-1 text-[11.5px] leading-[1.45] text-km-muted">
@@ -395,10 +403,12 @@ export function BlocContratEnCours({ contrat, echeance, compteur, onVoirContrats
       {fin && (
         <div>
           <div className="flex items-baseline justify-between">
-            <span className={cn('font-mono text-[22px] font-bold tracking-[-.02em]', jours != null && jours < 0 ? 'text-km-red' : 'text-km-amber')}>
+            <span className={cn('font-mono text-[22px] font-bold tracking-[-.02em]', aVenir ? 'text-km-green' : jours != null && jours < 0 ? 'text-km-red' : 'text-km-amber')}>
               {jours != null ? libelleJours(jours) : '—'}
             </span>
-            <span className="text-[12px] text-km-muted">fin le <b className="font-mono text-km-text">{dateFr(fin)}</b></span>
+            {aVenir && debut
+              ? <span className="text-[12px] text-km-muted">début le <b className="font-mono text-km-text">{dateFr(debut)}</b></span>
+              : <span className="text-[12px] text-km-muted">fin le <b className="font-mono text-km-text">{dateFr(fin)}</b></span>}
           </div>
           {debut && (
             <>
@@ -410,6 +420,13 @@ export function BlocContratEnCours({ contrat, echeance, compteur, onVoirContrats
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {suivant && (
+        <div className="flex items-center gap-2 rounded-[10px] border border-dashed border-km-green/50 bg-km-green-soft/40 px-2.5 py-[7px] text-[11.5px] text-km-muted">
+          <span className="font-bold text-km-green">Puis</span>
+          <span className="min-w-0 truncate"><b className="font-semibold text-km-text">{suivant.fournisseur_nom || 'Fournisseur inconnu'}</b> à partir du <b className="font-mono text-km-text">{dateFr(suivant.date_debut!.slice(0, 10))}</b></span>
         </div>
       )}
 
