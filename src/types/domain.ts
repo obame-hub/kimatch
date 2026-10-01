@@ -731,6 +731,8 @@ export interface Compteur {
   departement_nom?: string | null
   /** Où le trouver sur place : « Local TGBT — Bât. A ». Distinct du commentaire libre. */
   localisation_site?: string | null
+  /** Bâtiment, escalier, lieu-dit… — ligne 2 de l'adresse, facultative (01/10/2026). */
+  complement_adresse?: string | null
   consommation_annuelle_mwh: number | null
   synchro_eneo: boolean
   date_derniere_synchro_eneo: string | null

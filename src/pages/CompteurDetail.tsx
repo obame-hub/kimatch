@@ -10,7 +10,7 @@ import { MenuCreer } from '@/components/layout/MenuCreer'
 import { OpportunitesDuCompteur } from '@/components/compteur/OpportunitesDuCompteur'
 import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { BlocCaracteristiques, BlocConsommation, BlocLieu, BlocPostes } from '@/components/compteur/fiche/ColonnePrincipale'
-import { BlocCompte, BlocContacts, BlocContratEnCours, BlocQualiteCompte } from '@/components/compteur/fiche/ColonneLaterale'
+import { BlocCompte, BlocContacts, BlocContratEnCours, BlocQualiteCompte, BlocSituationDeclaree } from '@/components/compteur/fiche/ColonneLaterale'
 import {
   OngletContrats, OngletFichiers, OngletMandats, OngletRecommandations, useRecommandationsDuCompteur,
 } from '@/components/compteur/fiche/Onglets'
@@ -297,12 +297,16 @@ export default function CompteurDetail() {
                 enregistrerTechnique={majTech}
                 commitNumero={commitNumeroPdl}
                 onToast={showToast}
+              />
+              {estElec && <BlocPostes compteur={compteur} />}
+              <BlocConsommation
+                compteur={compteur}
+                consommations={consommations ?? []}
+                modifiable={canManage}
                 synchroniser={() => void synchroniser()}
                 synchroEnCours={synchroEnCours}
                 synchroAutorisee={synchroAutorisee}
               />
-              {estElec && <BlocPostes compteur={compteur} />}
-              <BlocConsommation compteur={compteur} consommations={consommations ?? []} />
             </div>
             <div className="sticky top-0 flex flex-col gap-[14px]">
               <BlocQualiteCompte compteId={compteur.compte_id ?? compte?.id} />
@@ -335,6 +339,10 @@ export default function CompteurDetail() {
                 }}
                 onVoirContrats={() => setOnglet('contrats')}
               />
+              )}
+              {/* BLOC PROVISOIRE (01/10/2026) : sans contrat en cours, ce que le compteur déclare. */}
+              {!contratEnCours && (compteur.date_echeance || compteur.fournisseur_actuel_nom) && (
+                <BlocSituationDeclaree compteur={compteur} />
               )}
             </div>
           </div>

@@ -74,6 +74,7 @@ interface RawCompteur {
   code_postal?: string | null
   ville?: string | null
   localisation_site?: string | null
+  complement_adresse?: string | null
 }
 
 const first = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v)
@@ -151,6 +152,7 @@ async function fetchCompteurs(siteIds?: string[], compteurId?: string, compteId?
         code_postal: c.code_postal ?? null,
         ville: c.ville ?? null,
         localisation_site: c.localisation_site ?? null,
+        complement_adresse: c.complement_adresse ?? null,
         synchro_eneo: c.synchro_eneo,
         date_derniere_synchro_eneo: c.date_derniere_synchro_eneo,
         proprietaire_id: c.proprietaire_id ?? null,

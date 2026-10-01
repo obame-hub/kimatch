@@ -1,14 +1,15 @@
 import { useMemo, useRef, useState } from 'react'
-import { Building, MapPin, RefreshCw, Tag, Zap } from 'lucide-react'
+import { MapPin, RefreshCw, Tag, Zap } from 'lucide-react'
 import { CarteLieu } from '@/components/ui/carte-lieu'
 import { useQuery } from '@tanstack/react-query'
 import { geocoderPrecis, searchAddressBAN, type BanAddress } from '@/lib/banAddress'
 import { partMensuelleCar } from '@/lib/profilsGaz'
+import { departementFromCodePostal } from '@/lib/departements'
 import { cn } from '@/lib/utils'
 import type { EcheanceCompteur } from '@/lib/echeance'
 import type { Compteur, Consommation } from '@/types/domain'
 import {
-  Carte, ListeValeurs, MENU_FLOTTANT, Sourcil, ValeurEditable, dateFr, dateHeureFr, nombreFr, useFermeture,
+  Carte, ListeValeurs, MENU_FLOTTANT, Sourcil, ValeurEditable, dateFr, dateHeureFr, joursJusqua, nombreFr, useFermeture,
 } from '@/components/compteur/fiche/commun'
 
 /**
@@ -35,12 +36,6 @@ type Enregistrer = (patch: Record<string, unknown>) => Promise<void>
 // A · LE LIEU
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 
-function adresseAffichee(c: Compteur): string {
-  const commune = [c.code_postal, c.ville].filter(Boolean).join(' ')
-  const complete = [c.adresse, commune].filter(Boolean).join(', ')
-  return complete || c.adresse_site || ''
-}
-
 export function BlocLieu({ compteur, modifiable, enregistrer, onToast }: {
   compteur: Compteur
   modifiable: boolean
@@ -60,7 +55,8 @@ export function BlocLieu({ compteur, modifiable, enregistrer, onToast }: {
   const lat = aDesCoordonnees ? compteur.latitude : localisee?.latitude
   const lon = aDesCoordonnees ? compteur.longitude : localisee?.longitude
   const ok = () => onToast('✓ enregistré')
-  const ko = (e: Error) => onToast(e.message.startsWith('Ce champ') ? e.message : `Erreur : ${e.message}`)
+  const ko = (e: Error) => onToast(e.message.startsWith('Ce champ') || e.message.startsWith('Format') ? e.message : `Erreur : ${e.message}`)
+  const departement = departementFromCodePostal(compteur.code_postal)
 
   return (
     /* LA CARTE S'ÉLARGIT (William, 30/09/2026) : près de la moitié de la carte, au lieu des 300 px de
@@ -88,31 +84,39 @@ export function BlocLieu({ compteur, modifiable, enregistrer, onToast }: {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px] bg-km-green-soft text-km-green">
+        {/* ══ L'ADRESSE SUR QUATRE LIGNES — William, 01/10/2026 ══
+            « Localisation sur place » est retirée ; l'adresse prend sa place, mise en forme comme une
+            adresse postale : n° et rue · complément (masqué s'il est vide) · code postal et ville ·
+            n° et nom du département, déduits du code postal. */}
+        <div className="group/adresse flex items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-[9px] bg-km-green-soft text-km-green">
             <MapPin className="h-[14px] w-[14px]" strokeWidth={2} />
           </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">Adresse de consommation</span>
-            <AdresseEditable compteur={compteur} modifiable={modifiable} enregistrer={enregistrer} onSaved={ok} onError={ko} />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px] bg-km-soft text-km-muted">
-            <Building className="h-[14px] w-[14px]" strokeWidth={2} />
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">Localisation sur place</span>
+          <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+            <span className="mb-px text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">Adresse de consommation</span>
+            <RueEditable compteur={compteur} modifiable={modifiable} enregistrer={enregistrer} onSaved={ok} onError={ko} />
+            <ComplementEditable compteur={compteur} modifiable={modifiable} enregistrer={enregistrer} onSaved={ok} onError={ko} />
             <ValeurEditable
-              valeur={compteur.localisation_site ?? ''}
+              valeur={[compteur.code_postal, compteur.ville].filter(Boolean).join(' ')}
               modifiable={modifiable}
-              vide="Non renseignée"
+              vide="Code postal et ville"
+              titre="Cliquer pour modifier — « 68280 Andolsheim »"
               classeTexte="font-sans text-[13px] font-medium text-km-text"
-              onCommit={(v) => enregistrer({ localisation_site: v.replace(/\s+/g, ' ').trim() || null })}
+              onCommit={async (v) => {
+                const propre = v.replace(/\s+/g, ' ').trim()
+                const m = propre.match(/^(\d{5})\s+(.+)$/)
+                if (!m) throw new Error('Format attendu : le code postal puis la ville — « 68280 Andolsheim ».')
+                const position = await geocoderPrecis(compteur.adresse, m[1], m[2]).catch(() => null)
+                await enregistrer({ code_postal: m[1], ville: m[2], ...(position ?? {}) })
+              }}
               onSaved={ok}
               onError={ko}
             />
+            {departement && (
+              <span className="text-[11.5px] text-km-muted">
+                <span className="font-mono font-semibold text-km-text">{departement.code}</span> · {departement.nom}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -122,20 +126,20 @@ export function BlocLieu({ compteur, modifiable, enregistrer, onToast }: {
 }
 
 /**
- * ══ L'ADRESSE SE CHOISIT DANS LA BAN, ET REPLACE LA CARTE ══
+ * ══ LA RUE SE CHOISIT DANS LA BAN, ET REPLACE LA CARTE ══
  * Le brief : « Modifier l'adresse doit recalculer latitude/longitude (géocodage BAN) ». Une adresse
- * choisie dans les suggestions porte ses coordonnées ; une adresse tapée sans choisir est géocodée
- * à l'enregistrement, sur la première réponse de la BAN. Sans réponse, le texte est gardé tel quel
- * et la carte ne bouge pas — on ne place pas un point au hasard.
+ * choisie dans les suggestions apporte sa rue, son code postal, sa ville et ses coordonnées ; une
+ * rue tapée sans choisir est localisée avec le code postal et la ville déjà connus, et la carte ne
+ * bouge que si la BAN en est sûre (`geocoderPrecis`).
  */
-function AdresseEditable({ compteur, modifiable, enregistrer, onSaved, onError }: {
+function RueEditable({ compteur, modifiable, enregistrer, onSaved, onError }: {
   compteur: Compteur
   modifiable: boolean
   enregistrer: Enregistrer
   onSaved: () => void
   onError: (e: Error) => void
 }) {
-  const affichee = adresseAffichee(compteur)
+  const affichee = compteur.adresse ?? ''
   const [edition, setEdition] = useState(false)
   const [brouillon, setBrouillon] = useState('')
   const [suggestions, setSuggestions] = useState<BanAddress[]>([])
@@ -148,7 +152,8 @@ function AdresseEditable({ compteur, modifiable, enregistrer, onSaved, onError }
     setBrouillon(v)
     setActif(0)
     if (minuteur.current) clearTimeout(minuteur.current)
-    minuteur.current = setTimeout(async () => setSuggestions(await searchAddressBAN(v).catch(() => [])), 250)
+    const contexte = [v, compteur.code_postal].filter(Boolean).join(' ')
+    minuteur.current = setTimeout(async () => setSuggestions(await searchAddressBAN(contexte).catch(() => [])), 250)
   }
 
   async function valider(choisie?: BanAddress) {
@@ -159,14 +164,14 @@ function AdresseEditable({ compteur, modifiable, enregistrer, onSaved, onError }
     setEnCours(true)
     setEdition(false)
     try {
-      const b = choisie ?? (texte ? (await searchAddressBAN(texte).catch(() => []))[0] : undefined)
-      if (b) {
+      if (choisie) {
         await enregistrer({
-          adresse: b.rue, code_postal: b.codePostal, ville: b.ville,
-          latitude: b.latitude, longitude: b.longitude,
+          adresse: choisie.rue, code_postal: choisie.codePostal, ville: choisie.ville,
+          latitude: choisie.latitude, longitude: choisie.longitude,
         })
       } else {
-        await enregistrer({ adresse: texte || null })
+        const position = texte ? await geocoderPrecis(texte, compteur.code_postal, compteur.ville).catch(() => null) : null
+        await enregistrer({ adresse: texte || null, ...(position ?? {}) })
       }
       onSaved()
     } catch (e) {
@@ -226,7 +231,99 @@ function AdresseEditable({ compteur, modifiable, enregistrer, onSaved, onError }
         enCours && 'opacity-60',
       )}
     >
-      {affichee || 'Non renseignée'}
+      {affichee || 'N° et rue'}
+    </div>
+  )
+}
+
+/** Le complément : masqué s'il est vide — sauf, au survol de l'adresse, le geste pour l'ajouter. */
+function ComplementEditable({ compteur, modifiable, enregistrer, onSaved, onError }: {
+  compteur: Compteur
+  modifiable: boolean
+  enregistrer: Enregistrer
+  onSaved: () => void
+  onError: (e: Error) => void
+}) {
+  const [ajout, setAjout] = useState(false)
+  const valeur = compteur.complement_adresse ?? ''
+  if (!valeur && !ajout) {
+    if (!modifiable) return null
+    return (
+      <button
+        type="button"
+        onClick={() => setAjout(true)}
+        className="hidden self-start text-[11px] font-semibold text-km-faint hover:text-km-green group-focus-within/adresse:block group-hover/adresse:block"
+      >
+        ＋ Complément d’adresse
+      </button>
+    )
+  }
+  return (
+    <ComplementChamp
+      valeur={valeur}
+      demarrer={ajout && !valeur}
+      modifiable={modifiable}
+      onCommit={async (v) => { await enregistrer({ complement_adresse: v.replace(/\s+/g, ' ').trim() || null }) }}
+      onFini={() => setAjout(false)}
+      onSaved={onSaved}
+      onError={onError}
+    />
+  )
+}
+
+function ComplementChamp({ valeur, demarrer, modifiable, onCommit, onFini, onSaved, onError }: {
+  valeur: string
+  demarrer: boolean
+  modifiable: boolean
+  onCommit: (v: string) => Promise<void>
+  onFini: () => void
+  onSaved: () => void
+  onError: (e: Error) => void
+}) {
+  const [edition, setEdition] = useState(demarrer)
+  const [brouillon, setBrouillon] = useState(valeur)
+  const envoye = useRef(false)
+  async function valider() {
+    if (envoye.current) return
+    envoye.current = true
+    setEdition(false)
+    try {
+      if (brouillon.trim() !== valeur) { await onCommit(brouillon); onSaved() }
+    } catch (e) {
+      onError(e instanceof Error ? e : new Error(String(e)))
+    } finally {
+      envoye.current = false
+      onFini()
+    }
+  }
+  if (edition) {
+    return (
+      <input
+        autoFocus
+        value={brouillon}
+        placeholder="Bâtiment, escalier, lieu-dit…"
+        onChange={(e) => setBrouillon(e.target.value)}
+        onBlur={() => void valider()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); void valider() }
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); envoye.current = true; setEdition(false); setBrouillon(valeur); onFini(); setTimeout(() => { envoye.current = false }, 0) }
+        }}
+        className="w-full rounded-[8px] border border-km-green px-2 py-0.5 font-sans text-[12.5px] font-medium text-km-text outline-none shadow-[0_0_0_3px_rgba(13,122,95,.12)]"
+      />
+    )
+  }
+  return (
+    <div
+      role={modifiable ? 'button' : undefined}
+      tabIndex={modifiable ? 0 : undefined}
+      title={modifiable ? 'Cliquer pour modifier' : undefined}
+      onClick={modifiable ? () => { setBrouillon(valeur); setEdition(true) } : undefined}
+      className={cn(
+        'max-w-full self-start overflow-hidden text-ellipsis whitespace-nowrap border-b border-dashed border-transparent font-sans text-[12.5px] font-medium text-km-muted',
+        modifiable && 'cursor-text hover:border-km-green',
+      )}
+    >
+      {valeur}
     </div>
   )
 }
@@ -259,11 +356,12 @@ interface Champ {
   bordure: boolean
   enregistrer?: (v: string) => Promise<void>
   type?: 'texte' | 'date' | 'nombre'
+  /** Une donnée à corriger : l'échéance vide ou dépassée. */
+  alerte?: { niveau: 'vide' | 'retard'; texte: string }
 }
 
 export function BlocCaracteristiques({
   compteur, echeance, modifiable, enregistrerCompteur, enregistrerTechnique, commitNumero, onToast,
-  synchroniser, synchroEnCours, synchroAutorisee,
 }: {
   compteur: Compteur
   echeance: EcheanceCompteur
@@ -272,10 +370,6 @@ export function BlocCaracteristiques({
   enregistrerTechnique: Enregistrer
   commitNumero: (v: string) => Promise<void>
   onToast: (m: string) => void
-  synchroniser: () => void
-  synchroEnCours: boolean
-  /** Un mandat KiWee actif et valide couvre-t-il ce compteur ? Sinon, le bouton ne part pas. */
-  synchroAutorisee: boolean
 }) {
   const estElec = compteur.type_energie === 'electricite'
   const numero = (compteur.numero_pdl ?? '').replace(/\s+/g, '')
@@ -308,6 +402,15 @@ export function BlocCaracteristiques({
     {
       cle: 'echeance', intitule: 'Échéance', valeur: echeance.date ?? '', taille: 16, flex: '1.2 1 0', min: 130, bordure: true, type: 'date',
       enregistrer: (v: string) => enregistrerCompteur({ date_echeance: v || null }),
+      /* ══ UNE ÉCHÉANCE VIDE OU DÉPASSÉE SE VOIT — William, 01/10/2026 ══
+         « Si une échéance est vide ou en retard, un indicateur visuel doit attirer l'attention du
+         commercial afin qu'il corrige la data. » C'est elle qui décide quand agir : sans elle, ou
+         passée, le compteur sort du radar sans bruit. */
+      alerte: (() => {
+        if (!echeance.date) return { niveau: 'vide' as const, texte: 'À renseigner' }
+        const j = joursJusqua(echeance.date)
+        return j != null && j < 0 ? { niveau: 'retard' as const, texte: `Dépassée de ${Math.abs(j)} j` } : undefined
+      })(),
     },
   ]
 
@@ -315,33 +418,6 @@ export function BlocCaracteristiques({
     <Carte relief>
       <div className="flex items-center gap-2 px-[18px] pt-[14px]">
         <Sourcil>Caractéristiques techniques</Sourcil>
-        <span className="flex-1" />
-        <span className="text-[11px] text-km-faint">
-          Dernière synchro{' '}
-          <span className="font-mono text-km-muted">{compteur.date_derniere_synchro_eneo ? dateHeureFr(compteur.date_derniere_synchro_eneo) : 'jamais'}</span>
-        </span>
-        {modifiable && (
-          <button
-            type="button"
-            disabled={!synchroAutorisee}
-            onClick={() => { if (!synchroEnCours && synchroAutorisee) synchroniser() }}
-            aria-busy={synchroEnCours}
-            title={synchroAutorisee ? undefined : 'Aucun mandat KiWee actif ne couvre ce compteur : synchronisation impossible.'}
-            className={cn(
-              'flex h-[30px] items-center gap-[7px] rounded-[10px] border pl-[5px] pr-3 text-[12px] font-semibold transition-all duration-150',
-              !synchroAutorisee
-                ? 'cursor-not-allowed border-km-line bg-km-soft text-km-faint'
-                : synchroEnCours
-                  ? 'cursor-progress border-km-green bg-km-green-soft text-km-green'
-                  : 'border-km-line bg-white text-km-green hover:border-km-green hover:bg-km-green-soft',
-            )}
-          >
-            <span className={cn('flex h-[22px] w-[22px] items-center justify-center rounded-[7px]', synchroAutorisee ? 'bg-km-green-soft' : 'bg-white', synchroEnCours && 'animate-[spin_.8s_linear_infinite]')}>
-              <RefreshCw className="h-[13px] w-[13px]" strokeWidth={2.2} />
-            </span>
-            {synchroEnCours ? 'Synchronisation…' : `Synchroniser ${estElec ? 'Enedis' : 'GRDF'}`}
-          </button>
-        )}
       </div>
       <div className="flex px-1.5 pb-4 pt-3">
         {champs.map((c) => (
@@ -349,6 +425,42 @@ export function BlocCaracteristiques({
         ))}
       </div>
     </Carte>
+  )
+}
+
+/**
+ * ══ LA SYNCHRONISATION VIT AVEC LES CONSOMMATIONS ══
+ * William, 01/10/2026 : « le bouton de synchronisation GRDF et ENEDIS doit être présent dans le
+ * bloc des consommations, pas des caractéristiques techniques ». C'est là qu'on voit ce qu'elle
+ * rapporte. Grisé sans mandat KiWee actif et valide — la règle du serveur (`couvertureMandat.ts`).
+ */
+function BoutonSynchro({ estElec, synchroniser, synchroEnCours, synchroAutorisee }: {
+  estElec: boolean
+  synchroniser: () => void
+  synchroEnCours: boolean
+  synchroAutorisee: boolean
+}) {
+  return (
+    <button
+      type="button"
+      disabled={!synchroAutorisee}
+      onClick={() => { if (!synchroEnCours && synchroAutorisee) synchroniser() }}
+      aria-busy={synchroEnCours}
+      title={synchroAutorisee ? undefined : 'Aucun mandat KiWee actif ne couvre ce compteur : synchronisation impossible.'}
+      className={cn(
+        'flex h-[30px] items-center gap-[7px] rounded-[10px] border pl-[5px] pr-3 text-[12px] font-semibold transition-all duration-150',
+        !synchroAutorisee
+          ? 'cursor-not-allowed border-km-line bg-km-soft text-km-faint'
+          : synchroEnCours
+            ? 'cursor-progress border-km-green bg-km-green-soft text-km-green'
+            : 'border-km-line bg-white text-km-green hover:border-km-green hover:bg-km-green-soft',
+      )}
+    >
+      <span className={cn('flex h-[22px] w-[22px] items-center justify-center rounded-[7px]', synchroAutorisee ? 'bg-km-green-soft' : 'bg-white', synchroEnCours && 'animate-[spin_.8s_linear_infinite]')}>
+        <RefreshCw className="h-[13px] w-[13px]" strokeWidth={2.2} />
+      </span>
+      {synchroEnCours ? 'Synchronisation…' : `Synchroniser ${estElec ? 'Enedis' : 'GRDF'}`}
+    </button>
   )
 }
 
@@ -400,7 +512,23 @@ function CelluleTechnique({ champ: c, modifiable, onToast }: { champ: Champ; mod
       className={cn('relative px-3 py-1', c.bordure && 'border-l border-km-line-soft')}
       style={{ flex: c.flex, minWidth: c.min }}
     >
-      <div className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">{c.intitule}</div>
+      {/* LE FOND TEINTÉ DE L'ALERTE, posé sous la cellule sans en changer la place : la rangée garde
+          son alignement, seule la cellule à corriger se colore. */}
+      {c.alerte && (
+        <span
+          aria-hidden="true"
+          className={cn('pointer-events-none absolute inset-x-1 -inset-y-1 rounded-[10px] border', c.alerte.niveau === 'retard' ? 'border-km-red/25 bg-km-red-soft/70' : 'border-km-amber/25 bg-km-amber-soft/70')}
+        />
+      )}
+      <div className="relative flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">
+        {c.intitule}
+        {c.alerte && (
+          <span className={cn('flex items-center gap-1 rounded-full px-1.5 py-px text-[9.5px] font-bold normal-case tracking-normal', c.alerte.niveau === 'retard' ? 'bg-km-red text-white' : 'bg-km-amber text-white')}>
+            <span className="h-1 w-1 animate-pulse rounded-full bg-white" aria-hidden="true" />
+            {c.alerte.texte}
+          </span>
+        )}
+      </div>
       {edition ? (
         <input
           autoFocus
@@ -421,12 +549,12 @@ function CelluleTechnique({ champ: c, modifiable, onToast }: { champ: Champ; mod
           title={modifiable ? 'Cliquer pour modifier' : undefined}
           onClick={commencer}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commencer() } }}
-          className={cn('mt-[5px] flex items-baseline gap-1 whitespace-nowrap', modifiable && 'cursor-pointer', enCours && 'opacity-60')}
+          className={cn('relative mt-[5px] flex items-baseline gap-1 whitespace-nowrap', modifiable && 'cursor-pointer', enCours && 'opacity-60')}
         >
           <span
             className={cn(
               'inline-block max-w-full overflow-hidden text-ellipsis border-b border-dashed border-transparent font-mono font-bold tracking-[-.01em]',
-              affichee ? 'text-km-text' : 'text-km-faint',
+              affichee ? (c.alerte?.niveau === 'retard' ? 'text-km-red' : 'text-km-text') : (c.alerte ? 'text-km-amber' : 'text-km-faint'),
               modifiable && 'hover:border-km-green',
             )}
             style={{ fontSize: c.taille }}
@@ -527,7 +655,9 @@ export function BlocPostes({ compteur }: { compteur: Compteur }) {
 const MOIS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc']
 
 /**
- * Douze mois glissants, jusqu'au mois courant.
+ * Douze mois. EN GAZ, ils glissent avec le calendrier jusqu'au mois courant ; EN ÉLECTRICITÉ, ils
+ * finissent au mois de la dernière relève synchronisée et ne bougent qu'à la synchronisation
+ * suivante (William, 01/10/2026).
  *
  * ÉLECTRICITÉ : les consommations mesurées, une ligne par période de relève (22/08 → 21/09 chez
  * Enedis, pas du 1er au 1er). Une ligne compte si elle fait entre 25 et 35 jours ; elle est rangée
@@ -539,18 +669,33 @@ const MOIS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 's
  * chaque mois. » Chaque mois vaut donc CAR × part du profil (`lib/profilsGaz.ts`), et la pastille
  * dit « Estimé · profil P016 ». Sans CAR ou sans profil, rien n'est dessiné.
  */
-export function BlocConsommation({ compteur, consommations }: { compteur: Compteur; consommations: Consommation[] }) {
+export function BlocConsommation({ compteur, consommations, modifiable, synchroniser, synchroEnCours, synchroAutorisee }: {
+  compteur: Compteur
+  consommations: Consommation[]
+  modifiable: boolean
+  synchroniser: () => void
+  synchroEnCours: boolean
+  /** Un mandat KiWee actif et valide couvre-t-il ce compteur ? Sinon, le bouton ne part pas. */
+  synchroAutorisee: boolean
+}) {
   const estElec = compteur.type_energie === 'electricite'
   const t = teintesEnergie(estElec)
 
   const { barres, types } = useMemo(() => {
-    const maintenant = new Date()
-    const cles: string[] = []
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1)
-      cles.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    /* Douze mois finissant au mois `fin` (« AAAA-MM »), du plus ancien au plus récent. */
+    const douzeMoisJusqua = (annee: number, mois0: number) => {
+      const sortie: string[] = []
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(annee, mois0 - i, 1)
+        sortie.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+      }
+      return sortie
     }
+    const maintenant = new Date()
+
     if (!estElec) {
+      /* GAZ : la fenêtre glisse d'elle-même avec le calendrier — le profil donne chaque mois. */
+      const cles = douzeMoisJusqua(maintenant.getFullYear(), maintenant.getMonth())
       const car = compteur.car_mwh
       const estimees = cles.map((cle) => {
         const mois = Number(cle.slice(5, 7)) - 1
@@ -559,6 +704,24 @@ export function BlocConsommation({ compteur, consommations }: { compteur: Compte
       })
       return { barres: estimees, types: new Set(estimees.some((b) => b.valeur != null) ? ['PROFIL'] : []) }
     }
+    /* ══ ÉLECTRICITÉ : LA FENÊTRE EST CELLE DE LA DERNIÈRE SYNCHRONISATION ══
+       William, 01/10/2026 : « en électricité, les 12 derniers mois ne doivent s'actualiser que
+       lorsque, depuis la synchro, de nouveaux mois sont disponibles. C'est différent du gaz, où le
+       passage à un nouveau mois est automatique. » La fenêtre ne suit donc plus le calendrier : elle
+       finit au mois de la dernière relève enregistrée, et ne bouge qu'à la synchronisation suivante.
+       Sans quoi, chaque 1er du mois, la plus ancienne relève disparaissait et un mois vide
+       apparaissait à droite — sans qu'aucune donnée n'ait changé. */
+    const milieu = (c: Consommation) => {
+      const debut = Date.parse(`${c.date_debut_periode.slice(0, 10)}T00:00:00Z`)
+      const fin = Date.parse(`${c.date_fin_periode.slice(0, 10)}T00:00:00Z`)
+      const jours = (fin - debut) / 86_400_000
+      return jours >= 25 && jours <= 35 ? new Date(debut + (jours / 2) * 86_400_000).toISOString().slice(0, 7) : null
+    }
+    const derniere = consommations.map(milieu).filter((m): m is string => Boolean(m)).sort().pop()
+    const cles = derniere
+      ? douzeMoisJusqua(Number(derniere.slice(0, 4)), Number(derniere.slice(5, 7)) - 1)
+      : douzeMoisJusqua(maintenant.getFullYear(), maintenant.getMonth())
+
     const parMois = new Map<string, { mwh: number; debut: string; fin: string; nb: number; type: string }>()
     for (const c of consommations) {
       const debut = Date.parse(`${c.date_debut_periode.slice(0, 10)}T00:00:00Z`)
@@ -596,11 +759,20 @@ export function BlocConsommation({ compteur, consommations }: { compteur: Compte
 
   return (
     <Carte className="px-[18px] py-4">
+      {/* L'EN-TÊTE PORTE LA SYNCHRONISATION : ce que dit le graphique (la source), quand il a été
+          nourri pour la dernière fois, et le geste qui le nourrit — dans cet ordre de lecture. */}
       <div className="mb-2.5 flex items-center gap-2">
         <Sourcil>Consommation · 12 derniers mois</Sourcil>
-        <span className="flex-1" />
         {source && (
           <span className="rounded-[6px] px-2 py-0.5 text-[10px] font-bold" style={{ color: t.acc, background: t.doux }}>{source}</span>
+        )}
+        <span className="flex-1" />
+        <span className="text-[11px] text-km-faint">
+          Dernière synchro{' '}
+          <span className="font-mono text-km-muted">{compteur.date_derniere_synchro_eneo ? dateHeureFr(compteur.date_derniere_synchro_eneo) : 'jamais'}</span>
+        </span>
+        {modifiable && (
+          <BoutonSynchro estElec={estElec} synchroniser={synchroniser} synchroEnCours={synchroEnCours} synchroAutorisee={synchroAutorisee} />
         )}
       </div>
       <div className="flex h-[170px] items-stretch gap-1.5">

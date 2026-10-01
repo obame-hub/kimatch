@@ -959,4 +959,7 @@ body[data-modales-ouvertes] .pastille-flottante {
 .carte-lieu .leaflet-container:focus-visible { outline: 2px solid rgb(var(--km-green)); outline-offset: -2px; }
 /* Tailwind borne toutes les images (`max-width:100%; height:auto`) : sur les tuiles de Leaflet, ça
    laisse un filet blanc entre deux rangées. On rend aux tuiles leur taille exacte. */
-.carte-lieu .leaflet-container img.leaflet-tile { max-width: none !important; max-height: none !important; width: 256px; height: 256px; }
+/* LE FILET ENTRE DEUX RANGÉES DE TUILES. Leaflet 1.9 fond ses tuiles en `plus-lighter` pour masquer
+   les jointures : sur le fond clair du plan Esri, la jointure s'éclaircit au contraire en trait
+   blanc. On revient au mélange normal, avec un demi-pixel de recouvrement pour fermer la jointure. */
+.carte-lieu .leaflet-container img.leaflet-tile { max-width: none !important; max-height: none !important; width: 256.5px !important; height: 256.5px !important; mix-blend-mode: normal !important; }

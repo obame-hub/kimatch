@@ -493,3 +493,50 @@ export function BlocContratEnCours({ contrat, echeance, compteur, modifiable, on
     </Carte>
   )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// BLOC PROVISOIRE · CE QUI EST DÉCLARÉ SANS CONTRAT
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * ══ LA SITUATION DÉCLARÉE — bloc provisoire, 01/10/2026 ══
+ *
+ * William : « a-t-on en base des informations sur l'échéance et sur le fournisseur en place ? Dans
+ * ce cas, positionne un bloc temporaire pour que je puisse visualiser ces infos. » Sans contrat en
+ * cours, la carte « Contrat en cours » ne s'affiche plus (elle inventait un « Fournisseur inconnu ») ;
+ * ce que porte le compteur lui-même — `compteurs.date_echeance` et `fournisseur_actuel_*` — se lit
+ * ici, présenté pour ce qu'il est : une déclaration, pas un contrat.
+ */
+export function BlocSituationDeclaree({ compteur }: { compteur: Compteur }) {
+  const echeance = compteur.date_echeance?.slice(0, 10) ?? null
+  const fournisseur = compteur.fournisseur_actuel_nom ?? null
+  const jours = joursJusqua(echeance)
+  return (
+    <Carte className="flex flex-col gap-3 px-[18px] py-4">
+      <div className="flex items-center gap-2">
+        <Sourcil>Situation déclarée</Sourcil>
+        <span className="flex-1" />
+        <span className="rounded-full bg-km-soft px-2 py-[2px] text-[10px] font-bold text-km-muted">Provisoire</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <LogoFournisseur nom={fournisseur} taille={42} rayon={12} part={74} />
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">Fournisseur en place</div>
+          <div className={cn('truncate text-[15px] font-bold', !fournisseur && 'font-semibold text-km-faint')}>{fournisseur ?? 'Non renseigné'}</div>
+        </div>
+      </div>
+      <div className="flex items-baseline justify-between">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">Échéance déclarée</div>
+          <div className={cn('font-mono text-[15px] font-bold', !echeance && 'text-km-faint')}>{echeance ? dateFr(echeance) : 'Non renseignée'}</div>
+        </div>
+        {jours != null && (
+          <span className={cn('font-mono text-[22px] font-bold tracking-[-.02em]', jours < 0 ? 'text-km-red' : 'text-km-amber')}>{libelleJours(jours)}</span>
+        )}
+      </div>
+      <div className="text-[11.5px] leading-[1.45] text-km-muted">
+        Déclaré sur le compteur, sans contrat rattaché : à confirmer sur facture.
+      </div>
+    </Carte>
+  )
+}
