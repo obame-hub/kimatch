@@ -25,8 +25,11 @@ import { useConsommationsDuCompteur } from '@/lib/data/consommations'
 import { useSite } from '@/lib/data/sites'
 import { useCompte } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
-import { useContrats, useUpdateContratPartiel } from '@/lib/data/contrats'
-import { natureEcheance } from '@/lib/echeance'
+import { useContrats } from '@/lib/data/contrats'
+import { echeanceDuCompteur } from '@/lib/echeance'
+import { useContratsProspects, useSupprimerContratProspect } from '@/lib/data/contratsProspects'
+import { ConfirmerSuppression, ParcoursEcheance } from '@/components/compteur/ParcoursEcheance'
+import type { ContratProspect } from '@/types/domain'
 import { statutVieContrat } from '@/lib/statutVieContrat'
 import { useMandats } from '@/lib/data/mandats'
 import { useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
@@ -106,7 +109,18 @@ export default function CompteurDetail() {
     [mandats, compteur],
   )
   const documentsDuCompteur = useMemo(() => documents?.filter((d) => d.entite_type === 'compteur' && d.entite_id === id) ?? [], [documents, id])
-  const echeance = useMemo(() => natureEcheance(compteur?.date_echeance, contratsDuCompteur), [compteur?.date_echeance, contratsDuCompteur])
+  /* LES CONTRATS PROSPECTS (01/10/2026) : ils entrent dans l'échéance et dans la frise, et nulle
+     part ailleurs. Sans eux, `echeanceDuCompteur` rend exactement la règle d'avant. */
+  const { data: prospects } = useContratsProspects(id)
+  const prospectsDuCompteur = useMemo(() => prospects ?? [], [prospects])
+  const echeance = useMemo(
+    () => echeanceDuCompteur(compteur?.date_echeance, contratsDuCompteur, prospectsDuCompteur),
+    [compteur?.date_echeance, contratsDuCompteur, prospectsDuCompteur],
+  )
+  /* « Éditer l'échéance » : `undefined` fermé, `null` ouvert sur le choix, un contrat pour le corriger. */
+  const [parcoursEcheance, setParcoursEcheance] = useState<ContratProspect | null | undefined>(undefined)
+  const [prospectASupprimer, setProspectASupprimer] = useState<ContratProspect | null>(null)
+  const supprimerProspect = useSupprimerContratProspect()
   const aujourdhui = new Date().toISOString().slice(0, 10)
   const contratEnCours = useMemo(
     () => contratsDuCompteur.find((c) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation) === 'EN_COURS') ?? null,
@@ -130,7 +144,6 @@ export default function CompteurDetail() {
 
   const majChampCompteur = useUpdateCompteurField()
   const majTechnique = useMajTechniqueCompteur()
-  const majContrat = useUpdateContratPartiel()
   const televerser = useTeleverserDocuments()
 
   async function majCompteur(patch: Record<string, unknown>) {
@@ -293,7 +306,7 @@ export default function CompteurDetail() {
                 compteur={compteur}
                 echeance={echeance}
                 modifiable={canManage}
-                enregistrerCompteur={majCompteur}
+                onEditerEcheance={() => setParcoursEcheance(null)}
                 enregistrerTechnique={majTech}
                 commitNumero={commitNumeroPdl}
                 onToast={showToast}
@@ -327,28 +340,27 @@ export default function CompteurDetail() {
                 contrat={contratEnCours}
                 echeance={echeance}
                 compteur={compteur}
-                modifiable={canManage}
-                onNature={async (nature) => {
-                  if (!contratEnCours) return
-                  try {
-                    await majContrat.mutateAsync({ id: contratEnCours.id, patch: { nature_contrat: nature } })
-                    showToast('✓ enregistré')
-                  } catch (e) {
-                    showToast(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-                  }
-                }}
                 onVoirContrats={() => setOnglet('contrats')}
               />
               )}
-              {/* BLOC PROVISOIRE (01/10/2026) : sans contrat en cours, ce que le compteur déclare. */}
-              {!contratEnCours && (compteur.date_echeance || compteur.fournisseur_actuel_nom) && (
-                <BlocSituationDeclaree compteur={compteur} />
-              )}
+              {/* BLOC PROVISOIRE, TOUJOURS AFFICHÉ — William, 01/10/2026 : « je ne veux aucune perte de
+                  data donc déjà dans le bloc temporaire, je veux que tu continues à afficher les
+                  champs actuels "Échéance", "Échéance déclarée" et "Fournisseur en place". » */}
+              <BlocSituationDeclaree compteur={compteur} echeance={echeance} />
             </div>
           </div>
         )}
 
-        {onglet === 'contrats' && <OngletContratsDuCompteur compteur={compteur} contrats={contratsDuCompteur} />}
+        {onglet === 'contrats' && (
+          <OngletContratsDuCompteur
+            compteur={compteur}
+            contrats={contratsDuCompteur}
+            prospects={prospectsDuCompteur}
+            modifiable={canManage}
+            onEditerEcheance={(p) => setParcoursEcheance(p)}
+            onSupprimerProspect={setProspectASupprimer}
+          />
+        )}
 
         {onglet === 'recos' && (
           <OngletRecosDuCompteur
@@ -388,6 +400,32 @@ export default function CompteurDetail() {
         )}
       </div>
 
+      {parcoursEcheance !== undefined && (
+        <ParcoursEcheance
+          compteur={compteur}
+          contratsClients={contratsDuCompteur}
+          prospects={prospectsDuCompteur}
+          initial={parcoursEcheance}
+          onFermer={() => setParcoursEcheance(undefined)}
+          onToast={showToast}
+        />
+      )}
+      {prospectASupprimer && (
+        <ConfirmerSuppression
+          prospect={prospectASupprimer}
+          enCours={supprimerProspect.isPending}
+          onAnnuler={() => setProspectASupprimer(null)}
+          onConfirmer={async () => {
+            try {
+              await supprimerProspect.mutateAsync({ id: prospectASupprimer.id, compteur_id: compteur.id })
+              showToast('✓ Contrat prospect supprimé')
+            } catch (e) {
+              showToast(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+            }
+            setProspectASupprimer(null)
+          }}
+        />
+      )}
       {lancerReco && (
         <CreateRecommandationDialog
           open
@@ -466,9 +504,9 @@ function BarreOnglets({ courant, onChoisir, nbContrats, nbFichiers, compteur }: 
   )
 }
 
-function OngletContratsDuCompteur({ compteur, contrats }: { compteur: NonNullable<ReturnType<typeof useCompteur>['data']>; contrats: Parameters<typeof OngletContrats>[0]['contrats'] }) {
+function OngletContratsDuCompteur({ compteur, ...reste }: Omit<Parameters<typeof OngletContrats>[0], 'recoOuverte'>) {
   const { ouvertes } = useRecommandationsDuCompteur(compteur)
-  return <OngletContrats compteur={compteur} contrats={contrats} recoOuverte={ouvertes[0] ?? null} />
+  return <OngletContrats compteur={compteur} {...reste} recoOuverte={ouvertes[0] ?? null} />
 }
 
 function OngletRecosDuCompteur({ compteur, contratEnCours, echeance, onLancer }: {
@@ -484,7 +522,6 @@ function OngletRecosDuCompteur({ compteur, contratEnCours, echeance, onLancer }:
       passees={passees}
       contratEnCours={contratEnCours}
       echeance={echeance}
-      contratProspect={contratEnCours?.nature_contrat === 'PROSPECT'}
       onLancer={onLancer}
       opportunites={<OpportunitesDuCompteur compteurId={compteur.id} />}
     />

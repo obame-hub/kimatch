@@ -11,7 +11,7 @@ import { useCreerUnContact } from '@/lib/creationContact'
 import { contactsPourLaFente } from '@/lib/contactRoles'
 import { estConsommateur, type Compte, type Compteur, type Contact, type Contrat } from '@/types/domain'
 import { logoFournisseur, initialesFournisseur } from '@/lib/logosFournisseurs'
-import type { EcheanceCompteur } from '@/lib/echeance'
+import type { EcheanceCompteur, EcheanceDuCompteur } from '@/lib/echeance'
 import { cn } from '@/lib/utils'
 import {
   Carte, MENU_FLOTTANT, Sourcil, dateFr, initiales, joursJusqua, libelleJours, useMenu,
@@ -343,20 +343,16 @@ export function LogoFournisseur({ nom, taille, rayon, part, bordure = true }: {
   )
 }
 
-const NATURE = {
-  CLIENT: { libelle: 'Contrat client', fg: '#0D7A5F', bg: '#E7F4EF' },
-  PROSPECT: { libelle: 'Contrat prospect', fg: '#A06B19', bg: '#FFF3D8' },
-} as const
-
-export function BlocContratEnCours({ contrat, echeance, compteur, modifiable, onNature, onVoirContrats }: {
+/* ══ PLUS D'ÉTIQUETTE « CLIENT / PROSPECT » — William, 01/10/2026 ══
+   Elle se posait à la main sur un contrat de la table `contrats` : un contrat KiWee pouvait ainsi
+   être marqué « prospect » par erreur. Les contrats signés sans nous ont désormais leur propre table
+   (`contrats_prospects`, « Éditer l'échéance ») ; tout contrat affiché ici est signé par KiWee. */
+export function BlocContratEnCours({ contrat, echeance, compteur, onVoirContrats }: {
   contrat: Contrat | null
   echeance: EcheanceCompteur
   compteur: Compteur
-  modifiable: boolean
-  onNature: (n: 'CLIENT' | 'PROSPECT' | null) => Promise<void>
   onVoirContrats: () => void
 }) {
-  const menu = useMenu()
   const debut = contrat?.date_debut?.slice(0, 10) ?? null
   const fin = contrat?.date_fin?.slice(0, 10) ?? echeance.date
   const fournisseur = contrat?.fournisseur_nom || compteur.fournisseur_actuel_nom || null
@@ -371,78 +367,20 @@ export function BlocContratEnCours({ contrat, echeance, compteur, modifiable, on
     )
   }
 
-  const nature = contrat?.nature_contrat ? NATURE[contrat.nature_contrat] : null
-  const estClient = contrat?.nature_contrat === 'CLIENT'
   const jours = joursJusqua(fin)
   const total = debut && fin ? new Date(fin).getTime() - new Date(debut).getTime() : 0
   const ecoule = debut ? Date.now() - new Date(debut).getTime() : 0
   const part = total > 0 ? Math.max(0, Math.min(100, (ecoule / total) * 100)) : 0
-  const typeContrat = contrat?.nature_contrat === 'PROSPECT'
-    ? 'Conditions non connues'
-    : [contrat?.type_prix, contrat?.duree_mois ? `${contrat.duree_mois} mois` : null].filter(Boolean).join(' · ') || null
+  const typeContrat = [contrat?.type_prix, contrat?.duree_mois ? `${contrat.duree_mois} mois` : null].filter(Boolean).join(' · ') || null
   const prouvee = echeance.nature === 'PROUVEE'
 
   return (
     <Carte className="flex flex-col gap-3 px-[18px] py-4">
-      <div className="flex items-center gap-2">
-        <Sourcil>Contrat en cours</Sourcil>
-        <span className="flex-1" />
-        {contrat && (
-          <div ref={menu.ref} className="relative">
-            {nature ? (
-              <button
-                type="button"
-                disabled={!modifiable}
-                onClick={menu.basculer}
-                title={modifiable ? 'Changer la nature du contrat' : undefined}
-                className="flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[10.5px] font-bold"
-                style={{ color: nature.fg, background: nature.bg }}
-              >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: nature.fg }} />
-                {nature.libelle}
-              </button>
-            ) : modifiable ? (
-              <button
-                type="button"
-                onClick={menu.basculer}
-                className="rounded-full border border-dashed border-[#C9D0CB] px-2.5 py-[2px] text-[10.5px] font-semibold text-km-faint hover:border-km-green hover:text-km-green"
-              >
-                Client ou prospect ?
-              </button>
-            ) : null}
-            {menu.ouvert && (
-              <div className={cn(MENU_FLOTTANT, 'absolute right-0 top-[calc(100%+4px)] w-[220px]')}>
-                {(['CLIENT', 'PROSPECT'] as const).map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => { menu.setOuvert(false); void onNature(n) }}
-                    className="flex w-full items-center justify-between gap-2 rounded-[8px] px-2.5 py-[7px] text-left text-[12.5px] font-semibold text-km-text hover:bg-km-soft"
-                  >
-                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full" style={{ background: NATURE[n].fg }} />{NATURE[n].libelle}</span>
-                    {contrat.nature_contrat === n && <span className="text-km-green">✓</span>}
-                  </button>
-                ))}
-                {contrat.nature_contrat && (
-                  <button
-                    type="button"
-                    onClick={() => { menu.setOuvert(false); void onNature(null) }}
-                    className="mt-0.5 block w-full rounded-b-[8px] border-t border-km-line-soft px-2.5 py-[7px] text-left text-[12px] text-km-muted hover:bg-km-soft"
-                  >
-                    Non renseigné
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <Sourcil>Contrat en cours</Sourcil>
 
-      {nature && (
+      {contrat && (
         <div className="-mt-1 text-[11.5px] leading-[1.45] text-km-muted">
-          {estClient
-            ? `Signé par KiWee${contrat?.recommandation_date ? ` · issu de la recommandation du ${dateFr(contrat.recommandation_date.slice(0, 10))}` : ''}`
-            : 'Non signé par KiWee · conditions déclarées par le client, à vérifier sur facture'}
+          {`Signé par KiWee${contrat.recommandation_date ? ` · issu de la recommandation du ${dateFr(contrat.recommandation_date.slice(0, 10))}` : ''}`}
         </div>
       )}
 
@@ -495,22 +433,31 @@ export function BlocContratEnCours({ contrat, echeance, compteur, modifiable, on
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
-// BLOC PROVISOIRE · CE QUI EST DÉCLARÉ SANS CONTRAT
+// BLOC PROVISOIRE · LES TROIS CHAMPS D’AVANT
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 
 /**
- * ══ LA SITUATION DÉCLARÉE — bloc provisoire, 01/10/2026 ══
+ * ══ LE BLOC PROVISOIRE : LES TROIS CHAMPS D'AVANT, CÔTE À CÔTE ══
  *
- * William : « a-t-on en base des informations sur l'échéance et sur le fournisseur en place ? Dans
- * ce cas, positionne un bloc temporaire pour que je puisse visualiser ces infos. » Sans contrat en
- * cours, la carte « Contrat en cours » ne s'affiche plus (elle inventait un « Fournisseur inconnu ») ;
- * ce que porte le compteur lui-même — `compteurs.date_echeance` et `fournisseur_actuel_*` — se lit
- * ici, présenté pour ce qu'il est : une déclaration, pas un contrat.
+ * William, 01/10/2026 : « je ne veux aucune perte de data donc déjà dans le bloc temporaire, je veux
+ * que tu continues à afficher les champs actuels "Échéance", "Échéance déclarée" et "Fournisseur en
+ * place". » Le temps de valider les contrats prospects, on lit côte à côte :
+ *
+ *   · l'Échéance — celle que la fiche retient, contrats prospects compris (`echeanceDuCompteur`) ;
+ *   · l'Échéance déclarée — `compteurs.date_echeance`, telle qu'elle est en base, jamais réécrite ;
+ *   · le Fournisseur en place — `compteurs.fournisseur_actuel_*`, idem.
+ *
+ * Toujours affiché, contrat ou pas : c'est précisément quand les deux échéances diffèrent qu'il sert.
  */
-export function BlocSituationDeclaree({ compteur }: { compteur: Compteur }) {
-  const echeance = compteur.date_echeance?.slice(0, 10) ?? null
+export function BlocSituationDeclaree({ compteur, echeance }: { compteur: Compteur; echeance: EcheanceDuCompteur }) {
+  const declaree = compteur.date_echeance?.slice(0, 10) ?? null
   const fournisseur = compteur.fournisseur_actuel_nom ?? null
-  const jours = joursJusqua(echeance)
+  const retenue = echeance.date?.slice(0, 10) ?? null
+  const jours = joursJusqua(retenue)
+  const source = echeance.source === 'CONTRAT_PROSPECT'
+    ? 'Contrat prospect'
+    : echeance.nature === 'PROUVEE' ? 'Contrat client' : echeance.nature === 'ESTIMEE' ? 'Échéance déclarée' : null
+  const differe = Boolean(retenue && declaree && retenue !== declaree)
   return (
     <Carte className="flex flex-col gap-3 px-[18px] py-4">
       <div className="flex items-center gap-2">
@@ -518,24 +465,35 @@ export function BlocSituationDeclaree({ compteur }: { compteur: Compteur }) {
         <span className="flex-1" />
         <span className="rounded-full bg-km-soft px-2 py-[2px] text-[10px] font-bold text-km-muted">Provisoire</span>
       </div>
-      <div className="flex items-center gap-3">
-        <LogoFournisseur nom={fournisseur} taille={42} rayon={12} part={74} />
+      <div className="flex items-baseline justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">Fournisseur en place</div>
-          <div className={cn('truncate text-[15px] font-bold', !fournisseur && 'font-semibold text-km-faint')}>{fournisseur ?? 'Non renseigné'}</div>
-        </div>
-      </div>
-      <div className="flex items-baseline justify-between">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">Échéance déclarée</div>
-          <div className={cn('font-mono text-[15px] font-bold', !echeance && 'text-km-faint')}>{echeance ? dateFr(echeance) : 'Non renseignée'}</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">Échéance</div>
+          <div className={cn('font-mono text-[15px] font-bold', !retenue && 'text-km-faint')}>
+            {retenue ? dateFr(retenue) : echeance.indeterminee ? 'Indéterminée' : 'Non renseignée'}
+          </div>
+          {source && <div className="text-[11px] text-km-muted">{source}</div>}
         </div>
         {jours != null && (
           <span className={cn('font-mono text-[22px] font-bold tracking-[-.02em]', jours < 0 ? 'text-km-red' : 'text-km-amber')}>{libelleJours(jours)}</span>
         )}
       </div>
+      <div className="h-px bg-km-line-soft" />
+      <div>
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">
+          Échéance déclarée
+          {differe && <span className="rounded-full bg-km-amber-soft px-1.5 py-px text-[9.5px] font-bold normal-case tracking-normal text-km-amber">diffère</span>}
+        </div>
+        <div className={cn('font-mono text-[15px] font-bold', !declaree && 'text-km-faint')}>{declaree ? dateFr(declaree) : 'Non renseignée'}</div>
+      </div>
+      <div className="flex items-center gap-3">
+        <LogoFournisseur nom={fournisseur} taille={36} rayon={10} part={74} />
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">Fournisseur en place</div>
+          <div className={cn('truncate text-[14px] font-bold', !fournisseur && 'font-semibold text-km-faint')}>{fournisseur ?? 'Non renseigné'}</div>
+        </div>
+      </div>
       <div className="text-[11.5px] leading-[1.45] text-km-muted">
-        Déclaré sur le compteur, sans contrat rattaché : à confirmer sur facture.
+        Les deux derniers champs sont ceux du compteur, tels qu’en base. L’échéance se modifie désormais par « Éditer l’échéance ».
       </div>
     </Carte>
   )

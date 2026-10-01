@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
-import { MapPin, RefreshCw, Tag, Zap } from 'lucide-react'
+import { CalendarClock, MapPin, RefreshCw, Tag, Zap } from 'lucide-react'
 import { CarteLieu } from '@/components/ui/carte-lieu'
 import { useQuery } from '@tanstack/react-query'
 import { geocoderPrecis, searchAddressBAN, type BanAddress } from '@/lib/banAddress'
 import { partMensuelleCar } from '@/lib/profilsGaz'
 import { departementFromCodePostal } from '@/lib/departements'
 import { cn } from '@/lib/utils'
-import type { EcheanceCompteur } from '@/lib/echeance'
+import type { EcheanceDuCompteur } from '@/lib/echeance'
 import type { Compteur, Consommation } from '@/types/domain'
 import {
   Carte, ListeValeurs, MENU_FLOTTANT, Sourcil, ValeurEditable, dateFr, dateHeureFr, joursJusqua, nombreFr, useFermeture,
@@ -358,15 +358,20 @@ interface Champ {
   type?: 'texte' | 'date' | 'nombre'
   /** Une donnée à corriger : l'échéance vide ou dépassée. */
   alerte?: { niveau: 'vide' | 'retard'; texte: string }
+  /** Un clic ouvre un parcours plutôt qu'une saisie sur place (l'échéance, 01/10/2026). */
+  ouvrir?: () => void
+  /** Ce qui s'affiche quand la valeur est vide mais connue comme telle (« Indéterminée »). */
+  affichageVide?: string
 }
 
 export function BlocCaracteristiques({
-  compteur, echeance, modifiable, enregistrerCompteur, enregistrerTechnique, commitNumero, onToast,
+  compteur, echeance, modifiable, enregistrerTechnique, commitNumero, onToast, onEditerEcheance,
 }: {
   compteur: Compteur
-  echeance: EcheanceCompteur
+  echeance: EcheanceDuCompteur
+  /** « Éditer l'échéance » : crée ou corrige un contrat prospect (William, 01/10/2026). */
+  onEditerEcheance: () => void
   modifiable: boolean
-  enregistrerCompteur: Enregistrer
   enregistrerTechnique: Enregistrer
   commitNumero: (v: string) => Promise<void>
   onToast: (m: string) => void
@@ -397,16 +402,20 @@ export function BlocCaracteristiques({
               await enregistrerTechnique({ car_mwh: v.trim() ? n : null })
             } },
         ]),
-    /* L'ÉCHÉANCE AFFICHÉE EST CELLE QUI FAIT FOI — la fin du contrat en cours s'il y en a un. La
-       modifier écrit la date DÉCLARÉE sur le compteur (`natureEcheance` la retient faute de contrat). */
+    /* L'ÉCHÉANCE AFFICHÉE EST CELLE QUI FAIT FOI — la fin du dernier contrat connu, client ou
+       prospect (`echeanceDuCompteur`). ELLE NE SE SAISIT PLUS SUR PLACE : William, 01/10/2026,
+       « au lieu d'éditer un champ échéance déclarée, tu vas venir créer des contrats prospects ».
+       Un clic ouvre « Éditer l'échéance » ; la date déclarée du compteur reste intacte. */
     {
       cle: 'echeance', intitule: 'Échéance', valeur: echeance.date ?? '', taille: 16, flex: '1.2 1 0', min: 130, bordure: true, type: 'date',
-      enregistrer: (v: string) => enregistrerCompteur({ date_echeance: v || null }),
+      ouvrir: onEditerEcheance,
+      affichageVide: echeance.indeterminee ? 'Indéterminée' : undefined,
       /* ══ UNE ÉCHÉANCE VIDE OU DÉPASSÉE SE VOIT — William, 01/10/2026 ══
          « Si une échéance est vide ou en retard, un indicateur visuel doit attirer l'attention du
          commercial afin qu'il corrige la data. » C'est elle qui décide quand agir : sans elle, ou
          passée, le compteur sort du radar sans bruit. */
       alerte: (() => {
+        if (echeance.indeterminee) return { niveau: 'vide' as const, texte: 'À préciser' }
         if (!echeance.date) return { niveau: 'vide' as const, texte: 'À renseigner' }
         const j = joursJusqua(echeance.date)
         return j != null && j < 0 ? { niveau: 'retard' as const, texte: `Dépassée de ${Math.abs(j)} j` } : undefined
@@ -418,10 +427,21 @@ export function BlocCaracteristiques({
     <Carte relief>
       <div className="flex items-center gap-2 px-[18px] pt-[14px]">
         <Sourcil>Caractéristiques techniques</Sourcil>
+        <span className="flex-1" />
+        {modifiable && (
+          <button
+            type="button"
+            onClick={onEditerEcheance}
+            className="flex h-[26px] items-center gap-[6px] rounded-[8px] border border-km-line bg-white px-[9px] text-[11.5px] font-semibold text-km-green transition-colors hover:border-km-green hover:bg-km-green-soft"
+          >
+            <CalendarClock className="h-[13px] w-[13px]" strokeWidth={2.2} />
+            Éditer l’échéance
+          </button>
+        )}
       </div>
       <div className="flex px-1.5 pb-4 pt-3">
         {champs.map((c) => (
-          <CelluleTechnique key={c.cle} champ={c} modifiable={modifiable && Boolean(c.enregistrer)} onToast={onToast} />
+          <CelluleTechnique key={c.cle} champ={c} modifiable={modifiable && Boolean(c.enregistrer || c.ouvrir)} onToast={onToast} />
         ))}
       </div>
     </Carte>
@@ -473,7 +493,7 @@ function CelluleTechnique({ champ: c, modifiable, onToast }: { champ: Champ; mod
   const envoye = useRef(false)
   useFermeture(ref, menu, () => setMenu(false))
 
-  const affichee = c.type === 'date' ? (c.valeur ? dateFr(c.valeur) : '') : c.valeur
+  const affichee = (c.type === 'date' ? (c.valeur ? dateFr(c.valeur) : '') : c.valeur) || c.affichageVide || ''
 
   async function ecrire(v: string) {
     if (!c.enregistrer || envoye.current) return
@@ -495,6 +515,7 @@ function CelluleTechnique({ champ: c, modifiable, onToast }: { champ: Champ; mod
 
   function commencer() {
     if (!modifiable) return
+    if (c.ouvrir) { c.ouvrir(); return }
     if (c.options) { setMenu((m) => !m); return }
     setBrouillon(c.type === 'date' ? c.valeur.slice(0, 10) : c.valeur)
     setEdition(true)
@@ -509,7 +530,7 @@ function CelluleTechnique({ champ: c, modifiable, onToast }: { champ: Champ; mod
   return (
     <div
       ref={ref}
-      className={cn('relative px-3 py-1', c.bordure && 'border-l border-km-line-soft')}
+      className={cn('relative min-w-0 px-3 py-1', c.bordure && 'border-l border-km-line-soft')}
       style={{ flex: c.flex, minWidth: c.min }}
     >
       {/* LE FOND TEINTÉ DE L'ALERTE, posé sous la cellule sans en changer la place : la rangée garde
@@ -520,12 +541,16 @@ function CelluleTechnique({ champ: c, modifiable, onToast }: { champ: Champ; mod
           className={cn('pointer-events-none absolute inset-x-1 -inset-y-1 rounded-[10px] border', c.alerte.niveau === 'retard' ? 'border-km-red/25 bg-km-red-soft/70' : 'border-km-amber/25 bg-km-amber-soft/70')}
         />
       )}
+      {/* L'ALERTE NE S'AJOUTE PAS À L'INTITULÉ — William, 01/10/2026 : la cartouche « Dépassée de
+          N j » collée à l'intitulé débordait de la cellule selon la largeur d'écran. L'intitulé ne
+          garde qu'un point qui pulse ; le texte passe sous la valeur, et se coupe plutôt que de
+          déborder quand la place manque. */}
       <div className="relative flex items-center gap-1.5 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[.05em] text-km-faint">
         {c.intitule}
         {c.alerte && (
-          <span className={cn('flex items-center gap-1 rounded-full px-1.5 py-px text-[9.5px] font-bold normal-case tracking-normal', c.alerte.niveau === 'retard' ? 'bg-km-red text-white' : 'bg-km-amber text-white')}>
-            <span className="h-1 w-1 animate-pulse rounded-full bg-white" aria-hidden="true" />
-            {c.alerte.texte}
+          <span className="relative flex h-[7px] w-[7px] shrink-0" aria-hidden="true">
+            <span className={cn('absolute inset-0 animate-ping rounded-full opacity-60', c.alerte.niveau === 'retard' ? 'bg-km-red' : 'bg-km-amber')} />
+            <span className={cn('relative h-[7px] w-[7px] rounded-full', c.alerte.niveau === 'retard' ? 'bg-km-red' : 'bg-km-amber')} />
           </span>
         )}
       </div>
@@ -546,7 +571,7 @@ function CelluleTechnique({ champ: c, modifiable, onToast }: { champ: Champ; mod
         <div
           role={modifiable ? 'button' : undefined}
           tabIndex={modifiable ? 0 : undefined}
-          title={modifiable ? 'Cliquer pour modifier' : undefined}
+          title={modifiable ? (c.ouvrir ? 'Éditer l’échéance' : 'Cliquer pour modifier') : undefined}
           onClick={commencer}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commencer() } }}
           className={cn('relative mt-[5px] flex items-baseline gap-1 whitespace-nowrap', modifiable && 'cursor-pointer', enCours && 'opacity-60')}
@@ -563,6 +588,11 @@ function CelluleTechnique({ champ: c, modifiable, onToast }: { champ: Champ; mod
           </span>
           {c.unite && affichee && <span className="text-[11px] font-semibold text-km-faint">{c.unite}</span>}
           {c.options && <span className="text-[9px] text-[#C9D0CB]">▾</span>}
+        </div>
+      )}
+      {c.alerte && !edition && (
+        <div className={cn('relative mt-[3px] truncate text-[10.5px] font-bold', c.alerte.niveau === 'retard' ? 'text-km-red' : 'text-km-amber')} title={c.alerte.texte}>
+          {c.alerte.texte}
         </div>
       )}
       {menu && c.options && <ListeValeurs options={c.options} actuelle={c.valeur} onChoisir={(v) => { if (v === c.valeur) setMenu(false); else void ecrire(v) }} />}

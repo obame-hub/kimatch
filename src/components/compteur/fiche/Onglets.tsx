@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ShieldCheck, Sparkles } from 'lucide-react'
+import { CalendarClock, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 import { FenetreApercu } from '@/components/document/FenetreApercu'
 import { useRecommandationsParCompte } from '@/lib/data/recommandations'
@@ -9,7 +9,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_VERSIONS } from '@/lib/referenceFallbacks'
 import { statutVieContrat } from '@/lib/statutVieContrat'
 import { cn } from '@/lib/utils'
-import type { Compteur, Contrat, DocumentItem, Mandat, Recommandation } from '@/types/domain'
+import type { Compteur, Contrat, ContratProspect, DocumentItem, Mandat, Recommandation } from '@/types/domain'
 import { LogoFournisseur } from '@/components/compteur/fiche/ColonneLaterale'
 import { Carte, Sourcil, dateFr, dateHeureFr, joursJusqua, libelleJours, nombreFr } from '@/components/compteur/fiche/commun'
 
@@ -49,11 +49,32 @@ function libellePrix(c: Contrat): string {
   return c.prix_molecule_eur_mwh != null ? `${nombreFr(c.prix_molecule_eur_mwh, 1)} €/MWh` : ''
 }
 
-export function OngletContrats({ compteur, contrats, recoOuverte }: {
+/** Où en est un contrat prospect : ses dates peuvent manquer, on lit ce qu'elles disent. */
+function etatProspect(p: ContratProspect, aujourdhui: string): 'EN_COURS' | 'A_VENIR' | 'TERMINE' {
+  if (p.date_fin && p.date_fin.slice(0, 10) < aujourdhui) return 'TERMINE'
+  if (p.date_debut && p.date_debut.slice(0, 10) > aujourdhui) return 'A_VENIR'
+  return 'EN_COURS'
+}
+
+const LIBELLE_ETAT = { EN_COURS: 'En cours', A_VENIR: 'À venir', TERMINE: 'Terminé', RESILIE: 'Résilié', EXPIRE: 'Terminé' } as const
+
+/* Les deux couloirs de la frise : les contrats KiWee en haut, les contrats prospects en dessous.
+   William, 01/10/2026 : « très important de les distinguer des contrats clients ». */
+const COULOIR_UNIQUE = { top: 7, height: 66 }
+const COULOIR_CLIENTS = { top: 7, height: 52 }
+const COULOIR_PROSPECTS = { top: 67, height: 52 }
+
+export function OngletContrats({ compteur, contrats, prospects, recoOuverte, modifiable, onEditerEcheance, onSupprimerProspect }: {
   compteur: Compteur
   contrats: Contrat[]
+  /** Les contrats signés sans KiWee, déclarés par le client (`contrats_prospects`). */
+  prospects: ContratProspect[]
   /** Une recommandation en cours sur ce compteur dessine « Prochain contrat » au bout de la frise. */
   recoOuverte: Recommandation | null
+  modifiable: boolean
+  /** `null` : créer ou choisir ; un contrat prospect : le corriger. */
+  onEditerEcheance: (p: ContratProspect | null) => void
+  onSupprimerProspect: (p: ContratProspect) => void
 }) {
   const aujourdhui = new Date().toISOString().slice(0, 10)
   const tries = useMemo(
@@ -62,11 +83,18 @@ export function OngletContrats({ compteur, contrats, recoOuverte }: {
   )
   const statut = (c: Contrat) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation)
   const enCours = tries.find((c) => statut(c) === 'EN_COURS') ?? null
+  const avecProspects = prospects.length > 0
 
-  /* L'AXE : du début du premier contrat moins un an, à la fin du dernier plus un an. */
-  const anneeDebut = tries.length ? Number(tries[0].date_debut!.slice(0, 4)) - 1 : new Date().getFullYear() - 2
-  const finMax = tries.reduce((m, c) => Math.max(m, Number((c.date_fin ?? c.date_debut ?? aujourdhui).slice(0, 4))), new Date().getFullYear())
-  const anneeFin = finMax + 1
+  /* L'AXE : du début du premier contrat moins un an, à la fin du dernier plus un an — contrats
+     prospects compris. Une fin Indéterminée pousse l'axe d'un an après son début. */
+  const datesConnues = [
+    ...tries.flatMap((c) => [c.date_debut, c.date_fin]),
+    ...prospects.flatMap((p) => [p.date_debut, p.date_fin]),
+  ].filter((d): d is string => !!d)
+  const annees0 = datesConnues.map((d) => Number(d.slice(0, 4)))
+  const anneeDebut = annees0.length ? Math.min(...annees0) - 1 : new Date().getFullYear() - 2
+  const indeterminees = prospects.some((p) => !p.date_fin)
+  const anneeFin = Math.max(new Date().getFullYear(), ...annees0) + (indeterminees ? 2 : 1)
   const annees = Array.from({ length: anneeFin - anneeDebut + 1 }, (_, i) => anneeDebut + i)
   const t0 = Date.UTC(anneeDebut, 0, 1)
   const t1 = Date.UTC(anneeFin, 11, 31)
@@ -81,6 +109,15 @@ export function OngletContrats({ compteur, contrats, recoOuverte }: {
     el.scrollLeft = Math.max(0, (el.scrollWidth * maintenant) / 100 - el.clientWidth * 0.7)
   }, [maintenant, tries.length])
 
+  const couloirClients = avecProspects ? COULOIR_CLIENTS : COULOIR_UNIQUE
+
+  /* LA LISTE : clients et prospects ensemble, du plus récent au plus ancien — une fin Indéterminée
+     passe devant, comme pour l'échéance. */
+  const lignes = [
+    ...tries.map((c) => ({ cle: c.date_fin ?? '9999-12-31', client: c, prospect: null as ContratProspect | null })),
+    ...prospects.map((p) => ({ cle: p.date_fin ?? '9999-12-31', client: null as Contrat | null, prospect: p })),
+  ].sort((a, b) => b.cle.localeCompare(a.cle))
+
   return (
     <div className={cn('flex flex-col gap-[14px]', ANIMATION)}>
       <Carte className="px-[18px] pb-3 pt-4">
@@ -91,46 +128,92 @@ export function OngletContrats({ compteur, contrats, recoOuverte }: {
             <span className="flex items-center gap-[5px]"><span className="h-[9px] w-4 rounded-[3px] bg-km-green" />en cours</span>
             <span className="flex items-center gap-[5px]"><span className="h-[9px] w-4 rounded-[3px] bg-[#DCE2DE]" />terminé</span>
             <span className="flex items-center gap-[5px]"><span className="h-[9px] w-4 rounded-[3px] border border-dashed border-km-green bg-km-green-soft" />à venir</span>
+            <span className="flex items-center gap-[5px]"><span className="h-[9px] w-4 rounded-[3px] border border-[#BCD0E4] bg-[#EAF1F8]" />prospect</span>
             <span className="flex items-center gap-[5px]"><span className="h-[11px] w-0.5 rounded-[1px] bg-km-red" />aujourd’hui</span>
           </span>
+          {modifiable && (
+            <button
+              type="button"
+              onClick={() => onEditerEcheance(null)}
+              className="flex h-[26px] items-center gap-[6px] rounded-[8px] border border-km-line bg-white px-[9px] text-[11.5px] font-semibold text-km-green transition-colors hover:border-km-green hover:bg-km-green-soft"
+            >
+              <CalendarClock className="h-[13px] w-[13px]" strokeWidth={2.2} />
+              Éditer l’échéance
+            </button>
+          )}
         </div>
-        <div ref={defilement} className="-mx-0.5 overflow-x-auto pb-1 pt-1.5">
-          <div className="min-w-[1500px] px-0.5">
-            <div className="relative h-20 rounded-[14px] bg-km-soft">
-              {tries.map((c) => {
-                const s = statut(c)
-                const nature = s === 'EN_COURS' ? 'cur' : s === 'A_VENIR' ? 'fut' : 'old'
-                const a = pos(c.date_debut!) + 0.4
-                const b = (c.date_fin ? pos(c.date_fin) : 100) - 0.4
-                return (
-                  <BarreFrise
-                    key={c.id}
-                    nature={nature}
-                    gauche={a}
-                    largeur={Math.max(0.8, b - a)}
-                    fournisseur={c.fournisseur_nom}
-                    libelle={`${c.fournisseur_nom || 'Fournisseur'}${c.type_prix ? ` · ${c.type_prix.toLowerCase()}` : ''}`}
-                    sous={`${libellePrix(c) ? `${libellePrix(c).replace('/MWh', '')} → ` : '→ '}${dateFr(c.date_fin)}`}
-                    titre={`${s === 'EN_COURS' ? 'En cours' : s === 'A_VENIR' ? 'À venir' : 'Terminé'} — ${c.fournisseur_nom}${c.type_prix ? ` ${c.type_prix.toLowerCase()}` : ''} · ${dateFr(c.date_debut)} → ${dateFr(c.date_fin)}`}
-                  />
-                )
-              })}
-              {recoOuverte && enCours?.date_fin && (
-                <BarreFrise
-                  nature="fut"
-                  gauche={pos(enCours.date_fin) + 0.4}
-                  largeur={Math.max(0.8, 99.4 - (pos(enCours.date_fin) + 0.4))}
-                  fournisseur={null}
-                  initialesForcees="?"
-                  libelle="Prochain contrat"
-                  sous={recoOuverte.versions[0]?.reference_appel_offres ?? recoOuverte.titre}
-                  titre="À venir — issu de la recommandation en cours"
-                />
-              )}
-              <span title="Aujourd’hui" className="absolute -bottom-1 -top-1 z-[2] w-[2.5px] rounded-[2px] bg-km-red" style={{ left: `${maintenant}%` }} />
+        <div className="flex gap-2">
+          {avecProspects && (
+            <div className="flex w-[64px] shrink-0 flex-col pt-1.5 text-[10px] font-bold uppercase tracking-[.06em] text-km-faint">
+              <span className="flex h-[60px] items-center">Clients KiWee</span>
+              <span className="flex h-[60px] items-center text-[#3F6E9C]">Prospects</span>
             </div>
-            <div className="flex justify-between px-0.5 pt-[9px] font-mono text-[10.5px] text-km-faint">
-              {annees.map((y) => <span key={y}>{y}</span>)}
+          )}
+          <div ref={defilement} className="-mx-0.5 min-w-0 flex-1 overflow-x-auto pb-1 pt-1.5">
+            <div className="min-w-[1500px] px-0.5">
+              <div className={cn('relative rounded-[14px] bg-km-soft', avecProspects ? 'h-[126px]' : 'h-20')}>
+                {avecProspects && <span className="absolute inset-x-2 top-[63px] h-px bg-km-line" aria-hidden="true" />}
+                {tries.map((c) => {
+                  const s = statut(c)
+                  const nature = s === 'EN_COURS' ? 'cur' : s === 'A_VENIR' ? 'fut' : 'old'
+                  const a = pos(c.date_debut!) + 0.4
+                  const b = (c.date_fin ? pos(c.date_fin) : 100) - 0.4
+                  return (
+                    <BarreFrise
+                      key={c.id}
+                      nature={nature}
+                      couloir={couloirClients}
+                      gauche={a}
+                      largeur={Math.max(0.8, b - a)}
+                      fournisseur={c.fournisseur_nom}
+                      libelle={`${c.fournisseur_nom || 'Fournisseur'}${c.type_prix ? ` · ${c.type_prix.toLowerCase()}` : ''}`}
+                      sous={`${libellePrix(c) ? `${libellePrix(c).replace('/MWh', '')} → ` : '→ '}${dateFr(c.date_fin)}`}
+                      titre={`${s === 'EN_COURS' ? 'En cours' : s === 'A_VENIR' ? 'À venir' : 'Terminé'} — ${c.fournisseur_nom}${c.type_prix ? ` ${c.type_prix.toLowerCase()}` : ''} · ${dateFr(c.date_debut)} → ${dateFr(c.date_fin)}`}
+                    />
+                  )
+                })}
+                {recoOuverte && enCours?.date_fin && (
+                  <BarreFrise
+                    nature="fut"
+                    couloir={couloirClients}
+                    gauche={pos(enCours.date_fin) + 0.4}
+                    largeur={Math.max(0.8, 99.4 - (pos(enCours.date_fin) + 0.4))}
+                    fournisseur={null}
+                    initialesForcees="?"
+                    libelle="Prochain contrat"
+                    sous={recoOuverte.versions[0]?.reference_appel_offres ?? recoOuverte.titre}
+                    titre="À venir — issu de la recommandation en cours"
+                  />
+                )}
+                {prospects.map((p) => {
+                  /* UNE BORNE INCONNUE SE FOND : sans début, la barre naît un an avant sa fin ; sans
+                     fin, elle file jusqu'au bout de l'axe. Le fondu dit « on ne sait pas d'où / jusqu'où ». */
+                  const debut = p.date_debut ?? (p.date_fin ? `${Number(p.date_fin.slice(0, 4)) - 1}${p.date_fin.slice(4, 10)}` : aujourdhui)
+                  const a = pos(debut) + 0.4
+                  const b = (p.date_fin ? pos(p.date_fin) : 100) - 0.4
+                  const nom = p.fournisseur_nom ?? 'Fournisseur indéterminé'
+                  return (
+                    <BarreFrise
+                      key={p.id}
+                      nature="prospect"
+                      couloir={COULOIR_PROSPECTS}
+                      fondu={!p.date_debut && !p.date_fin ? 'deux' : !p.date_debut ? 'gauche' : !p.date_fin ? 'droite' : undefined}
+                      gauche={a}
+                      largeur={Math.max(0.8, b - a)}
+                      fournisseur={p.fournisseur_nom}
+                      initialesForcees={p.fournisseur_nom ? undefined : '?'}
+                      libelle={nom}
+                      sous={`→ ${p.date_fin ? dateFr(p.date_fin) : 'Indéterminée'}`}
+                      titre={`Contrat prospect — ${nom} · ${p.date_debut ? dateFr(p.date_debut) : 'début inconnu'} → ${p.date_fin ? dateFr(p.date_fin) : 'Indéterminée'}${modifiable ? ' · cliquer pour corriger' : ''}`}
+                      onClick={modifiable ? () => onEditerEcheance(p) : undefined}
+                    />
+                  )
+                })}
+                <span title="Aujourd’hui" className="absolute -bottom-1 -top-1 z-[2] w-[2.5px] rounded-[2px] bg-km-red" style={{ left: `${maintenant}%` }} />
+              </div>
+              <div className="flex justify-between px-0.5 pt-[9px] font-mono text-[10.5px] text-km-faint">
+                {annees.map((y) => <span key={y}>{y}</span>)}
+              </div>
             </div>
           </div>
         </div>
@@ -139,19 +222,62 @@ export function OngletContrats({ compteur, contrats, recoOuverte }: {
 
       <Sourcil>Contrats couvrant ce compteur</Sourcil>
       <Carte className="overflow-hidden">
-        {tries.length === 0 && <div className="px-[18px] py-4 text-[12.5px] text-km-faint">Aucun contrat rattaché à ce compteur.</div>}
-        {[...tries].reverse().map((c) => {
-          const s = statut(c)
+        {lignes.length === 0 && <div className="px-[18px] py-4 text-[12.5px] text-km-faint">Aucun contrat rattaché à ce compteur.</div>}
+        {lignes.map(({ client: c, prospect: p }) => {
+          if (p) {
+            const etat = etatProspect(p, aujourdhui)
+            const jours = etat === 'EN_COURS' && p.date_fin ? joursJusqua(p.date_fin) : null
+            const nom = p.fournisseur_nom ?? 'Fournisseur indéterminé'
+            const [bg, fg] = teinteDe(p.fournisseur_nom || '?')
+            return (
+              <div key={p.id} className="grid grid-cols-[76px_30px_minmax(0,1fr)_170px_92px_48px_104px] items-center gap-2.5 border-b border-km-line-soft bg-[#F7FAFD] px-[18px] py-3 last:border-b-0 hover:bg-[#EEF4FA]">
+                <span className="flex flex-col items-stretch gap-[3px]">
+                  <span className="rounded-[6px] bg-[#EAF1F8] px-2 py-[2px] text-center text-[10px] font-bold text-[#3F6E9C]">Prospect</span>
+                  <span className="text-center text-[9.5px] font-semibold text-km-faint">{LIBELLE_ETAT[etat]}</span>
+                </span>
+                <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-[9px] font-bold" style={{ background: bg, color: fg }}>
+                  {initialesTuile(p.fournisseur_nom)}
+                </span>
+                <div className="min-w-0">
+                  <div className={cn('truncate text-[13px] font-semibold', !p.fournisseur_nom && 'text-km-muted')}>{nom}</div>
+                  <div className="mt-px truncate text-[11px] text-km-faint">
+                    {[p.duree_mois ? `${p.duree_mois} mois` : 'Durée indéterminée', p.cree_par_nom ? `déclaré par ${p.cree_par_nom} le ${dateFr(p.date_creation)}` : `déclaré le ${dateFr(p.date_creation)}`].join(' · ')}
+                  </div>
+                </div>
+                <span className="font-mono text-[11px] text-km-muted">{p.date_debut ? dateFr(p.date_debut) : '…'} → {p.date_fin ? dateFr(p.date_fin) : 'Indéterminée'}</span>
+                <span />
+                <span className={cn('text-right text-[11px] font-bold', jours != null && jours < 0 ? 'text-km-red' : 'text-km-amber')}>{jours != null ? libelleJours(jours) : ''}</span>
+                <span className="flex items-center justify-end gap-1.5">
+                  {modifiable && (
+                    <>
+                      <button type="button" onClick={() => onEditerEcheance(p)} className="text-[12px] font-semibold text-km-green hover:underline">Modifier</button>
+                      <button
+                        type="button"
+                        onClick={() => onSupprimerProspect(p)}
+                        aria-label="Supprimer ce contrat prospect"
+                        title="Supprimer ce contrat prospect"
+                        className="flex h-6 w-6 items-center justify-center rounded-[6px] text-km-faint transition-colors hover:bg-km-red-soft hover:text-km-red"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </span>
+              </div>
+            )
+          }
+          const k = c!
+          const s = statut(k)
           const vivant = s === 'EN_COURS'
-          const jours = vivant ? joursJusqua(c.date_fin) : null
-          const [bg, fg] = teinteDe(c.fournisseur_nom || '?')
+          const jours = vivant ? joursJusqua(k.date_fin) : null
+          const [bg, fg] = teinteDe(k.fournisseur_nom || '?')
           const detail = vivant
             ? (compteur.type_energie === 'electricite'
-              ? [c.type_prix, compteur.segment && compteur.tension ? `${compteur.segment} ${compteur.tension}` : compteur.segment].filter(Boolean).join(' · ')
-              : [c.type_prix, compteur.tarif_distribution, compteur.profil_consommation].filter(Boolean).join(' · '))
-            : [c.type_prix, c.duree_mois ? `${c.duree_mois} mois` : null].filter(Boolean).join(' · ')
+              ? [k.type_prix, compteur.segment && compteur.tension ? `${compteur.segment} ${compteur.tension}` : compteur.segment].filter(Boolean).join(' · ')
+              : [k.type_prix, compteur.tarif_distribution, compteur.profil_consommation].filter(Boolean).join(' · '))
+            : [k.type_prix, k.duree_mois ? `${k.duree_mois} mois` : null].filter(Boolean).join(' · ')
           return (
-            <div key={c.id} className="grid grid-cols-[76px_30px_minmax(0,1fr)_170px_92px_48px_58px] items-center gap-2.5 border-b border-km-line-soft px-[18px] py-3 last:border-b-0 hover:bg-km-bg">
+            <div key={k.id} className="grid grid-cols-[76px_30px_minmax(0,1fr)_170px_92px_48px_104px] items-center gap-2.5 border-b border-km-line-soft px-[18px] py-3 last:border-b-0 hover:bg-km-bg">
               <span
                 className="rounded-[6px] px-2 py-[3px] text-center text-[10px] font-bold"
                 style={vivant ? { color: '#0D7A5F', background: '#E7F4EF' } : { color: '#69716C', background: '#F3F5F2' }}
@@ -159,16 +285,16 @@ export function OngletContrats({ compteur, contrats, recoOuverte }: {
                 {s === 'EN_COURS' ? 'En cours' : s === 'A_VENIR' ? 'À venir' : s === 'RESILIE' ? 'Résilié' : 'Terminé'}
               </span>
               <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-[9px] font-bold" style={{ background: bg, color: fg }}>
-                {initialesTuile(c.fournisseur_nom)}
+                {initialesTuile(k.fournisseur_nom)}
               </span>
               <div className="min-w-0">
-                <div className="truncate text-[13px] font-semibold">{c.fournisseur_nom || 'Fournisseur inconnu'}{c.type_prix ? ` · ${c.type_prix.toLowerCase()}` : ''}</div>
+                <div className="truncate text-[13px] font-semibold">{k.fournisseur_nom || 'Fournisseur inconnu'}{k.type_prix ? ` · ${k.type_prix.toLowerCase()}` : ''}</div>
                 {detail && <div className="mt-px truncate text-[11px] text-km-faint">{detail}</div>}
               </div>
-              <span className="font-mono text-[11px] text-km-muted">{dateFr(c.date_debut)} → {dateFr(c.date_fin)}</span>
-              <span className="text-right font-mono text-[11.5px] text-km-text">{libellePrix(c)}</span>
+              <span className="font-mono text-[11px] text-km-muted">{dateFr(k.date_debut)} → {dateFr(k.date_fin)}</span>
+              <span className="text-right font-mono text-[11.5px] text-km-text">{libellePrix(k)}</span>
               <span className={cn('text-right text-[11px] font-bold', jours != null && jours < 0 ? 'text-km-red' : 'text-km-amber')}>{jours != null ? libelleJours(jours) : ''}</span>
-              <Link to={`/contrats/${c.id}`} className="text-right text-[12px] font-semibold text-km-green">Ouvrir →</Link>
+              <Link to={`/contrats/${k.id}`} className="text-right text-[12px] font-semibold text-km-green">Ouvrir →</Link>
             </div>
           )
         })}
@@ -177,8 +303,11 @@ export function OngletContrats({ compteur, contrats, recoOuverte }: {
   )
 }
 
-function BarreFrise({ nature, gauche, largeur, fournisseur, initialesForcees, libelle, sous, titre }: {
-  nature: 'cur' | 'old' | 'fut'
+function BarreFrise({ nature, couloir = COULOIR_UNIQUE, fondu, gauche, largeur, fournisseur, initialesForcees, libelle, sous, titre, onClick }: {
+  nature: 'cur' | 'old' | 'fut' | 'prospect'
+  couloir?: { top: number; height: number }
+  /** Une borne inconnue (contrat prospect) : la barre se fond de ce côté. */
+  fondu?: 'gauche' | 'droite' | 'deux'
   gauche: number
   largeur: number
   fournisseur: string | null
@@ -186,18 +315,33 @@ function BarreFrise({ nature, gauche, largeur, fournisseur, initialesForcees, li
   libelle: string
   sous: string
   titre: string
+  onClick?: () => void
 }) {
+  const masque = fondu === 'gauche'
+    ? 'linear-gradient(90deg,transparent,#000 18%)'
+    : fondu === 'droite'
+      ? 'linear-gradient(90deg,#000 70%,transparent)'
+      : fondu === 'deux' ? 'linear-gradient(90deg,transparent,#000 18%,#000 70%,transparent)' : undefined
   return (
     <span
       title={titre}
-      className="absolute bottom-[7px] top-[7px] flex items-center gap-[9px] overflow-hidden rounded-[13px] px-2.5"
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter') { e.preventDefault(); onClick() } } : undefined}
+      className={cn('absolute flex items-center gap-[9px] overflow-hidden rounded-[13px] px-2.5', onClick && 'cursor-pointer transition-[filter] hover:brightness-[.97]')}
       style={{
+        top: couloir.top,
+        height: couloir.height,
         left: `${gauche}%`,
         width: `${largeur}%`,
-        background: nature === 'cur' ? 'linear-gradient(90deg,#0D7A5F,#199B78)' : nature === 'fut' ? 'repeating-linear-gradient(135deg,#F3F5F2 0 7px,#E7F4EF 7px 14px)' : '#DCE2DE',
-        border: nature === 'fut' ? '1.5px dashed #0D7A5F' : 'none',
-        color: nature === 'cur' ? '#fff' : nature === 'fut' ? '#0D7A5F' : '#45473F',
+        background: nature === 'cur' ? 'linear-gradient(90deg,#0D7A5F,#199B78)' : nature === 'fut' ? 'repeating-linear-gradient(135deg,#F3F5F2 0 7px,#E7F4EF 7px 14px)' : nature === 'prospect' ? '#EAF1F8' : '#DCE2DE',
+        border: nature === 'fut' ? '1.5px dashed #0D7A5F' : nature === 'prospect' ? '1.5px solid #BCD0E4' : 'none',
+        color: nature === 'cur' ? '#fff' : nature === 'fut' ? '#0D7A5F' : nature === 'prospect' ? '#2F5A84' : '#45473F',
         boxShadow: nature === 'cur' ? '0 3px 10px rgba(13,122,95,.3)' : 'none',
+        maskImage: masque,
+        WebkitMaskImage: masque,
+        paddingLeft: fondu === 'gauche' || fondu === 'deux' ? 28 : undefined,
       }}
     >
       {initialesForcees
@@ -240,12 +384,11 @@ const FINALITE: Record<string, { libelle: string; fg: string; bg: string }> = {
   EXPIREE: { libelle: 'Expirée', fg: '#69716C', bg: '#F3F5F2' },
 }
 
-export function OngletRecommandations({ ouvertes, passees, contratEnCours, echeance, contratProspect, onLancer, opportunites }: {
+export function OngletRecommandations({ ouvertes, passees, contratEnCours, echeance, onLancer, opportunites }: {
   ouvertes: Recommandation[]
   passees: Recommandation[]
   contratEnCours: Contrat | null
   echeance: string | null
-  contratProspect: boolean
   onLancer: () => void
   opportunites: React.ReactNode
 }) {
@@ -276,11 +419,7 @@ export function OngletRecommandations({ ouvertes, passees, contratEnCours, echea
 
       <Sourcil>Recommandations passées</Sourcil>
       {passees.length === 0 ? (
-        <div className="text-[12.5px] text-km-faint">
-          {contratProspect
-            ? 'Aucune recommandation KiWee sur ce compteur : le contrat en cours a été signé sans nous.'
-            : 'Aucune recommandation passée sur ce compteur.'}
-        </div>
+        <div className="text-[12.5px] text-km-faint">Aucune recommandation passée sur ce compteur.</div>
       ) : (
         <Carte className="overflow-hidden">
           {passees.map((r) => {

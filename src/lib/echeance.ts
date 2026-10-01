@@ -104,3 +104,82 @@ export const SENS_NATURE_ECHEANCE: Record<NatureEcheance, string> = {
   ESTIMEE: 'Date déclarée par le client, sans contrat pour l’attester.',
   ABSENTE: 'Aucune échéance, ni prouvée ni estimée : le compteur reste à qualifier.',
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * L'ÉCHÉANCE DU COMPTEUR, CONTRATS PROSPECTS COMPRIS — William, 01/10/2026
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * « Au lieu d'éditer un champ échéance déclarée, tu vas venir créer des contrats prospects et les
+ * positionner dans la frise. » L'échéance devient la fin du DERNIER contrat connu, client ou
+ * prospect (`dernierContrat`).
+ *
+ *   · le dernier est un contrat prospect → sa fin, déclarée (nature ESTIMEE), ou « Indéterminée » ;
+ *   · sinon → la règle d'avant, inchangée (`natureEcheance`) : le contrat client en cours, à défaut
+ *     la date déclarée sur le compteur.
+ *
+ * Un compteur sans contrat prospect se lit donc exactement comme hier : rien ne bouge tant qu'un
+ * commercial n'en a pas saisi un. La date déclarée (`compteurs.date_echeance`) n'est ni effacée ni
+ * réécrite — William : « je ne veux aucune perte de data ».
+ *
+ * ⚠️ Cette règle vaut pour la FICHE. Le cockpit, les échéances à traiter et la qualité du
+ * portefeuille lisent encore `compteurs.date_echeance` en base (`v_compteurs_liste` et suivantes) :
+ * ils basculeront quand William aura validé le parcours.
+ */
+export interface EcheanceDuCompteur extends EcheanceCompteur {
+  source: 'CONTRAT_PROSPECT' | 'REGLE_CLIENT'
+  /** Le dernier contrat connu est un contrat prospect sans fin : « Indéterminée ». */
+  indeterminee: boolean
+  /** L'identifiant du contrat prospect qui donne l'échéance, quand c'en est un. */
+  prospectId: string | null
+}
+
+type DatesDeContrat = { date_debut?: string | null; date_fin: string | null; date_creation?: string | null }
+
+/**
+ * LE DERNIER CONTRAT CONNU : celui qui finit le plus tard.
+ *
+ * Une fin Indéterminée finit après tout (« il a renouvelé, on ne sait pas jusqu'à quand »), SAUF
+ * face à un contrat qui commence en même temps ou après lui : celui-là est une information plus
+ * récente qui le remplace. À égalité, le contrat saisi le plus récemment l'emporte.
+ */
+export function dernierContrat<T extends DatesDeContrat>(contrats: T[]): T | null {
+  const jour = (d: string | null | undefined) => d?.slice(0, 10) ?? null
+  const remplace = (i: T) => contrats.some((c) => c !== i && jour(c.date_fin) && jour(c.date_debut) && jour(i.date_debut) && jour(c.date_debut)! >= jour(i.date_debut)!)
+  const plusRecent = (a: T, b: T) => ((a.date_creation ?? '') >= (b.date_creation ?? '') ? a : b)
+
+  const ouverts = contrats.filter((c) => !jour(c.date_fin) && !remplace(c))
+  if (ouverts.length) return ouverts.reduce(plusRecent)
+  const fermes = contrats.filter((c) => jour(c.date_fin))
+  if (!fermes.length) return null
+  return fermes.reduce((a, b) => (jour(a.date_fin)! > jour(b.date_fin)! ? a : jour(b.date_fin)! > jour(a.date_fin)! ? b : plusRecent(a, b)))
+}
+
+export function echeanceDuCompteur(
+  dateDeclaree: string | null | undefined,
+  contratsClients: DatesDeContrat[],
+  prospects: (DatesDeContrat & { id: string })[],
+  aujourdHui: Date = new Date(),
+): EcheanceDuCompteur {
+  const regle = natureEcheance(dateDeclaree, contratsClients, aujourdHui)
+  const tous: (DatesDeContrat & { prospectId: string | null })[] = [
+    ...contratsClients.map((c) => ({ ...c, prospectId: null })),
+    ...prospects.map((p) => ({ ...p, prospectId: p.id })),
+  ]
+  const dernier = dernierContrat(tous)
+
+  if (dernier?.prospectId) {
+    const fin = dernier.date_fin?.slice(0, 10) ?? null
+    return {
+      nature: 'ESTIMEE',
+      date: fin,
+      dateDeclaree: dateDeclaree ?? null,
+      datePreuve: regle.datePreuve,
+      contredit: false,
+      source: 'CONTRAT_PROSPECT',
+      indeterminee: !fin,
+      prospectId: dernier.prospectId,
+    }
+  }
+  return { ...regle, source: 'REGLE_CLIENT', indeterminee: false, prospectId: null }
+}

@@ -846,6 +846,25 @@ export interface Interaction {
   fil_discussion?: string | null
 }
 
+/**
+ * UN CONTRAT PROSPECT — signé sans KiWee, déclaré par le client (William, 01/10/2026).
+ * Table à part (`contrats_prospects`) : il alimente la frise et l'échéance du compteur, et rien
+ * d'autre. Chaque date, le fournisseur et la durée peuvent rester inconnus (« Indéterminé »).
+ */
+export interface ContratProspect {
+  id: string
+  compteur_id: string
+  fournisseur_compte_id: string | null
+  fournisseur_nom: string | null
+  date_debut: string | null
+  date_fin: string | null
+  duree_mois: number | null
+  cree_par_nom: string | null
+  modifie_par_nom: string | null
+  date_creation: string
+  date_modification: string
+}
+
 export interface Contrat {
   id: string
   id_salesforce: string | null
