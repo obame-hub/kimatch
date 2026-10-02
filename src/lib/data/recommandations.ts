@@ -2578,8 +2578,6 @@ export interface PrixParCompteur {
   cout_acheminement_annuel_ht?: number | null
   cout_taxes_annuel?: number | null
   cout_total_annuel_estime_ht?: number | null
-  /** La part du budget soumise à la TVA de 5,5 % : la CTA (02/10/2026). Le TTC s'en déduit en base. */
-  cout_tva_reduite_annuel_ht?: number | null
   /** Économie face au contrat en cours. Plus exposée par PDL depuis le 19/08/2026 : elle se saisit
    *  sur la ligne de l'offre, à un seul endroit. Le chemin reste ouvert pour les 0 ligne déjà en
    *  base et pour une reprise éventuelle. */
@@ -2696,7 +2694,6 @@ export async function enregistrerPrixCompteur(input: EcriturePrixCompteur): Prom
             ...(p.cout_acheminement_annuel_ht !== undefined ? { cout_acheminement_annuel_ht: p.cout_acheminement_annuel_ht } : {}),
             ...(p.cout_taxes_annuel !== undefined ? { cout_taxes_annuel: p.cout_taxes_annuel } : {}),
             ...(p.cout_total_annuel_estime_ht !== undefined ? { cout_total_annuel_estime_ht: p.cout_total_annuel_estime_ht } : {}),
-            ...(p.cout_tva_reduite_annuel_ht !== undefined ? { cout_tva_reduite_annuel_ht: p.cout_tva_reduite_annuel_ht } : {}),
             ...(p.economie_annuelle_estimee !== undefined ? { economie_annuelle_estimee: p.economie_annuelle_estimee } : {}),
             ...(p.marge_retenue_eur_mwh !== undefined ? { marge_retenue_eur_mwh: p.marge_retenue_eur_mwh } : {}),
             ...(p.marge_ajustable_eur_mwh !== undefined ? { marge_ajustable_eur_mwh: p.marge_ajustable_eur_mwh } : {}),

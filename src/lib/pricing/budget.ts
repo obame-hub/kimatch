@@ -66,8 +66,6 @@ export interface BudgetOffre {
   acheminement: number
   /** Les taxes : conso × AE (+ CTA) en électricité ; CAR × (AG + CPB) + CTA au gaz. */
   taxes: number
-  /** La part soumise à la TVA de 5,5 % : la CTA (le reste est à 20 %). */
-  tvaReduite: number
   total: number
   /** Gaz : le total €/MWh de l'énergie (molécule présentée + CEE + CPB). */
   totalMwh: number | null
@@ -83,13 +81,11 @@ export const auCentime = (x: number) => Math.round((x + Number.EPSILON) * 100) /
 
 /** TVA à 20 % sur toute la facture d'électricité et de gaz depuis le 01/08/2025. */
 export const TAUX_TVA = 0.2
-/** La CTA « dispose d'une TVA réduite à 5,5 % contre 20 % pour tout le reste » (William, 02/10/2026). */
-export const TAUX_TVA_REDUIT = 0.055
 /** Le TTC d'un montant HTVA tout à 20 %, au centime. */
 export const enTTC = (ht: number) => auCentime(ht * (1 + TAUX_TVA))
-/** Le TTC d'un budget : 20 % sur tout, sauf la CTA à 5,5 % — le même calcul que la colonne de la base. */
-export const ttcDuBudget = (b: Pick<BudgetOffre, 'total' | 'tvaReduite'>) =>
-  auCentime((b.total - b.tvaReduite) * (1 + TAUX_TVA) + b.tvaReduite * (1 + TAUX_TVA_REDUIT))
+/** Le TTC d'un budget : 20 % sur tout, CTA comprise — William, 02/10/2026 : « en fait mets toute la
+ *  TVA à 20 % » (la CTA avait d'abord été à 5,5 %). Le même calcul que la colonne de la base. */
+export const ttcDuBudget = (b: Pick<BudgetOffre, 'total'>) => enTTC(b.total)
 
 /**
  * GAZ — William, 01/10/2026 : « les CPB doivent disparaître car ils seront gérés comme TURPE, CTA,
@@ -108,7 +104,6 @@ export function budgetGaz(c: CommunsGaz, s: SaisieGaz): BudgetOffre | null {
   const taxes = c.car * (z(c.accise) + cpb) + z(c.cta)
   return {
     abonnement: auCentime(abonnement), energie: auCentime(energie), turpe: 0, acheminement: auCentime(acheminement), taxes: auCentime(taxes),
-    tvaReduite: auCentime(z(c.cta)),
     total: auCentime(abonnement + energie + acheminement + taxes), totalMwh: auCentime(totalMwh), complet: prix.every(connu),
   }
 }
@@ -147,7 +142,6 @@ export function budgetElec(c: CommunsElec, s: SaisieElec): BudgetOffre | null {
   const turpe = z(c.turpe)
   return {
     abonnement: auCentime(abonnement), energie: auCentime(energie), turpe: auCentime(turpe), acheminement: auCentime(turpe), taxes: auCentime(taxes),
-    tvaReduite: 0,
     total: auCentime(abonnement + energie + turpe + taxes), totalMwh: null, complet: prix.every(connu),
   }
 }

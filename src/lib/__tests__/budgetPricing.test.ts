@@ -76,13 +76,12 @@ describe('budget électricité (AO-2026-0419, 510 MWh sur 5 postes)', () => {
   })
 })
 
-describe('la TVA : 20 % sur tout, 5,5 % sur la CTA', () => {
-  it('un budget de 1 000 € HT dont 100 € de CTA', () => {
-    expect(ttcDuBudget({ total: 1000, tvaReduite: 100 })).toBe(1185.5)
+describe('la TVA : 20 % sur tout, CTA comprise', () => {
+  it('un budget de 1 000 € HT, CTA comprise', () => {
+    expect(ttcDuBudget({ total: 1000 })).toBe(1200)
   })
-  it('en gaz, la CTA du compteur est la part à 5,5 %', () => {
+  it('en gaz, la CTA entre dans le budget comme le reste', () => {
     const b = budgetGaz({ car: 100, tqd: 12.79, accise: 16.66, cta: 48.62, cpb: 2.6325 }, { abonnementMois: 30, p0: 40, marge: 2, cee: 7, cpb: null })!
-    expect(b.tvaReduite).toBe(48.62)
     // 360 + 100 × 49 + 100 × 12,79 + 100 × (16,66 + 2,6325) + 48,62
     expect(b.total).toBe(auCentime(360 + 4900 + 1279 + 1929.25 + 48.62))
   })

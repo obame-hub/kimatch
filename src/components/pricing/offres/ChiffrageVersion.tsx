@@ -329,7 +329,7 @@ function PastilleReglementaire({ compteur }: { compteur: CompteurChiffrage }) {
   if (!r) return null
   const gaz = compteur.energie === 'gaz'
   const parts = gaz
-    ? [r.tqd != null ? `TQD ${fr2(r.tqd)} €/MWh` : null, r.accise != null ? `AG ${fr2(r.accise)} €/MWh` : null, r.cta != null ? `CTA ${fr2(r.cta)} €/an (TVA 5,5 %)` : null,
+    ? [r.tqd != null ? `TQD ${fr2(r.tqd)} €/MWh` : null, r.accise != null ? `AG ${fr2(r.accise)} €/MWh` : null, r.cta != null ? `CTA ${fr2(r.cta)} €/an` : null,
       Object.keys(r.cpb).length ? `CPB ${Object.entries(r.cpb).map(([d, v]) => `${d} mois : ${v.toLocaleString('fr-FR', { maximumFractionDigits: 4 })}`).join(', ')} €/MWh` : null]
     : [r.turpe?.total != null ? `TURPE ${fr2(r.turpe.total)} €/an (${r.turpe.formule})` : null, r.accise != null ? `AE ${fr2(r.accise)} €/MWh` : null]
   const connues = r.derniereValeurConnue.length ? ` · dernière valeur connue pour ${r.derniereValeurConnue.join(', ')}` : ''
@@ -583,7 +583,7 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
 }) {
   const m = useChiffrageMutations(versionId)
   const g = grilleDuCompteur(compteur)
-  /* Un montant en base, dans le mode choisi : le TTC vient lui aussi de la base (CTA à 5,5 %). */
+  /* Un montant en base, dans le mode choisi : le TTC vient lui aussi de la base (20 % sur tout). */
   const valeurDe = (o: OffreChiffrage | null | undefined) => (o ? (ttc ? o.ttcParCompteur[compteur.vcId] : o.totalParCompteur[compteur.vcId]) ?? null : null)
 
   /* LE CLASSEMENT se lit sur ce qui est en base (seul un budget complet s'y écrit), hors indexées
@@ -899,7 +899,7 @@ function Saisies({ g, brouillon, label, sansMarge, onBlur }: { g: Grille; brouil
 /** Le budget (HTVA ou TTC, selon l'en-tête) et l'écart à la référence, calculés à chaque frappe. */
 function Resultat({ g, compteur, saisie, duree, totalActuel, ttc, reference, horsComparatif, titre }: PropsLigne & { saisie: SaisieLigne; duree: number | null; reference?: boolean; horsComparatif?: boolean; titre: string }) {
   /* Le budget complet : la saisie, plus ce que la base a retenu de réglementé (le CPB dépend de la
-     durée de l'offre). En TTC, la CTA est à 5,5 %, le reste à 20 %. */
+     durée de l'offre). En TTC, tout est à 20 %, CTA comprise. */
   const b = budgetLigne(compteur, saisie, duree)
   const montant = (x: NonNullable<typeof b>) => (ttc ? ttcDuBudget(x) : x.total)
   /* L'écart ne se lit que sur une ligne complète : un budget partiel paraîtrait toujours moins cher. */

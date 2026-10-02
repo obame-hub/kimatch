@@ -84,7 +84,7 @@ export interface OffreChiffrage {
   /** Par lien version ↔ compteur. */
   saisies: Record<string, SaisieLigne>
   totalParCompteur: Record<string, number | null>
-  /** Le même budget TTC, tel que la base le calcule (CTA à 5,5 %, le reste à 20 %). */
+  /** Le même budget TTC, tel que la base le calcule (TVA 20 % sur tout). */
   ttcParCompteur: Record<string, number | null>
 }
 
@@ -288,14 +288,13 @@ function versPrix(compteur: CompteurChiffrage, s: SaisieLigne, typePrix: string 
   /* L'annuel est au centime : le mois n'en est que l'affichage (4 487,96 / 12 × 12 = 4 487,96). */
   const abonnementAn = s.abonnementMois == null ? null : auCentime(s.abonnementMois * 12)
   /* Le budget complet se range en trois parts, comme la base les reporte : la fourniture (saisie),
-     l'acheminement et les taxes (réglementés) — et la part à TVA réduite (la CTA). */
+     l'acheminement et les taxes (réglementés). */
   const commun = {
     marge_reelle_eur_mwh: s.marge, marge_retenue_eur_mwh: s.margePricing ?? s.marge, type_marge: 'VARIABLE' as const, type_prix: typePrix,
     abonnement_fourniture_annuel_ht: abonnementAn, prix_cee_mwh: s.cee,
     cout_fourniture_annuel_ht: b ? auCentime(b.abonnement + b.energie) : null,
     cout_acheminement_annuel_ht: b ? b.acheminement : null,
     cout_taxes_annuel: b ? b.taxes : null,
-    cout_tva_reduite_annuel_ht: b ? (b.tvaReduite || null) : null,
     cout_total_annuel_estime_ht: b?.total ?? null,
   }
   if (compteur.energie === 'gaz') {

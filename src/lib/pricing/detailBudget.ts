@@ -1,6 +1,6 @@
 import type { CompteurChiffrage, SaisieLigne } from '@/lib/data/chiffrage'
 import { budgetLigne } from '@/lib/data/chiffrage'
-import { TAUX_TVA, auCentime, postesDuCompteur, ttcDuBudget, type BudgetOffre } from '@/lib/pricing/budget'
+import { auCentime, postesDuCompteur, ttcDuBudget, type BudgetOffre } from '@/lib/pricing/budget'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -47,17 +47,10 @@ export function anneesFourniture(debut: string | null | undefined, dureeMois: nu
   return [d.getFullYear(), fin.getFullYear()]
 }
 
-/* La TVA en deux lignes dont la somme retombe EXACTEMENT sur le TTC du tableau (`ttcDuBudget`) :
-   la seconde se déduit, pour qu'un arrondi au centime ne crée jamais d'écart. */
+/* Toute la TVA à 20 %, CTA comprise (William, 02/10/2026) : une ligne, qui retombe exactement sur le
+   TTC du tableau. */
 function tvaDe(b: BudgetOffre): LigneDetail[] {
-  const normale = auCentime(b.total - b.tvaReduite)
-  const toute = auCentime(ttcDuBudget(b) - b.total)
-  if (!b.tvaReduite) return [{ libelle: 'TVA 20 %', formule: `${f(normale)} × 20 %`, montant: toute }]
-  const vingt = auCentime(normale * TAUX_TVA)
-  return [
-    { libelle: 'TVA 20 %', formule: `${f(normale)} × 20 %`, montant: vingt },
-    { libelle: 'TVA 5,5 % (CTA)', formule: `${f(b.tvaReduite)} × 5,5 %`, montant: auCentime(toute - vingt) },
-  ]
+  return [{ libelle: 'TVA 20 %', formule: `${f(b.total)} × 20 %`, montant: auCentime(ttcDuBudget(b) - b.total) }]
 }
 
 export function detailBudget(compteur: CompteurChiffrage, s: SaisieLigne, dureeMois?: number | null): DetailBudget | null {

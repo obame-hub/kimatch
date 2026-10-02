@@ -14,7 +14,7 @@ import { cpbMoyen, useTaxes, useTaxesMutations, type CodeTaxe, type PeriodeTaxe,
  *
  *   AE, AG       une valeur, €/MWh
  *   TQD          une valeur par tarif (T1 à T4), €/MWh
- *   CTA          une valeur par tarif et profil, €/an (T4 : une seule) — TVA 5,5 %
+ *   CTA          une valeur par tarif et profil, €/an (T4 : une seule)
  *   CPB          une valeur par ANNÉE CIVILE, en vigueur ou en projet ; un simulateur rejoue la
  *                moyenne d'une fourniture comme la base la calcule
  *

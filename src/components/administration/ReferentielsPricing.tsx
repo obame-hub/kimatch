@@ -16,7 +16,7 @@ const TAXES: DefinitionTaxe[] = [
   { code: 'AE', nom: 'Accise sur l’électricité', energie: 'Électricité', unite: '€/MWh', dimension: 'unique', aide: 'Appliquée à toute la consommation du compteur.' },
   { code: 'AG', nom: 'Accise sur le gaz', energie: 'Gaz', unite: '€/MWh', dimension: 'unique', aide: 'Appliquée à la CAR du compteur.' },
   { code: 'TQD', nom: 'Terme de quantité de distribution', energie: 'Gaz', unite: '€/MWh', dimension: 'tarif', aide: 'Selon le tarif d’acheminement du compteur (T1 à T4).' },
-  { code: 'CTA', nom: 'Contribution tarifaire d’acheminement', energie: 'Gaz', unite: '€/an', dimension: 'tarif_profil', aide: 'Selon le tarif et le profil du compteur. TVA réduite à 5,5 %.' },
+  { code: 'CTA', nom: 'Contribution tarifaire d’acheminement', energie: 'Gaz', unite: '€/an', dimension: 'tarif_profil', aide: 'Selon le tarif et le profil du compteur.' },
 ]
 
 type Onglet = 'TURPE' | 'AE' | 'AG' | 'TQD' | 'CTA' | 'CPB'
