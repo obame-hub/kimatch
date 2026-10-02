@@ -96,6 +96,8 @@ export interface VersionChiffrage {
   dateSouhaitee: string | null
   statut: string | null
   publieeLe: string | null
+  /** Appel d'offres sans offre de référence — le modèle d'offre à générer s'en déduit (`modele_offre`). */
+  sansComparatif: boolean
   recommandationId: string
   recommandationNom: string
   compteNom: string | null
@@ -142,7 +144,7 @@ function lireSaisie(detail: any, energie: EnergieChiffrage): SaisieLigne {
 async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
   const { data: v, error: eV } = await supabase
     .from('versions_recommandation')
-    .select('id, numero_version, nom, reference_appel_offres, date_souhaitee, date_publication_comparatif, statut:statuts_versions_recommandation(code), reco:recommandations(id, nom, compte:comptes!recommandations_compte_id_fkey(nom), type_energie:types_energies(code))')
+    .select('id, numero_version, nom, reference_appel_offres, date_souhaitee, date_publication_comparatif, modele_offre, statut:statuts_versions_recommandation(code), reco:recommandations(id, nom, compte:comptes!recommandations_compte_id_fkey(nom), type_energie:types_energies(code))')
     .eq('id', versionId)
     .single()
   if (eV) throw new Error(eV.message)
@@ -240,7 +242,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
   return {
     version: {
       id: (v as any).id, numero: (v as any).numero_version, nom: (v as any).nom, reference: (v as any).reference_appel_offres ?? null,
-      dateSouhaitee: (v as any).date_souhaitee, statut: premier((v as any).statut)?.code ?? null, publieeLe: (v as any).date_publication_comparatif ?? null,
+      dateSouhaitee: (v as any).date_souhaitee, statut: premier((v as any).statut)?.code ?? null, publieeLe: (v as any).date_publication_comparatif ?? null, sansComparatif: (v as any).modele_offre === 'SANS_COMPARATIF',
       recommandationId: reco?.id, recommandationNom: reco?.nom ?? '', compteNom: premier(reco?.compte)?.nom ?? null, energie: energieVersion,
     },
     optimisationId, compteurs, commande, offres, actuelle,
@@ -400,6 +402,15 @@ export function useChiffrageMutations(versionId: string | null) {
     onSuccess: rafraichir,
   })
 
+  /** Avec ou sans offre de référence : la retirer la désactive, la rétablir la réactive (`fn_definir_modele_offre`). */
+  const definirComparatif = useMutation({
+    mutationFn: async (sansComparatif: boolean) => {
+      const { error } = await supabase.rpc('fn_definir_modele_offre', { p_version: versionId, p_sans_comparatif: sansComparatif })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: rafraichir,
+  })
+
   const publier = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc('fn_publier_comparatif', { p_version: versionId })
@@ -408,5 +419,5 @@ export function useChiffrageMutations(versionId: string | null) {
     onSuccess: rafraichir,
   })
 
-  return { enregistrerLigne, changerStatut, majClauses, majValidite, majCommande, enregistrerActuelle, publier }
+  return { enregistrerLigne, changerStatut, majClauses, majValidite, majCommande, enregistrerActuelle, definirComparatif, publier }
 }

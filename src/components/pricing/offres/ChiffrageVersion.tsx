@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Ban, Check, ChevronsUpDown, FileText, Loader2, MoreHorizontal, RotateCcw, Send, Sparkles, Upload } from 'lucide-react'
+import { ArrowUpRight, Ban, Check, ChevronsUpDown, FileText, Loader2, MoreHorizontal, Plus, RotateCcw, Send, Sparkles, Trash2, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { lireNombre, postesDuCompteur, ttcDuBudget } from '@/lib/pricing/budget'
 import { useFournisseursChoix } from '@/lib/data/contratsProspects'
@@ -598,7 +598,8 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
   const completePartout = (o: OffreChiffrage) => chiffrage.compteurs.every((c) => saisieComplete(c, o.saisies[c.vcId]))
   const aChiffrer = publiables.filter((o) => o.statut === 'EN_ATTENTE' && !completePartout(o)).length
   const aConfirmer = publiables.filter((o) => o.statut === 'EN_ATTENTE' && completePartout(o)).length
-  const actuelleOk = !!chiffrage.actuelle && chiffrage.compteurs.every((c) => saisieComplete(c, chiffrage.actuelle!.saisies[c.vcId]))
+  const sansComparatif = chiffrage.version.sansComparatif
+  const actuelleOk = sansComparatif || (!!chiffrage.actuelle && chiffrage.compteurs.every((c) => saisieComplete(c, chiffrage.actuelle!.saisies[c.vcId])))
   const pret = aChiffrer === 0 && aConfirmer === 0 && actuelleOk && publiables.some((o) => o.statut === 'DISPONIBLE')
   const publiee = !!chiffrage.version.publieeLe
   const meilleur = classees[0]
@@ -627,7 +628,9 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
             </div>
 
             {/* LA RÉFÉRENCE, À PART — « l'offre de référence doit être un peu séparée du reste ». */}
-            <BlocActuelle chiffrage={chiffrage} versionId={versionId} onToast={onToast} {...ligne} />
+            {sansComparatif
+              ? <SansReference versionId={versionId} publiee={publiee} onToast={onToast} />
+              : <BlocActuelle chiffrage={chiffrage} versionId={versionId} publiee={publiee} onToast={onToast} {...ligne} />}
 
             <span className="px-1 pt-1 text-[9.5px] font-extrabold uppercase tracking-[.1em] text-km-faint">Offres des fournisseurs · {chiffrage.offres.length}</span>
 
@@ -681,7 +684,7 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Condition ok={aChiffrer === 0} texte={aChiffrer === 0 ? 'Tout est chiffré' : `${aChiffrer} à chiffrer`} />
           <Condition ok={aConfirmer === 0} texte={aConfirmer === 0 ? 'Rien à confirmer' : `${aConfirmer} à confirmer`} />
-          <Condition ok={actuelleOk} texte={actuelleOk ? 'Référence saisie' : 'Référence à saisir'} />
+          <Condition ok={actuelleOk} texte={sansComparatif ? 'Sans comparatif' : actuelleOk ? 'Référence saisie' : 'Référence à saisir'} />
         </span>
         <button
           type="button"
@@ -1016,7 +1019,7 @@ function Etat({ statut, complete, onConfirmer, onRouvrir }: { statut: string; co
  * directement à côté de « Référence » ; la ligne en dessous porte les prix du contrat en cours.
  * Pas de marge sur une offre en cours : la case dit « sans objet ».
  */
-function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, onToast }: PropsLigne & { chiffrage: Chiffrage; versionId: string; onToast: (m: string) => void }) {
+function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, publiee, onToast }: PropsLigne & { chiffrage: Chiffrage; versionId: string; publiee: boolean; onToast: (m: string) => void }) {
   const m = useChiffrageMutations(versionId)
   const { data: fournisseurs } = useFournisseursChoix()
   const actuelle = chiffrage.actuelle
@@ -1040,6 +1043,8 @@ function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, onT
           <option value="">Fournisseur actuel…</option>
           {(fournisseurs ?? []).map((f) => <option key={f.id} value={f.id}>{f.nom}</option>)}
         </select>
+        <span className="flex-1" />
+        {!publiee && <RetirerReference versionId={versionId} onToast={onToast} />}
       </div>
       <div className="grid h-[38px]" style={{ gridTemplateColumns: g.gabarit }}>
         <span className="flex min-w-0 items-center pl-3.5 pr-2">
@@ -1049,6 +1054,66 @@ function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, onT
         <Resultat g={g} compteur={compteur} saisie={{ ...saisie, marge: 0 }} duree={actuelle?.duree ?? null} totalActuel={totalActuel} ttc={ttc} reference titre={`Offre actuelle${actuelle?.fournisseurNom ? ` · ${actuelle.fournisseurNom}` : ''}`} />
         <span className="border-l border-km-line-soft" />
       </div>
+    </div>
+  )
+}
+
+/**
+ * SANS OFFRE DE RÉFÉRENCE — William, 02/10/2026 : « on n'a pas toujours d'offre de référence. Si ce
+ * n'est pas le cas, je dois avoir la possibilité de supprimer la ligne de référence et alors ce sera
+ * un appel d'offre sans comparatif. » Le choix est noté sur la version (`modele_offre`) : il dira quel
+ * modèle d'offre générer. Retirée, la référence est désactivée, pas effacée — « Ajouter une
+ * référence » la rétablit avec ses prix.
+ */
+function RetirerReference({ versionId, onToast }: { versionId: string; onToast: (m: string) => void }) {
+  const m = useChiffrageMutations(versionId)
+  /* CONFIRMÉ EN DEUX TEMPS : la ligne disparaît du tableau, l'écart aussi. */
+  const [confirmer, setConfirmer] = useState(false)
+  useEffect(() => {
+    if (!confirmer) return
+    const t = window.setTimeout(() => setConfirmer(false), 5000)
+    return () => window.clearTimeout(t)
+  }, [confirmer])
+  if (!confirmer) {
+    return (
+      <button type="button" onClick={() => setConfirmer(true)} title="Pas d’offre de référence : appel d’offres sans comparatif" className="inline-flex h-[24px] shrink-0 items-center gap-1 rounded-[7px] px-2 text-[11px] font-semibold text-km-muted hover:bg-km-red-soft hover:text-km-red">
+        <Trash2 className="h-3.5 w-3.5" /> Pas de référence
+      </button>
+    )
+  }
+  return (
+    <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-km-text">
+      Appel d’offres sans comparatif ?
+      <button
+        type="button"
+        disabled={m.definirComparatif.isPending}
+        onClick={() => m.definirComparatif.mutateAsync(true).then(() => onToast('✓ Référence retirée : appel d’offres sans comparatif')).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
+        className="h-[24px] rounded-[7px] bg-km-red px-2 font-bold text-white hover:bg-km-red/90"
+      >
+        Retirer
+      </button>
+      <button type="button" onClick={() => setConfirmer(false)} className="h-[24px] rounded-[7px] border border-km-line bg-white px-2 font-semibold text-km-muted hover:bg-km-soft">Annuler</button>
+    </span>
+  )
+}
+
+function SansReference({ versionId, publiee, onToast }: { versionId: string; publiee: boolean; onToast: (m: string) => void }) {
+  const m = useChiffrageMutations(versionId)
+  return (
+    <div className="flex min-h-[40px] items-center gap-2.5 rounded-[12px] border border-dashed border-[#C9D0CB] bg-white px-3 py-1.5">
+      <span className="shrink-0 rounded-full border border-km-line bg-km-soft px-2.5 text-[9.5px] font-extrabold uppercase leading-[19px] tracking-[.09em] text-km-muted">Sans comparatif</span>
+      <span className="min-w-0 truncate text-[12px] text-km-muted">Aucune offre de référence : les offres se présentent sans écart.</span>
+      <span className="flex-1" />
+      {!publiee && (
+        <button
+          type="button"
+          disabled={m.definirComparatif.isPending}
+          onClick={() => m.definirComparatif.mutateAsync(false).then(() => onToast('✓ Référence rétablie')).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
+          className="inline-flex h-[26px] shrink-0 items-center gap-1 rounded-[7px] border border-km-line bg-white px-2.5 text-[11.5px] font-semibold text-km-text hover:bg-km-soft"
+        >
+          <Plus className="h-3.5 w-3.5 text-km-green" /> Ajouter une référence
+        </button>
+      )}
     </div>
   )
 }

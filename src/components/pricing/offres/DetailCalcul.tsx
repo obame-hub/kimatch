@@ -21,7 +21,7 @@ export function BudgetCliquable({ titre, compteur, saisie, duree, children }: {
   children: React.ReactNode
 }) {
   /* POSÉ PAR-DESSUS LE TABLEAU, comme le menu de la ligne : le tableau défile et rognerait le reste. */
-  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null)
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number; hauteur: number } | null>(null)
   const bouton = useRef<HTMLButtonElement>(null)
   const volet = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -46,7 +46,14 @@ export function BudgetCliquable({ titre, compteur, saisie, duree, children }: {
     const r = bouton.current?.getBoundingClientRect()
     if (!r) return
     const right = Math.max(8, window.innerWidth - r.right - 8)
-    setPos(window.innerHeight - r.bottom < 420 ? { bottom: window.innerHeight - r.top + 4, right } : { top: r.bottom + 4, right })
+    /* LE CÔTÉ QUI A LE PLUS DE PLACE, et jamais plus haut que cette place : le 02/10/2026, ouvert vers
+       le haut depuis une ligne en bas d'écran, le détail sortait de l'écran et son début était rogné.
+       Ce qui ne tient pas défile à l'intérieur. */
+    const dessous = window.innerHeight - r.bottom - 12
+    const dessus = r.top - 12
+    setPos(dessous >= 520 || dessous >= dessus
+      ? { top: r.bottom + 4, right, hauteur: Math.min(640, dessous) }
+      : { bottom: window.innerHeight - r.top + 4, right, hauteur: Math.min(640, dessus) })
   }
   const d = pos ? detailBudget(compteur, saisie, duree) : null
   return (
@@ -66,10 +73,10 @@ export function BudgetCliquable({ titre, compteur, saisie, duree, children }: {
           ref={volet}
           role="dialog"
           aria-label={`Détail du calcul · ${titre}`}
-          style={{ top: pos.top, bottom: pos.bottom, right: pos.right }}
-          className="fixed z-50 flex max-h-[min(640px,calc(100vh-24px))] w-[460px] flex-col overflow-hidden rounded-[13px] border border-km-line bg-white text-left shadow-km-pop"
+          style={{ top: pos.top, bottom: pos.bottom, right: pos.right, maxHeight: pos.hauteur }}
+          className="fixed z-50 flex w-[460px] flex-col overflow-hidden rounded-[13px] border border-km-line bg-white text-left shadow-km-pop"
         >
-          <header className="flex items-start gap-2 border-b border-km-line-soft px-4 pb-2.5 pt-3">
+          <header className="flex shrink-0 items-start gap-2 border-b border-km-line-soft px-4 pb-2.5 pt-3">
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-[9.5px] font-extrabold uppercase tracking-[.1em] text-km-faint">Détail du calcul · par an</span>
               <span className="truncate text-[13.5px] font-extrabold text-km-text">{titre}</span>
@@ -80,7 +87,7 @@ export function BudgetCliquable({ titre, compteur, saisie, duree, children }: {
             </button>
           </header>
 
-          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-4 py-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
             {!d.complet && (
               <span className="flex items-start gap-1.5 rounded-[8px] border border-km-amber-line bg-km-amber-soft px-2.5 py-1.5 text-[11px] leading-[15px] text-[#8a4b2a]">
                 <AlertTriangle className="mt-px h-3 w-3 shrink-0" /> Budget partiel : des prix de la ligne ne sont pas saisis (ils comptent pour zéro).
@@ -111,7 +118,7 @@ export function BudgetCliquable({ titre, compteur, saisie, duree, children }: {
             ))}
           </div>
 
-          <footer className="flex flex-col gap-0.5 border-t border-km-line bg-km-soft px-4 py-2.5">
+          <footer className="flex shrink-0 flex-col gap-0.5 border-t border-km-line bg-km-soft px-4 py-2.5">
             <span className="flex items-baseline justify-between">
               <span className="text-[12px] font-bold text-km-text">Budget HTVA</span>
               <span className="font-mono text-[13px] font-extrabold tabular-nums text-km-text">{eur(d.totalHt)}</span>
