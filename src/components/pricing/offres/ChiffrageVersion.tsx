@@ -331,7 +331,8 @@ function PastilleReglementaire({ compteur }: { compteur: CompteurChiffrage }) {
   const parts = gaz
     ? [r.tqd != null ? `TQD ${fr2(r.tqd)} €/MWh` : null, r.accise != null ? `AG ${fr2(r.accise)} €/MWh` : null, r.cta != null ? `CTA ${fr2(r.cta)} €/an` : null,
       Object.keys(r.cpb).length ? `CPB ${Object.entries(r.cpb).map(([d, v]) => `${d} mois : ${v.toLocaleString('fr-FR', { maximumFractionDigits: 4 })}`).join(', ')} €/MWh` : null]
-    : [r.turpe?.total != null ? `TURPE ${fr2(r.turpe.total)} €/an (${r.turpe.formule})` : null, r.accise != null ? `AE ${fr2(r.accise)} €/MWh` : null]
+    : [r.turpe?.total != null ? `TURPE ${fr2(r.turpe.total)} €/an (${r.turpe.formule})` : null, r.accise != null ? `AE ${fr2(r.accise)} €/MWh` : null,
+      r.cta != null ? `CTA ${fr2(r.cta)} €/an (${fr2(r.ctaTaux)} % de la part fixe du TURPE)` : null]
   const connues = r.derniereValeurConnue.length ? ` · dernière valeur connue pour ${r.derniereValeurConnue.join(', ')}` : ''
   const envoi = r.dateEnvoi ? ` · valeurs ${r.envoiFige ? 'figées à l’envoi du' : 'du jour, le'} ${new Date(r.dateEnvoi + 'T12:00:00').toLocaleDateString('fr-FR')}` : ''
   const aide = `Compté dans chaque budget : ${parts.filter(Boolean).join(' · ')}${envoi}${connues}`

@@ -129,6 +129,12 @@ export function detailBudget(compteur: CompteurChiffrage, s: SaisieLigne, dureeM
       {
         titre: 'Taxes', sousTotal: b.taxes, lignes: [
           { libelle: 'Accise électricité (AE)', formule: `${mwh(conso)} MWh × ${f(r?.accise, 4)} €/MWh`, montant: auCentime(conso * z(r?.accise)), source: aLEnvoi },
+          {
+            libelle: 'CTA', montant: auCentime(z(r?.cta)), source: aLEnvoi,
+            formule: t?.total != null
+              ? `${f(r?.ctaTaux)} % × (gestion ${f(t.detail.cg)} + comptage ${f(t.detail.cc)} + soutirage fixe ${f(t.detail.csFixe)})`
+              : 'TURPE non calculable',
+          },
         ],
       },
     ],

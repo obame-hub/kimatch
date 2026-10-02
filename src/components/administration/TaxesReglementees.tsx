@@ -15,6 +15,7 @@ import { cpbMoyen, useTaxes, useTaxesMutations, type CodeTaxe, type PeriodeTaxe,
  *   AE, AG       une valeur, €/MWh
  *   TQD          une valeur par tarif (T1 à T4), €/MWh
  *   CTA          une valeur par tarif et profil, €/an (T4 : une seule)
+ *   CTAE         l'assiette de la CTA électricité, en %, appliquée à la part fixe du TURPE
  *   CPB          une valeur par ANNÉE CIVILE, en vigueur ou en projet ; un simulateur rejoue la
  *                moyenne d'une fourniture comme la base la calcule
  *
@@ -97,7 +98,8 @@ function Periodes({ def, periodes, periode, onChoisir }: { def: DefinitionTaxe; 
   useEffect(() => { setOuvert(false); setErreur(null) }, [def.code])
   const ouvrir = () => {
     const j = new Date()
-    const suivant = new Date(j.getFullYear() + (j.getMonth() >= 6 ? 1 : 0), def.code === 'TQD' || def.code === 'CTA' ? 6 : 7, 1)
+    const mois = def.code === 'CTAE' ? 1 : def.code === 'TQD' || def.code === 'CTA' ? 6 : 7
+    const suivant = new Date(j.getFullYear() + (j.getMonth() >= mois ? 1 : 0), mois, 1)
     const iso = `${suivant.getFullYear()}-${String(suivant.getMonth() + 1).padStart(2, '0')}-01`
     setDebut(iso)
     setLibelle(`${def.code} — ${suivant.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`)
@@ -196,7 +198,10 @@ function Valeurs({ def, t, periode, precedente }: { def: DefinitionTaxe; t: Taxe
     return [...vues.values()].sort((a, b) => `${a.tarif}${a.profil ?? ''}`.localeCompare(`${b.tarif}${b.profil ?? ''}`))
   }, [def.dimension, t.valeurs, periode.id, precedente?.id])
 
-  const poids = (delta: number) => (def.unite === '€/MWh' ? `${delta < 0 ? '−' : '+'} ${fr2(Math.abs(delta * 100))} € / an pour 100 MWh` : `${delta < 0 ? '−' : '+'} ${fr2(Math.abs(delta))} € / an`)
+  const signe = (delta: number) => (delta < 0 ? '−' : '+')
+  const poids = (delta: number) => (def.unite === '€/MWh' ? `${signe(delta)} ${fr2(Math.abs(delta * 100))} € / an pour 100 MWh`
+    : def.unite === '%' ? `${signe(delta)} ${fr2(Math.abs(delta * 10))} € / an pour 1 000 € de part fixe du TURPE`
+    : `${signe(delta)} ${fr2(Math.abs(delta))} € / an`)
   const variations = lignes.map((l) => {
     const a = de(periode.id, l)?.valeur ?? null
     const b = de(precedente?.id, l)?.valeur ?? null

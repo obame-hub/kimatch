@@ -23,7 +23,8 @@ import { lireTurpe, type TurpeCompteur } from '@/lib/data/turpe'
  * Le calcul est en base : ce module lit, écrit les valeurs de l'administration, et appelle la base.
  */
 
-export type CodeTaxe = 'AE' | 'AG' | 'TQD' | 'CTA'
+/** CTAE : l'assiette de la CTA électricité, en % de la part fixe du TURPE (02/10/2026). */
+export type CodeTaxe = 'AE' | 'AG' | 'TQD' | 'CTA' | 'CTAE'
 export type StatutPeriode = 'active' | 'a_venir' | 'expiree'
 
 export interface PeriodeTaxe {
@@ -145,7 +146,10 @@ export interface Reglementaire {
   accise: number | null
   /** Gaz. */
   tqd: number | null
+  /** Gaz : selon le tarif et le profil. Électricité : l'assiette × (gestion + comptage + soutirage fixe). */
   cta: number | null
+  /** Électricité : l'assiette de la CTA, en %. */
+  ctaTaux: number | null
   /** Gaz : CPB moyenne par durée d'offre (en mois). */
   cpb: Record<string, number>
   /** Électricité. */
@@ -165,7 +169,7 @@ function lireReglementaire(j: any): Reglementaire {
     envoiFige: !!j?.envoi_fige,
     dateReference: j?.date_reference ?? null,
     sourceDate: j?.source_date ?? null,
-    accise: n(j?.accise), tqd: n(j?.tqd), cta: n(j?.cta), cpb,
+    accise: n(j?.accise), tqd: n(j?.tqd), cta: n(j?.cta), ctaTaux: n(j?.cta_taux), cpb,
     turpe: j?.turpe ? lireTurpe(j.turpe) : null,
     derniereValeurConnue: Array.isArray(j?.derniere_valeur_connue) ? j.derniere_valeur_connue : [],
     manques: Array.isArray(j?.manques) ? j.manques : [],

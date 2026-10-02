@@ -184,7 +184,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
     try {
       c.reglementaire = await calculerReglementaire(c.vcId)
     } catch (e) {
-      c.reglementaire = { dateEnvoi: null, envoiFige: false, dateReference: null, sourceDate: null, accise: null, tqd: null, cta: null, cpb: {}, turpe: null, derniereValeurConnue: [], manques: [`Calcul impossible : ${(e as Error).message}`] }
+      c.reglementaire = { dateEnvoi: null, envoiFige: false, dateReference: null, sourceDate: null, accise: null, tqd: null, cta: null, ctaTaux: null, cpb: {}, turpe: null, derniereValeurConnue: [], manques: [`Calcul impossible : ${(e as Error).message}`] }
     }
   }))
 
@@ -264,7 +264,7 @@ export function budgetLigne(compteur: CompteurChiffrage, s: SaisieLigne, dureeMo
     const cpb = r?.cpb[String(dureeMois ?? 12)] ?? null
     return budgetGaz({ car: compteur.car, tqd: r?.tqd ?? null, accise: r?.accise ?? null, cta: r?.cta ?? null, cpb }, { ...s, cpb: null })
   }
-  return budgetElec({ conso: compteur.conso, turpe: r?.turpe?.total ?? null, accise: r?.accise ?? null, cta: null },
+  return budgetElec({ conso: compteur.conso, turpe: r?.turpe?.total ?? null, accise: r?.accise ?? null, cta: r?.cta ?? null },
     { abonnementMois: s.abonnementMois, p0: s.p0Postes, marge: s.marge, capacite: s.capacite, cee: s.cee })
 }
 
@@ -324,7 +324,13 @@ function versPrix(compteur: CompteurChiffrage, s: SaisieLigne, typePrix: string 
     /* LE TURPE ET L'ACCISE DE LA BASE, les mêmes sur toutes les offres du compteur : notés sur
        chaque ligne, comptés dans le total, jamais affichés en colonne. */
     prix_turpe_annuel_ht: r?.turpe?.total ?? null,
+    turpe_gestion_annuel_ht: r?.turpe?.detail.cg ?? null,
+    turpe_comptage_annuel_ht: r?.turpe?.detail.cc ?? null,
+    turpe_soutirage_fixe_annuel_ht: r?.turpe?.detail.csFixe ?? null,
+    turpe_soutirage_variable_annuel_ht: r?.turpe?.detail.csVariable ?? null,
     accise_annuel_ht: r?.accise != null ? auCentime(consoTotale * r.accise) : null,
+    /* LA CTA ÉLECTRICITÉ : l'assiette × (gestion + comptage + soutirage fixe), calculée en base. */
+    cta_annuel_ht: r?.cta ?? null,
   }
 }
 

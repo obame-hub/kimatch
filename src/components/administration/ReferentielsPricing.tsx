@@ -17,6 +17,9 @@ const TAXES: DefinitionTaxe[] = [
   { code: 'AG', nom: 'Accise sur le gaz', energie: 'Gaz', unite: '€/MWh', dimension: 'unique', aide: 'Appliquée à la CAR du compteur.' },
   { code: 'TQD', nom: 'Terme de quantité de distribution', energie: 'Gaz', unite: '€/MWh', dimension: 'tarif', aide: 'Selon le tarif d’acheminement du compteur (T1 à T4).' },
   { code: 'CTA', nom: 'Contribution tarifaire d’acheminement', energie: 'Gaz', unite: '€/an', dimension: 'tarif_profil', aide: 'Selon le tarif et le profil du compteur.' },
+  /* William, 02/10/2026 : « la CTA correspond à une assiette (15 % depuis le 1er février 2026, contre
+     21,93 % auparavant) » appliquée à gestion + comptage + soutirage part fixe du TURPE. */
+  { code: 'CTAE', nom: 'Contribution tarifaire d’acheminement', energie: 'Électricité', unite: '%', dimension: 'unique', aide: 'L’assiette, appliquée à la part fixe du TURPE : gestion + comptage + soutirage part fixe.' },
 ]
 
 type Onglet = 'TURPE' | 'AE' | 'AG' | 'TQD' | 'CTA' | 'CPB'
@@ -25,7 +28,7 @@ const ONGLETS: [Onglet, string, string][] = [
   ['AE', 'AE', 'Accise électricité'],
   ['AG', 'AG', 'Accise gaz'],
   ['TQD', 'TQD', 'Distribution gaz'],
-  ['CTA', 'CTA', 'Acheminement gaz'],
+  ['CTA', 'CTA', 'Gaz et électricité'],
   ['CPB', 'CPB', 'Biogaz'],
 ]
 
@@ -49,7 +52,12 @@ export function ReferentielsPricing() {
           </button>
         ))}
       </div>
-      {onglet === 'TURPE' ? <TarifsTurpe /> : onglet === 'CPB' ? <CoefficientsCpb /> : def ? <TaxeReglementee key={def.code} def={def} /> : null}
+      {onglet === 'TURPE' ? <TarifsTurpe /> : onglet === 'CPB' ? <CoefficientsCpb /> : onglet === 'CTA' ? (
+        /* LA CTA, GAZ ET ÉLECTRICITÉ AU MÊME ENDROIT — « rends cette CTA paramétrable comme celle du gaz ». */
+        <div className="flex flex-col gap-8">
+          {TAXES.filter((t) => t.code === 'CTA' || t.code === 'CTAE').map((t) => <TaxeReglementee key={t.code} def={t} />)}
+        </div>
+      ) : def ? <TaxeReglementee key={def.code} def={def} /> : null}
     </div>
   )
 }

@@ -90,3 +90,18 @@ describe('le détail du calcul d’une ligne', () => {
     expect(d.sections[2].lignes.find((l) => l.libelle === 'CPB')?.source).toContain('2027 à 2029')
   })
 })
+
+describe('la CTA de l’électricité', () => {
+  it('15 % × (gestion + comptage + soutirage fixe) entre dans les taxes et le budget', async () => {
+    const { detailBudget } = await import('@/lib/pricing/detailBudget')
+    const turpe = { total: 5798.39, versionId: 't7', formule: 'BTSUPCU4', manques: [], detail: { cg: 222.53, cc: 291.88, csFixe: 1306.8, csVariable: 3977.18 } }
+    const reglementaire = { dateEnvoi: '2026-10-02', envoiFige: false, dateReference: '2027-01-01', sourceDate: 'ECHEANCE', accise: 26.35, tqd: null, cta: 273.18, ctaTaux: 15, cpb: {}, turpe, derniereValeurConnue: [], manques: [] }
+    const c = { ...compteur, energie: 'electricite', conso: { POINTE: 0, HPH: 40, HCH: 20, HPE: 30, HCE: 10 }, reglementaire } as unknown as CompteurChiffrage
+    const s = { abonnementMois: 20, marge: 5, p0: null, cee: 8, cpb: null, capacite: 2, p0Postes: { POINTE: 150, HPH: 120, HCH: 90, HPE: 80, HCE: 60 } }
+    const d = detailBudget(c, s, 36)!
+    const taxes = d.sections[2]
+    expect(taxes.lignes.find((l) => l.libelle === 'CTA')?.montant).toBe(273.18)
+    expect(taxes.sousTotal).toBe(Math.round((100 * 26.35 + 273.18) * 100) / 100)
+    expect(d.totalHt).toBe(Math.round((d.sections.reduce((t, x) => t + x.sousTotal, 0)) * 100) / 100)
+  })
+})
