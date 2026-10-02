@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, Ban, Check, ChevronsUpDown, FileText, Loader2, MoreHorizontal, RotateCcw, Send, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { enTTC, lireNombre, postesDuCompteur } from '@/lib/pricing/budget'
+import { lireNombre, postesDuCompteur, ttcDuBudget } from '@/lib/pricing/budget'
 import { useFournisseursChoix } from '@/lib/data/contratsProspects'
-import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
+import { urlOuvrableDocument, useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import {
   SAISIE_VIDE, budgetLigne, saisieComplete, useChiffrage, useChiffrageMutations,
@@ -58,8 +58,13 @@ function nettoyerPrix(brut: string): string {
 }
 const estIndexe = (type: string | null) => /^index/i.test(type ?? '')
 
-/** Le rangement des propositions déposées en vrac sur une version. */
-const ENTITE_PROPOSITIONS = 'propositions_version'
+/**
+ * Le rangement des propositions déposées en vrac : sur la VERSION, en annexe. Corrigé le 02/10/2026 :
+ * un type propre (`propositions_version`) avait été inventé, que la contrainte `documents_entite_type_check`
+ * refusait — chaque dépôt échouait. On reprend le type que la base connaît déjà.
+ */
+const ENTITE_PROPOSITIONS = 'version_recommandation'
+const TYPE_PROPOSITIONS = 'Annexe'
 
 type Brouillon = Record<string, string>
 
@@ -100,7 +105,7 @@ function useDepot(versionId: string, onToast: (m: string) => void) {
   const { data: documents } = useDocumentsParEntites([versionId])
   const { data: types } = useReferenceTable('types_documents')
   const televerser = useTeleverserDocuments()
-  const deposes = (documents ?? []).filter((d) => d.entite_type === ENTITE_PROPOSITIONS)
+  const deposes = (documents ?? []).filter((d) => d.entite_type === ENTITE_PROPOSITIONS && (d.type_document === TYPE_PROPOSITIONS || !d.type_document))
   const envoyer = (liste: FileList | File[] | null) => {
     const fichiers = Array.from(liste ?? [])
     if (!fichiers.length) return
@@ -221,9 +226,10 @@ function BoutonDepot({ depot }: { depot: Depot }) {
         <span className="absolute right-0 top-[calc(100%+4px)] z-30 flex w-[280px] flex-col gap-0.5 rounded-km-md border border-km-line bg-white p-1.5 shadow-km-pop">
           <span className="px-2 pb-1 pt-1 text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Propositions déposées · {n}</span>
           {depot.deposes.map((d) => (
-            <a key={d.id} href={d.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-km-sm px-2 py-1.5 text-[12px] text-km-text hover:bg-km-soft">
+            /* Le stockage est privé : l'adresse se signe au clic (`urlOuvrableDocument`). */
+            <button key={d.id} type="button" onClick={() => void urlOuvrableDocument(d.url).then((u) => window.open(u, '_blank', 'noopener'))} className="flex items-center gap-2 rounded-km-sm px-2 py-1.5 text-left text-[12px] text-km-text hover:bg-km-soft">
               <FileText className="h-3.5 w-3.5 shrink-0 text-km-red" /><span className="truncate">{d.nom_fichier || d.nom}</span>
-            </a>
+            </button>
           ))}
           <span className="px-2 pb-1 pt-1 text-[10.5px] text-km-faint">L’IA les rattachera aux lignes (bientôt).</span>
         </span>
@@ -279,6 +285,52 @@ function LigneCompteur({ compteur }: { compteur: CompteurChiffrage }) {
           <Info nom="Total"><span className="font-mono">{fr2max(total)}</span> <span className="font-semibold text-km-muted">MWh</span></Info>
         </>
       )}
+      <Separateur />
+      <DebutFourniture compteur={compteur} />
+      <PastilleReglementaire compteur={compteur} />
+    </span>
+  )
+}
+
+/**
+ * LE TURPE, SANS COLONNE — William, 02/10/2026 : « le TURPE est le même pour chaque ligne du
+ * comparatif, raison pour laquelle on ne le montre pas, mais il doit être noté en base ». Une
+ * pastille dit seulement qu'il est compté dans les budgets (le détail au survol), ou ce qui manque
+ * pour le calculer.
+ */
+function PastilleReglementaire({ compteur }: { compteur: CompteurChiffrage }) {
+  const r = compteur.reglementaire
+  if (!r) return null
+  const gaz = compteur.energie === 'gaz'
+  const parts = gaz
+    ? [r.tqd != null ? `TQD ${fr2(r.tqd)} €/MWh` : null, r.accise != null ? `AG ${fr2(r.accise)} €/MWh` : null, r.cta != null ? `CTA ${fr2(r.cta)} €/an (TVA 5,5 %)` : null,
+      Object.keys(r.cpb).length ? `CPB ${Object.entries(r.cpb).map(([d, v]) => `${d} mois : ${v.toLocaleString('fr-FR', { maximumFractionDigits: 4 })}`).join(', ')} €/MWh` : null]
+    : [r.turpe?.total != null ? `TURPE ${fr2(r.turpe.total)} €/an (${r.turpe.formule})` : null, r.accise != null ? `AE ${fr2(r.accise)} €/MWh` : null]
+  const connues = r.derniereValeurConnue.length ? ` · dernière valeur connue pour ${r.derniereValeurConnue.join(', ')}` : ''
+  const envoi = r.dateEnvoi ? ` · valeurs ${r.envoiFige ? 'figées à l’envoi du' : 'du jour, le'} ${new Date(r.dateEnvoi + 'T12:00:00').toLocaleDateString('fr-FR')}` : ''
+  const aide = `Compté dans chaque budget : ${parts.filter(Boolean).join(' · ')}${envoi}${connues}`
+  if (!r.manques.length) {
+    return <span title={aide} className="shrink-0 rounded-full border border-km-green-line bg-km-green-soft px-2 text-[10px] font-extrabold leading-[18px] text-km-green">{gaz ? 'Taxes incluses' : 'TURPE et taxes inclus'}</span>
+  }
+  return (
+    <span title={`Manque : ${r.manques.join(' · ')}${parts.some(Boolean) ? ` — déjà compté : ${parts.filter(Boolean).join(' · ')}` : ''}`} className="shrink-0 rounded-full border border-km-amber-line bg-km-amber-soft px-2 text-[10px] font-extrabold leading-[18px] text-km-amber">
+      Taxes incomplètes
+    </span>
+  )
+}
+
+/**
+ * LE DÉBUT DE FOURNITURE, au gaz : c'est de lui que part le CPB (années civiles couvertes par l'offre).
+ * Les autres taxes, elles, se lisent au jour de l'envoi — dit au survol de la pastille.
+ */
+function DebutFourniture({ compteur }: { compteur: CompteurChiffrage }) {
+  const r = compteur.reglementaire
+  if (compteur.energie !== 'gaz' || !r?.dateReference) return null
+  const d = new Date(r.dateReference + 'T12:00:00').toLocaleDateString('fr-FR')
+  const source = r.sourceDate === 'ECHEANCE' ? 'lendemain de l’échéance du compteur' : r.sourceDate === 'DEBUT_FOURNITURE' ? 'début de fourniture de la version' : 'échéance inconnue : 1er du mois prochain'
+  return (
+    <span title={`Début de fourniture, d’où part le CPB : ${source}`}>
+      <Info nom="Fourniture">{<span className={cn('font-mono', r.sourceDate === 'MOIS_PROCHAIN' && 'text-km-amber')}>{d}</span>}</Info>
     </span>
   )
 }
@@ -505,11 +557,12 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
 }) {
   const m = useChiffrageMutations(versionId)
   const g = grilleDuCompteur(compteur)
-  const montant = (ht: number) => (ttc ? enTTC(ht) : ht)
+  /* Un montant en base, dans le mode choisi : le TTC vient lui aussi de la base (CTA à 5,5 %). */
+  const valeurDe = (o: OffreChiffrage | null | undefined) => (o ? (ttc ? o.ttcParCompteur[compteur.vcId] : o.totalParCompteur[compteur.vcId]) ?? null : null)
 
   /* LE CLASSEMENT se lit sur ce qui est en base (seul un budget complet s'y écrit), hors indexées
      (qui ne vont pas au comparatif) et hors indisponibles. */
-  const totalActuel = chiffrage.actuelle?.totalParCompteur[compteur.vcId] ?? null
+  const totalActuel = valeurDe(chiffrage.actuelle)
   const classees = chiffrage.offres
     .filter((o) => !estIndexe(o.type) && o.statut !== 'INDISPONIBLE' && o.totalParCompteur[compteur.vcId] != null)
     .sort((a, b) => (a.totalParCompteur[compteur.vcId] ?? 0) - (b.totalParCompteur[compteur.vcId] ?? 0))
@@ -522,7 +575,7 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
   const pret = aChiffrer === 0 && aConfirmer === 0 && actuelleOk && publiables.some((o) => o.statut === 'DISPONIBLE')
   const publiee = !!chiffrage.version.publieeLe
   const meilleur = classees[0]
-  const htMeilleur = meilleur?.totalParCompteur[compteur.vcId] ?? null
+  const vMeilleur = valeurDe(meilleur)
 
   /* Les offres, regroupées par fournisseur dans l'ordre où elles arrivent. */
   const groupes: { nom: string; offres: OffreChiffrage[] }[] = []
@@ -581,14 +634,14 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
       <div className={cn('flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t px-3.5 py-2.5', publiee ? 'border-km-green-line bg-km-green-tint' : 'border-km-line bg-white')}>
         <div className="flex min-w-0 flex-col">
           <span className="text-[9.5px] font-extrabold uppercase leading-[13px] tracking-[.08em] text-km-faint">Meilleur prix à ce stade</span>
-          {meilleur && htMeilleur != null ? (
+          {meilleur && vMeilleur != null ? (
             <span className="truncate text-[12.5px] leading-[18px]">
               <b className="font-extrabold">{meilleur.fournisseurNom}</b>
               <span className="text-km-muted"> · {meilleur.duree ?? '?'} mois · </span>
-              <b className="font-mono font-bold">{eur(montant(htMeilleur))} {ttc ? 'TTC' : 'HTVA'}</b>
+              <b className="font-mono font-bold">{eur(vMeilleur)} {ttc ? 'TTC' : 'HTVA'}</b>
               {totalActuel != null && (
-                <span className={cn('ml-1.5 font-mono text-[11.5px] font-bold', htMeilleur - totalActuel < 0 ? 'text-km-green' : 'text-km-red')}>
-                  {htMeilleur - totalActuel < 0 ? '−' : '+'} {eur(Math.abs(montant(htMeilleur) - montant(totalActuel)))} / an
+                <span className={cn('ml-1.5 font-mono text-[11.5px] font-bold', vMeilleur - totalActuel < 0 ? 'text-km-green' : 'text-km-red')}>
+                  {vMeilleur - totalActuel < 0 ? '−' : '+'} {eur(Math.abs(vMeilleur - totalActuel))} / an
                 </span>
               )}
             </span>
@@ -815,17 +868,19 @@ function Saisies({ g, brouillon, label, sansMarge, onBlur }: { g: Grille; brouil
 }
 
 /** Le budget (HTVA ou TTC, selon l'en-tête) et l'écart à la référence, calculés à chaque frappe. */
-function Resultat({ g, compteur, saisie, totalActuel, ttc, reference, horsComparatif }: PropsLigne & { saisie: SaisieLigne; reference?: boolean; horsComparatif?: boolean }) {
-  const b = budgetLigne(compteur, saisie)
-  const montant = (ht: number) => (ttc ? enTTC(ht) : ht)
+function Resultat({ g, compteur, saisie, duree, totalActuel, ttc, reference, horsComparatif }: PropsLigne & { saisie: SaisieLigne; duree: number | null; reference?: boolean; horsComparatif?: boolean }) {
+  /* Le budget complet : la saisie, plus ce que la base a retenu de réglementé (le CPB dépend de la
+     durée de l'offre). En TTC, la CTA est à 5,5 %, le reste à 20 %. */
+  const b = budgetLigne(compteur, saisie, duree)
+  const montant = (x: NonNullable<typeof b>) => (ttc ? ttcDuBudget(x) : x.total)
   /* L'écart ne se lit que sur une ligne complète : un budget partiel paraîtrait toujours moins cher. */
-  const ecart = b?.complet && totalActuel != null ? montant(b.total) - montant(totalActuel) : null
+  const ecart = b?.complet && totalActuel != null ? montant(b) - totalActuel : null
   const vide = <span className="text-[#D5DCD7]">—</span>
   return (
     <>
       <span className={cn('flex items-center justify-end px-2.5', bordZone(g, g.debut.bud))}>
         {b
-          ? <span title={b.complet ? undefined : 'Budget partiel : il manque des prix sur la ligne'} className={cn('whitespace-nowrap font-mono tabular-nums', b.complet ? 'text-[13px] font-extrabold text-km-text' : 'text-[12px] italic text-km-faint')}>{fr2(montant(b.total))}</span>
+          ? <span title={b.complet ? undefined : 'Budget partiel : il manque des prix sur la ligne'} className={cn('whitespace-nowrap font-mono tabular-nums', b.complet ? 'text-[13px] font-extrabold text-km-text' : 'text-[12px] italic text-km-faint')}>{fr2(montant(b))}</span>
           : vide}
       </span>
       <span className={cn('flex items-center justify-end px-2.5', bordZone(g, g.debut.ect))}>
@@ -883,7 +938,7 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
       ) : (
         <>
           <Saisies g={g} brouillon={brouillon} label={`${offre.fournisseurNom} ${offre.duree} mois ${offre.type}`} onBlur={quitter} />
-          <Resultat g={g} compteur={compteur} saisie={saisie} totalActuel={totalActuel} ttc={ttc} horsComparatif={indexe} />
+          <Resultat g={g} compteur={compteur} saisie={saisie} duree={offre.duree} totalActuel={totalActuel} ttc={ttc} horsComparatif={indexe} />
         </>
       )}
       <span className="flex items-center justify-end gap-1 border-l border-km-line-soft px-2">
@@ -955,7 +1010,7 @@ function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, onT
           <span className="whitespace-nowrap text-[12.5px] font-bold text-km-text">{actuelle?.duree ? `${actuelle.duree} mois` : 'Contrat en cours'}</span>
         </span>
         <Saisies g={g} brouillon={brouillon} label="offre actuelle" sansMarge onBlur={() => { if (brouillon.estModifie()) enregistrer(fournisseurId) }} />
-        <Resultat g={g} compteur={compteur} saisie={{ ...saisie, marge: 0 }} totalActuel={totalActuel} ttc={ttc} reference />
+        <Resultat g={g} compteur={compteur} saisie={{ ...saisie, marge: 0 }} duree={actuelle?.duree ?? null} totalActuel={totalActuel} ttc={ttc} reference />
         <span className="border-l border-km-line-soft" />
       </div>
     </div>

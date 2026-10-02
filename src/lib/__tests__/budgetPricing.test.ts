@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budgetElec, budgetGaz, lireNombre, postesAPricer, postesDuCompteur } from '@/lib/pricing/budget'
+import { auCentime, budgetElec, budgetGaz, lireNombre, postesAPricer, postesDuCompteur, ttcDuBudget } from '@/lib/pricing/budget'
 
 /* Les chiffres viennent des deux comparatifs de William du 01/10/2026 : ils doivent tomber à l'euro. */
 
@@ -8,10 +8,12 @@ describe('budget gaz (AO-2026-0418, CAR 285 MWh)', () => {
 
   it('GME fixe 24 mois : 22 174 € HTVA', () => {
     // Molécule présentée 39,45 = P0 37,45 + marge 2,00.
-    const b = budgetGaz(communs, { abonnementMois: 28, p0: 37.45, marge: 2, cee: 7.2, cpb: 1.85 })!
+    // Le CPB (1,85) vient désormais des communs et se range avec les taxes ; le total ne bouge pas.
+    const b = budgetGaz({ ...communs, cpb: 1.85 }, { abonnementMois: 28, p0: 37.45, marge: 2, cee: 7.2, cpb: null })!
     expect(Math.round(b.abonnement)).toBe(336)
-    expect(Math.round(b.energie)).toBe(13823)
-    expect(Math.round(b.taxes)).toBe(8016)
+    expect(Math.round(b.energie)).toBe(13295)
+    expect(Math.round(b.acheminement)).toBe(3027)
+    expect(Math.round(b.taxes)).toBe(5516)
     expect(Math.round(b.total)).toBe(22174)
     expect(b.totalMwh).toBeCloseTo(48.5, 6)
   })
@@ -71,6 +73,18 @@ describe('budget électricité (AO-2026-0419, 510 MWh sur 5 postes)', () => {
     expect(postesAPricer({})).toEqual(['POINTE', 'HPH', 'HCH', 'HPE', 'HCE'])
     const b = budgetElec({ conso: { HPH: 1, HPE: 2 }, turpe: null, accise: null, cta: null }, { abonnementMois: 10, marge: 1, capacite: 1, cee: 1, p0: { HPH: 100, HPE: 50 } })!
     expect(b.complet).toBe(true)
+  })
+})
+
+describe('la TVA : 20 % sur tout, 5,5 % sur la CTA', () => {
+  it('un budget de 1 000 € HT dont 100 € de CTA', () => {
+    expect(ttcDuBudget({ total: 1000, tvaReduite: 100 })).toBe(1185.5)
+  })
+  it('en gaz, la CTA du compteur est la part à 5,5 %', () => {
+    const b = budgetGaz({ car: 100, tqd: 12.79, accise: 16.66, cta: 48.62, cpb: 2.6325 }, { abonnementMois: 30, p0: 40, marge: 2, cee: 7, cpb: null })!
+    expect(b.tvaReduite).toBe(48.62)
+    // 360 + 100 × 49 + 100 × 12,79 + 100 × (16,66 + 2,6325) + 48,62
+    expect(b.total).toBe(auCentime(360 + 4900 + 1279 + 1929.25 + 48.62))
   })
 })
 

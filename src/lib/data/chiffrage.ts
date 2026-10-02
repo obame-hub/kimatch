@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { enregistrerPrixCompteur, type PrixParCompteur } from '@/lib/data/recommandations'
 import { auCentime, budgetElec, budgetGaz, postesAPricer, postesDuCompteur, type BudgetOffre } from '@/lib/pricing/budget'
+import { calculerReglementaire, type Reglementaire } from '@/lib/data/reglementaire'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -39,6 +40,9 @@ export interface CompteurChiffrage {
   fournisseurActuelNom: string | null
   /** Le nom du site, pour reconnaître le compteur d'un coup d'œil. */
   site: string | null
+  /** Tout ce qui est réglementé pour ce compteur et cette version — TURPE et AE en électricité ;
+   *  TQD, AG, CTA et CPB au gaz — calculé et noté par la base, le même pour toutes les offres. */
+  reglementaire: Reglementaire | null
 }
 
 
@@ -78,6 +82,8 @@ export interface OffreChiffrage {
   /** Par lien version ↔ compteur. */
   saisies: Record<string, SaisieLigne>
   totalParCompteur: Record<string, number | null>
+  /** Le même budget TTC, tel que la base le calcule (CTA à 5,5 %, le reste à 20 %). */
+  ttcParCompteur: Record<string, number | null>
 }
 
 export interface VersionChiffrage {
@@ -162,8 +168,23 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
       car: num(g?.car_mwh), profil: g?.profil_consommation ?? null, tarif: (g?.tarif_distribution ?? e?.tarif_distribution) ?? null, segment: e?.segment ?? null, conso,
       fournisseurActuelId: c?.fournisseur_actuel_compte_id ?? null, fournisseurActuelNom: premier(c?.fournisseur_actuel)?.nom ?? null,
       site: c?.libelle_site ?? null,
+      reglementaire: null,
     }
   })
+
+  /* ══ LE RÉGLEMENTÉ, DEMANDÉ À LA BASE POUR CHAQUE COMPTEUR (02/10/2026) ══
+     William : « on doit pouvoir appeler la base à tout moment pour permettre de calculer les
+     budgets ». La base prend TURPE, AE, AG, TQD et CTA au jour de l'envoi (publication du
+     comparatif, ou aujourd'hui), le CPB sur les années de fourniture ; elle les note sur le compteur
+     de la version et les reporte sur les lignes déjà chiffrées. Le Pricer les ajoute à chaque budget
+     sans en faire une colonne. */
+  await Promise.all(compteurs.map(async (c) => {
+    try {
+      c.reglementaire = await calculerReglementaire(c.vcId)
+    } catch (e) {
+      c.reglementaire = { dateEnvoi: null, envoiFige: false, dateReference: null, sourceDate: null, accise: null, tqd: null, cta: null, cpb: {}, turpe: null, derniereValeurConnue: [], manques: [`Calcul impossible : ${(e as Error).message}`] }
+    }
+  }))
 
   const optimisationId = ((opts ?? []) as { id: string }[])[0]?.id ?? null
   let commande: CommandeFournisseur[] = []
@@ -174,7 +195,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
       supabase.from('optimisations_fournisseurs').select('id, fournisseur_compte_id, durees_mois, types_prix, date_creation, fournisseur:comptes(nom)').eq('optimisation_id', optimisationId).order('date_creation'),
       supabase
         .from('offres_fournisseurs')
-        .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, fiche:comptes_fournisseurs(compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
+        .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, fiche:comptes_fournisseurs(compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, cout_total_annuel_estime_ttc, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
         .eq('optimisation_id', optimisationId)
         .eq('actif', true),
     ])
@@ -191,15 +212,17 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
     const lire = (o: any): OffreChiffrage => {
       const saisies: Record<string, SaisieLigne> = {}
       const totalParCompteur: Record<string, number | null> = {}
+      const ttcParCompteur: Record<string, number | null> = {}
       for (const d of (o.details ?? []) as any[]) {
         const cpt = compteurs.find((c) => c.vcId === d.version_recommandation_compteur_id)
         saisies[d.version_recommandation_compteur_id] = lireSaisie(d, cpt?.energie ?? energieVersion)
         totalParCompteur[d.version_recommandation_compteur_id] = num(d.cout_total_annuel_estime_ht)
+        ttcParCompteur[d.version_recommandation_compteur_id] = num(d.cout_total_annuel_estime_ttc)
       }
       return {
         id: o.id, optimisationFournisseurId: o.optimisation_fournisseur_id, fournisseurId: o.compte_fournisseur_id,
         fournisseurNom: premier(premier(o.fiche)?.compte)?.nom ?? 'Fournisseur', duree: o.duree_mois, type: o.type_prix,
-        statut: o.statut, nature: o.nature_offre, saisies, totalParCompteur,
+        statut: o.statut, nature: o.nature_offre, saisies, totalParCompteur, ttcParCompteur,
         clauses: { tacite: !!o.clause_tacite_reconduction, depot: !!o.clause_depot_garantie, engagement: !!o.clause_engagement_consommation, renegociation: !!o.clause_renegociation_anticipee, swap: !!o.clause_swap },
       }
     }
@@ -228,11 +251,18 @@ export function useChiffrage(versionId: string | null) {
 }
 
 /** Le budget d'une saisie sur un compteur, selon son énergie. */
-export function budgetLigne(compteur: CompteurChiffrage, s: SaisieLigne): BudgetOffre | null {
+/**
+ * Le budget d'une saisie sur un compteur, selon son énergie, avec ce que la base a retenu de
+ * réglementé. Au gaz, le CPB dépend de la DURÉE de l'offre (moyenne des années couvertes) ; une offre
+ * sans durée — l'offre actuelle — compte sur un an, comme la base.
+ */
+export function budgetLigne(compteur: CompteurChiffrage, s: SaisieLigne, dureeMois?: number | null): BudgetOffre | null {
+  const r = compteur.reglementaire
   if (compteur.energie === 'gaz') {
-    return budgetGaz({ car: compteur.car, tqd: null, accise: null, cta: null }, s)
+    const cpb = r?.cpb[String(dureeMois ?? 12)] ?? null
+    return budgetGaz({ car: compteur.car, tqd: r?.tqd ?? null, accise: r?.accise ?? null, cta: r?.cta ?? null, cpb }, { ...s, cpb: null })
   }
-  return budgetElec({ conso: compteur.conso, turpe: null, accise: null, cta: null },
+  return budgetElec({ conso: compteur.conso, turpe: r?.turpe?.total ?? null, accise: r?.accise ?? null, cta: null },
     { abonnementMois: s.abonnementMois, p0: s.p0Postes, marge: s.marge, capacite: s.capacite, cee: s.cee })
 }
 
@@ -249,17 +279,29 @@ export function saisieComplete(compteur: CompteurChiffrage, s: SaisieLigne | und
  * s'écrivent qu'une fois la ligne COMPLÈTE : un budget partiel se voit dans le tableau, il ne doit
  * jamais passer pour le prix de l'offre aux yeux des autres écrans.
  */
-function versPrix(compteur: CompteurChiffrage, s: SaisieLigne, typePrix: string | null): PrixParCompteur {
-  const calcule = budgetLigne(compteur, s)
+function versPrix(compteur: CompteurChiffrage, s: SaisieLigne, typePrix: string | null, dureeMois: number | null): PrixParCompteur {
+  const calcule = budgetLigne(compteur, s, dureeMois)
   const b = calcule?.complet ? calcule : null
+  const r = compteur.reglementaire
   const abonnementAn = s.abonnementMois == null ? null : s.abonnementMois * 12
-  const commun = { marge_reelle_eur_mwh: s.marge, marge_retenue_eur_mwh: s.margePricing ?? s.marge, type_marge: 'VARIABLE' as const, type_prix: typePrix, abonnement_fourniture_annuel_ht: abonnementAn, prix_cee_mwh: s.cee, cout_total_annuel_estime_ht: b?.total ?? null }
+  /* Le budget complet se range en trois parts, comme la base les reporte : la fourniture (saisie),
+     l'acheminement et les taxes (réglementés) — et la part à TVA réduite (la CTA). */
+  const commun = {
+    marge_reelle_eur_mwh: s.marge, marge_retenue_eur_mwh: s.margePricing ?? s.marge, type_marge: 'VARIABLE' as const, type_prix: typePrix,
+    abonnement_fourniture_annuel_ht: abonnementAn, prix_cee_mwh: s.cee,
+    cout_fourniture_annuel_ht: b ? auCentime(b.abonnement + b.energie) : null,
+    cout_acheminement_annuel_ht: b ? b.acheminement : null,
+    cout_taxes_annuel: b ? b.taxes : null,
+    cout_tva_reduite_annuel_ht: b ? (b.tvaReduite || null) : null,
+    cout_total_annuel_estime_ht: b?.total ?? null,
+  }
   if (compteur.energie === 'gaz') {
     return {
       ...commun,
       consommation_annuelle_reference_mwh: compteur.car, car_reference_mwh: compteur.car,
-      prix_molecule_p0_mwh: s.p0, prix_energie_mwh: s.p0 != null && s.marge != null ? s.p0 + s.marge : null, prix_cpb_mwh: s.cpb,
-      cout_fourniture_annuel_ht: b ? auCentime(b.abonnement + b.energie) : null,
+      prix_molecule_p0_mwh: s.p0, prix_energie_mwh: s.p0 != null && s.marge != null ? s.p0 + s.marge : null,
+      prix_cpb_mwh: r?.cpb[String(dureeMois ?? 12)] ?? null,
+      prix_atrd_mwh: r?.tqd ?? null, prix_agn_mwh: r?.accise ?? null, cta_annuel_ht: r?.cta ?? null,
     }
   }
   const postes = postesDuCompteur(compteur.conso)
@@ -277,7 +319,10 @@ function versPrix(compteur: CompteurChiffrage, s: SaisieLigne, typePrix: string 
     ...commun,
     consommation_annuelle_reference_mwh: consoTotale || null,
     p0_mwh_par_classe: p0, prix_mwh_par_classe: presentes, capacite_mwh_par_classe: capacite,
-    cout_fourniture_annuel_ht: b ? auCentime(b.abonnement + b.energie) : null,
+    /* LE TURPE ET L'ACCISE DE LA BASE, les mêmes sur toutes les offres du compteur : notés sur
+       chaque ligne, comptés dans le total, jamais affichés en colonne. */
+    prix_turpe_annuel_ht: r?.turpe?.total ?? null,
+    accise_annuel_ht: r?.accise != null ? auCentime(consoTotale * r.accise) : null,
   }
 }
 
@@ -294,7 +339,7 @@ export function useChiffrageMutations(versionId: string | null) {
       /* LE PRICING FIXE LA MARGE, LE COMMERCIAL L'AJUSTE. Une saisie du pricing pose les deux ;
          l'effort du commercial ne déplace que la marge appliquée, la marge du pricing reste. */
       const saisie = x.effortCommercial ? x.saisie : { ...x.saisie, margePricing: x.saisie.marge }
-      await enregistrerPrixCompteur({ offreId: x.offre.id, versionCompteurId: x.compteur.vcId, energie: x.compteur.energie, prix: versPrix(x.compteur, saisie, x.offre.type) })
+      await enregistrerPrixCompteur({ offreId: x.offre.id, versionCompteurId: x.compteur.vcId, energie: x.compteur.energie, prix: versPrix(x.compteur, saisie, x.offre.type, x.offre.duree) })
     },
     onSuccess: rafraichir,
   })
@@ -333,7 +378,7 @@ export function useChiffrageMutations(versionId: string | null) {
     mutationFn: async (x: { fournisseurId: string; duree: number | null; compteur: CompteurChiffrage; saisie: SaisieLigne }) => {
       const { data, error } = await supabase.rpc('fn_offre_actuelle', { p_version: versionId, p_fournisseur: x.fournisseurId, p_duree: x.duree })
       if (error) throw new Error(error.message)
-      await enregistrerPrixCompteur({ offreId: data as string, versionCompteurId: x.compteur.vcId, energie: x.compteur.energie, prix: versPrix(x.compteur, x.saisie, 'Fixe') })
+      await enregistrerPrixCompteur({ offreId: data as string, versionCompteurId: x.compteur.vcId, energie: x.compteur.energie, prix: versPrix(x.compteur, x.saisie, 'Fixe', x.duree) })
     },
     onSuccess: rafraichir,
   })

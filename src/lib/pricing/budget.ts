@@ -37,7 +37,8 @@
 
 export const POSTES_ELEC = ['POINTE', 'HPH', 'HCH', 'HPE', 'HCE', 'HP', 'HC', 'BASE'] as const
 
-export interface CommunsGaz { car: number | null; tqd: number | null; accise: number | null; cta: number | null }
+/** Les communs du gaz : TQD, AG (accise), CTA et CPB — tous fixés par la réglementation, lus en base. */
+export interface CommunsGaz { car: number | null; tqd: number | null; accise: number | null; cta: number | null; cpb?: number | null }
 export interface SaisieGaz { abonnementMois: number | null; p0: number | null; marge: number | null; cee: number | null; cpb: number | null }
 
 export interface CommunsElec {
@@ -59,9 +60,14 @@ export interface SaisieElec {
 export interface BudgetOffre {
   abonnement: number
   energie: number
-  /** TURPE en électricité, 0 au gaz (son acheminement est dans les taxes : TQD). */
+  /** TURPE en électricité, 0 au gaz. */
   turpe: number
+  /** L'acheminement : le TURPE en électricité, CAR × TQD au gaz. */
+  acheminement: number
+  /** Les taxes : conso × AE (+ CTA) en électricité ; CAR × (AG + CPB) + CTA au gaz. */
   taxes: number
+  /** La part soumise à la TVA de 5,5 % : la CTA (le reste est à 20 %). */
+  tvaReduite: number
   total: number
   /** Gaz : le total €/MWh de l'énergie (molécule présentée + CEE + CPB). */
   totalMwh: number | null
@@ -77,23 +83,33 @@ export const auCentime = (x: number) => Math.round((x + Number.EPSILON) * 100) /
 
 /** TVA à 20 % sur toute la facture d'électricité et de gaz depuis le 01/08/2025. */
 export const TAUX_TVA = 0.2
-/** Le TTC d'un montant HTVA, au centime — le même calcul que la colonne de la base. */
+/** La CTA « dispose d'une TVA réduite à 5,5 % contre 20 % pour tout le reste » (William, 02/10/2026). */
+export const TAUX_TVA_REDUIT = 0.055
+/** Le TTC d'un montant HTVA tout à 20 %, au centime. */
 export const enTTC = (ht: number) => auCentime(ht * (1 + TAUX_TVA))
+/** Le TTC d'un budget : 20 % sur tout, sauf la CTA à 5,5 % — le même calcul que la colonne de la base. */
+export const ttcDuBudget = (b: Pick<BudgetOffre, 'total' | 'tvaReduite'>) =>
+  auCentime((b.total - b.tvaReduite) * (1 + TAUX_TVA) + b.tvaReduite * (1 + TAUX_TVA_REDUIT))
 
 /**
  * GAZ — William, 01/10/2026 : « les CPB doivent disparaître car ils seront gérés comme TURPE, CTA,
- * TQD ». Le CPB ne se saisit plus : il ne compte que s'il est connu, comme un commun.
+ * TQD ». Le CPB ne se saisit plus : il vient des communs (la base le moyenne sur les années de la
+ * fourniture) et se range avec les taxes, comme dans la base (`fn_reglementaire_version_compteur`).
+ * Le total €/MWh, lui, le garde : c'est le prix complet de l'énergie présenté au client.
  */
 export function budgetGaz(c: CommunsGaz, s: SaisieGaz): BudgetOffre | null {
   const prix = [s.abonnementMois, s.p0, s.marge, s.cee]
   if (!connu(c.car) || c.car <= 0 || !prix.some(connu)) return null
-  const totalMwh = z(s.p0) + z(s.marge) + z(s.cee) + z(s.cpb)
+  const cpb = z(c.cpb ?? s.cpb)
+  const totalMwh = z(s.p0) + z(s.marge) + z(s.cee) + cpb
   const abonnement = z(s.abonnementMois) * 12
-  const energie = c.car * totalMwh
-  const taxes = c.car * (z(c.tqd) + z(c.accise)) + z(c.cta)
+  const energie = c.car * (z(s.p0) + z(s.marge) + z(s.cee))
+  const acheminement = c.car * z(c.tqd)
+  const taxes = c.car * (z(c.accise) + cpb) + z(c.cta)
   return {
-    abonnement: auCentime(abonnement), energie: auCentime(energie), turpe: 0, taxes: auCentime(taxes),
-    total: auCentime(abonnement + energie + taxes), totalMwh: auCentime(totalMwh), complet: prix.every(connu),
+    abonnement: auCentime(abonnement), energie: auCentime(energie), turpe: 0, acheminement: auCentime(acheminement), taxes: auCentime(taxes),
+    tvaReduite: auCentime(z(c.cta)),
+    total: auCentime(abonnement + energie + acheminement + taxes), totalMwh: auCentime(totalMwh), complet: prix.every(connu),
   }
 }
 
@@ -130,7 +146,8 @@ export function budgetElec(c: CommunsElec, s: SaisieElec): BudgetOffre | null {
   const taxes = consoTotale * z(c.accise) + z(c.cta)
   const turpe = z(c.turpe)
   return {
-    abonnement: auCentime(abonnement), energie: auCentime(energie), turpe: auCentime(turpe), taxes: auCentime(taxes),
+    abonnement: auCentime(abonnement), energie: auCentime(energie), turpe: auCentime(turpe), acheminement: auCentime(turpe), taxes: auCentime(taxes),
+    tvaReduite: 0,
     total: auCentime(abonnement + energie + turpe + taxes), totalMwh: null, complet: prix.every(connu),
   }
 }

@@ -37,7 +37,7 @@ function totaux(compteurs: CompteurChiffrage[], o: OffreChiffrage, marge?: numbe
   for (const c of compteurs) {
     const s = o.saisies[c.vcId]
     if (!s) return null
-    const b: BudgetOffre | null = budgetLigne(c, marge == null ? s : { ...s, marge })
+    const b: BudgetOffre | null = budgetLigne(c, marge == null ? s : { ...s, marge }, o.duree)
     /* Seul un budget complet se présente au client. */
     if (!b?.complet) return null
     t.abonnement += b.abonnement
@@ -226,7 +226,7 @@ function TableauPrix({ chiffrage }: { chiffrage: Chiffrage }) {
         if (!s) return null
         const presente = (x: number | null | undefined) => (x == null || s.marge == null ? null : x + s.marge)
         const valeurs = gaz
-          ? [fr2(s.abonnementMois), fr2(presente(s.p0)), fr2(s.cee), fr2(budgetLigne(c, s)?.totalMwh)]
+          ? [fr2(s.abonnementMois), fr2(presente(s.p0)), fr2(s.cee), fr2(budgetLigne(c, s, o.duree)?.totalMwh)]
           : [fr2(s.abonnementMois), ...postes.map((p) => fr2(presente(s.p0Postes[p]))), fr2(s.capacite), fr2(s.cee)]
         const actuelle = o.nature === 'EN_COURS'
         return (

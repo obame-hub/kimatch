@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog, Building2, Cog, Database, KeyRound } from 'lucide-react'
+import { ShieldCheck, Users, Mail, Trash2, Plus, UserCog, Building2, Cog, Database, KeyRound, Zap } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { GestionRoles } from '@/components/administration/GestionRoles'
 import { AccesPartenaires } from '@/components/administration/AccesPartenaires'
 import { ClesApiPartenaires } from '@/components/administration/ClesApiPartenaires'
 import { GestionnaireObjets } from '@/components/administration/GestionnaireObjets'
+import { ReferentielsPricing } from '@/components/administration/ReferentielsPricing'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/form'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +40,7 @@ import { useRefreshSandbox } from '@/lib/data/sandboxRefresh'
 import { RefreshCw, ExternalLink } from 'lucide-react'
 import { useSandboxLastRefresh } from '@/lib/data/sandboxRefresh'
 
-type Tab = 'utilisateurs' | 'permissions' | 'acces' | 'clesApi' | 'assignations' | 'automatismes' | 'objets' | 'corbeille'
+type Tab = 'utilisateurs' | 'permissions' | 'acces' | 'clesApi' | 'assignations' | 'pricing' | 'automatismes' | 'objets' | 'corbeille'
 
 // Gere depuis l'admin de la PROD (comme la page "Sandbox" d'un org Salesforce) : infos + bouton
 // d'actualisation qui recopie les dernieres donnees de prod dans la sandbox. Clonage/suppression
@@ -420,7 +421,12 @@ export default function Administration() {
 
         {import.meta.env.VITE_ENV_LABEL !== 'sandbox' && <SandboxCard />}
 
-        <div className="mb-4 flex gap-2">
+        {/* DEUX LIGNES D'ONGLETS — William, 02/10/2026 : « il commence à y avoir beaucoup d'onglets
+            dans Administration, donc s'il y en a trop, fais 2 lignes ». La première règle qui entre
+            et ce qu'il peut faire ; la seconde, les référentiels et le fonctionnement de Kimatch. */}
+        <div className="mb-4 flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-[170px] shrink-0 text-[10px] font-extrabold uppercase tracking-[.09em] text-km-faint">Équipe et accès</span>
           <button
             type="button"
             onClick={() => setTab('utilisateurs')}
@@ -480,6 +486,23 @@ export default function Administration() {
             <Building2 className="h-4 w-4" />
             Assignations
           </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="w-[170px] shrink-0 text-[10px] font-extrabold uppercase tracking-[.09em] text-km-faint">Référentiels et système</span>
+          {/* LE PRICING, en tête des référentiels : les valeurs réglementées que la base applique à
+              chaque budget — TURPE, AE, AG, TQD, CTA, CPB. William, 02/10/2026 : « je préférerais que
+              dans Administration l'onglet se nomme "Pricing" ». */}
+          <button
+            type="button"
+            onClick={() => setTab('pricing')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium',
+              tab === 'pricing' ? 'bg-kiwi-500/15 text-km-green' : 'text-km-muted hover:bg-km-bg',
+            )}
+          >
+            <Zap className="h-4 w-4" />
+            Pricing
+          </button>
           {/* « Qu'on puisse voir quoi tourne déjà afin de ne pas avoir de doublons » (Naoëlle,
               24/08/2026). En lecture seule : le pilotage passe par le code. */}
           <button
@@ -523,6 +546,7 @@ export default function Administration() {
             Corbeille
           </button>
         </div>
+        </div>
 
         <Card>
           <CardHeader>
@@ -533,7 +557,9 @@ export default function Administration() {
                   ? 'Postes, rôles & permissions'
                   : tab === 'acces'
                     ? 'Emails autorisés à créer un compte'
-                    : tab === 'automatismes'
+                    : tab === 'pricing'
+                      ? 'Pricing · valeurs réglementées'
+                      : tab === 'automatismes'
                       ? 'Automatismes'
                       : tab === 'objets'
                         ? 'Objets, champs et liens'
@@ -543,7 +569,7 @@ export default function Administration() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <GestionRoles /> : tab === 'acces' ? <AccesAutorisesTab /> : tab === 'clesApi' ? <ClesApiPartenaires /> : tab === 'automatismes' ? <Automatismes /> : tab === 'objets' ? <GestionnaireObjets /> : tab === 'corbeille' ? <Corbeille /> : <AssignationsTab />}
+            {tab === 'utilisateurs' ? <UtilisateursTab /> : tab === 'permissions' ? <GestionRoles /> : tab === 'acces' ? <AccesAutorisesTab /> : tab === 'clesApi' ? <ClesApiPartenaires /> : tab === 'pricing' ? <ReferentielsPricing /> : tab === 'automatismes' ? <Automatismes /> : tab === 'objets' ? <GestionnaireObjets /> : tab === 'corbeille' ? <Corbeille /> : <AssignationsTab />}
           </CardContent>
         </Card>
       </div>
