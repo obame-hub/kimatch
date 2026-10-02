@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Ban, Check, ChevronsUpDown, FileText, Loader2, MoreHorizontal, RotateCcw, Send, Upload } from 'lucide-react'
+import { ArrowUpRight, Ban, Check, ChevronsUpDown, FileText, Loader2, MoreHorizontal, RotateCcw, Send, Sparkles, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { lireNombre, postesDuCompteur, ttcDuBudget } from '@/lib/pricing/budget'
 import { useFournisseursChoix } from '@/lib/data/contratsProspects'
 import { urlOuvrableDocument, useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
+import { estLisible, useLectures, type Lectures } from '@/lib/data/lectureOffre'
+import { VoletLectures } from '@/components/pricing/offres/LecturesPropositions'
 import {
   SAISIE_VIDE, budgetLigne, saisieComplete, useChiffrage, useChiffrageMutations,
   type Chiffrage, type CompteurChiffrage, type OffreChiffrage, type SaisieLigne,
@@ -75,10 +77,20 @@ function versBrouillon(s: SaisieLigne | undefined, postes: string[]): Brouillon 
   return b
 }
 
-function depuisBrouillon(b: Brouillon, postes: string[]): SaisieLigne {
+/**
+ * ══ UNE CASE QU'ON N'A PAS TOUCHÉE GARDE SON NOMBRE ══
+ * 02/10/2026 : un abonnement de 4 487,96 €/an s'affiche 374,00 €/mois ; relu depuis la case, il
+ * devenait 4 488,00 €/an dès qu'on modifiait une AUTRE case de la ligne. Une case dont le texte n'a
+ * pas bougé rend donc le nombre d'origine, au centime de l'annuel près.
+ */
+function depuisBrouillon(b: Brouillon, postes: string[], origine?: SaisieLigne, initial?: Brouillon): SaisieLigne {
+  const lire = (cle: string, avant: number | null | undefined) => (origine && initial && b[cle] === initial[cle] ? avant ?? null : lireNombre(b[cle]))
   const p0Postes: Record<string, number | null> = {}
-  for (const p of postes) p0Postes[p] = lireNombre(b[`p0_${p}`])
-  return { abonnementMois: lireNombre(b.abonnementMois), marge: lireNombre(b.marge), p0: lireNombre(b.p0), cee: lireNombre(b.cee), cpb: lireNombre(b.cpb), capacite: lireNombre(b.capacite), p0Postes }
+  for (const p of postes) p0Postes[p] = lire(`p0_${p}`, origine?.p0Postes[p])
+  return {
+    abonnementMois: lire('abonnementMois', origine?.abonnementMois), marge: lire('marge', origine?.marge), p0: lire('p0', origine?.p0),
+    cee: lire('cee', origine?.cee), cpb: lire('cpb', origine?.cpb), capacite: lire('capacite', origine?.capacite), p0Postes,
+  }
 }
 
 const SOURCES: Record<string, [string, string]> = {
@@ -99,9 +111,10 @@ const libelleCase = (cle: string) => LIBELLE_CASE[cle] ?? `Prix ${LIBELLE_POSTE[
 /**
  * LE DÉPÔT EN VRAC — William, 01/10/2026 : « le dépôt d'offres PDF ou Excel doit permettre au pricing
  * de mettre des fichiers pêle-mêle, ce sera à l'IA ensuite d'identifier à quelles lignes ça
- * correspond ». Les fichiers se rangent sur la version dès maintenant ; la lecture arrive à l'étape 3.
+ * correspond ». Les fichiers se rangent sur la version ; les PDF et les images partent aussi à la
+ * lecture (`LecturesPropositions`), et un fichier déjà rangé se relit d'un clic.
  */
-function useDepot(versionId: string, onToast: (m: string) => void) {
+function useDepot(versionId: string, onToast: (m: string) => void, lectures: Lectures) {
   const { data: documents } = useDocumentsParEntites([versionId])
   const { data: types } = useReferenceTable('types_documents')
   const televerser = useTeleverserDocuments()
@@ -109,19 +122,22 @@ function useDepot(versionId: string, onToast: (m: string) => void) {
   const envoyer = (liste: FileList | File[] | null) => {
     const fichiers = Array.from(liste ?? [])
     if (!fichiers.length) return
+    for (const f of fichiers) if (estLisible(f.name, f.type)) lectures.lireFichier(f)
     const type = ((types ?? []) as { id: string; code?: string }[]).find((t) => t.code === 'ANNEXE')
     void televerser
       .mutateAsync({ fichiers, entite_type: ENTITE_PROPOSITIONS, entite_id: versionId, type_document_id: type?.id ?? null, type_document_libelle: 'Proposition fournisseur' })
       .then(() => onToast(`✓ ${fichiers.length} fichier${fichiers.length > 1 ? 's' : ''} déposé${fichiers.length > 1 ? 's' : ''}`))
       .catch((e: Error) => onToast(`Erreur : ${e.message}`))
   }
-  return { deposes, envoyer, enCours: televerser.isPending }
+  const relire = (d: { url: string; nom_fichier?: string | null; nom?: string | null }) => lectures.lireDeposee(d.url, d.nom_fichier || d.nom || 'proposition.pdf')
+  return { deposes, envoyer, relire, enCours: televerser.isPending }
 }
 type Depot = ReturnType<typeof useDepot>
 
 export function ChiffrageVersion({ versionId, onToast }: { versionId: string; onToast: (m: string) => void }) {
   const { data: chiffrage, isLoading, error } = useChiffrage(versionId)
-  const depot = useDepot(versionId, onToast)
+  const lectures = useLectures()
+  const depot = useDepot(versionId, onToast, lectures)
   const [vcId, setVcId] = useState<string | null>(null)
   const [survol, setSurvol] = useState(false)
   /* HTVA ou TTC : un seul choix pour tout le tableau, gardé d'un compteur à l'autre. */
@@ -143,6 +159,7 @@ export function ChiffrageVersion({ versionId, onToast }: { versionId: string; on
       {compteur
         ? <Offres key={compteur.vcId} chiffrage={chiffrage} compteur={compteur} choisirCompteur={setVcId} ttc={ttc} setTtc={setTtc} versionId={versionId} onToast={onToast} />
         : <p className="p-6 text-km-body text-km-faint">Aucun compteur dans le périmètre de cette version.</p>}
+      <VoletLectures lectures={lectures} chiffrage={chiffrage} versionId={versionId} choisirCompteur={setVcId} onToast={onToast} />
       {survol && (
         <div className="pointer-events-none absolute inset-2 z-40 flex flex-col items-center justify-center gap-2 rounded-[11px] border-2 border-dashed border-km-green bg-km-green-soft/90">
           <Upload className="h-6 w-6 text-km-green" />
@@ -227,11 +244,18 @@ function BoutonDepot({ depot }: { depot: Depot }) {
           <span className="px-2 pb-1 pt-1 text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Propositions déposées · {n}</span>
           {depot.deposes.map((d) => (
             /* Le stockage est privé : l'adresse se signe au clic (`urlOuvrableDocument`). */
-            <button key={d.id} type="button" onClick={() => void urlOuvrableDocument(d.url).then((u) => window.open(u, '_blank', 'noopener'))} className="flex items-center gap-2 rounded-km-sm px-2 py-1.5 text-left text-[12px] text-km-text hover:bg-km-soft">
-              <FileText className="h-3.5 w-3.5 shrink-0 text-km-red" /><span className="truncate">{d.nom_fichier || d.nom}</span>
-            </button>
+            <span key={d.id} className="flex items-center gap-0.5 rounded-km-sm hover:bg-km-soft">
+              <button type="button" onClick={() => void urlOuvrableDocument(d.url).then((u) => window.open(u, '_blank', 'noopener'))} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[12px] text-km-text">
+                <FileText className="h-3.5 w-3.5 shrink-0 text-km-red" /><span className="truncate">{d.nom_fichier || d.nom}</span>
+              </button>
+              {estLisible(d.nom_fichier || d.nom || '') && (
+                <button type="button" onClick={() => { depot.relire(d); setOuvert(false) }} title="Lire cette proposition et remplir sa ligne" aria-label={`Lire ${d.nom_fichier || d.nom}`} className="flex h-7 shrink-0 items-center gap-1 rounded-km-sm px-2 text-[11px] font-bold text-km-violet hover:bg-km-violet/10">
+                  <Sparkles className="h-3.5 w-3.5" /> Lire
+                </button>
+              )}
+            </span>
           ))}
-          <span className="px-2 pb-1 pt-1 text-[10.5px] text-km-faint">L’IA les rattachera aux lignes (bientôt).</span>
+          <span className="px-2 pb-1 pt-1 text-[10.5px] text-km-faint">Un PDF déposé se lit tout seul ; « Lire » relit un fichier déjà rangé.</span>
         </span>
       )}
     </span>
@@ -776,7 +800,9 @@ function useBrouillon(saisie: SaisieLigne | undefined, postes: string[]) {
   return {
     b,
     changer: (cle: string, v: string, marquer = true) => { if (marquer) modifie.current = true; setB((x) => ({ ...x, [cle]: v })) },
-    lu: () => { const s = depuisBrouillon(b, postes); modifie.current = false; return s },
+    /** La saisie telle que la ligne la porte maintenant — ce que le budget compte à chaque frappe. */
+    saisie: depuisBrouillon(b, postes, saisie, initial),
+    lu: () => { const s = depuisBrouillon(b, postes, saisie, initial); modifie.current = false; return s },
     estModifie: () => modifie.current,
   }
 }
@@ -920,7 +946,7 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
   changerClauses: (c: OffreChiffrage['clauses']) => Promise<unknown>
 }) {
   const brouillon = useBrouillon(offre.saisies[compteur.vcId], g.postes)
-  const saisie = depuisBrouillon(brouillon.b, g.postes)
+  const saisie = brouillon.saisie
   const indexe = estIndexe(offre.type)
   const indispo = offre.statut === 'INDISPONIBLE'
   const complete = chiffrage.compteurs.every((c) => saisieComplete(c, c.vcId === compteur.vcId ? saisie : offre.saisies[c.vcId]))
@@ -986,7 +1012,7 @@ function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, onT
   const actuelle = chiffrage.actuelle
   const [fournisseurId, setFournisseurId] = useState<string>(actuelle?.fournisseurId ?? compteur.fournisseurActuelId ?? '')
   const brouillon = useBrouillon(actuelle?.saisies[compteur.vcId], g.postes)
-  const saisie = depuisBrouillon(brouillon.b, g.postes)
+  const saisie = brouillon.saisie
   const enregistrer = (fid: string) => {
     if (!fid) { onToast('Choisissez d’abord le fournisseur actuel.'); return }
     void m.enregistrerActuelle.mutateAsync({ fournisseurId: fid, duree: actuelle?.duree ?? null, compteur, saisie: { ...brouillon.lu(), marge: 0 } }).catch((e: Error) => onToast(`Erreur : ${e.message}`))

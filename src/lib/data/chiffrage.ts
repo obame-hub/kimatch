@@ -283,7 +283,8 @@ function versPrix(compteur: CompteurChiffrage, s: SaisieLigne, typePrix: string 
   const calcule = budgetLigne(compteur, s, dureeMois)
   const b = calcule?.complet ? calcule : null
   const r = compteur.reglementaire
-  const abonnementAn = s.abonnementMois == null ? null : s.abonnementMois * 12
+  /* L'annuel est au centime : le mois n'en est que l'affichage (4 487,96 / 12 × 12 = 4 487,96). */
+  const abonnementAn = s.abonnementMois == null ? null : auCentime(s.abonnementMois * 12)
   /* Le budget complet se range en trois parts, comme la base les reporte : la fourniture (saisie),
      l'acheminement et les taxes (réglementés) — et la part à TVA réduite (la CTA). */
   const commun = {

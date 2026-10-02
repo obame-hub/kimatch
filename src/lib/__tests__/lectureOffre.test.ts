@@ -1,0 +1,64 @@
+import { describe, expect, it } from 'vitest'
+import type { Chiffrage, CompteurChiffrage, OffreChiffrage } from '@/lib/data/chiffrage'
+import { cleFournisseur, rapprocher, saisieDepuisLecture, type OffreLue, type PropositionLue } from '@/lib/pricing/lectureOffre'
+
+/* L'offre Gaz Européen n° 500080748 de CAPTA – 21-23 rue Lalande, telle que William l'a décrite le
+   02/10/2026 : 36 mois, P0 55,01 dont 6 €/MWh de marge, abonnement 4 487,96 €/an, CEE 7,03 + 4,52. */
+
+const compteur = { vcId: 'vc1', compteurId: 'c1', numero: 'GI142791', libelle: '', energie: 'gaz', car: 344, profil: 'P016', tarif: 'T2', segment: null, conso: {}, fournisseurActuelId: null, fournisseurActuelNom: null, site: null, reglementaire: null } as CompteurChiffrage
+const ligne = (id: string, nom: string, duree: number, type = 'Fixe') => ({ id, fournisseurNom: nom, duree, type, statut: 'EN_ATTENTE', saisies: {} }) as unknown as OffreChiffrage
+const chiffrage = { compteurs: [compteur], offres: [ligne('o12', 'GAZ EUROPEEN', 12), ligne('o36', 'GAZ EUROPEEN', 36), ligne('e36', 'ENGIE', 36)] } as unknown as Chiffrage
+
+const lue: OffreLue = {
+  numero_point: 'GI142791', duree_mois: 36, type_prix: 'Fixe', car_mwh: 344, profil: 'P016', p0_mwh: 55.01, prix_postes_mwh: {}, capacite_mwh: null,
+  abonnement_annuel: 4487.96, abonnement_imprime: { montant: 4487.96, periode: 'an' }, cee_classiques_mwh: 7.03, cee_precarite_mwh: 4.52, cee_mwh: 11.55,
+}
+const proposition: PropositionLue = { fournisseur_nom: 'Gaz Européen', type_energie: 'gaz', reference_offre: '500080748', client: null, date_prise_effet: '2027-01-01', date_validite: '2026-10-02T16:00', offres: [lue], remarques: null }
+
+describe('lecture d’une proposition fournisseur', () => {
+  it('« Gaz Européen » et « GAZ EUROPEEN » sont le même fournisseur', () => {
+    expect(cleFournisseur('Gaz Européen')).toBe(cleFournisseur('GAZ EUROPEEN'))
+  })
+
+  it('la durée lue en tête choisit la ligne, le PCE choisit le compteur', () => {
+    const r = rapprocher(chiffrage, proposition, lue)
+    expect(r.offre?.id).toBe('o36')
+    expect(r.compteur?.vcId).toBe('vc1')
+    expect(r.alerteOffre).toBeNull()
+    expect(r.alerteCompteur).toBeNull()
+  })
+
+  it('une durée non commandée ne remplit rien d’office', () => {
+    const r = rapprocher(chiffrage, proposition, { ...lue, duree_mois: 24 })
+    expect(r.offre).toBeNull()
+    expect(r.alerteOffre).toContain('24 mois')
+  })
+
+  it('P0 55,01 dont 6 de marge : 49,01 fournisseur ; abonnement au mois sans perte ; CEE 11,55', () => {
+    const s = saisieDepuisLecture(compteur, lue, 6)
+    expect(s.p0).toBe(49.01)
+    expect(s.marge).toBe(6)
+    expect(s.cee).toBe(11.55)
+    expect(Math.round(s.abonnementMois! * 12 * 100) / 100).toBe(4487.96)
+  })
+})
+
+describe('la réponse de l’IA, remise en forme côté serveur', () => {
+  it('les nombres à la française se relisent, les CEE s’additionnent, l’abonnement au mois passe à l’an', async () => {
+    const { lireProposition } = await import('../../../api/ocr/extraire-offre')
+    const p = lireProposition({
+      fournisseur_nom: 'Gaz Européen', type_energie: 'Gaz',
+      offres: [{ numero_point: 'GI 142791', duree_mois: '36', type_prix: 'fixe', p0_mwh: '55,01', abonnement_montant: '4 487,96', abonnement_periode: 'an', cee_classiques_mwh: 7.03, cee_precarite_mwh: 4.52, profil: 'P16' }],
+    })
+    const o = p.offres[0]
+    expect(p.type_energie).toBe('gaz')
+    expect(o.numero_point).toBe('GI142791')
+    expect(o.duree_mois).toBe(36)
+    expect(o.p0_mwh).toBe(55.01)
+    expect(o.abonnement_annuel).toBe(4487.96)
+    expect(o.cee_mwh).toBe(11.55)
+    expect(o.profil).toBe('P016')
+    const m = lireProposition({ offres: [{ abonnement_montant: 374, abonnement_periode: 'mois' }] }).offres[0]
+    expect(m.abonnement_annuel).toBe(4488)
+  })
+})
