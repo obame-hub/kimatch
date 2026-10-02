@@ -74,3 +74,18 @@ describe('la réponse de l’IA, remise en forme côté serveur', () => {
     expect(m.abonnement_annuel).toBe(4488)
   })
 })
+
+describe('le détail du calcul d’une ligne', () => {
+  it('Gaz Européen 36 mois sur GI142791 : le détail retombe sur 37 318,69 € HTVA et 44 715,81 € TTC', async () => {
+    const { detailBudget } = await import('@/lib/pricing/detailBudget')
+    const reglementaire = { dateEnvoi: '2026-10-02', envoiFige: false, dateReference: '2027-01-01', sourceDate: 'ECHEANCE', accise: 16.66, tqd: 7.57, cta: 459.45, cpb: { 36: 3.3733333333333335 }, turpe: null, derniereValeurConnue: [], manques: [] }
+    const c = { ...compteur, car: 343.778, tarif: 'T3', reglementaire } as unknown as CompteurChiffrage
+    const s = saisieDepuisLecture(c, lue, 6)
+    const d = detailBudget(c, s, 36)!
+    expect(d.sections.map((x) => x.sousTotal)).toEqual([27369.82, 2602.4, 7346.47])
+    expect(d.totalHt).toBe(37318.69)
+    expect(d.totalTtc).toBe(44715.81)
+    expect(Math.round((d.totalHt + d.tva.reduce((t, l) => t + l.montant, 0)) * 100) / 100).toBe(44715.81)
+    expect(d.sections[2].lignes.find((l) => l.libelle === 'CPB')?.source).toContain('2027 à 2029')
+  })
+})

@@ -9,6 +9,7 @@ import { useReferenceTable } from '@/lib/data/referenceTables'
 import { estLisible, useLectures, type Lectures } from '@/lib/data/lectureOffre'
 import { depuisSaisieLocale, versSaisieLocale } from '@/lib/pricing/lectureOffre'
 import { VoletLectures } from '@/components/pricing/offres/LecturesPropositions'
+import { BudgetCliquable } from '@/components/pricing/offres/DetailCalcul'
 import {
   SAISIE_VIDE, budgetLigne, saisieComplete, useChiffrage, useChiffrageMutations,
   type Chiffrage, type CompteurChiffrage, type OffreChiffrage, type SaisieLigne,
@@ -896,7 +897,7 @@ function Saisies({ g, brouillon, label, sansMarge, onBlur }: { g: Grille; brouil
 }
 
 /** Le budget (HTVA ou TTC, selon l'en-tête) et l'écart à la référence, calculés à chaque frappe. */
-function Resultat({ g, compteur, saisie, duree, totalActuel, ttc, reference, horsComparatif }: PropsLigne & { saisie: SaisieLigne; duree: number | null; reference?: boolean; horsComparatif?: boolean }) {
+function Resultat({ g, compteur, saisie, duree, totalActuel, ttc, reference, horsComparatif, titre }: PropsLigne & { saisie: SaisieLigne; duree: number | null; reference?: boolean; horsComparatif?: boolean; titre: string }) {
   /* Le budget complet : la saisie, plus ce que la base a retenu de réglementé (le CPB dépend de la
      durée de l'offre). En TTC, la CTA est à 5,5 %, le reste à 20 %. */
   const b = budgetLigne(compteur, saisie, duree)
@@ -908,7 +909,12 @@ function Resultat({ g, compteur, saisie, duree, totalActuel, ttc, reference, hor
     <>
       <span className={cn('flex items-center justify-end px-2.5', bordZone(g, g.debut.bud))}>
         {b
-          ? <span title={b.complet ? undefined : 'Budget partiel : il manque des prix sur la ligne'} className={cn('whitespace-nowrap font-mono tabular-nums', b.complet ? 'text-[13px] font-extrabold text-km-text' : 'text-[12px] italic text-km-faint')}>{fr2(montant(b))}</span>
+          ? (
+            /* UN CLIC SUR LE BUDGET EN DONNE LE DÉTAIL (`DetailCalcul`). */
+            <BudgetCliquable titre={titre} compteur={compteur} saisie={saisie} duree={duree}>
+              <span className={cn('whitespace-nowrap font-mono tabular-nums', b.complet ? 'text-[13px] font-extrabold text-km-text' : 'text-[12px] italic text-km-faint')}>{fr2(montant(b))}</span>
+            </BudgetCliquable>
+          )
           : vide}
       </span>
       <span className={cn('flex items-center justify-end px-2.5', bordZone(g, g.debut.ect))}>
@@ -967,7 +973,7 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
       ) : (
         <>
           <Saisies g={g} brouillon={brouillon} label={`${offre.fournisseurNom} ${offre.duree} mois ${offre.type}`} onBlur={quitter} />
-          <Resultat g={g} compteur={compteur} saisie={saisie} duree={offre.duree} totalActuel={totalActuel} ttc={ttc} horsComparatif={indexe} />
+          <Resultat g={g} compteur={compteur} saisie={saisie} duree={offre.duree} totalActuel={totalActuel} ttc={ttc} horsComparatif={indexe} titre={`${offre.fournisseurNom} · ${offre.duree ?? '?'} mois · ${offre.type ?? '?'}`} />
         </>
       )}
       <span className="flex items-center justify-end gap-1 border-l border-km-line-soft px-2">
@@ -1039,7 +1045,7 @@ function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, onT
           <span className="whitespace-nowrap text-[12.5px] font-bold text-km-text">{actuelle?.duree ? `${actuelle.duree} mois` : 'Contrat en cours'}</span>
         </span>
         <Saisies g={g} brouillon={brouillon} label="offre actuelle" sansMarge onBlur={() => { if (brouillon.estModifie()) enregistrer(fournisseurId) }} />
-        <Resultat g={g} compteur={compteur} saisie={{ ...saisie, marge: 0 }} duree={actuelle?.duree ?? null} totalActuel={totalActuel} ttc={ttc} reference />
+        <Resultat g={g} compteur={compteur} saisie={{ ...saisie, marge: 0 }} duree={actuelle?.duree ?? null} totalActuel={totalActuel} ttc={ttc} reference titre={`Offre actuelle${actuelle?.fournisseurNom ? ` · ${actuelle.fournisseurNom}` : ''}`} />
         <span className="border-l border-km-line-soft" />
       </div>
     </div>
