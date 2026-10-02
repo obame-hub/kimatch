@@ -790,6 +790,9 @@ export interface DocumentItem {
   nom_fichier: string
   url: string
   type_document: string
+  /** La catégorie, par son identifiant et son code (FACTURE, MANDAT, CERTIFICAT…) — 02/10/2026. */
+  type_document_id?: string | null
+  type_document_code?: string | null
   entite_type: string
   entite_id: string
   objet_lie: string

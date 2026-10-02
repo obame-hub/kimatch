@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CategorieDocument } from '@/components/document/CategorieDocument'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Star, Trash2, FileCheck2, FileText, Sparkle } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
@@ -608,7 +609,7 @@ export default function ContactDetail() {
                         {d.nom}
                       </Link>
                     </p>
-                    {d.type_document && <Badge tone="neutral">{d.type_document}</Badge>}
+                    <CategorieDocument documentId={d.id} code={d.type_document_code} libelle={d.type_document} />
                   </div>
                   <p className="ml-9 mt-1.5 text-km-label text-km-faint">
                     {d.auteur ? `${d.auteur} · ` : ''}

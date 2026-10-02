@@ -496,6 +496,8 @@ export function CreationCompteurDialog({
               entite_id: result.compteur.id,
               type_document_id: null,
               type_document_libelle: 'Facture',
+              /* La facture lue pour l'extraction est jointe au compteur en « Facture » (02/10/2026). */
+              categorie: 'FACTURE',
             })
             .catch(() => {})
         }

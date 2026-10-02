@@ -1242,7 +1242,7 @@ export default function RecommandationDetail() {
                   version={versionAffichee}
                   contactSignataire={contactPrincipal}
                   typeDocumentPropositionId={
-                    typesDocuments.find((t) => /recommandation/i.test(t.libelle))?.id ?? null
+                    typesDocuments.find((t) => t.code === 'APPEL_OFFRES')?.id ?? null
                   }
                   onPresentationEnvoyee={() => void datePresentationClient()}
                   statutsVersions={statutsVersions}
@@ -1252,9 +1252,9 @@ export default function RecommandationDetail() {
                   onSupprimer={() => setVersionASupprimer(versionAffichee)}
                   compteurs={compteurs ?? []}
                   typeDocumentOffreId={
-                    // « Offre » si la table de référence le propose, sinon rien : le dépôt
-                    // fonctionne sans type, et inventer un code de type serait pire.
-                    typesDocuments.find((t) => /offre/i.test(t.libelle))?.id ?? null
+                    // Par le CODE : « Appel d'offres » contient lui aussi « offre ». Sans lui, la
+                    // base pose la catégorie d'elle-même (`fn_categorie_document`).
+                    typesDocuments.find((t) => t.code === 'OFFRE_FOURNISSEUR')?.id ?? null
                   }
                   statutsConsultation={(statutsConsultationRef ?? []).filter((s) =>
                     (CODES_STATUT_CONSULTATION_PROPOSES as readonly string[]).includes(s.code),

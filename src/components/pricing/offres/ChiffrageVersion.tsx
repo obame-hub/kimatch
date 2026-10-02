@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Ban, Check, ChevronsUpDown, FileText, Loader2, MoreHorizontal, Plus, RotateCcw, Send, Sparkles, Trash2, Upload } from 'lucide-react'
+import { ArrowUpRight, Ban, Check, ChevronDown, ChevronsUpDown, FileText, Loader2, MoreHorizontal, Paperclip, Plus, RotateCcw, Send, Sparkles, Trash2, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { INCLUSIONS_ELEC, INCLUSIONS_GAZ, LIBELLE_INCLUSION, lireNombre, postesDuCompteur, ttcDuBudget, type ComposanteIncluse } from '@/lib/pricing/budget'
 import { useFournisseursChoix } from '@/lib/data/contratsProspects'
-import { urlOuvrableDocument, useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
-import { useReferenceTable } from '@/lib/data/referenceTables'
+import { useDocumentsParEntites, useFichiersDuCompteur, useTeleverserDocuments } from '@/lib/data/documents'
+import { FenetreApercu } from '@/components/document/FenetreApercu'
+import { CategorieDocument } from '@/components/document/CategorieDocument'
+import type { DocumentItem } from '@/types/domain'
 import { estLisible, useLectures, type Lectures } from '@/lib/data/lectureOffre'
 import { depuisSaisieLocale, versSaisieLocale } from '@/lib/pricing/lectureOffre'
 import { VoletLectures } from '@/components/pricing/offres/LecturesPropositions'
@@ -68,7 +70,8 @@ const estIndexe = (type: string | null) => /^index/i.test(type ?? '')
  * refusait — chaque dépôt échouait. On reprend le type que la base connaît déjà.
  */
 const ENTITE_PROPOSITIONS = 'version_recommandation'
-const TYPE_PROPOSITIONS = 'Annexe'
+/** « Offre fournisseur » depuis le 02/10/2026 (elles étaient rangées en « Annexe », catégorie retirée). */
+const CATEGORIE_PROPOSITIONS = 'OFFRE_FOURNISSEUR'
 
 type Brouillon = Record<string, string>
 
@@ -121,16 +124,14 @@ const libelleCase = (cle: string) => LIBELLE_CASE[cle] ?? `Prix ${LIBELLE_POSTE[
  */
 function useDepot(versionId: string, onToast: (m: string) => void, lectures: Lectures) {
   const { data: documents } = useDocumentsParEntites([versionId])
-  const { data: types } = useReferenceTable('types_documents')
   const televerser = useTeleverserDocuments()
-  const deposes = (documents ?? []).filter((d) => d.entite_type === ENTITE_PROPOSITIONS && (d.type_document === TYPE_PROPOSITIONS || !d.type_document))
+  const deposes = (documents ?? []).filter((d) => d.entite_type === ENTITE_PROPOSITIONS && d.type_document_code === CATEGORIE_PROPOSITIONS)
   const envoyer = (liste: FileList | File[] | null) => {
     const fichiers = Array.from(liste ?? [])
     if (!fichiers.length) return
     for (const f of fichiers) if (estLisible(f.name, f.type)) lectures.lireFichier(f)
-    const type = ((types ?? []) as { id: string; code?: string }[]).find((t) => t.code === 'ANNEXE')
     void televerser
-      .mutateAsync({ fichiers, entite_type: ENTITE_PROPOSITIONS, entite_id: versionId, type_document_id: type?.id ?? null, type_document_libelle: 'Proposition fournisseur' })
+      .mutateAsync({ fichiers, entite_type: ENTITE_PROPOSITIONS, entite_id: versionId, type_document_id: null, type_document_libelle: 'Offre fournisseur', categorie: CATEGORIE_PROPOSITIONS })
       .then(() => onToast(`✓ ${fichiers.length} fichier${fichiers.length > 1 ? 's' : ''} déposé${fichiers.length > 1 ? 's' : ''}`))
       .catch((e: Error) => onToast(`Erreur : ${e.message}`))
   }
@@ -227,8 +228,10 @@ function BoutonDepot({ depot }: { depot: Depot }) {
     return () => document.removeEventListener('mousedown', fermer)
   }, [ouvert])
   const n = depot.deposes.length
+  const [apercu, setApercu] = useState<DocumentItem | null>(null)
   return (
     <span ref={ref} className="relative flex shrink-0">
+      {apercu && <FenetreApercu document={{ id: apercu.id, nom: apercu.nom, nom_fichier: apercu.nom_fichier, url: apercu.url }} onFermer={() => setApercu(null)} />}
       <button
         type="button"
         onClick={() => entree.current?.click()}
@@ -245,14 +248,15 @@ function BoutonDepot({ depot }: { depot: Depot }) {
       )}
       <input ref={entree} type="file" multiple accept=".pdf,.xls,.xlsx,.csv,application/pdf" className="hidden" onChange={(e) => { depot.envoyer(e.target.files); e.target.value = '' }} />
       {ouvert && (
-        <span className="absolute right-0 top-[calc(100%+4px)] z-30 flex w-[280px] flex-col gap-0.5 rounded-km-md border border-km-line bg-white p-1.5 shadow-km-pop">
+        <span className="absolute right-0 top-[calc(100%+4px)] z-30 flex w-[360px] flex-col gap-0.5 rounded-km-md border border-km-line bg-white p-1.5 shadow-km-pop">
           <span className="px-2 pb-1 pt-1 text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Propositions déposées · {n}</span>
           {depot.deposes.map((d) => (
-            /* Le stockage est privé : l'adresse se signe au clic (`urlOuvrableDocument`). */
+            /* L'aperçu s'ouvre en fenêtre, par-dessus le Pricer (la même visionneuse partout). */
             <span key={d.id} className="flex items-center gap-0.5 rounded-km-sm hover:bg-km-soft">
-              <button type="button" onClick={() => void urlOuvrableDocument(d.url).then((u) => window.open(u, '_blank', 'noopener'))} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[12px] text-km-text">
+              <button type="button" onClick={() => { setApercu(d); setOuvert(false) }} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[12px] text-km-text">
                 <FileText className="h-3.5 w-3.5 shrink-0 text-km-red" /><span className="truncate">{d.nom_fichier || d.nom}</span>
               </button>
+              <CategorieDocument documentId={d.id} code={d.type_document_code} libelle={d.type_document} />
               {estLisible(d.nom_fichier || d.nom || '') && (
                 <button type="button" onClick={() => { depot.relire(d); setOuvert(false) }} title="Lire cette proposition et remplir sa ligne" aria-label={`Lire ${d.nom_fichier || d.nom}`} className="flex h-7 shrink-0 items-center gap-1 rounded-km-sm px-2 text-[11px] font-bold text-km-violet hover:bg-km-violet/10">
                   <Sparkles className="h-3.5 w-3.5" /> Lire
@@ -440,6 +444,8 @@ function BandeauCompteur({ chiffrage, compteur, onChoisir }: { chiffrage: Chiffr
     onChoisir(chiffrage.compteurs[(i + pas + n) % n].vcId)
   }
   const [fait, total] = avancementCompteur(chiffrage, compteur)
+  /* Les fichiers du compteur, dépliés sous la ligne — gardé d'un compteur à l'autre. */
+  const [fichiers, setFichiers] = useState(false)
   return (
     <div ref={ref} className="relative shrink-0">
       <div className="flex items-center rounded-km-md border border-km-line bg-km-soft/50 p-1">
@@ -464,7 +470,21 @@ function BandeauCompteur({ chiffrage, compteur, onChoisir }: { chiffrage: Chiffr
         ) : (
           <span className="flex min-w-0 flex-1 items-center gap-3 px-2.5 py-1"><LigneCompteur compteur={compteur} /></span>
         )}
+        <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-km-line" />
+        <BoutonFichiersCompteur compteur={compteur} ouvert={fichiers} onBasculer={() => setFichiers((f) => !f)} />
+        {/* VERS LE COMPTEUR, dans un nouvel onglet : le Pricer reste ouvert là où on en était. */}
+        <Link
+          to={`/compteurs/${compteur.compteurId}`}
+          target="_blank"
+          rel="noopener"
+          title="Ouvrir la fiche du compteur (nouvel onglet)"
+          aria-label="Ouvrir la fiche du compteur"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-km-sm text-km-muted hover:bg-white hover:text-km-green"
+        >
+          <ArrowUpRight className="h-4 w-4" />
+        </Link>
       </div>
+      {fichiers && <FichiersCompteur compteur={compteur} />}
 
       {ouvert && (
         <ul role="listbox" aria-label="Compteurs de la version" className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 max-h-[320px] overflow-y-auto rounded-km-md border border-km-line bg-white p-1 shadow-km-pop">
@@ -487,6 +507,81 @@ function BandeauCompteur({ chiffrage, compteur, onChoisir }: { chiffrage: Chiffr
           })}
         </ul>
       )}
+    </div>
+  )
+}
+
+/**
+ * LES FICHIERS DU COMPTEUR, AU DÉPLIEMENT DE SA LIGNE — William, 02/10/2026 : « affiche les fichiers
+ * liés au compteur (au dépliement de la ligne compteur) et affiche la visionneuse au clic en mode
+ * popup […] uniquement les pièces jointes du compteur avec la catégorie "Facture" et/ou "Contrat" ».
+ * Ceux du compteur et ceux de ses contrats ; deux filtres, les deux allumés d'abord.
+ */
+const CATEGORIES_PRICER = ['FACTURE', 'CONTRAT'] as const
+
+function BoutonFichiersCompteur({ compteur, ouvert, onBasculer }: { compteur: CompteurChiffrage; ouvert: boolean; onBasculer: () => void }) {
+  const { data } = useFichiersDuCompteur(compteur.compteurId)
+  const n = (data ?? []).filter((d) => (CATEGORIES_PRICER as readonly string[]).includes(d.type_document_code ?? '')).length
+  return (
+    <button
+      type="button"
+      onClick={onBasculer}
+      aria-expanded={ouvert}
+      title={ouvert ? 'Replier les fichiers du compteur' : 'Voir les factures et contrats du compteur'}
+      className={cn('inline-flex h-7 shrink-0 items-center gap-1.5 rounded-km-sm px-2 text-[11.5px] font-semibold transition-colors', ouvert ? 'bg-white text-km-text shadow-[0_0_0_1px_rgb(var(--km-line))]' : 'text-km-muted hover:bg-white hover:text-km-text')}
+    >
+      <Paperclip className="h-3.5 w-3.5" />
+      Fichiers
+      <span className={cn('rounded-full px-1.5 font-mono text-[10.5px] font-bold leading-[16px]', n ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-faint')}>{data ? n : '…'}</span>
+      <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', ouvert && 'rotate-180')} />
+    </button>
+  )
+}
+
+function FichiersCompteur({ compteur }: { compteur: CompteurChiffrage }) {
+  const { data, isLoading } = useFichiersDuCompteur(compteur.compteurId)
+  const [filtres, setFiltres] = useState<string[]>([...CATEGORIES_PRICER])
+  const [apercu, setApercu] = useState<DocumentItem | null>(null)
+  const utiles = (data ?? []).filter((d) => (CATEGORIES_PRICER as readonly string[]).includes(d.type_document_code ?? ''))
+  const visibles = utiles.filter((d) => filtres.includes(d.type_document_code ?? ''))
+  const basculer = (c: string) => setFiltres((f) => (f.includes(c) ? (f.length > 1 ? f.filter((x) => x !== c) : f) : [...f, c]))
+  return (
+    <div className="mt-1.5 flex flex-col gap-1.5 rounded-km-md border border-km-line bg-white p-2">
+      <span className="flex items-center gap-1.5 px-1">
+        {CATEGORIES_PRICER.map((c) => {
+          const nb = utiles.filter((d) => d.type_document_code === c).length
+          const actif = filtres.includes(c)
+          return (
+            <button key={c} type="button" onClick={() => basculer(c)} aria-pressed={actif}
+              className={cn('rounded-full border px-2.5 py-[3px] text-[11px] font-semibold transition-colors', actif ? 'border-km-text bg-km-text text-white' : 'border-km-line bg-white text-km-muted hover:text-km-text')}
+            >
+              {c === 'FACTURE' ? 'Factures' : 'Contrats'} <span className="font-mono opacity-70">{nb}</span>
+            </button>
+          )
+        })}
+        <span className="flex-1" />
+        <Link to={`/compteurs/${compteur.compteurId}`} target="_blank" rel="noopener" className="text-[11px] font-semibold text-km-green hover:underline">Tous les fichiers du compteur →</Link>
+      </span>
+      {isLoading ? (
+        <p className="px-1 py-2 text-[12px] text-km-faint">Chargement des fichiers…</p>
+      ) : visibles.length === 0 ? (
+        <p className="px-1 py-2 text-[12px] text-km-faint">{utiles.length ? 'Aucun fichier dans ce filtre.' : 'Aucune facture ni aucun contrat joint à ce compteur.'}</p>
+      ) : (
+        <ul className="flex max-h-[168px] flex-col overflow-y-auto">
+          {visibles.map((d) => (
+            <li key={d.id} className="flex items-center gap-2.5 rounded-km-sm px-1.5 py-1 hover:bg-km-soft">
+              <button type="button" onClick={() => setApercu(d)} title="Ouvrir l’aperçu" className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                <FileText className="h-3.5 w-3.5 shrink-0 text-km-red" />
+                <span className="truncate text-[12px] font-semibold text-km-text">{d.nom_fichier || d.nom}</span>
+              </button>
+              <span className="shrink-0 text-[10.5px] text-km-faint">{d.entite_type === 'contrat' ? 'sur le contrat' : 'sur le compteur'}</span>
+              <span className="shrink-0 font-mono text-[10.5px] text-km-faint">{new Date(d.date_creation).toLocaleDateString('fr-FR')}</span>
+              <CategorieDocument documentId={d.id} code={d.type_document_code} libelle={d.type_document} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {apercu && <FenetreApercu document={{ id: apercu.id, nom: apercu.nom, nom_fichier: apercu.nom_fichier, url: apercu.url }} onFermer={() => setApercu(null)} />}
     </div>
   )
 }

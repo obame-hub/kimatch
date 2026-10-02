@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CategorieDocument } from '@/components/document/CategorieDocument'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Zap, Flame, Lightbulb, Trash2, Building2, MapPin, Gauge, FileText, Plus, Euro, X, Eye, PenLine, Check, LifeBuoy} from 'lucide-react'
@@ -1420,7 +1421,7 @@ export default function ContratDetail() {
                         </p>
                         <p className="truncate text-km-xs text-km-faint">{d.auteur} · {new Date(d.date_creation).toLocaleDateString('fr-FR')}</p>
                       </div>
-                      <Badge tone="neutral">{d.type_document}</Badge>
+                      <CategorieDocument documentId={d.id} code={d.type_document_code} libelle={d.type_document} />
                       {d.url && (
                         <Button
                           type="button"

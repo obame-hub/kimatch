@@ -1,11 +1,11 @@
 import { useState } from 'react'
+import { CategorieDocument } from '@/components/document/CategorieDocument'
 import { ApercuDocument } from '@/components/document/ApercuDocument'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText, Trash2 } from 'lucide-react'
 import { TitreOnglet } from '@/components/layout/TitreOnglet'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { Dialog } from '@/components/ui/dialog'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
@@ -82,7 +82,7 @@ export default function DocumentDetail() {
               </div>
             </CardHeader>
             <CardContent className="px-0 space-y-3 text-sm">
-              <p><span className="text-km-faint">Type :</span> <Badge tone="neutral">{doc.type_document}</Badge></p>
+              <p className="flex items-center gap-1.5"><span className="text-km-faint">Catégorie :</span> <CategorieDocument documentId={doc.id} code={doc.type_document_code} libelle={doc.type_document} /></p>
               <p>
                 <span className="text-km-faint">Objet lié :</span>{' '}
                 {entityRoute(doc.entite_type, doc.entite_id) ? (

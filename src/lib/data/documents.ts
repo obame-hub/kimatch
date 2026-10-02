@@ -13,7 +13,8 @@ interface RawDocument {
   entite_id: string
   date_creation: string
   proprietaire_id: string | null
-  type_document: { libelle: string } | null
+  type_document_id?: string | null
+  type_document: { code?: string; libelle: string } | null
   auteur: { prenom: string; nom: string } | null
 }
 
@@ -45,7 +46,7 @@ async function fetchDocuments(entiteIds?: string[], documentId?: string): Promis
     if (entiteIds && entiteIds.length === 0) return []
     const data = await fetchAllRows<RawDocument>(
       'documents',
-      'id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document:types_documents(libelle), auteur:profils!documents_auteur_profil_id_fkey(prenom, nom)',
+      'id, nom, nom_fichier, url, entite_type, entite_id, date_creation, proprietaire_id, type_document_id, type_document:types_documents(code, libelle), auteur:profils!documents_auteur_profil_id_fkey(prenom, nom)',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (documentId) return q.eq('id', documentId)
@@ -59,6 +60,8 @@ async function fetchDocuments(entiteIds?: string[], documentId?: string): Promis
       nom_fichier: d.nom_fichier,
       url: d.url,
       type_document: d.type_document?.libelle ?? '',
+      type_document_id: d.type_document_id ?? null,
+      type_document_code: d.type_document?.code ?? null,
       entite_type: d.entite_type,
       entite_id: d.entite_id,
       objet_lie: ENTITE_LABELS[d.entite_type] ?? d.entite_type,
@@ -96,6 +99,25 @@ export function useDocumentsParEntites(entiteIds: string[] | undefined) {
     queryKey: ['documents', 'entites', cle],
     queryFn: () => fetchDocuments(cle),
     enabled: !!entiteIds,
+  })
+}
+
+/**
+ * LES FICHIERS D'UN COMPTEUR — ceux qui lui sont rattachés et ceux de ses contrats (Pricer,
+ * 02/10/2026 : « affiche les fichiers liés au compteur […] uniquement les pièces jointes du compteur
+ * avec la catégorie Facture et/ou Contrat »). Le filtre par catégorie se fait à l'écran.
+ */
+export function useFichiersDuCompteur(compteurId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['documents', 'compteur', compteurId],
+    enabled: !!compteurId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('contrats_compteurs').select('contrat_id').eq('compteur_id', compteurId as string)
+      if (error) throw new Error(error.message)
+      const contrats = [...new Set(((data ?? []) as { contrat_id: string }[]).map((r) => r.contrat_id))]
+      const docs = await fetchDocuments([compteurId as string, ...contrats])
+      return docs.filter((d) => d.entite_type === 'compteur' || d.entite_type === 'contrat')
+    },
   })
 }
 
@@ -190,8 +212,17 @@ export function useTeleverserDocuments() {
       entite_id: string
       type_document_id: string | null
       type_document_libelle: string
+      /** La catégorie par son code (« FACTURE »…), quand l'appelant ne connaît pas son identifiant. */
+      categorie?: string
     }) => {
       const url = import.meta.env.VITE_SUPABASE_URL as string
+      /* TOUTE PIÈCE JOINTE A UNE CATÉGORIE (02/10/2026). Sans identifiant ni code, la base la pose
+         d'après le nom du fichier et l'endroit du dépôt (`fn_categorie_document`). */
+      let typeId = input.type_document_id
+      if (!typeId && input.categorie) {
+        const { data: t } = await supabase.from('types_documents').select('id').eq('code', input.categorie).maybeSingle()
+        typeId = (t as { id: string } | null)?.id ?? null
+      }
       const deposes: DocumentItem[] = []
 
       for (const fichier of input.fichiers) {
@@ -250,7 +281,7 @@ export function useTeleverserDocuments() {
             entite_type: input.entite_type,
             entite_id: input.entite_id,
             date_creation: new Date().toISOString(),
-            ...(input.type_document_id ? { type_document_id: input.type_document_id } : {}),
+            ...(typeId ? { type_document_id: typeId } : {}),
           })
           .select('id')
           .single()
@@ -306,6 +337,8 @@ export function useUpdateDocument() {
 
 /** Colonnes réellement modifiables de `documents`, pour l'édition en place. */
 export type PatchDocument = Partial<{
+  /** La catégorie — modifiable en un clic sur le fichier (02/10/2026). */
+  type_document_id: string
   nom: string
   nom_fichier: string
   url: string

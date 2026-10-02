@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { CategorieDocument } from '@/components/document/CategorieDocument'
 import type { DocumentItem } from '@/types/domain'
 import { ZoneDepotFichiers } from '@/components/ui/zone-depot-fichiers'
 
@@ -120,9 +121,7 @@ export function OngletFichiers({
                   {d.objet_lie ? ` · ${d.objet_lie}` : ''}
                 </div>
               </div>
-              <span className="rounded-[5px] bg-[#f2f1ee] px-2 py-1 text-km-xs font-semibold text-[#5c5f66]">
-                {d.type_document}
-              </span>
+              <CategorieDocument documentId={d.id} code={d.type_document_code} libelle={d.type_document} />
               <button
                 type="button"
                 onClick={() => onOuvrir(d)}

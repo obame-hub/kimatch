@@ -10,6 +10,8 @@ import { FALLBACK_STATUTS_VERSIONS } from '@/lib/referenceFallbacks'
 import { contratCompte } from '@/lib/echeance'
 import { statutVieContrat } from '@/lib/statutVieContrat'
 import { cn } from '@/lib/utils'
+import { teinteCategorie } from '@/lib/categoriesDocuments'
+import { CategorieDocument } from '@/components/document/CategorieDocument'
 import type { Compteur, Contrat, ContratProspect, DocumentItem, Mandat, Recommandation } from '@/types/domain'
 import { LogoFournisseur } from '@/components/compteur/fiche/ColonneLaterale'
 import { Carte, Sourcil, dateFr, dateHeureFr, joursJusqua, libelleJours, nombreFr } from '@/components/compteur/fiche/commun'
@@ -706,13 +708,6 @@ function CarteMandat({ m, caduc }: { m: Mandat; caduc: boolean }) {
 // FICHIERS
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
 
-const TEINTE_CATEGORIE: Record<string, [string, string]> = {
-  CONTRAT: ['#0D7A5F', '#E7F4EF'],
-  FACTURE: ['#3F6E9C', '#EAF1F8'],
-  MANDAT: ['#7C5BB0', '#F2ECFB'],
-  RELEVE: ['#A06B19', '#FFF3D8'],
-}
-const TEINTE_AUTRE: [string, string] = ['#69716C', '#F3F5F2']
 
 function pluriel(libelle: string) {
   return /s$/i.test(libelle) ? libelle : `${libelle}s`
@@ -726,7 +721,7 @@ export function OngletFichiers({ documents, types, onDeposer }: {
   const [filtre, setFiltre] = useState<string>('tous')
   const [apercu, setApercu] = useState<DocumentItem | null>(null)
   const ouvrir = useRef<(() => void) | null>(null)
-  const codeDe = (d: DocumentItem) => types.find((t) => t.libelle === d.type_document)?.code ?? 'AUTRE'
+  const codeDe = (d: DocumentItem) => d.type_document_code ?? types.find((t) => t.libelle === d.type_document)?.code ?? 'AUTRE'
   const visibles = documents.filter((d) => filtre === 'tous' || codeDe(d) === filtre)
 
   return (
@@ -753,16 +748,16 @@ export function OngletFichiers({ documents, types, onDeposer }: {
         <Carte className="overflow-hidden">
           {visibles.map((d) => {
             const code = codeDe(d)
-            const [fg, bg] = TEINTE_CATEGORIE[code] ?? TEINTE_AUTRE
+            const [fg, bg] = teinteCategorie(code)
             const ext = ((d.nom_fichier || d.nom).split('.').pop() ?? '').toUpperCase().slice(0, 4) || 'DOC'
             return (
-              <div key={d.id} className="grid grid-cols-[34px_minmax(0,1fr)_90px_110px_70px] items-center gap-3 border-b border-km-line-soft px-[18px] py-2.5 last:border-b-0 hover:bg-km-bg">
+              <div key={d.id} className="grid grid-cols-[34px_minmax(0,1fr)_132px_100px_60px] items-center gap-3 border-b border-km-line-soft px-[18px] py-2.5 last:border-b-0 hover:bg-km-bg">
                 <span className="flex h-8 w-8 items-center justify-center rounded-[9px] text-[8.5px] font-extrabold" style={{ color: fg, background: bg }}>{ext}</span>
                 <div className="min-w-0">
                   <Link to={`/documents/${d.id}`} className="block truncate text-[13px] font-semibold text-km-text">{d.nom}</Link>
                   {d.auteur && <div className="truncate text-[11px] text-km-faint">{d.auteur}</div>}
                 </div>
-                <span className="justify-self-start rounded-[6px] px-2 py-[3px] text-[10px] font-bold" style={{ color: fg, background: bg }}>{d.type_document || 'Autre'}</span>
+                <span className="min-w-0 justify-self-start"><CategorieDocument documentId={d.id} code={code} libelle={d.type_document} /></span>
                 <span className="font-mono text-[11px] text-km-muted">{dateFr(d.date_creation?.slice(0, 10))}</span>
                 <button type="button" onClick={() => setApercu(d)} className="text-right text-[12px] font-semibold text-km-green">Ouvrir</button>
               </div>

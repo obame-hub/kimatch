@@ -241,11 +241,19 @@ export async function archiverDocumentsSignes(
   const documents = await listerDocuments(session, envelopeId)
   if (documents.length === 0) throw new Error('enveloppe sans document exploitable')
 
-  const { data: typeDoc } = await admin
-    .from('types_documents')
-    .select('id')
-    .eq('code', contrat ? 'CONTRAT' : 'MANDAT')
-    .maybeSingle()
+  /* UNE CATÉGORIE PAR PIÈCE — William, 02/10/2026 : « les mandats KiWee et Energix doivent
+     automatiquement avoir la catégorie "Mandat" et le certificat DocuSign la catégorie "Certificat".
+     Même logique avec la signature d'un contrat avec la catégorie "Contrat" et "RIB" ». Elles
+     recevaient toutes « Mandat » (ou « Contrat »), certificat compris. */
+  const { data: types } = await admin.from('types_documents').select('id, code').in('code', ['CONTRAT', 'MANDAT', 'CERTIFICAT', 'RIB', 'AVENANT'])
+  const idDe = (code: string) => (types as { id: string; code: string }[] | null)?.find((t) => t.code === code)?.id ?? null
+  const categorieDe = (doc: { nom: string; certificat: boolean }) => {
+    if (doc.certificat) return 'CERTIFICAT'
+    const n = doc.nom.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    if (/(^|[^a-z])(rib|sepa)([^a-z]|$)/.test(n)) return 'RIB'
+    if (/avenant/.test(n)) return 'AVENANT'
+    return contrat ? 'CONTRAT' : 'MANDAT'
+  }
 
   let archives = 0
   for (const doc of documents) {
@@ -265,8 +273,10 @@ export async function archiverDocumentsSignes(
       .eq('nom_fichier', nomFichier)
       .maybeSingle()
 
+    const typeId = idDe(categorieDe(doc))
     const ligne = {
-      ...(typeDoc ? { type_document_id: typeDoc.id } : {}),
+      /* Sans identifiant, la base la pose d'elle-même d'après le nom (`fn_categorie_document`). */
+      ...(typeId ? { type_document_id: typeId } : {}),
       nom: libelle,
       nom_fichier: nomFichier,
       url,

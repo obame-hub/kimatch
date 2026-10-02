@@ -204,13 +204,12 @@ export const FALLBACK_TYPES_ENERGIES: ReferenceRow[] = [
   { id: '2', code: 'GAZ', libelle: 'Gaz', ordre: 20, couleur: null, icone: null },
 ]
 
+/* Les onze catégories de William (02/10/2026), dans l'ordre de la base. Ne sert qu'à l'affichage
+   si la base ne répond pas : les identifiants ne sont pas ceux de la base. */
 export const FALLBACK_TYPES_DOCUMENTS: ReferenceRow[] = [
-  { id: '1', code: 'MANDAT', libelle: 'Mandat', ordre: 10, couleur: null, icone: null },
-  { id: '2', code: 'FACTURE', libelle: 'Facture', ordre: 20, couleur: null, icone: null },
-  { id: '3', code: 'CONTRAT', libelle: 'Contrat', ordre: 30, couleur: null, icone: null },
-  { id: '4', code: 'RECOMMANDATION', libelle: 'Recommandation', ordre: 40, couleur: null, icone: null },
-  { id: '5', code: 'AUTRE', libelle: 'Autre', ordre: 50, couleur: null, icone: null },
-]
+  ['FACTURE', 'Facture'], ['MANDAT', 'Mandat'], ['APPEL_OFFRES', 'Appel d’offres'], ['CONTRAT', 'Contrat'], ['RIB', 'RIB'],
+  ['CERTIFICAT', 'Certificat'], ['AVENANT', 'Avenant'], ['APPEL', 'Appel'], ['MAIL', 'Mail'], ['OFFRE_FOURNISSEUR', 'Offre fournisseur'], ['AUTRE', 'Autre'],
+].map(([code, libelle], i) => ({ id: String(i + 1), code, libelle, ordre: (i + 1) * 10, couleur: null, icone: null }))
 
 export const FALLBACK_TYPES_COMPTES: ReferenceRow[] = [
   { id: '1', code: 'KIWEE', libelle: 'KiWee', ordre: 10, couleur: null, icone: null },

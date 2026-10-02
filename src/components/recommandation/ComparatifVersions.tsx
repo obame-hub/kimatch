@@ -137,7 +137,7 @@ export function ComparatifVersions({
    */
   const propositionDe = (v: VersionRecommandation) =>
     documents
-      .filter((d) => d.entite_id === v.id && d.type_document === 'Recommandation')
+      .filter((d) => d.entite_id === v.id && d.type_document_code === 'APPEL_OFFRES')
       .sort((a, b) => b.date_creation.localeCompare(a.date_creation))[0] ?? null
 
   const lignes: Ligne[] = useMemo(

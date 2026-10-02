@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { FileText, Trash2 } from 'lucide-react'
 import type { DocumentItem } from '@/types/domain'
 import { cn } from '@/lib/utils'
+import { CategorieDocument } from '@/components/document/CategorieDocument'
 
 /**
  * ══ LA COLONNE DES FICHIERS, À GAUCHE DE LA VISIONNEUSE ══
@@ -76,10 +77,13 @@ export function ListeFichiers({
           >
             {actif && <span className="absolute inset-y-0 left-0 w-[3px] bg-km-green" />}
 
-            <button
-              type="button"
+            {/* Une zone cliquable et non un bouton : la catégorie, à l'intérieur, en est un. */}
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => onSelectionner(doc)}
-              className="flex w-full items-start gap-3 px-3.5 py-3 text-left"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectionner(doc) } }}
+              className="flex w-full cursor-pointer items-start gap-3 px-3.5 py-3 text-left"
             >
               <span
                 className={cn(
@@ -104,11 +108,7 @@ export function ListeFichiers({
                   {doc.nom}
                 </span>
                 <span className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                  {doc.type_document && (
-                    <span className="rounded-km-sm bg-km-soft px-1.5 py-px text-km-tiny font-bold uppercase tracking-[.04em] text-km-muted">
-                      {doc.type_document}
-                    </span>
-                  )}
+                  <CategorieDocument documentId={doc.id} code={doc.type_document_code} libelle={doc.type_document} />
                   <span className="font-mono text-km-label text-km-faint">
                     {new Date(doc.date_creation).toLocaleDateString('fr-FR')}
                   </span>
@@ -145,7 +145,7 @@ export function ListeFichiers({
                   <Trash2 className="h-3.5 w-3.5" />
                 </span>
               )}
-            </button>
+            </div>
 
             {aConfirmer === doc.id && (
               <div className="animate-km-fade flex flex-wrap items-center gap-2 border-t border-km-line px-3.5 py-2">

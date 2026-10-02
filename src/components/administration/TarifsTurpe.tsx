@@ -4,7 +4,6 @@ import { Check, CopyPlus, FileText, Loader2, Paperclip, Trash2, Zap } from 'luci
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { urlOuvrableDocument, useDeleteDocument, useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
-import { useReferenceTable } from '@/lib/data/referenceTables'
 import {
   casesDeLaFormule, postesDuDomaine, uniteB, useGrilleTurpe, useTurpeMutations,
   type CodeComposante, type DomaineTension, type FormuleTurpe, type GrilleTurpe, type StatutGrille, type VersionTurpe,
@@ -303,7 +302,6 @@ function EnTeteVersion({ version: v }: { version: VersionTurpe }) {
 function FichiersGrille({ versionId }: { versionId: string }) {
   const entree = useRef<HTMLInputElement>(null)
   const { data: documents } = useDocumentsParEntites([versionId])
-  const { data: types } = useReferenceTable('types_documents')
   const televerser = useTeleverserDocuments()
   const supprimer = useDeleteDocument()
   const [erreur, setErreur] = useState<string | null>(null)
@@ -312,8 +310,7 @@ function FichiersGrille({ versionId }: { versionId: string }) {
     const f = Array.from(liste ?? [])
     if (!f.length) return
     setErreur(null)
-    const type = ((types ?? []) as { id: string; code?: string }[]).find((t) => t.code === 'ANNEXE')
-    void televerser.mutateAsync({ fichiers: f, entite_type: 'version_turpe', entite_id: versionId, type_document_id: type?.id ?? null, type_document_libelle: 'Grille TURPE Enedis' })
+    void televerser.mutateAsync({ fichiers: f, entite_type: 'version_turpe', entite_id: versionId, type_document_id: null, type_document_libelle: 'Grille TURPE Enedis', categorie: 'AUTRE' })
       .catch((x: Error) => setErreur(x.message))
   }
   return (

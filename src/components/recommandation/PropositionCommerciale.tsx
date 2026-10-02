@@ -37,8 +37,10 @@ import { LienDocument } from '@/components/document/LienDocument'
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
 
-/** Le type de document d'une proposition commerciale — 3 296 lignes déjà en base. */
-const TYPE_PROPOSITION = 'Recommandation'
+/** La catégorie d'une proposition commerciale : « Appel d'offres » depuis le 02/10/2026 (elle était
+ *  « Recommandation », catégorie retirée ; les rapports de consultation y ont été rangés). */
+const TYPE_PROPOSITION = 'Appel d’offres'
+const CODE_PROPOSITION = 'APPEL_OFFRES'
 
 export function PropositionCommerciale({
   reco,
@@ -68,7 +70,7 @@ export function PropositionCommerciale({
      proposent deux choses différentes ; une proposition rangée sur le dossier ne dirait plus
      laquelle. Les 3 296 déjà en base sont d'ailleurs toutes portées par une version. */
   const proposition = (documents ?? [])
-    .filter((d) => d.type_document === TYPE_PROPOSITION)
+    .filter((d) => d.type_document_code === CODE_PROPOSITION)
     .sort((a, b) => b.date_creation.localeCompare(a.date_creation))[0] ?? null
 
   /**
@@ -99,6 +101,7 @@ export function PropositionCommerciale({
         entite_id: version.id,
         type_document_id: typeDocumentPropositionId,
         type_document_libelle: TYPE_PROPOSITION,
+        categorie: CODE_PROPOSITION,
       })
       signaler('✓ Proposition commerciale attachée à la version')
     } catch (e) {
