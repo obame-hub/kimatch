@@ -63,6 +63,17 @@ function joursEntre(a: string, b: string): number {
  * @param contrats les contrats rattachés à CE compteur — seule leur `date_fin` est lue
  * @param aujourdHui injectable pour les tests ; par défaut le jour courant
  */
+/**
+ * UN CONTRAT CLIENT NE COMPTE QUE SIGNÉ ET VALIDÉ — William, 02/10/2026 : « un contrat client ne doit
+ * être pris en compte pour les échéances, frises etc. uniquement quand ce dernier a été signé ET
+ * validé ». La même règle que la base (`fn_contrat_compte`) : un contrat créé, à signer ou signé mais
+ * pas encore validé reste visible dans la liste du compteur, mais ne fait ni l'échéance, ni la frise,
+ * ni le « contrat en cours ».
+ */
+export function contratCompte(c: { actif?: boolean; date_signature?: string | null; avancement?: string | null; date_validation?: string | null }): boolean {
+  return c.actif !== false && !!c.date_validation && (!!c.date_signature || c.avancement === 'SIGNE')
+}
+
 export function natureEcheance(
   dateDeclaree: string | null | undefined,
   contrats: { date_fin: string | null }[],

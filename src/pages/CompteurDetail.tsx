@@ -26,7 +26,7 @@ import { useSite } from '@/lib/data/sites'
 import { useCompte } from '@/lib/data/comptes'
 import { useContacts } from '@/lib/data/contacts'
 import { useContrats } from '@/lib/data/contrats'
-import { echeanceDuCompteur } from '@/lib/echeance'
+import { contratCompte, echeanceDuCompteur } from '@/lib/echeance'
 import { CartoucheStatutContractuel } from '@/components/compteur/CartoucheStatutContractuel'
 import { useContratsProspects, useSupprimerContratProspect } from '@/lib/data/contratsProspects'
 import { ConfirmerSuppression, ParcoursEcheance } from '@/components/compteur/ParcoursEcheance'
@@ -100,6 +100,9 @@ export default function CompteurDetail() {
   const creerUnMandat = useCreerUnMandat()
 
   const contratsDuCompteur = useMemo(() => contrats?.filter((ct) => ct.compteurs.some((cc) => cc.id === id)) ?? [], [contrats, id])
+  /* CEUX QUI COMPTENT : signés ET validés (`contratCompte`). Eux seuls font l'échéance, la frise, le
+     contrat en cours ; la liste de l'onglet Contrats les montre tous. */
+  const contratsQuiComptent = useMemo(() => contratsDuCompteur.filter(contratCompte), [contratsDuCompteur])
   /* LES MANDATS PAR COMPTEUR, le caduc compris (règle du 15/09/2026) : un document signé reste
      visible sur le compteur qu'il a couvert, avec sa caducité écrite dessus. */
   const mandatsDuCompteur = useMemo(
@@ -115,8 +118,8 @@ export default function CompteurDetail() {
   const { data: prospects } = useContratsProspects(id)
   const prospectsDuCompteur = useMemo(() => prospects ?? [], [prospects])
   const echeance = useMemo(
-    () => echeanceDuCompteur(compteur?.date_echeance, contratsDuCompteur, prospectsDuCompteur),
-    [compteur?.date_echeance, contratsDuCompteur, prospectsDuCompteur],
+    () => echeanceDuCompteur(compteur?.date_echeance, contratsQuiComptent, prospectsDuCompteur),
+    [compteur?.date_echeance, contratsQuiComptent, prospectsDuCompteur],
   )
   /* « Éditer l'échéance » : `undefined` fermé, `null` ouvert sur le choix, un contrat pour le corriger. */
   const [parcoursEcheance, setParcoursEcheance] = useState<ContratProspect | null | undefined>(undefined)
@@ -124,17 +127,17 @@ export default function CompteurDetail() {
   const supprimerProspect = useSupprimerContratProspect()
   const aujourdhui = new Date().toISOString().slice(0, 10)
   const contratEnCours = useMemo(
-    () => contratsDuCompteur.find((c) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation) === 'EN_COURS') ?? null,
-    [contratsDuCompteur, aujourdhui],
+    () => contratsQuiComptent.find((c) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation) === 'EN_COURS') ?? null,
+    [contratsQuiComptent, aujourdhui],
   )
   /* LE CONTRAT DE LA CARTE : celui en cours, sinon le prochain à venir — William, 01/10/2026 :
      « quand un contrat client est à venir ou en cours, il doit apparaître dans la card prévue à cet
      effet ». Le premier à venir suit aussi un contrat en cours, en une ligne sous lui. */
   const contratAVenir = useMemo(
-    () => contratsDuCompteur
+    () => contratsQuiComptent
       .filter((c) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation) === 'A_VENIR')
       .sort((a, b) => (a.date_debut ?? '').localeCompare(b.date_debut ?? ''))[0] ?? null,
-    [contratsDuCompteur, aujourdhui],
+    [contratsQuiComptent, aujourdhui],
   )
   const contratCarte = contratEnCours ?? contratAVenir
 
@@ -416,7 +419,7 @@ export default function CompteurDetail() {
       {parcoursEcheance !== undefined && (
         <ParcoursEcheance
           compteur={compteur}
-          contratsClients={contratsDuCompteur}
+          contratsClients={contratsQuiComptent}
           prospects={prospectsDuCompteur}
           initial={parcoursEcheance}
           onFermer={() => setParcoursEcheance(undefined)}

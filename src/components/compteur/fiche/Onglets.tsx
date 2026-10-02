@@ -7,6 +7,7 @@ import { useRecommandationsParCompte } from '@/lib/data/recommandations'
 import { offresDeLaVersion } from '@/lib/data/parcoursPrix'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_VERSIONS } from '@/lib/referenceFallbacks'
+import { contratCompte } from '@/lib/echeance'
 import { statutVieContrat } from '@/lib/statutVieContrat'
 import { cn } from '@/lib/utils'
 import type { Compteur, Contrat, ContratProspect, DocumentItem, Mandat, Recommandation } from '@/types/domain'
@@ -78,10 +79,13 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
   onSupprimerProspect: (p: ContratProspect) => void
 }) {
   const aujourdhui = new Date().toISOString().slice(0, 10)
-  const tries = useMemo(
+  /* TOUS LES CONTRATS DANS LA LISTE, mais seuls ceux qui comptent — signés ET validés
+     (`contratCompte`, 02/10/2026) — sur la frise et comme contrat en cours. */
+  const tousTries = useMemo(
     () => [...contrats].filter((c) => c.date_debut).sort((a, b) => (a.date_debut ?? '').localeCompare(b.date_debut ?? '')),
     [contrats],
   )
+  const tries = useMemo(() => tousTries.filter(contratCompte), [tousTries])
   const statut = (c: Contrat) => statutVieContrat(c.date_debut, c.date_fin, aujourdhui, c.date_resiliation)
   const enCours = tries.find((c) => statut(c) === 'EN_COURS') ?? null
 
@@ -112,7 +116,7 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
   /* LA LISTE : clients et prospects ensemble, du plus récent au plus ancien — une fin Indéterminée
      passe devant, comme pour l'échéance. */
   const lignes = [
-    ...tries.map((c) => ({ cle: c.date_fin ?? '9999-12-31', client: c, prospect: null as ContratProspect | null })),
+    ...tousTries.map((c) => ({ cle: c.date_fin ?? '9999-12-31', client: c, prospect: null as ContratProspect | null })),
     ...prospects.map((p) => ({ cle: p.date_fin ?? '9999-12-31', client: null as Contrat | null, prospect: p })),
   ].sort((a, b) => b.cle.localeCompare(a.cle))
 
@@ -254,7 +258,8 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
           }
           const k = c!
           const s = statut(k)
-          const vivant = s === 'EN_COURS'
+          const compte = contratCompte(k)
+          const vivant = compte && s === 'EN_COURS'
           const jours = vivant ? joursJusqua(k.date_fin) : null
           const [bg, fg] = teinteDe(k.fournisseur_nom || '?')
           const detail = vivant
@@ -266,9 +271,10 @@ export function OngletContrats({ compteur, contrats, prospects, recoOuverte, mod
             <div key={k.id} className="grid grid-cols-[76px_30px_minmax(0,1fr)_170px_92px_48px_104px] items-center gap-2.5 border-b border-km-line-soft px-[18px] py-3 last:border-b-0 hover:bg-km-bg">
               <span
                 className="rounded-[6px] px-2 py-[3px] text-center text-[10px] font-bold"
-                style={vivant ? { color: '#0D7A5F', background: '#E7F4EF' } : { color: '#69716C', background: '#F3F5F2' }}
+                style={!compte ? { color: '#8A4B2A', background: '#FBEFD9' } : vivant ? { color: '#0D7A5F', background: '#E7F4EF' } : { color: '#69716C', background: '#F3F5F2' }}
+                title={!compte ? 'Pas encore pris en compte : un contrat ne fait l’échéance et la frise qu’une fois signé et validé' : undefined}
               >
-                {s === 'EN_COURS' ? 'En cours' : s === 'A_VENIR' ? 'À venir' : s === 'RESILIE' ? 'Résilié' : 'Terminé'}
+                {!compte ? (k.date_signature || k.avancement === 'SIGNE' ? 'À valider' : 'Non signé') : s === 'EN_COURS' ? 'En cours' : s === 'A_VENIR' ? 'À venir' : s === 'RESILIE' ? 'Résilié' : 'Terminé'}
               </span>
               <span className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-[9px] font-bold" style={{ background: bg, color: fg }}>
                 {initialesTuile(k.fournisseur_nom)}

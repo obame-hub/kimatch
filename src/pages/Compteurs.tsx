@@ -54,7 +54,7 @@ import { useContrats } from '@/lib/data/contrats'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 import { useCreerUnCompteur } from '@/lib/creationCompteur'
 import { useFrappePosee } from '@/lib/useFrappePosee'
-import { natureEcheance, type EcheanceCompteur } from '@/lib/echeance'
+import { contratCompte, natureEcheance, type EcheanceCompteur } from '@/lib/echeance'
 import { cn } from '@/lib/utils'
 import { Tableau, TableauTete, TableauCorps } from '@/components/ui/tableau'
 
@@ -129,7 +129,8 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
   const { data: contrats } = useContrats()
   const contratsParCompteur = useMemo(() => {
     const m = new Map<string, { date_fin: string | null }[]>()
-    for (const ct of contrats ?? []) {
+    /* Seuls les contrats signés ET validés font l'échéance (`contratCompte`, 02/10/2026). */
+    for (const ct of (contrats ?? []).filter(contratCompte)) {
       for (const k of ct.compteurs) m.set(k.id, [...(m.get(k.id) ?? []), { date_fin: ct.date_fin }])
     }
     return m

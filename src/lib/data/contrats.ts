@@ -52,6 +52,7 @@ interface RawContrat {
   date_resiliation: string | null
   commentaire: string | null
   date_validation: string | null
+  actif?: boolean | null
   valide_par_id: string | null
   valide_par: { prenom: string; nom: string } | null
   contact_signataire: { prenom: string; nom: string } | null
@@ -132,6 +133,7 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       // l'écraser : il faut donc savoir ce qu'il contient déjà.
       commentaire: c.commentaire ?? null,
       date_validation: c.date_validation ?? null,
+      actif: c.actif ?? true,
       valide_par_id: c.valide_par_id ?? null,
       valide_par_nom: c.valide_par ? `${c.valide_par.prenom} ${c.valide_par.nom}` : null,
       compteurs: compteursParContrat.get(c.id) ?? [],

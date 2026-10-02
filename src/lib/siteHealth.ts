@@ -1,3 +1,4 @@
+import { contratCompte } from '@/lib/echeance'
 import type { Compteur, Contrat, Mandat, Recommandation } from '@/types/domain'
 
 export interface SiteHealth {
@@ -50,7 +51,9 @@ export function computeSiteHealth({
   }
 
   for (const c of compteurs) {
-    const contratsDuCompteur = contrats.filter((ct) => ct.compteurs.some((cc) => cc.id === c.id))
+    /* Seuls les contrats signés ET validés comptent (`contratCompte`, 02/10/2026) : un contrat à signer
+       ne repousse plus l'échéance du site. */
+    const contratsDuCompteur = contrats.filter((ct) => contratCompte(ct) && ct.compteurs.some((cc) => cc.id === c.id))
     const contratActif = contratsDuCompteur.find((ct) => ct.statut === 'ACTIF') ?? contratsDuCompteur[0]
     if (!contratActif?.date_fin) continue
     const joursRestants = Math.floor((new Date(contratActif.date_fin).getTime() - Date.now()) / 86400000)

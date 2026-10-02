@@ -949,6 +949,8 @@ export interface Contrat {
   /** Qui a validé le contrat après signature, et quand : ce qui clôt le cycle de signature. */
   date_validation?: string | null
   valide_par_id?: string | null
+  /** Faux : contrat retiré (supprimé sans être effacé). */
+  actif?: boolean
   valide_par_nom?: string | null
   date_creation?: string
   date_modification?: string
