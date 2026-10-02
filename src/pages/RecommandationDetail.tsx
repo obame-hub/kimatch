@@ -22,7 +22,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { InlineField } from '@/components/ui/inline-field'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
-import { CheminRecommandation } from '@/components/recommandation/CheminRecommandation'
+import { EtapeRecommandation } from '@/components/recommandation/EtapeRecommandation'
 import { HeroRecommandation } from '@/components/recommandation/HeroRecommandation'
 import { OngletPerimetre } from '@/components/recommandation/OngletPerimetre'
 import { suggestionRelance } from '@/lib/relance'
@@ -736,6 +736,24 @@ export default function RecommandationDetail() {
                 Le résultat de la clôture n'est pas perdu : il reste dans l'en-tête de la carte
                 « Cycle de vie », où il est écrit « RÉSULTAT : ACCEPTÉE ». Le type d'énergie, lui,
                 reste ici — il n'est écrit nulle part ailleurs. */}
+            {/* L'ÉTAPE DU DOSSIER, remontée du chemin le 02/10/2026. Elle se clique : le menu propose
+                les gestes que la frise offrait — poser une étape à la main, clôturer, rendre au calcul. */}
+            <EtapeRecommandation
+              reco={reco}
+              peutModifier={canManage}
+              onChoisirEtape={choisirEtape}
+              onMarquerProposee={() => void datePresentationClient(true)}
+              onRetirerProposee={() => void retirerPresentationClient()}
+              onRendreAuCalcul={async () => {
+                try {
+                  await rendreAuCalcul.mutateAsync(reco.id)
+                  signaler('✓ Étape rendue au calcul automatique')
+                } catch (e) {
+                  signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
+                }
+              }}
+              onOuvrirCloture={() => setChoixClotureOuvert(true)}
+            />
             {reco.type_energie && (
               <span
                 className={cn(
@@ -1099,32 +1117,9 @@ export default function RecommandationDetail() {
         <div className="col-start-1 row-start-1 min-h-0 overflow-y-auto bg-km-bg px-4 py-4 sm:px-5">
           {onglet === 'reco' && (
             <div className="flex animate-km-fade-slide flex-col gap-3.5">
-              {/* ══════════ LE CHEMIN DU DOSSIER, AU-DESSUS DE TOUT ══════════
-
-                  William, 18/09/2026 : « je ne vois plus le chemin de la recommandation !! Il faut
-                  absolument le rajouter au-dessus des hero montant etc. »
-
-                  IL NE CONTREDIT PAS SA DEMANDE DU MATIN — « le cycle de recommandation est calculé
-                  automatiquement il doit donc être masqué » — il la précise. Ce qui devait partir,
-                  c'était le rail où l'on AGISSAIT sur un statut que la base calcule seule. Ce qui
-                  revient, c'est le fait de VOIR où en est le dossier et depuis quand, en lecture
-                  seule, dans la frise du mandat. Voir `CheminRecommandation`. */}
-              <CheminRecommandation
-                reco={reco}
-                peutModifier={canManage}
-                onChoisirEtape={choisirEtape}
-                onMarquerProposee={() => void datePresentationClient(true)}
-                onRetirerProposee={() => void retirerPresentationClient()}
-                onRendreAuCalcul={async () => {
-                  try {
-                    await rendreAuCalcul.mutateAsync(reco.id)
-                    signaler('✓ Étape rendue au calcul automatique')
-                  } catch (e) {
-                    signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
-                  }
-                }}
-                onOuvrirCloture={() => setChoixClotureOuvert(true)}
-              />
+              {/* LE CHEMIN DU DOSSIER EST PARTI le 02/10/2026 (William : « supprime le chemin, ajoute
+                  simplement l'étape dans le header ») : son étape vit dans l'en-tête, à côté du titre,
+                  et les blocs remontent d'autant. Voir `EtapeRecommandation`. */}
 
               {/* ══════════ LE HERO : LE MONTANT, LA PROPOSITION, LE CLIENT ══════════
 
@@ -1296,7 +1291,14 @@ export default function RecommandationDetail() {
                 />
               )}
 
-              <BlocAffaire reco={reco} peutModifier={canManage} majReco={majReco} signaler={signaler} />
+              {/* ══ LES CALCULS DE MONTANTS N'APPARAISSENT QU'UNE FOIS L'AFFAIRE GAGNÉE ══
+                  William, 02/10/2026 : « le bloc avec tous les calculs de montants doit être masqué
+                  tant que la recommandation n'est pas "Acceptée" ». Avant, le seul chiffre qui compte
+                  est le montant de l'affaire, au hero ; les montants se renseignent dans la clôture
+                  en « Acceptée », qui reprend la même calculatrice. */}
+              {estClose && finalite === 'ACCEPTEE' && (
+                <BlocAffaire reco={reco} peutModifier={canManage} majReco={majReco} signaler={signaler} />
+              )}
 
 {/* LES NOTES DU DOSSIER SONT RETIREES « pour le moment » (Michel, 25/08/2026). L'historique,
                   lui, reste : il trace les modifications du dossier et ne fait pas partie des notes. */}

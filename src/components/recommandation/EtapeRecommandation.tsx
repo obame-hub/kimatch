@@ -1,6 +1,8 @@
-import { FriseJalons, contexteDe, type Jalon } from '@/components/parcours/FriseJalons'
+import { useState } from 'react'
+import { contexteDe, type Jalon } from '@/components/parcours/FriseJalons'
 import { FINALITES_RECOMMANDATION, type CleFinalite } from '@/lib/finalitesRecommandation'
-import { Lock } from 'lucide-react'
+import { ChevronDown, Lock, RotateCcw } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import {
   PictoBrouillon,
   PictoEnveloppe,
@@ -13,8 +15,19 @@ import type { Recommandation } from '@/types/domain'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
- * LE CHEMIN D'UNE RECOMMANDATION — LA FRISE DU MANDAT, COMME PARTOUT AILLEURS
+ * L'ÉTAPE D'UNE RECOMMANDATION — UNE PASTILLE DANS L'EN-TÊTE, PLUS UNE FRISE
  * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * William, 02/10/2026 : « supprime le chemin. Ajoute simplement l'étape de ce chemin dans le
+ * header. Cela te permet de remonter tous les autres blocs. »
+ *
+ * LA FRISE EST PARTIE, SES QUATRE JALONS RESTENT : ils disent toujours quelle étape afficher — la
+ * dernière franchie — et ce qu'on peut y faire. LES GESTES NE SONT PAS PERDUS : la pastille ouvre un
+ * petit menu qui propose exactement les clics que la frise offrait (remettre au brouillon, rouvrir,
+ * marquer proposée, revenir en consultation, clôturer, rendre au calcul). Les retirer aurait rendu
+ * impossible ce que William avait demandé le 21/09 — poser une étape à la main.
+ *
+ * L'histoire de la frise, telle qu'elle a été construite, suit.
  *
  * William, 18/09/2026 : « je ne vois plus le chemin de la recommandation !! Il faut absolument le
  * rajouter au-dessus des hero montant etc. »
@@ -119,7 +132,7 @@ import type { Recommandation } from '@/types/domain'
  * toujours ce qui a eu lieu de ce qui n'a pas eu lieu.
  * ════════════════════════════════════════════════════════════════════════════════════════════════
  */
-export function CheminRecommandation({
+export function EtapeRecommandation({
   reco,
   peutModifier,
   onChoisirEtape,
@@ -285,32 +298,72 @@ export function CheminRecommandation({
   ]
 
   const fige = Boolean(reco.date_etape_manuelle)
+  const [ouvert, setOuvert] = useState(false)
+
+  /* L'ÉTAPE AFFICHÉE EST LA DERNIÈRE FRANCHIE — celle où la frise posait son nœud le plus avancé. */
+  const courante = [...jalons].reverse().find((j) => j.franchi) ?? jalons[0]
+  const gestes = jalons.filter((j) => j.onChoisir && j.titre)
+  const menu = gestes.length > 0 || (fige && peutModifier && onRendreAuCalcul)
+  const couleur = courante.couleur ?? '#0d7a5f'
+  const Picto = courante.picto
 
   return (
-    <div className="rounded-km-lg border border-km-line bg-white px-4 py-3">
-      <FriseJalons jalons={jalons} compact />
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        disabled={!menu}
+        onClick={() => setOuvert((v) => !v)}
+        title={fige ? 'Étape posée à la main — Kimatch ne la recalcule plus' : 'Étape du dossier'}
+        className={cn(
+          'inline-flex items-center gap-1.5 whitespace-nowrap rounded-km-pill border px-2.5 py-[3px] text-km-label font-bold tracking-[0.04em] transition-colors',
+          menu ? 'hover:brightness-95' : 'cursor-default',
+        )}
+        style={{ color: couleur, borderColor: `${couleur}40`, background: `${couleur}12` }}
+      >
+        <Picto taille={13} />
+        {courante.libelle.toUpperCase()}
+        {courante.marqueur && <span className="font-mono opacity-80">{courante.marqueur}</span>}
+        {courante.date && (
+          <span className="font-mono font-semibold opacity-75">{new Date(courante.date).toLocaleDateString('fr-FR')}</span>
+        )}
+        {fige && <Lock className="h-[10px] w-[10px]" />}
+        {menu && <ChevronDown className="h-[11px] w-[11px] opacity-70" />}
+      </button>
 
-      {fige && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-km-line-soft pt-2.5">
-          <Lock className="h-3 w-3 shrink-0 text-km-faint" />
-          <span className="min-w-0 flex-1 text-km-label text-km-muted">
-            Étape posée à la main
-            {reco.date_etape_manuelle
-              ? ` le ${new Date(reco.date_etape_manuelle).toLocaleDateString('fr-FR')}`
-              : ''}{' '}
-            — Kimatch ne la recalcule plus.
-          </span>
-          {peutModifier && onRendreAuCalcul && (
-            <button
-              type="button"
-              onClick={onRendreAuCalcul}
-              className="shrink-0 rounded-km-sm border border-km-line px-2 py-[2px] text-km-label font-bold text-km-muted hover:border-km-green-line hover:bg-km-green-soft hover:text-km-green"
-            >
-              Laisser Kimatch décider
-            </button>
-          )}
-        </div>
+      {ouvert && menu && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOuvert(false)} />
+          <div className="absolute left-0 top-full z-40 mt-1.5 w-[320px] rounded-km-md border border-km-line bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,.12)]">
+            <p className="px-2.5 pb-1 pt-1.5 text-km-tiny font-extrabold uppercase tracking-[.08em] text-km-faint">Changer l’étape</p>
+            {gestes.map((j) => (
+              <button
+                key={j.cle}
+                type="button"
+                onClick={() => { setOuvert(false); j.onChoisir?.() }}
+                className="flex w-full flex-col items-start gap-[1px] rounded-km-sm px-2.5 py-2 text-left hover:bg-km-bg"
+              >
+                <span className="text-km-body font-bold" style={{ color: j.couleur ?? undefined }}>{j.libelle}</span>
+                <span className="text-km-label text-km-faint">{j.titre}</span>
+              </button>
+            ))}
+            {fige && peutModifier && onRendreAuCalcul && (
+              <button
+                type="button"
+                onClick={() => { setOuvert(false); onRendreAuCalcul() }}
+                className="mt-1 flex w-full items-start gap-2 rounded-km-sm border-t border-km-line-soft px-2.5 pb-2 pt-2.5 text-left hover:bg-km-bg"
+              >
+                <RotateCcw className="mt-[3px] h-3.5 w-3.5 shrink-0 text-km-muted" />
+                <span className="flex flex-col gap-[1px]">
+                  <span className="text-km-body font-bold text-km-text">Laisser Kimatch décider</span>
+                  <span className="text-km-label text-km-faint">
+                    Étape posée à la main{reco.date_etape_manuelle ? ` le ${new Date(reco.date_etape_manuelle).toLocaleDateString('fr-FR')}` : ''} : la rendre au calcul automatique.
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
+        </>
       )}
-    </div>
+    </span>
   )
 }
