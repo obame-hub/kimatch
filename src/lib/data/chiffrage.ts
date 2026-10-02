@@ -78,6 +78,8 @@ export interface OffreChiffrage {
   type: string | null
   statut: string
   nature: string
+  /** Jusqu'à quand le fournisseur tient ses prix — saisie par le pricing, jamais lue dans l'offre. */
+  validite: string | null
   clauses: { tacite: boolean; depot: boolean; engagement: boolean; renegociation: boolean; swap: boolean }
   /** Par lien version ↔ compteur. */
   saisies: Record<string, SaisieLigne>
@@ -195,7 +197,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
       supabase.from('optimisations_fournisseurs').select('id, fournisseur_compte_id, durees_mois, types_prix, date_creation, fournisseur:comptes(nom)').eq('optimisation_id', optimisationId).order('date_creation'),
       supabase
         .from('offres_fournisseurs')
-        .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, fiche:comptes_fournisseurs(compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, cout_total_annuel_estime_ttc, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
+        .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, date_validite, fiche:comptes_fournisseurs(compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, cout_total_annuel_estime_ttc, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
         .eq('optimisation_id', optimisationId)
         .eq('actif', true),
     ])
@@ -222,7 +224,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
       return {
         id: o.id, optimisationFournisseurId: o.optimisation_fournisseur_id, fournisseurId: o.compte_fournisseur_id,
         fournisseurNom: premier(premier(o.fiche)?.compte)?.nom ?? 'Fournisseur', duree: o.duree_mois, type: o.type_prix,
-        statut: o.statut, nature: o.nature_offre, saisies, totalParCompteur, ttcParCompteur,
+        statut: o.statut, nature: o.nature_offre, validite: o.date_validite ?? null, saisies, totalParCompteur, ttcParCompteur,
         clauses: { tacite: !!o.clause_tacite_reconduction, depot: !!o.clause_depot_garantie, engagement: !!o.clause_engagement_consommation, renegociation: !!o.clause_renegociation_anticipee, swap: !!o.clause_swap },
       }
     }
@@ -353,6 +355,15 @@ export function useChiffrageMutations(versionId: string | null) {
     onSuccess: rafraichir,
   })
 
+  /** La validité d'une offre — William, 02/10/2026 : « doit être éditée par le pricing ». */
+  const majValidite = useMutation({
+    mutationFn: async (x: { offreId: string; validite: string | null }) => {
+      const { error } = await supabase.from('offres_fournisseurs').update({ date_validite: x.validite, date_modification: new Date().toISOString() }).eq('id', x.offreId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: rafraichir,
+  })
+
   /** Les clauses d'une offre, posées par le pricing — lues dans l'onglet Clauses du commercial. */
   const majClauses = useMutation({
     mutationFn: async (x: { offreId: string; clauses: OffreChiffrage['clauses'] }) => {
@@ -392,5 +403,5 @@ export function useChiffrageMutations(versionId: string | null) {
     onSuccess: rafraichir,
   })
 
-  return { enregistrerLigne, changerStatut, majClauses, majCommande, enregistrerActuelle, publier }
+  return { enregistrerLigne, changerStatut, majClauses, majValidite, majCommande, enregistrerActuelle, publier }
 }

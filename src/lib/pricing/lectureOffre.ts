@@ -12,7 +12,10 @@ import { SAISIE_VIDE } from '@/lib/data/chiffrage'
  *   · LA LIGNE : le fournisseur, la DURÉE lue en tête (« 36 mois ») et le type de prix ; le compteur
  *     par son PCE / PDL. Le pricing peut toujours en choisir une autre.
  *   · LE P0 IMPRIMÉ PORTE LA MARGE (55,01 dont 6 €/MWh) : le prix fournisseur est P0 − marge, et la
- *     marge se range dans sa case. Le tableau remontre 55,01 (P0 + marge, `ChiffrageVersion`).
+ *     marge se range dans sa case. Le tableau remontre 55,01 (P0 + marge, `ChiffrageVersion`). En
+ *     électricité, la marge est dans le prix de chaque poste (Pointe, HPH, HCH, HPE, HCE).
+ *     LA MARGE INCLUSE SE DEMANDE à chaque offre : « ça peut changer selon les dossiers ».
+ *   · LA VALIDITÉ ne se lit pas : le pricing la saisit.
  *   · L'ABONNEMENT ANNUEL (4 487,96 €/an) se range au mois pour la case, l'annuel restant exact.
  *   · LES CEE : classiques + précarité (7,03 + 4,52 = 11,55).
  */
@@ -39,13 +42,9 @@ export interface PropositionLue {
   reference_offre: string | null
   client: string | null
   date_prise_effet: string | null
-  date_validite: string | null
   offres: OffreLue[]
   remarques: string | null
 }
-
-/** La marge que les fournisseurs incluent dans leur P0, tant qu'on n'en sait pas plus sur la ligne. */
-export const MARGE_INCLUSE_PAR_DEFAUT = 6
 
 const auDixMillieme = (n: number) => Math.round(n * 10000) / 10000
 
@@ -122,4 +121,19 @@ export function saisieDepuisLecture(compteur: CompteurChiffrage, lue: OffreLue, 
 export function dejaChiffree(s: SaisieLigne | undefined): boolean {
   if (!s) return false
   return [s.abonnementMois, s.p0, s.cee, s.capacite].some((x) => x != null) || Object.values(s.p0Postes).some((x) => x != null)
+}
+
+/* ══ LA VALIDITÉ, SAISIE PAR LE PRICING ══
+   Un champ « date et heure » parle l'heure de Paris (« 2026-10-02T16:00 ») ; la base range un instant. */
+const deux = (n: number) => String(n).padStart(2, '0')
+export function versSaisieLocale(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}T${deux(d.getHours())}:${deux(d.getMinutes())}`
+}
+export function depuisSaisieLocale(v: string): string | null {
+  if (!v) return null
+  const d = new Date(v)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }

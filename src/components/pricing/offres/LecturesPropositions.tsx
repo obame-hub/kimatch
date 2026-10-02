@@ -5,7 +5,7 @@ import { lireNombre } from '@/lib/pricing/budget'
 import { saisieComplete, useChiffrageMutations, type Chiffrage } from '@/lib/data/chiffrage'
 import type { Lectures } from '@/lib/data/lectureOffre'
 import {
-  MARGE_INCLUSE_PAR_DEFAUT, dejaChiffree, rapprocher, saisieDepuisLecture,
+  dejaChiffree, depuisSaisieLocale, rapprocher, saisieDepuisLecture, versSaisieLocale,
   type OffreLue, type PropositionLue,
 } from '@/lib/pricing/lectureOffre'
 
@@ -19,13 +19,17 @@ import {
  * clic depuis la liste des propositions.
  *
  * L'IA LIT, LE PRICING INCLUT. Chaque offre lue montre la ligne trouvée (modifiable), ce qui va
- * s'écrire, et ce qui ne colle pas (PCE, CAR, validité). Un clic sur « Inclure » remplit la ligne,
- * et, la ligne étant complète, la passe « Prête » : la relecture vaut confirmation.
+ * s'écrire, et ce qui ne colle pas (PCE, CAR, profil). Le pricing y donne deux choses que l'offre ne
+ * dit pas, William, 02/10/2026 :
+ *   · LA MARGE INCLUSE dans le prix imprimé — « ça peut changer selon les dossiers, donc demander au
+ *     pricing sur chaque offre quelle est la marge incluse » ;
+ *   · LA VALIDITÉ — « doit être éditée par le pricing, je ne veux pas que tu la lises depuis l'offre ».
+ * Un clic sur « Inclure » remplit la ligne, range la validité, et, la ligne étant complète, la passe
+ * « Prête » : la relecture vaut confirmation.
  */
 
 const fr = (v: number | null | undefined, max = 2) => (v == null ? '—' : v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: max }))
 const date = (iso: string | null) => (iso ? new Date(iso.length <= 10 ? `${iso}T12:00:00` : iso).toLocaleDateString('fr-FR') : null)
-const heure = (iso: string | null) => (iso && iso.length > 10 && !/T00:00/.test(iso) ? new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : null)
 
 export function VoletLectures({ lectures, chiffrage, versionId, choisirCompteur, onToast }: {
   lectures: Lectures
@@ -63,7 +67,6 @@ export function VoletLectures({ lectures, chiffrage, versionId, choisirCompteur,
 }
 
 function Proposition({ p, chiffrage, versionId, choisirCompteur, onToast }: { p: PropositionLue; chiffrage: Chiffrage; versionId: string; choisirCompteur: (vcId: string) => void; onToast: (m: string) => void }) {
-  const expiree = p.date_validite ? Date.parse(p.date_validite) < Date.now() : false
   return (
     <div className="flex flex-col">
       <div className="flex flex-col gap-0.5 px-3 pb-2 pt-2.5">
@@ -71,15 +74,7 @@ function Proposition({ p, chiffrage, versionId, choisirCompteur, onToast }: { p:
           <span className="text-[13.5px] font-extrabold text-km-text">{p.fournisseur_nom ?? 'Fournisseur non lu'}</span>
           {p.reference_offre && <span className="truncate font-mono text-[10.5px] text-km-faint">n° {p.reference_offre}</span>}
         </span>
-        <span className="text-[11px] text-km-muted">
-          {p.date_prise_effet && <>Prise d’effet <b className="font-semibold text-km-text">{date(p.date_prise_effet)}</b></>}
-          {p.date_prise_effet && p.date_validite && ' · '}
-          {p.date_validite && (
-            <span className={cn(expiree && 'font-bold text-km-red')}>
-              {expiree ? 'expirée le ' : 'valable jusqu’au '}{date(p.date_validite)}{heure(p.date_validite) ? ` ${heure(p.date_validite)}` : ''}
-            </span>
-          )}
-        </span>
+        {p.date_prise_effet && <span className="text-[11px] text-km-muted">Prise d’effet <b className="font-semibold text-km-text">{date(p.date_prise_effet)}</b></span>}
       </div>
       {p.offres.length === 0 && <p className="px-3 pb-3 text-[12px] text-km-faint">Aucune offre de prix reconnue dans ce document.</p>}
       {p.offres.map((o, i) => (
@@ -109,12 +104,14 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
   const offre = chiffrage.offres.find((o) => o.id === offreId) ?? null
   const compteur = chiffrage.compteurs.find((c) => c.vcId === vcId) ?? null
   const existante = offre && compteur ? offre.saisies[compteur.vcId] : undefined
-  const [margeTexte, setMargeTexte] = useState(() => fr(existante?.marge ?? MARGE_INCLUSE_PAR_DEFAUT).replace(/\s/g, ''))
+  /* Vide : le pricing la donne à chaque offre. */
+  const [margeTexte, setMargeTexte] = useState('')
+  const [validite, setValidite] = useState(() => versSaisieLocale(trouve.offre?.validite))
   const [incluse, setIncluse] = useState(false)
-  const marge = lireNombre(margeTexte) ?? 0
+  const marge = lireNombre(margeTexte)
   const gaz = (compteur?.energie ?? p.type_energie) !== 'electricite'
-  const saisie = compteur ? saisieDepuisLecture(compteur, lue, marge, existante) : null
-  const enCours = m.enregistrerLigne.isPending || m.changerStatut.isPending
+  const saisie = compteur && marge != null ? saisieDepuisLecture(compteur, lue, marge, existante) : null
+  const enCours = m.enregistrerLigne.isPending || m.changerStatut.isPending || m.majValidite.isPending
 
   /* Ce qui ne colle pas avec le compteur : dit, jamais bloquant. */
   const alertes: string[] = []
@@ -124,11 +121,13 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
   if (gaz && compteur?.profil && lue.profil && compteur.profil !== lue.profil) alertes.push(`Profil lu ${lue.profil}, profil du compteur ${compteur.profil}.`)
   if (existante && dejaChiffree(existante) && !incluse) alertes.push('La ligne porte déjà des prix : ils seront remplacés.')
   const manque = gaz ? lue.p0_mwh == null : Object.keys(lue.prix_postes_mwh).length === 0
+  const aSaisir = marge == null ? 'Saisissez la marge incluse' : !validite ? 'Saisissez la validité' : null
 
   const inclure = async () => {
     if (!offre || !compteur || !saisie) return
     try {
       await m.enregistrerLigne.mutateAsync({ offre, compteur, saisie })
+      await m.majValidite.mutateAsync({ offreId: offre.id, validite: depuisSaisieLocale(validite) })
       const complete = chiffrage.compteurs.every((c) => saisieComplete(c, c.vcId === compteur.vcId ? saisie : offre.saisies[c.vcId]))
       if (complete && offre.statut === 'EN_ATTENTE') await m.changerStatut.mutateAsync({ offreId: offre.id, statut: 'DISPONIBLE' })
       setIncluse(true)
@@ -150,7 +149,7 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
 
       <label className="flex flex-col gap-1">
         <span className="text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Ligne à remplir</span>
-        <select value={offreId} onChange={(e) => setOffreId(e.target.value)} disabled={incluse} className={choix}>
+        <select value={offreId} onChange={(e) => { setOffreId(e.target.value); setValidite(versSaisieLocale(chiffrage.offres.find((o) => o.id === e.target.value)?.validite)) }} disabled={incluse} className={choix}>
           <option value="">— Choisir une ligne —</option>
           {chiffrage.offres.map((o) => <option key={o.id} value={o.id}>{o.fournisseurNom} · {o.duree ?? '?'} mois · {o.type ?? '?'}</option>)}
         </select>
@@ -173,12 +172,12 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
               <span className="text-[11.5px] text-km-muted">dont marge incluse</span>
               <MargeIncluse valeur={margeTexte} onChange={setMargeTexte} disabled={incluse} />
             </span>
-            <Ligne nom="P0 fournisseur" fort>{fr(saisie?.p0, 4)} €/MWh</Ligne>
+            <Ligne nom="P0 fournisseur" fort>{saisie ? `${fr(saisie.p0, 4)} €/MWh` : <span className="font-sans text-[11px] font-semibold italic text-km-faint">marge à saisir</span>}</Ligne>
           </>
         ) : (
           <>
             {Object.entries(lue.prix_postes_mwh).map(([poste, prix]) => (
-              <Ligne key={poste} nom={`${poste} imprimé`}>{fr(prix, 4)} → <b>{fr(saisie?.p0Postes[poste], 4)}</b></Ligne>
+              <Ligne key={poste} nom={`${poste} imprimé`}>{fr(prix, 4)}{saisie && <> → <b>{fr(saisie.p0Postes[poste], 4)}</b></>}</Ligne>
             ))}
             <span className="flex items-center justify-between gap-3 py-[3px]">
               <span className="text-[11.5px] text-km-muted">dont marge incluse</span>
@@ -199,6 +198,11 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
       </div>
       <span className="text-[10.5px] leading-[14px] text-km-faint">TQD, CTA, accise et CPB ne sont pas repris : ils viennent de la base, à la bonne date.</span>
 
+      <label className="flex flex-col gap-1">
+        <span className="text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Validité de l’offre</span>
+        <input type="datetime-local" value={validite} onChange={(e) => setValidite(e.target.value)} disabled={incluse} aria-label="Validité de l’offre" className={cn(choix, 'font-mono', !validite && 'border-km-amber-line bg-km-amber-soft/50')} />
+      </label>
+
       {alertes.map((a) => (
         <span key={a} className="flex items-start gap-1.5 rounded-[8px] border border-km-amber-line bg-km-amber-soft px-2 py-1.5 text-[11px] leading-[15px] text-[#8a4b2a]">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" /> {a}
@@ -207,21 +211,21 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
 
       <button
         type="button"
-        disabled={incluse || !offre || !compteur || manque || enCours}
+        disabled={incluse || !offre || !compteur || manque || !!aSaisir || enCours}
         onClick={() => void inclure()}
         className={cn(
           'inline-flex h-8 items-center justify-center gap-1.5 rounded-km text-[12.5px] font-bold transition-colors',
-          incluse ? 'bg-km-green-soft text-km-green' : offre && compteur && !manque ? 'bg-km-green text-white hover:bg-[#0a6650]' : 'cursor-not-allowed border border-km-line bg-km-soft text-km-faint',
+          incluse ? 'bg-km-green-soft text-km-green' : offre && compteur && !manque && !aSaisir ? 'bg-km-green text-white hover:bg-[#0a6650]' : 'cursor-not-allowed border border-km-line bg-km-soft text-km-faint',
         )}
       >
         {enCours ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : incluse ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
-        {incluse ? 'Incluse dans la ligne' : manque ? 'Aucun prix lu' : !offre ? 'Choisissez la ligne' : !compteur ? 'Choisissez le compteur' : 'Inclure dans la ligne'}
+        {incluse ? 'Incluse dans la ligne' : manque ? 'Aucun prix lu' : !offre ? 'Choisissez la ligne' : !compteur ? 'Choisissez le compteur' : aSaisir ?? 'Inclure dans la ligne'}
       </button>
     </div>
   )
 }
 
-/** La marge incluse dans le prix imprimé — 6 €/MWh d'ordinaire, modifiable avant d'inclure. */
+/** La marge incluse dans le prix imprimé — elle change d'un dossier à l'autre : le pricing la donne. */
 function MargeIncluse({ valeur, onChange, disabled }: { valeur: string; onChange: (v: string) => void; disabled?: boolean }) {
   return (
     <input
@@ -229,13 +233,14 @@ function MargeIncluse({ valeur, onChange, disabled }: { valeur: string; onChange
       inputMode="decimal"
       aria-label="Marge incluse dans le prix imprimé"
       value={valeur}
+      placeholder="à saisir"
       disabled={disabled}
       onChange={(e) => {
         const t = e.target.value.replace(/\./g, ',').replace(/[^\d,]/g, '')
         const i = t.indexOf(',')
         onChange(i < 0 ? t.slice(0, 6) : `${t.slice(0, i)},${t.slice(i + 1).replace(/,/g, '').slice(0, 2)}`)
       }}
-      className="h-6 w-[72px] rounded-[7px] border border-[#CFE6DB] bg-[#EAF5F0] px-1.5 text-right font-mono text-[12px] font-semibold text-km-green outline-none focus:border-km-green focus:bg-white"
+      className="h-6 w-[72px] rounded-[7px] border border-[#CFE6DB] bg-[#EAF5F0] px-1.5 placeholder:font-sans placeholder:text-[11px] placeholder:italic placeholder:text-km-amber text-right font-mono text-[12px] font-semibold text-km-green outline-none focus:border-km-green focus:bg-white"
     />
   )
 }

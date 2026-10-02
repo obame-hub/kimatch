@@ -7,6 +7,7 @@ import { useFournisseursChoix } from '@/lib/data/contratsProspects'
 import { urlOuvrableDocument, useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { estLisible, useLectures, type Lectures } from '@/lib/data/lectureOffre'
+import { depuisSaisieLocale, versSaisieLocale } from '@/lib/pricing/lectureOffre'
 import { VoletLectures } from '@/components/pricing/offres/LecturesPropositions'
 import {
   SAISIE_VIDE, budgetLigne, saisieComplete, useChiffrage, useChiffrageMutations,
@@ -646,6 +647,7 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
                       enregistrer={(saisie) => m.enregistrerLigne.mutateAsync({ offre: o, compteur, saisie }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
                       changerStatut={(statut) => m.changerStatut.mutateAsync({ offreId: o.id, statut }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
                       changerClauses={(clauses) => m.majClauses.mutateAsync({ offreId: o.id, clauses }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
+                      changerValidite={(validite) => m.majValidite.mutateAsync({ offreId: o.id, validite }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
                     />
                   ))}
                 </div>
@@ -936,7 +938,7 @@ function Etoile() {
   )
 }
 
-function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActuel, ttc, g, enregistrer, changerStatut, changerClauses }: PropsLigne & {
+function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActuel, ttc, g, enregistrer, changerStatut, changerClauses, changerValidite }: PropsLigne & {
   offre: OffreChiffrage
   chiffrage: Chiffrage
   premiere: boolean
@@ -944,6 +946,7 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
   enregistrer: (s: SaisieLigne) => Promise<unknown>
   changerStatut: (s: 'EN_ATTENTE' | 'DISPONIBLE' | 'INDISPONIBLE') => Promise<unknown>
   changerClauses: (c: OffreChiffrage['clauses']) => Promise<unknown>
+  changerValidite: (v: string | null) => Promise<unknown>
 }) {
   const brouillon = useBrouillon(offre.saisies[compteur.vcId], g.postes)
   const saisie = brouillon.saisie
@@ -969,7 +972,7 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
       )}
       <span className="flex items-center justify-end gap-1 border-l border-km-line-soft px-2">
         <Etat statut={offre.statut} complete={complete} onConfirmer={() => { quitter(); void changerStatut('DISPONIBLE') }} onRouvrir={() => void changerStatut('EN_ATTENTE')} />
-        <MenuLigne clauses={offre.clauses} indispo={indispo} onClauses={changerClauses} onIndispo={() => void changerStatut(indispo ? 'EN_ATTENTE' : 'INDISPONIBLE')} />
+        <MenuLigne clauses={offre.clauses} validite={offre.validite} indispo={indispo} onClauses={changerClauses} onValidite={changerValidite} onIndispo={() => void changerStatut(indispo ? 'EN_ATTENTE' : 'INDISPONIBLE')} />
       </span>
     </div>
   )
@@ -1051,7 +1054,14 @@ function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, onT
 const LIBELLES_CLAUSES: [keyof OffreChiffrage['clauses'], string][] = [
   ['depot', 'Dépôt de garantie'], ['engagement', 'Engagement de consommation'], ['renegociation', 'Renégociation anticipée'], ['swap', 'SWAP'], ['tacite', 'Tacite reconduction'],
 ]
-function MenuLigne({ clauses, indispo, onClauses, onIndispo }: { clauses: OffreChiffrage['clauses']; indispo: boolean; onClauses: (c: OffreChiffrage['clauses']) => Promise<unknown>; onIndispo: () => void }) {
+function MenuLigne({ clauses, validite, indispo, onClauses, onValidite, onIndispo }: {
+  clauses: OffreChiffrage['clauses']
+  validite: string | null
+  indispo: boolean
+  onClauses: (c: OffreChiffrage['clauses']) => Promise<unknown>
+  onValidite: (v: string | null) => Promise<unknown>
+  onIndispo: () => void
+}) {
   /* POSÉ PAR-DESSUS LE TABLEAU : le tableau défile et rogne ce qui dépasse ; le menu se place donc
      à l'écran, sous le bouton — ou au-dessus quand la ligne est en bas. */
   const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null)
@@ -1087,8 +1097,8 @@ function MenuLigne({ clauses, indispo, onClauses, onIndispo }: { clauses: OffreC
         ref={bouton}
         type="button"
         onClick={basculer}
-        title="Clauses et disponibilité"
-        aria-label="Clauses et disponibilité de l'offre"
+        title="Validité, clauses et disponibilité"
+        aria-label="Validité, clauses et disponibilité de l'offre"
         aria-expanded={ouvert}
         className={cn('flex h-[22px] w-[22px] items-center justify-center rounded-full text-km-faint transition-colors hover:bg-km-soft hover:text-km-text', ouvert && 'bg-km-soft text-km-text')}
       >
@@ -1096,6 +1106,18 @@ function MenuLigne({ clauses, indispo, onClauses, onIndispo }: { clauses: OffreC
       </button>
       {pos && (
         <span style={{ top: pos.top, bottom: pos.bottom, right: pos.right }} className="fixed z-50 flex w-[250px] flex-col rounded-km-md border border-km-line bg-white p-1.5 shadow-km-pop">
+          {/* LA VALIDITÉ, SAISIE PAR LE PRICING — William, 02/10/2026 : jamais lue dans l'offre. */}
+          <span className="px-2 pb-1 pt-1 text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Validité de l’offre</span>
+          <span className="px-2 pb-1.5">
+            <input
+              type="datetime-local"
+              aria-label="Validité de l’offre"
+              defaultValue={versSaisieLocale(validite)}
+              onBlur={(e) => { const v = depuisSaisieLocale(e.target.value); if (v !== (validite ? new Date(validite).toISOString() : null)) void onValidite(v) }}
+              className="h-7 w-full rounded-[8px] border border-km-line bg-km-soft px-2 font-mono text-[12px] font-semibold text-km-text outline-none focus:border-km-green focus:bg-white"
+            />
+          </span>
+          <span className="my-1 h-px bg-km-line-soft" />
           <span className="px-2 pb-1 pt-1 text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Clauses de l’offre</span>
           {LIBELLES_CLAUSES.map(([cle, nom]) => (
             <label key={cle} className="flex cursor-pointer items-center gap-2 rounded-km-sm px-2 py-1.5 text-[12px] hover:bg-km-soft">

@@ -19,7 +19,8 @@ import { exigerSession, refuserLesPartenaires } from '../_auth.js'
  *
  * CE QUI N'EST PAS LU : TQD, ATRD, CTA, accise, CPB, TURPE. Ils sont décrétés et viennent de la base
  * (Administration › Pricing), datés comme il faut — le chiffre du fournisseur, lui, est celui du jour
- * où il a émis son offre.
+ * où il a émis son offre. LA VALIDITÉ non plus : William, 02/10/2026 : « la validité de l'offre doit
+ * être éditée par le pricing, je ne veux pas que tu la lises depuis l'offre ».
  *
  * Ne jamais importer ce fichier depuis le code du navigateur : la clé API n'existe que côté serveur.
  */
@@ -33,7 +34,6 @@ Retourne UNIQUEMENT un objet JSON, sans texte autour ni balise markdown, de la f
   "reference_offre": texte — l'identifiant de l'offre s'il est imprimé,
   "client": texte — le client ou le site tel qu'il est nommé,
   "date_prise_effet": "YYYY-MM-DD" — le début de fourniture,
-  "date_validite": "YYYY-MM-DDTHH:MM" — jusqu'à quand les prix sont valables (heure 00:00 si absente),
   "offres": [
     {
       "numero_point": texte — le PCE (gaz) ou le PDL/PRM (électricité), sans espaces, jamais tronqué ni reformaté (un PCE peut s'écrire "GI" suivi de 6 chiffres),
@@ -86,7 +86,6 @@ export interface PropositionLue {
   reference_offre: string | null
   client: string | null
   date_prise_effet: string | null
-  date_validite: string | null
   offres: OffreLue[]
   remarques: string | null
 }
@@ -157,7 +156,6 @@ export function lireProposition(j: any): PropositionLue {
     reference_offre: texte(j?.reference_offre),
     client: texte(j?.client),
     date_prise_effet: texte(j?.date_prise_effet),
-    date_validite: texte(j?.date_validite),
     offres: Array.isArray(j?.offres) ? j.offres.map(lireOffre) : [],
     remarques: texte(j?.remarques),
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Chiffrage, CompteurChiffrage, OffreChiffrage } from '@/lib/data/chiffrage'
-import { cleFournisseur, rapprocher, saisieDepuisLecture, type OffreLue, type PropositionLue } from '@/lib/pricing/lectureOffre'
+import { cleFournisseur, depuisSaisieLocale, rapprocher, saisieDepuisLecture, versSaisieLocale, type OffreLue, type PropositionLue } from '@/lib/pricing/lectureOffre'
 
 /* L'offre Gaz Européen n° 500080748 de CAPTA – 21-23 rue Lalande, telle que William l'a décrite le
    02/10/2026 : 36 mois, P0 55,01 dont 6 €/MWh de marge, abonnement 4 487,96 €/an, CEE 7,03 + 4,52. */
@@ -13,7 +13,7 @@ const lue: OffreLue = {
   numero_point: 'GI142791', duree_mois: 36, type_prix: 'Fixe', car_mwh: 344, profil: 'P016', p0_mwh: 55.01, prix_postes_mwh: {}, capacite_mwh: null,
   abonnement_annuel: 4487.96, abonnement_imprime: { montant: 4487.96, periode: 'an' }, cee_classiques_mwh: 7.03, cee_precarite_mwh: 4.52, cee_mwh: 11.55,
 }
-const proposition: PropositionLue = { fournisseur_nom: 'Gaz Européen', type_energie: 'gaz', reference_offre: '500080748', client: null, date_prise_effet: '2027-01-01', date_validite: '2026-10-02T16:00', offres: [lue], remarques: null }
+const proposition: PropositionLue = { fournisseur_nom: 'Gaz Européen', type_energie: 'gaz', reference_offre: '500080748', client: null, date_prise_effet: '2027-01-01', offres: [lue], remarques: null }
 
 describe('lecture d’une proposition fournisseur', () => {
   it('« Gaz Européen » et « GAZ EUROPEEN » sont le même fournisseur', () => {
@@ -40,6 +40,18 @@ describe('lecture d’une proposition fournisseur', () => {
     expect(s.marge).toBe(6)
     expect(s.cee).toBe(11.55)
     expect(Math.round(s.abonnementMois! * 12 * 100) / 100).toBe(4487.96)
+  })
+
+  it('en électricité, la marge incluse se retire du prix de chaque poste', () => {
+    const elec = { ...compteur, energie: 'electricite', conso: { POINTE: 1, HPH: 10, HCH: 5, HPE: 12, HCE: 6 } } as CompteurChiffrage
+    const s = saisieDepuisLecture(elec, { ...lue, p0_mwh: null, prix_postes_mwh: { POINTE: 140, HPH: 120.5, HCH: 95, HPE: 88, HCE: 70.25 } }, 8)
+    expect(s.p0Postes).toEqual({ POINTE: 132, HPH: 112.5, HCH: 87, HPE: 80, HCE: 62.25 })
+    expect(s.marge).toBe(8)
+  })
+
+  it('la validité saisie fait l’aller-retour avec la base', () => {
+    expect(versSaisieLocale(depuisSaisieLocale('2026-10-02T16:00'))).toBe('2026-10-02T16:00')
+    expect(depuisSaisieLocale('')).toBeNull()
   })
 })
 
