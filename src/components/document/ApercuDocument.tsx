@@ -16,6 +16,14 @@ function typeMime(nom: string): string | null {
     svg: 'image/svg+xml',
     txt: 'text/plain',
     csv: 'text/plain',
+    /* UN APPEL OU UN MAIL GARDÉ EN FICHIER (02/10/2026, catégories « Appel » et « Mail ») : l'audio
+       s'écoute sur place, le mail enregistré (.eml) se lit en texte. */
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    m4a: 'audio/mp4',
+    ogg: 'audio/ogg',
+    aac: 'audio/aac',
+    eml: 'text/plain',
   }
   return table[ext] ?? null
 }
@@ -144,6 +152,12 @@ export function ApercuDocument({ url, nomFichier }: { url: string; nomFichier: s
     <div className="space-y-2">
       {mime.startsWith('image/') ? (
         <img src={objectUrl} alt={nomFichier} className="max-h-[70vh] w-full rounded-xl border border-km-line object-contain bg-km-bg/40" />
+      ) : mime.startsWith('audio/') ? (
+        <div className="rounded-xl border border-km-line bg-km-bg/40 p-4">
+          <audio src={objectUrl} controls preload="metadata" className="w-full">
+            {nomFichier}
+          </audio>
+        </div>
       ) : (
         <iframe
           src={objectUrl}
