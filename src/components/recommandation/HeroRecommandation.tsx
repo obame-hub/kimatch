@@ -4,6 +4,7 @@ import { AlertTriangle, Building2, ChevronRight, Mail, Phone, User } from 'lucid
 import { champBase } from '@/lib/champBase'
 import { cn } from '@/lib/utils'
 import { RattachementModifiable } from '@/components/ui/rattachement-modifiable'
+import { InlineField } from '@/components/ui/inline-field'
 import { appelerNumero, numeroLisible } from '@/lib/telephonie'
 import { useOuvrirEmail } from '@/lib/voletEmail'
 import { HeroContrat, type ContratDuHero } from '@/components/recommandation/HeroContrat'
@@ -67,6 +68,7 @@ export function HeroRecommandation({
   signaler,
   onMajContactSignataire,
   onMajMontant,
+  onMajDateCloture,
 }: {
   reco: Recommandation
   compte: { id: string; nom: string; ville?: string | null; type_compte?: string | null } | null | undefined
@@ -84,6 +86,8 @@ export function HeroRecommandation({
   onMajContactSignataire: (contactId: string) => void
   /** Écrit le montant de l'affaire, et le marque comme saisi à la main. */
   onMajMontant: (montant: number | null) => Promise<void>
+  /** Écrit la date de clôture — prévue sur un dossier ouvert, réelle sur un dossier clos. */
+  onMajDateCloture: (date: string | null) => Promise<void>
 }) {
   const ouvrirEmail = useOuvrirEmail()
 
@@ -309,6 +313,30 @@ export function HeroRecommandation({
               ? 'Estimé par le commercial'
               : 'Aucun calcul ne peut le déduire — il se saisit'}
         </p>
+        {/* ══ LA DATE DE CLÔTURE, À CÔTÉ DU MONTANT ══
+            William, 02/10/2026 : « affiche la date de clôture (éditable) dans le bloc du montant de
+            l'affaire ». Les deux se lisent ensemble : combien, et pour quand — c'est la ligne du
+            pipe. Elle vivait dans la petite ligne grise sous le titre de la fiche.
+
+            LE LIBELLÉ SUIT LA FINALITÉ, comme il le faisait sous le titre : sur un dossier ouvert la
+            date est PRÉVUE (le `CloseDate` de Salesforce), sur un dossier clos elle est réelle. */}
+        <div
+          {...champBase('recommandations.date_cloture')}
+          className="mt-2.5 flex flex-wrap items-baseline gap-x-1.5 border-t border-km-green-line pt-2 text-km-body"
+        >
+          <span className="text-km-muted">{reco.finalite_cloture ? 'Clôturée le' : 'Clôture prévue le'}</span>
+          <InlineField
+            variant="date"
+            label=""
+            emptyLabel="à définir"
+            className="inline-flex font-semibold text-km-text"
+            value={reco.date_cloture ? String(reco.date_cloture).slice(0, 10) : null}
+            onCommit={onMajDateCloture}
+            disabled={!peutModifier}
+            onSaved={() => signaler('✓ Date de clôture enregistrée')}
+            onError={(e: Error) => signaler(`Erreur : ${e.message}`)}
+          />
+        </div>
       </div>
 
       {/* ─────────── 2 · LE CONTRAT, S'IL EXISTE ─────────── */}

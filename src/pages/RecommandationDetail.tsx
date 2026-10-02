@@ -753,53 +753,8 @@ export default function RecommandationDetail() {
           <p className="mt-0.5 truncate text-km-label text-km-faint">
             {reco.compte_nom} · créée le {new Date(reco.date_creation).toLocaleDateString('fr-FR')}
             {reco.conseiller ? ` · ${reco.conseiller}` : ''}
-            {/* ══ LA DATE DE CLÔTURE, VISIBLE MÊME QUAND LE DOSSIER N'EST PAS CLOS ══
-                Michel, 31/08/2026, sur un dossier « À réactiver » : « il serait bien d'avoir la
-                possibilité de voir la date de clôture, comme sur Salesforce ».
-
-                ELLE ÉTAIT DÉJÀ EN BASE — vérifié sur les 1 595 dossiers repris : 1 585 dates
-                identiques au champ `CloseDate` de Salesforce, zéro absente, et les 10 écarts sont
-                des clôtures faites DANS Kimatch le 12/08/2026 que Salesforce, gelé en lecture
-                seule, n'a jamais reçues. Rien ne manquait à l'import.
-
-                CE QUI MANQUAIT, C'EST L'AFFICHAGE : le bloc qui la montre est conditionné à
-                `estClose && finalite`. Or les 84 dossiers « À réactiver » ont une date et AUCUNE
-                finalité — le bloc ne s'affichait donc jamais pour eux, et c'est exactement ceux que
-                Michel regardait.
-
-                DEUX LIBELLÉS, PARCE QUE LE CHAMP DIT DEUX CHOSES. `CloseDate` est obligatoire sur
-                toute opportunité Salesforce : sur un dossier clos c'est la date de clôture réelle,
-                sur un dossier ouvert c'est la date PRÉVUE. Mesuré : 126 de nos dossiers sont encore
-                ouverts dans l'org. Écrire « clôturée le » sur ceux-là annoncerait une fin qui n'a
-                pas eu lieu. */}
-            <>
-              {' · '}
-              {/* LE LIBELLÉ SUIT LA FINALITÉ, PAS L'ÉTAPE — corrigé le 31/08/2026 après que
-                  Naoëlle a vu « clôture prévue le 21/04/2026 » sur un dossier gagné et signé.
-                  L'étape d'un dossier redevient « Active » dès qu'une version est vivante, même
-                  s'il a été clôturé avant : 24 dossiers sont dans ce cas. La FINALITÉ, elle, ne
-                  s'écrit qu'au moment d'une clôture réelle — c'est donc elle qui dit si la date
-                  est une fin ou une prévision. */}
-              {reco.finalite_cloture ? 'clôturée' : 'clôture prévue'} le{' '}
-              {/* ══ MODIFIABLE EN PLACE ══
-                  Naoëlle, 17/09/2026. La condition d'affichage a sauté avec : tant qu'elle
-                  dépendait de `reco.date_cloture`, un dossier sans date n'affichait rien — donc
-                  aucun endroit où cliquer pour en poser une. Un champ qu'on ne peut remplir que
-                  s'il est déjà rempli ne sert à personne.
-
-                  L'HISTORIQUE SUIT TOUT SEUL : `trg_audit_trace` est posé sur `recommandations` et
-                  enregistre chaque changement de valeur avec son auteur. Rien à écrire ici. */}
-              <InlineField
-                variant="date"
-                label=""
-                emptyLabel="à définir"
-                className="inline-flex font-semibold text-km-muted"
-                value={reco.date_cloture ? String(reco.date_cloture).slice(0, 10) : null}
-                onCommit={(v) => majReco({ date_cloture: v })}
-                disabled={!canManage}
-                {...retourInline}
-              />
-            </>
+            {/* LA DATE DE CLÔTURE A QUITTÉ CETTE LIGNE le 02/10/2026 : elle vit désormais dans le bloc du
+                montant, au hero, où William l'a demandée — combien, et pour quand. */}
           </p>
         </div>
 
@@ -1199,6 +1154,7 @@ export default function RecommandationDetail() {
                 contrats={contratsIssus ?? []}
                 peutModifier={canManage}
                 signaler={signaler}
+                onMajDateCloture={(v) => majReco({ date_cloture: v })}
                 onMajContactSignataire={async (contactId) => {
                   try {
                     await majReco({ contact_signataire_id: contactId })

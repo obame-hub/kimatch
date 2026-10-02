@@ -35,6 +35,14 @@ export interface ColonneServeur {
   code: string
   libelle: string
   /**
+   * LA COLONNE À ADDITIONNER POUR CETTE COLONNE-CI, quand elle diffère de `colonneSomme`.
+   *
+   * William, 02/10/2026, sur les recommandations : le pipe se compte en `montant`, le signé en
+   * `marge_nette_coeff`. Une même page somme donc deux champs selon que la colonne est ouverte ou
+   * close.
+   */
+  somme?: string
+  /**
    * PLUSIEURS STATUTS SOUS UNE SEULE COLONNE, quand le métier les regroupe.
    *
    * Michel, 26/08/2026, sur les recommandations : garder les huit étapes, et « acceptée, refusée et
@@ -133,7 +141,7 @@ export function useKanbanServeur<T>(options: {
   const { vue, colonneStatut, colonnes, colonnesRecherche, recherche, filtres, intervalles, colonneSomme, ordre, actif } = options
 
   return useQuery({
-    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => c.codes?.join('+') ?? c.code), recherche.trim(), filtres, intervalles, colonneSomme, ordre],
+    queryKey: ['kanban-serveur', vue, colonneStatut, colonnes.map((c) => `${c.codes?.join('+') ?? c.code}:${c.somme ?? ''}`), recherche.trim(), filtres, intervalles, colonneSomme, ordre],
     enabled: actif,
     queryFn: async (): Promise<ResultatColonne<T>[]> => {
       const mots = recherche.trim().split(/\s+/).filter(Boolean)
@@ -174,9 +182,10 @@ export function useKanbanServeur<T>(options: {
               nullsFirst: false,
             })
           }
+          const aSommer = col.somme ?? colonneSomme
           const [cartes, agregat] = await Promise.all([
             requeteCartes.range(0, CARTES_PAR_COLONNE - 1),
-            colonneSomme ? filtrer(codes, colonneSomme, false) : Promise.resolve(null),
+            aSommer ? filtrer(codes, aSommer, false) : Promise.resolve(null),
           ])
 
           if (cartes.error) throw new Error(cartes.error.message)
@@ -185,7 +194,7 @@ export function useKanbanServeur<T>(options: {
           if (agregat && !agregat.error) {
             somme = 0
             for (const ligne of (agregat.data ?? []) as unknown as Record<string, unknown>[]) {
-              const v = ligne[colonneSomme as string]
+              const v = ligne[aSommer as string]
               if (typeof v === 'number') somme += v
             }
           }

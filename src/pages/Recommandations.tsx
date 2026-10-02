@@ -154,6 +154,11 @@ const COLONNES_STATUT = [
   { code: 'CLOTUREE', libelle: 'Clôturée · sans finalité' },
 ] as const
 
+/** Une colonne de dossiers clos : « Clôturée » dans l'avancement, ses quatre déclinaisons dans les statuts. */
+function estColonneClose(code: string): boolean {
+  return code.startsWith('CLOTUREE')
+}
+
 /** Le libellé d'un état d'avancement, pour l'écrire sur la carte quand la colonne ne le dit plus. */
 const LIBELLE_TRAVAIL: Record<string, string> = {
   ...Object.fromEntries(COLONNES_TRAVAIL.map((c) => [c.code, c.libelle])),
@@ -373,12 +378,14 @@ export default function Recommandations() {
        Elles sont placées après les colonnes vivantes, donc le travail en cours reste à gauche.
        VUE AVANCEMENT : les six états du travail, et les clos seulement si on les demande. Décoché,
        la page ne montre que ce qui reste à faire — 134 dossiers contre 1 569 clos. */
-    colonnes: parStatut
+    colonnes: (parStatut
       ? COLONNES_STATUT.map((c) => ({ code: c.code, libelle: c.libelle }))
       : [
           ...COLONNES_TRAVAIL.map((c) => ({ code: c.code, libelle: c.libelle })),
           ...(avecClos ? [{ code: 'CLOTUREE', libelle: 'Clôturée' }] : []),
-        ],
+        ]
+    /* LES COLONNES CLOSES SOMMENT LE SIGNÉ, voir `colonneSomme` juste en dessous. */
+    ).map((c) => (estColonneClose(c.code) ? { ...c, somme: 'marge_nette_coeff' } : c)),
     colonnesRecherche: ['nom', 'compte_nom', 'conseiller'],
     recherche,
     /* LES FILTRES DESCENDENT EN BASE. Ce tableau est paginé ET sommé par la base : filtrer à
@@ -402,7 +409,15 @@ export default function Recommandations() {
      * acceptées. La somme suit les mêmes filtres que les colonnes — recherche, propriétaire et
      * période comprises — sans quoi le bandeau démentirait le tableau juste en dessous.
      */
-    colonneSomme: 'marge_nette_coeff',
+    /* ══ DEUX MONTANTS, SELON QUE LE DOSSIER EST OUVERT OU CLOS ══
+       William, 02/10/2026 : « recommandations.marge_nette_coeff : tu l'utilises quand tu parles de
+       montant signé, de chiffre d'affaires, de recommandations acceptées. recommandations.montant :
+       quand tu parles de pipe, de recommandations en cours. »
+
+       Les colonnes ouvertes — Brouillon, En construction, Disponible, En décision, En
+       contractualisation, À réactiver, Active — somment donc `montant`, le chiffre que le
+       commercial annonce. Les colonnes closes gardent `marge_nette_coeff` (règle du 10/09/2026). */
+    colonneSomme: 'montant',
     /* LE TRI PART EN BASE. Seules cinquante cartes par colonne sont chargées : trier à l'arrivée
        réordonnerait un échantillon, et la plus grosse marge resterait invisible parce que
        cinquante-et-unième. */
@@ -420,9 +435,13 @@ export default function Recommandations() {
    * pipeline.
    */
   const colonnes = tableau.data ?? []
-  const margeTotale = colonnes.reduce((t, c) => t + (c.somme ?? 0), 0)
+  /* LE TOTAL DU TITRE NE MÉLANGE PAS LES DEUX MONTANTS : additionner le pipe estimé et le signé ne
+     donnerait aucun chiffre qui ait un sens. Il annonce le PIPE, la somme des colonnes ouvertes —
+     ce qu'il annonçait déjà quand les clos étaient masqués (02/10/2026). */
+  const ouvertes = colonnes.filter((c) => !estColonneClose(c.code))
+  const margeTotale = ouvertes.reduce((t, c) => t + (c.somme ?? 0), 0)
   const nbDossiers = colonnes.reduce((n, c) => n + c.total, 0)
-  const margeConnue = colonnes.some((c) => c.somme != null)
+  const margeConnue = ouvertes.some((c) => c.somme != null)
 
 
   /**
@@ -462,7 +481,7 @@ export default function Recommandations() {
              cours. Un total incluant les 1 573 dossiers clos écraserait les 199 355 € du pipeline et
              on lirait l'historique de Kiwee au lieu de son plan de charge. */
           badge={margeConnue ? euros(margeTotale) : undefined}
-          badgeLibelle="Montant net total"
+          badgeLibelle="Montant du pipe"
           description="Le véritable produit de KiWee — jamais figée, elle évolue par versions successives."
           actions={<Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />Nouvelle recommandation</Button>}
         />
@@ -631,9 +650,12 @@ export default function Recommandations() {
                     if (!num) return 'Aucune version'
                     return [num, fin].filter(Boolean).join(' · ')
                   })(),
+                  /* LA CARTE MONTRE LE MÊME MONTANT QUE SA COLONNE ADDITIONNE : `montant` pour un
+                     dossier en cours, `marge_nette_coeff` pour un dossier clos. Sinon les cartes ne
+                     se retrouveraient pas dans le total qui les surmonte. */
                   mention:
-                    r.marge_nette_coeff != null
-                      ? euros(r.marge_nette_coeff)
+                    (estColonneClose(c.code) ? r.marge_nette_coeff : r.montant) != null
+                      ? euros((estColonneClose(c.code) ? r.marge_nette_coeff : r.montant) as number)
                       : r.nb_versions > 1
                         ? `${r.nb_versions} versions`
                         : undefined,
