@@ -58,6 +58,10 @@ export function detailBudget(compteur: CompteurChiffrage, s: SaisieLigne, dureeM
   if (!b) return null
   const r = compteur.reglementaire
   const manques = [...(r?.manques ?? [])]
+  /* CE QUE LE P0 INCLUT : la ligne reste, à zéro, pour qu'on voie qu'elle n'est pas oubliée. */
+  const inclus = (k: string) => (s.inclus ?? []).includes(k)
+  const DANS_P0 = 'comprise dans le P0'
+  const ou = (k: string, l: LigneDetail): LigneDetail => (inclus(k) ? { ...l, formule: DANS_P0, montant: 0, source: undefined } : l)
   const envoi = jour(r?.dateEnvoi)
   const aLEnvoi = envoi ? `${r?.envoiFige ? 'figé à l’envoi du' : 'en vigueur au'} ${envoi}` : undefined
   const abonnement: LigneDetail = {
@@ -70,29 +74,34 @@ export function detailBudget(compteur: CompteurChiffrage, s: SaisieLigne, dureeM
     const duree = dureeMois ?? 12
     const cpb = r?.cpb[String(duree)] ?? null
     const annees = anneesFourniture(r?.dateReference, duree)
-    const prixMwh = z(s.p0) + z(s.marge) + z(s.cee)
-    if (r?.tqd == null) manques.push('TQD inconnu')
-    if (cpb == null) manques.push('CPB inconnu pour cette durée')
+    const prixMwh = z(s.p0) + z(s.marge) + (inclus('CEE') ? 0 : z(s.cee))
+    if (r?.tqd == null && !inclus('TQD')) manques.push('TQD inconnu')
+    if (cpb == null && !inclus('CPB')) manques.push('CPB inconnu pour cette durée')
     return {
       sections: [
         {
           titre: 'Fourniture', sousTotal: auCentime(b.abonnement + b.energie), lignes: [
             abonnement,
-            { libelle: 'Énergie', formule: `CAR ${mwh(car)} MWh × (P0 ${f(s.p0, 4)} + marge ${f(s.marge, 4)} + CEE ${f(s.cee, 4)} = ${f(prixMwh, 4)} €/MWh)`, montant: b.energie },
+            {
+              libelle: 'Énergie', montant: b.energie,
+              formule: inclus('CEE')
+                ? `CAR ${mwh(car)} MWh × (P0 ${f(s.p0, 4)} + marge ${f(s.marge, 4)} = ${f(prixMwh, 4)} €/MWh, CEE compris)`
+                : `CAR ${mwh(car)} MWh × (P0 ${f(s.p0, 4)} + marge ${f(s.marge, 4)} + CEE ${f(s.cee, 4)} = ${f(prixMwh, 4)} €/MWh)`,
+            },
           ],
         },
         {
           titre: 'Acheminement', sousTotal: b.acheminement, lignes: [
-            { libelle: `TQD ${compteur.tarif ?? ''}`.trim(), formule: `CAR ${mwh(car)} MWh × ${f(r?.tqd, 4)} €/MWh`, montant: auCentime(car * z(r?.tqd)), source: aLEnvoi },
+            ou('TQD', { libelle: `TQD ${compteur.tarif ?? ''}`.trim(), formule: `CAR ${mwh(car)} MWh × ${f(r?.tqd, 4)} €/MWh`, montant: auCentime(car * z(r?.tqd)), source: aLEnvoi }),
           ],
         },
         {
           titre: 'Taxes et contributions', sousTotal: b.taxes, lignes: [
-            { libelle: 'Accise gaz (AG)', formule: `CAR ${mwh(car)} MWh × ${f(r?.accise, 4)} €/MWh`, montant: auCentime(car * z(r?.accise)), source: aLEnvoi },
-            {
+            ou('ACCISE', { libelle: 'Accise gaz (AG)', formule: `CAR ${mwh(car)} MWh × ${f(r?.accise, 4)} €/MWh`, montant: auCentime(car * z(r?.accise)), source: aLEnvoi }),
+            ou('CPB', {
               libelle: 'CPB', formule: `CAR ${mwh(car)} MWh × ${f(cpb, 4)} €/MWh`, montant: auCentime(car * z(cpb)),
               source: annees ? `moyenne ${annees[0] === annees[1] ? annees[0] : `${annees[0]} à ${annees[1]}`}, fourniture du ${jour(r?.dateReference)} sur ${duree} mois` : undefined,
-            },
+            }),
             { libelle: `CTA ${[compteur.tarif, compteur.profil].filter(Boolean).join(' ')}`.trim(), formule: 'forfait annuel', montant: auCentime(z(r?.cta)), source: aLEnvoi },
           ],
         },
@@ -121,8 +130,8 @@ export function detailBudget(compteur: CompteurChiffrage, s: SaisieLigne, dureeM
             const c = compteur.conso[p] ?? 0
             return { libelle: p === 'POINTE' ? 'Pointe' : p === 'BASE' ? 'Base' : p, formule: `${mwh(c)} MWh × (P0 ${f(s.p0Postes[p], 4)} + marge ${f(s.marge, 4)})`, montant: auCentime(c * (z(s.p0Postes[p]) + z(s.marge))) }
           }),
-          { libelle: 'Capacité', formule: `${mwh(conso)} MWh × ${f(s.capacite, 4)} €/MWh`, montant: auCentime(conso * z(s.capacite)) },
-          { libelle: 'CEE', formule: `${mwh(conso)} MWh × ${f(s.cee, 4)} €/MWh`, montant: auCentime(conso * z(s.cee)) },
+          ou('CAPACITE', { libelle: 'Capacité', formule: `${mwh(conso)} MWh × ${f(s.capacite, 4)} €/MWh`, montant: auCentime(conso * z(s.capacite)) }),
+          ou('CEE', { libelle: 'CEE', formule: `${mwh(conso)} MWh × ${f(s.cee, 4)} €/MWh`, montant: auCentime(conso * z(s.cee)) }),
         ],
       },
       { titre: 'Acheminement (TURPE)', sousTotal: b.turpe, lignes: turpe },

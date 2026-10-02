@@ -67,6 +67,8 @@ export interface SaisieLigne {
   cpb: number | null
   p0Postes: Record<string, number | null>
   capacite: number | null
+  /** Ce que le P0 saisi comprend déjà (`p0_inclut`) : CEE, TQD, CPB, ACCISE ; CAPACITE en électricité. */
+  inclus: string[]
 }
 
 export interface OffreChiffrage {
@@ -113,7 +115,7 @@ export interface Chiffrage {
   actuelle: OffreChiffrage | null
 }
 
-export const SAISIE_VIDE: SaisieLigne = { abonnementMois: null, marge: null, p0: null, cee: null, cpb: null, p0Postes: {}, capacite: null }
+export const SAISIE_VIDE: SaisieLigne = { abonnementMois: null, marge: null, p0: null, cee: null, cpb: null, p0Postes: {}, capacite: null, inclus: [] }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const premier = (x: any) => (Array.isArray(x) ? x[0] ?? null : x ?? null)
@@ -123,10 +125,11 @@ const CLASSES = ['base', 'hp', 'hc', 'hpe', 'hce', 'hph', 'hch', 'pointe'] as co
 function lireSaisie(detail: any, energie: EnergieChiffrage): SaisieLigne {
   const marge = num(detail?.marge_reelle_eur_mwh)
   const margePricing = num(detail?.marge_retenue_eur_mwh) ?? marge
+  const inclus: string[] = Array.isArray(detail?.p0_inclut) ? detail.p0_inclut : []
   if (energie === 'gaz') {
     const g = premier(detail?.offres_compteurs_gaz)
     const abo = num(g?.abonnement_fourniture_annuel_ht)
-    return { ...SAISIE_VIDE, marge, margePricing, abonnementMois: abo == null ? null : abo / 12, p0: num(g?.prix_molecule_p0_mwh), cee: num(g?.prix_cee_mwh), cpb: num(g?.prix_cpb_mwh) }
+    return { ...SAISIE_VIDE, marge, margePricing, inclus, abonnementMois: abo == null ? null : abo / 12, p0: num(g?.prix_molecule_p0_mwh), cee: num(g?.prix_cee_mwh), cpb: num(g?.prix_cpb_mwh) }
   }
   const e = premier(detail?.offres_compteurs_electricite)
   const abo = num(e?.abonnement_fourniture_annuel_ht)
@@ -138,7 +141,7 @@ function lireSaisie(detail: any, energie: EnergieChiffrage): SaisieLigne {
     const cap = num(e?.[`prix_${c}_capacite_mwh`])
     if (cap != null && capacite == null) capacite = cap
   }
-  return { ...SAISIE_VIDE, marge, margePricing, abonnementMois: abo == null ? null : abo / 12, cee: num(e?.prix_cee_mwh), p0Postes, capacite }
+  return { ...SAISIE_VIDE, marge, margePricing, inclus, abonnementMois: abo == null ? null : abo / 12, cee: num(e?.prix_cee_mwh), p0Postes, capacite }
 }
 
 async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
@@ -199,7 +202,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
       supabase.from('optimisations_fournisseurs').select('id, fournisseur_compte_id, durees_mois, types_prix, date_creation, fournisseur:comptes(nom)').eq('optimisation_id', optimisationId).order('date_creation'),
       supabase
         .from('offres_fournisseurs')
-        .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, date_validite, fiche:comptes_fournisseurs(compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, cout_total_annuel_estime_ttc, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
+        .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, date_validite, fiche:comptes_fournisseurs(compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, p0_inclut, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, cout_total_annuel_estime_ttc, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
         .eq('optimisation_id', optimisationId)
         .eq('actif', true),
     ])
@@ -264,18 +267,20 @@ export function budgetLigne(compteur: CompteurChiffrage, s: SaisieLigne, dureeMo
   const r = compteur.reglementaire
   if (compteur.energie === 'gaz') {
     const cpb = r?.cpb[String(dureeMois ?? 12)] ?? null
-    return budgetGaz({ car: compteur.car, tqd: r?.tqd ?? null, accise: r?.accise ?? null, cta: r?.cta ?? null, cpb }, { ...s, cpb: null })
+    return budgetGaz({ car: compteur.car, tqd: r?.tqd ?? null, accise: r?.accise ?? null, cta: r?.cta ?? null, cpb }, { ...s, cpb: null, inclus: s.inclus })
   }
   return budgetElec({ conso: compteur.conso, turpe: r?.turpe?.total ?? null, accise: r?.accise ?? null, cta: r?.cta ?? null },
-    { abonnementMois: s.abonnementMois, p0: s.p0Postes, marge: s.marge, capacite: s.capacite, cee: s.cee })
+    { abonnementMois: s.abonnementMois, p0: s.p0Postes, marge: s.marge, capacite: s.capacite, cee: s.cee, inclus: s.inclus })
 }
 
 /** Une saisie est complète quand chaque champ propre à l'offre est rempli. */
 export function saisieComplete(compteur: CompteurChiffrage, s: SaisieLigne | undefined): boolean {
   if (!s) return false
   const ok = (x: number | null | undefined) => x != null && Number.isFinite(x)
-  if (compteur.energie === 'gaz') return [s.abonnementMois, s.marge, s.p0, s.cee].every(ok)
-  return [s.abonnementMois, s.marge, s.capacite, s.cee].every(ok) && postesAPricer(compteur.conso).every((p) => ok(s.p0Postes[p]))
+  /* Une case incluse dans le P0 n'est plus due. */
+  const due = (k: string, x: number | null | undefined) => (s.inclus ?? []).includes(k) || ok(x)
+  if (compteur.energie === 'gaz') return [s.abonnementMois, s.marge, s.p0].every(ok) && due('CEE', s.cee)
+  return [s.abonnementMois, s.marge].every(ok) && due('CAPACITE', s.capacite) && due('CEE', s.cee) && postesAPricer(compteur.conso).every((p) => ok(s.p0Postes[p]))
 }
 
 /**
@@ -293,7 +298,7 @@ function versPrix(compteur: CompteurChiffrage, s: SaisieLigne, typePrix: string 
      l'acheminement et les taxes (réglementés). */
   const commun = {
     marge_reelle_eur_mwh: s.marge, marge_retenue_eur_mwh: s.margePricing ?? s.marge, type_marge: 'VARIABLE' as const, type_prix: typePrix,
-    abonnement_fourniture_annuel_ht: abonnementAn, prix_cee_mwh: s.cee,
+    abonnement_fourniture_annuel_ht: abonnementAn, prix_cee_mwh: s.cee, p0_inclut: s.inclus ?? [],
     cout_fourniture_annuel_ht: b ? auCentime(b.abonnement + b.energie) : null,
     cout_acheminement_annuel_ht: b ? b.acheminement : null,
     cout_taxes_annuel: b ? b.taxes : null,

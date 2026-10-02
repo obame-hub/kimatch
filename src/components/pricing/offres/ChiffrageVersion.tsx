@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, Ban, Check, ChevronsUpDown, FileText, Loader2, MoreHorizontal, Plus, RotateCcw, Send, Sparkles, Trash2, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { lireNombre, postesDuCompteur, ttcDuBudget } from '@/lib/pricing/budget'
+import { INCLUSIONS_ELEC, INCLUSIONS_GAZ, LIBELLE_INCLUSION, lireNombre, postesDuCompteur, ttcDuBudget, type ComposanteIncluse } from '@/lib/pricing/budget'
 import { useFournisseursChoix } from '@/lib/data/contratsProspects'
 import { urlOuvrableDocument, useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable } from '@/lib/data/referenceTables'
@@ -76,6 +76,8 @@ function versBrouillon(s: SaisieLigne | undefined, postes: string[]): Brouillon 
   const x = s ?? SAISIE_VIDE
   const b: Brouillon = { abonnementMois: fr2(x.abonnementMois), marge: fr2(x.marge), p0: fr2(x.p0), cee: fr2(x.cee), cpb: fr2(x.cpb), capacite: fr2(x.capacite) }
   for (const p of postes) b[`p0_${p}`] = fr2(x.p0Postes[p])
+  /* Ce que le P0 inclut, rangé dans le brouillon comme le reste : « TQD,CEE ». */
+  b.inclus = (x.inclus ?? []).join(',')
   return b
 }
 
@@ -92,6 +94,7 @@ function depuisBrouillon(b: Brouillon, postes: string[], origine?: SaisieLigne, 
   return {
     abonnementMois: lire('abonnementMois', origine?.abonnementMois), marge: lire('marge', origine?.marge), p0: lire('p0', origine?.p0),
     cee: lire('cee', origine?.cee), cpb: lire('cpb', origine?.cpb), capacite: lire('capacite', origine?.capacite), p0Postes,
+    inclus: b.inclus ? b.inclus.split(',').filter(Boolean) : [],
   }
 }
 
@@ -810,6 +813,9 @@ function useBrouillon(saisie: SaisieLigne | undefined, postes: string[]) {
     /** La saisie telle que la ligne la porte maintenant — ce que le budget compte à chaque frappe. */
     saisie: depuisBrouillon(b, postes, saisie, initial),
     lu: () => { const s = depuisBrouillon(b, postes, saisie, initial); modifie.current = false; return s },
+    /** Change une valeur et rend aussitôt la saisie qui en résulte — pour enregistrer sans attendre
+     *  qu'on quitte une case (les options du P0 se cochent, elles ne se tapent pas). */
+    appliquer: (cle: string, v: string) => { const nb = { ...b, [cle]: v }; setB(nb); modifie.current = false; return depuisBrouillon(nb, postes, saisie, initial) },
     estModifie: () => modifie.current,
   }
 }
@@ -866,18 +872,94 @@ const bordZone = (g: Grille, col: number) => (Object.values(g.debut).includes(co
  * CEE — reste tel quel. Le budget ne compte la marge qu'une fois : consommation × (P0 + marge), jamais
  * une « marge × consommation » en plus (`pricing/budget.ts`).
  */
+/**
+ * CE QUE LE P0 INCLUT — William, 02/10/2026 : « sur une facture ENDESA (offre actuelle), est inclus dans
+ * le même prix le P0 + TQd + CEE + CPB. En gros, c'est un coût variable global […] un indicateur visuel
+ * doit apporter des options au clic de ce qui est inclus (rien par défaut). » Une pastille au coin de la
+ * case P0 : « + » discret quand rien n'est inclus, le nombre d'inclusions sinon. Ce qui est coché ne se
+ * compte plus à part (`budget.ts`, et la base pour TQD, CPB et accise).
+ */
+function OptionsP0({ gaz, inclus, label, onChange }: { gaz: boolean; inclus: string[]; label: string; onChange: (liste: string[]) => void }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const bouton = useRef<HTMLButtonElement>(null)
+  const volet = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!pos) return
+    const fermer = (e: MouseEvent) => { if (!volet.current?.contains(e.target as Node) && !bouton.current?.contains(e.target as Node)) setPos(null) }
+    const echap = (e: KeyboardEvent) => { if (e.key === 'Escape') setPos(null) }
+    const defile = () => setPos(null)
+    document.addEventListener('mousedown', fermer)
+    document.addEventListener('keydown', echap)
+    window.addEventListener('scroll', defile, true)
+    window.addEventListener('resize', defile)
+    return () => {
+      document.removeEventListener('mousedown', fermer)
+      document.removeEventListener('keydown', echap)
+      window.removeEventListener('scroll', defile, true)
+      window.removeEventListener('resize', defile)
+    }
+  }, [pos])
+  const options = gaz ? INCLUSIONS_GAZ : INCLUSIONS_ELEC
+  const n = inclus.length
+  const basculer = () => {
+    if (pos) { setPos(null); return }
+    const r = bouton.current?.getBoundingClientRect()
+    if (!r) return
+    setPos({ top: window.innerHeight - r.bottom < 220 ? r.top - 4 - 200 : r.bottom + 4, left: Math.min(r.left, window.innerWidth - 248) })
+  }
+  const basculerOption = (k: ComposanteIncluse) => onChange(inclus.includes(k) ? inclus.filter((x) => x !== k) : [...inclus, k])
+  return (
+    <>
+      <button
+        ref={bouton}
+        type="button"
+        onClick={basculer}
+        aria-expanded={!!pos}
+        aria-label={`Ce que le P0 inclut · ${label}`}
+        title={n ? `Le P0 inclut : ${inclus.map((k) => LIBELLE_INCLUSION[k as ComposanteIncluse] ?? k).join(', ')}` : 'Que comprend ce P0 ? (rien d’inclus)'}
+        className={cn(
+          'absolute -left-0.5 -top-0.5 z-[1] flex h-[15px] min-w-[15px] items-center justify-center rounded-full border px-[3px] text-[9px] font-extrabold leading-none transition-colors',
+          n ? 'border-km-green bg-km-green text-white shadow-[0_1px_3px_rgba(13,122,95,.35)]' : 'border-[#C3CBC5] bg-white text-km-muted hover:border-km-green hover:text-km-green',
+          pos && !n && 'border-km-green text-km-green',
+        )}
+      >
+        {n ? `+${n}` : '+'}
+      </button>
+      {pos && (
+        <span ref={volet} role="dialog" aria-label="Ce que le P0 inclut" style={{ top: pos.top, left: pos.left }} className="fixed z-50 flex w-[240px] flex-col rounded-km-md border border-km-line bg-white p-1.5 text-left shadow-km-pop">
+          <span className="px-2 pb-0.5 pt-1 text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Le P0 inclut déjà</span>
+          <span className="px-2 pb-1.5 text-[10.5px] leading-[14px] text-km-muted">Ce qui est coché ne se compte pas en plus.</span>
+          {options.map((k) => (
+            <label key={k} className="flex cursor-pointer items-center gap-2 rounded-km-sm px-2 py-1.5 text-[12px] font-semibold hover:bg-km-soft">
+              <input type="checkbox" checked={inclus.includes(k)} onChange={() => basculerOption(k)} className="h-3.5 w-3.5 accent-km-green" />
+              {LIBELLE_INCLUSION[k]}
+            </label>
+          ))}
+        </span>
+      )}
+    </>
+  )
+}
+
 const estP0 = (cle: string) => cle === 'p0' || cle.startsWith('p0_')
-function Saisies({ g, brouillon, label, sansMarge, onBlur }: { g: Grille; brouillon: ReturnType<typeof useBrouillon>; label: string; sansMarge?: boolean; onBlur: () => void }) {
+function Saisies({ g, brouillon, label, sansMarge, onBlur, onInclus }: { g: Grille; brouillon: ReturnType<typeof useBrouillon>; label: string; sansMarge?: boolean; onBlur: () => void; onInclus: (s: SaisieLigne) => void }) {
   const laMarge = sansMarge ? null : lireNombre(brouillon.b.marge)
+  const inclus = brouillon.b.inclus ? brouillon.b.inclus.split(',').filter(Boolean) : []
+  const premierP0 = g.zones.find((z) => z.id === 'nrj')?.cols[0]?.cle
   return (
     <>
       {g.zones.filter((z) => z.id !== 'bud' && z.id !== 'ect').flatMap((z) => z.cols.map((c, k) => {
         const col = g.debut[z.id] + k
         const marge = z.id === 'mrg'
         return (
-          <span key={c.cle} className={cn('flex items-center px-1', bordZone(g, col), marge && 'bg-[rgba(13,122,95,.035)]')}>
+          <span key={c.cle} className={cn('relative flex items-center px-1', bordZone(g, col), marge && 'bg-[rgba(13,122,95,.035)]')}>
+            {c.cle === premierP0 && (
+              <OptionsP0 gaz={g.gaz} inclus={inclus} label={label} onChange={(liste) => onInclus(brouillon.appliquer('inclus', liste.join(',')))} />
+            )}
             {marge && sansMarge
               ? <span className="w-full text-center text-[10px] italic text-km-faint">sans objet</span>
+              : (c.cle === 'cee' && inclus.includes('CEE')) || (c.cle === 'capacite' && inclus.includes('CAPACITE'))
+                ? <span title="Compris dans le P0 : ne se compte pas en plus" className="flex h-7 w-full items-center justify-center rounded-[8px] border border-dashed border-km-green-line bg-km-green-tint text-[10.5px] font-bold text-km-green">dans le P0</span>
               : (() => {
                 const p0 = estP0(c.cle) ? lireNombre(brouillon.b[c.cle]) : null
                 const avecMarge = p0 != null && laMarge != null && laMarge !== 0
@@ -976,7 +1058,7 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
         <span className={cn('flex items-center justify-end px-2.5 text-[11px] italic text-km-faint', bordZone(g, 2))} style={{ gridColumn: `2 / ${fin}` }}>Le fournisseur ne la propose pas</span>
       ) : (
         <>
-          <Saisies g={g} brouillon={brouillon} label={`${offre.fournisseurNom} ${offre.duree} mois ${offre.type}`} onBlur={quitter} />
+          <Saisies g={g} brouillon={brouillon} label={`${offre.fournisseurNom} ${offre.duree} mois ${offre.type}`} onBlur={quitter} onInclus={(s) => void enregistrer(s)} />
           <Resultat g={g} compteur={compteur} saisie={saisie} duree={offre.duree} totalActuel={totalActuel} ttc={ttc} horsComparatif={indexe} titre={`${offre.fournisseurNom} · ${offre.duree ?? '?'} mois · ${offre.type ?? '?'}`} />
         </>
       )}
@@ -1026,9 +1108,9 @@ function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, pub
   const [fournisseurId, setFournisseurId] = useState<string>(actuelle?.fournisseurId ?? compteur.fournisseurActuelId ?? '')
   const brouillon = useBrouillon(actuelle?.saisies[compteur.vcId], g.postes)
   const saisie = brouillon.saisie
-  const enregistrer = (fid: string) => {
+  const enregistrer = (fid: string, s?: SaisieLigne) => {
     if (!fid) { onToast('Choisissez d’abord le fournisseur actuel.'); return }
-    void m.enregistrerActuelle.mutateAsync({ fournisseurId: fid, duree: actuelle?.duree ?? null, compteur, saisie: { ...brouillon.lu(), marge: 0 } }).catch((e: Error) => onToast(`Erreur : ${e.message}`))
+    void m.enregistrerActuelle.mutateAsync({ fournisseurId: fid, duree: actuelle?.duree ?? null, compteur, saisie: { ...(s ?? brouillon.lu()), marge: 0 } }).catch((e: Error) => onToast(`Erreur : ${e.message}`))
   }
   return (
     <div className="overflow-hidden rounded-[12px] border border-km-line bg-white">
@@ -1050,7 +1132,7 @@ function BlocActuelle({ chiffrage, compteur, g, totalActuel, ttc, versionId, pub
         <span className="flex min-w-0 items-center pl-3.5 pr-2">
           <span className="whitespace-nowrap text-[12.5px] font-bold text-km-text">{actuelle?.duree ? `${actuelle.duree} mois` : 'Contrat en cours'}</span>
         </span>
-        <Saisies g={g} brouillon={brouillon} label="offre actuelle" sansMarge onBlur={() => { if (brouillon.estModifie()) enregistrer(fournisseurId) }} />
+        <Saisies g={g} brouillon={brouillon} label="offre actuelle" sansMarge onBlur={() => { if (brouillon.estModifie()) enregistrer(fournisseurId) }} onInclus={(s) => enregistrer(fournisseurId, s)} />
         <Resultat g={g} compteur={compteur} saisie={{ ...saisie, marge: 0 }} duree={actuelle?.duree ?? null} totalActuel={totalActuel} ttc={ttc} reference titre={`Offre actuelle${actuelle?.fournisseurNom ? ` · ${actuelle.fournisseurNom}` : ''}`} />
         <span className="border-l border-km-line-soft" />
       </div>

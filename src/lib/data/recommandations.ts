@@ -2573,6 +2573,8 @@ export function useRetenirOffre() {
  */
 export interface PrixParCompteur {
   /** Coûts annuels de la ligne offre × PDL. Tous optionnels : on saisit ce qu'on a. */
+  /** Ce que le P0 saisi comprend déjà (CEE, TQD, CPB, ACCISE, CAPACITE) — ne se compte pas en plus. */
+  p0_inclut?: string[]
   consommation_annuelle_reference_mwh?: number | null
   cout_fourniture_annuel_ht?: number | null
   cout_acheminement_annuel_ht?: number | null
@@ -2700,6 +2702,7 @@ export async function enregistrerPrixCompteur(input: EcriturePrixCompteur): Prom
             ...(p.marge_reelle_eur_mwh !== undefined ? { marge_reelle_eur_mwh: p.marge_reelle_eur_mwh } : {}),
             ...(p.type_marge !== undefined ? { type_marge: p.type_marge } : {}),
             ...(p.marge_fixe_eur !== undefined ? { marge_fixe_eur: p.marge_fixe_eur } : {}),
+            ...(p.p0_inclut !== undefined ? { p0_inclut: p.p0_inclut } : {}),
             date_modification: new Date().toISOString(),
           },
           { onConflict: 'offre_fournisseur_id,version_recommandation_compteur_id' },

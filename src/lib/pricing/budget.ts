@@ -39,7 +39,17 @@ export const POSTES_ELEC = ['POINTE', 'HPH', 'HCH', 'HPE', 'HCE', 'HP', 'HC', 'B
 
 /** Les communs du gaz : TQD, AG (accise), CTA et CPB — tous fixés par la réglementation, lus en base. */
 export interface CommunsGaz { car: number | null; tqd: number | null; accise: number | null; cta: number | null; cpb?: number | null }
-export interface SaisieGaz { abonnementMois: number | null; p0: number | null; marge: number | null; cee: number | null; cpb: number | null }
+/**
+ * CE QUE LE P0 INCLUT DÉJÀ — William, 02/10/2026 : « sur une facture ENDESA (offre actuelle), est inclus
+ * dans le même prix le P0 + TQd + CEE + CPB […] si c'est inclus, il ne faut pas prendre en compte ce qui
+ * est inclus dans le calcul final, de peur de calculer deux fois une même composante. » Rien par défaut.
+ */
+export type ComposanteIncluse = 'CEE' | 'TQD' | 'CPB' | 'ACCISE' | 'CAPACITE'
+export const INCLUSIONS_GAZ: ComposanteIncluse[] = ['CEE', 'TQD', 'CPB', 'ACCISE']
+export const INCLUSIONS_ELEC: ComposanteIncluse[] = ['CEE', 'CAPACITE']
+export const LIBELLE_INCLUSION: Record<ComposanteIncluse, string> = { CEE: 'CEE', TQD: 'TQD', CPB: 'CPB', ACCISE: 'Accise', CAPACITE: 'Capacité' }
+
+export interface SaisieGaz { abonnementMois: number | null; p0: number | null; marge: number | null; cee: number | null; cpb: number | null; inclus?: string[] }
 
 export interface CommunsElec {
   /** Conso par poste, en MWh — seuls les postes que le compteur consomme. */
@@ -55,6 +65,7 @@ export interface SaisieElec {
   marge: number | null
   capacite: number | null
   cee: number | null
+  inclus?: string[]
 }
 
 export interface BudgetOffre {
@@ -94,14 +105,19 @@ export const ttcDuBudget = (b: Pick<BudgetOffre, 'total'>) => enTTC(b.total)
  * Le total €/MWh, lui, le garde : c'est le prix complet de l'énergie présenté au client.
  */
 export function budgetGaz(c: CommunsGaz, s: SaisieGaz): BudgetOffre | null {
-  const prix = [s.abonnementMois, s.p0, s.marge, s.cee]
+  /* Une composante incluse dans le P0 ne se compte pas une seconde fois, et sa case n'est plus due. */
+  const inclus = (k: ComposanteIncluse) => !!s.inclus?.includes(k)
+  const cee = inclus('CEE') ? 0 : s.cee
+  const prix = [s.abonnementMois, s.p0, s.marge, ...(inclus('CEE') ? [] : [s.cee])]
   if (!connu(c.car) || c.car <= 0 || !prix.some(connu)) return null
-  const cpb = z(c.cpb ?? s.cpb)
-  const totalMwh = z(s.p0) + z(s.marge) + z(s.cee) + cpb
+  const cpb = inclus('CPB') ? 0 : z(c.cpb ?? s.cpb)
+  const tqd = inclus('TQD') ? 0 : z(c.tqd)
+  const accise = inclus('ACCISE') ? 0 : z(c.accise)
+  const totalMwh = z(s.p0) + z(s.marge) + z(cee) + cpb
   const abonnement = z(s.abonnementMois) * 12
-  const energie = c.car * (z(s.p0) + z(s.marge) + z(s.cee))
-  const acheminement = c.car * z(c.tqd)
-  const taxes = c.car * (z(c.accise) + cpb) + z(c.cta)
+  const energie = c.car * (z(s.p0) + z(s.marge) + z(cee))
+  const acheminement = c.car * tqd
+  const taxes = c.car * (accise + cpb) + z(c.cta)
   return {
     abonnement: auCentime(abonnement), energie: auCentime(energie), turpe: 0, acheminement: auCentime(acheminement), taxes: auCentime(taxes),
     total: auCentime(abonnement + energie + acheminement + taxes), totalMwh: auCentime(totalMwh), complet: prix.every(connu),
@@ -134,10 +150,13 @@ export function budgetElec(c: CommunsElec, s: SaisieElec): BudgetOffre | null {
   const postes = postesDuCompteur(c.conso)
   const consoTotale = postes.reduce((t, p) => t + (c.conso[p] ?? 0), 0)
   if (consoTotale <= 0) return null
-  const prix = [s.abonnementMois, s.marge, s.capacite, s.cee, ...postesAPricer(c.conso).map((p) => s.p0[p])]
+  const inclus = (k: ComposanteIncluse) => !!s.inclus?.includes(k)
+  const capacite = inclus('CAPACITE') ? 0 : s.capacite
+  const cee = inclus('CEE') ? 0 : s.cee
+  const prix = [s.abonnementMois, s.marge, ...(inclus('CAPACITE') ? [] : [s.capacite]), ...(inclus('CEE') ? [] : [s.cee]), ...postesAPricer(c.conso).map((p) => s.p0[p])]
   if (![...prix, ...postes.map((p) => s.p0[p])].some(connu)) return null
   const abonnement = z(s.abonnementMois) * 12
-  const energie = postes.reduce((t, p) => t + (c.conso[p] ?? 0) * (z(s.p0[p]) + z(s.marge)), 0) + consoTotale * (z(s.capacite) + z(s.cee))
+  const energie = postes.reduce((t, p) => t + (c.conso[p] ?? 0) * (z(s.p0[p]) + z(s.marge)), 0) + consoTotale * (z(capacite) + z(cee))
   const taxes = consoTotale * z(c.accise) + z(c.cta)
   const turpe = z(c.turpe)
   return {
