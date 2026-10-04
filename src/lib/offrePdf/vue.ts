@@ -94,6 +94,7 @@ export function vueOffre(d: DonneesOffrePdf, logoKiwee: string): Record<string, 
 
   return {
     logoKiwee,
+    afficherClauses: d.afficherClauses,
     hasCur, noCur: !hasCur, heroCur, heroNoCur: !heroCur, ttc, ht: !ttc, uLbl: ttc ? 'TTC' : 'HTVA', titrePerim: true,
     gcols: (gaz ? '22px 1.6fr .8fr .6fr .72fr .82fr .74fr .95fr' : '22px 1.6fr .6fr .7fr .82fr .74fr .7fr .95fr') + (ttc ? ' .95fr' : '') + (hasCur ? ' .9fr' : ''),
     com: { nom: d.consultant.nom, mail: ou(d.consultant.email), tel: ou(d.consultant.telephone), ini },

@@ -85,6 +85,7 @@ interface RawVersion {
   est_figee: boolean
   date_publication: string | null
   date_publication_comparatif?: string | null
+  validite_offre?: string | null
   date_presentation_client: string | null
   date_decision_client: string | null
   date_creation: string
@@ -273,7 +274,7 @@ async function fetchRecommandations(
       ).catch(() => [] as RawRecoCompteur[]),
       fetchAllRows<RawVersion>(
         'versions_recommandation',
-        'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_publication_comparatif, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
+        'id, recommandation_id, numero_version, nom, resume, contexte_et_hypotheses, gain_estime_annuel, economie_estimee_pourcentage, niveau_confiance, version_actuelle, est_figee, date_publication, date_publication_comparatif, validite_offre, date_presentation_client, date_decision_client, date_creation, statut:statuts_versions_recommandation(code), motif:motifs_versions_recommandation(libelle), contact_id, contact:contacts(prenom, nom)',
         // « Les versions doivent s'afficher du plus recent au plus ancien » (reunion du
         // 12/08/2026). Le tri porte sur numero_version, qui EST le rang metier de la version,
         // plutot que sur la date qui n'en est qu'un indice : rien n'interdit de reprendre une
@@ -732,6 +733,7 @@ async function fetchRecommandations(
         est_figee: v.est_figee,
         date_publication: v.date_publication,
         date_publication_comparatif: v.date_publication_comparatif ?? null,
+        validite_offre: v.validite_offre ?? null,
         date_presentation_client: v.date_presentation_client,
         date_decision_client: v.date_decision_client,
         compteur_ids: compteurIdsParVersion.get(v.id) ?? [],

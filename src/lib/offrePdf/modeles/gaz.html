@@ -92,7 +92,7 @@
   </div>
   </div>
 
-  <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px 14px 10px;flex:1;display:flex;flex-direction:column">
+  <div data-bloc="comparatif" style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px 14px 10px;flex:1;display:flex;flex-direction:column">
     <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px">
       <div style="font-size:15px;font-weight:700;letter-spacing:-.01em">Comparatif des offres</div>
     </div>
@@ -142,7 +142,7 @@
     <span style="font-size:10px;color:#6c6f68;font-family:'Geist Mono',monospace">{{ dates.ref }} · {{ compte.nom }}</span>
   </div>
 
-  <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px 14px 14px">
+  <div data-bloc="prix" style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px 14px 14px">
     <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px"><div style="font-size:15px;font-weight:700;letter-spacing:-.01em">Prix unitaires</div><div style="font-size:9.5px;color:#6c6f68">HTVA · taxes réglementées identiques pour tous</div></div>
     <div style="padding:0 8px;margin-top:12px">
       <div style="display:grid;grid-template-columns:168px 64px 1fr 176px;gap:0 10px">
@@ -171,7 +171,7 @@
     <div style="display:flex;justify-content:space-between;gap:10px;margin:18px 8px 0;padding-top:10px;border-top:1px solid #f0f1ec;font-size:8.5px;color:#6c6f68;white-space:nowrap"><span><b style="color:#45473f">CEE</b> Économies d’énergie</span><span><b style="color:#45473f">CPB</b> Production de biogaz</span><span><b style="color:#45473f">TQd</b> Terme de quantité distribution</span><span><b style="color:#45473f">AG</b> Accise sur le gaz</span><span><b style="color:#45473f">CTA</b> Contrib. tarifaire d’acheminement</span></div>
   </div>
 
-  <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px 14px 12px;flex:1;display:flex;flex-direction:column">
+  <sc-if value="{{ afficherClauses }}"><div data-bloc="clauses" style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px 14px 12px;flex:1;display:flex;flex-direction:column">
     <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px"><div style="font-size:15px;font-weight:700;letter-spacing:-.01em">Clauses contractuelles</div></div>
     <div style="display:grid;grid-template-columns:160px repeat(6,minmax(0,1fr)) 90px;gap:0 6px;align-items:end;margin-top:24px;padding:0 8px 9px;border-bottom:1px solid #eceee8">
       <span style="font-size:8.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#6c6f68">Offre</span>
@@ -194,7 +194,7 @@
       </div>
       <div style="font-size:9.5px;line-height:1.55;color:#56594f;text-wrap:pretty"><b style="color:#1f2123">Lecture du score.</b> Le score valorise les protections du contrat (contrat sécurisé, renégociation anticipée, SWAP) et pénalise les contraintes (dépôt de garantie, engagement de consommation, tacite reconduction). Une protection absente fait baisser le score. Échelle de A (très élevée) à E (très faible).</div>
     </div>
-  </div>
+  </div></sc-if>
   <div style="display:flex;justify-content:space-between;font-size:9px;color:#8a8d85;padding:0 4px;font-family:'Geist Mono',monospace"><span>kiwee-energie.fr</span><span>2 / 3</span></div>
 </section>
 

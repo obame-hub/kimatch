@@ -70,6 +70,8 @@ export interface DonneesOffrePdf {
   /** Validité de l'offre, date et heure locales (« 2026-10-06T16:00 »). */
   validite: string
   ttc: boolean
+  /** Le tableau des clauses contractuelles (et leur score) en page 2 — oui par défaut (04/10/2026). */
+  afficherClauses: boolean
   consultant: { nom: string; email: string | null; telephone: string | null }
   contact: { nom: string; email: string | null; telephone: string | null } | null
   compteur: {

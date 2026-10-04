@@ -82,6 +82,8 @@ export interface VersionPricing {
   nb_refusees: number
   nb_attendus: number
   fournisseurs: FournisseurConsulteLite[]
+  /** Le nombre de compteurs de la version : le Pricer ne propose que les monosites (04/10/2026). */
+  nb_compteurs: number
 }
 
 export function useVersionsPricing() {

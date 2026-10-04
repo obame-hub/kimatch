@@ -38,6 +38,7 @@ function version(p: Partial<VersionPricing> = {}): VersionPricing {
     version_nom: null,
     version_statut: 'EN_CONSTRUCTION',
     version_statut_libelle: 'En construction',
+    nb_compteurs: 1,
     date_souhaitee: '2026-09-22',
     jours_avant_livraison: 4,
     date_presentation_client: null,

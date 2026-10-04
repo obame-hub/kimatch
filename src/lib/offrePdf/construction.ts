@@ -36,7 +36,7 @@ export interface ContexteOffre {
   logoParNom: (nom: string) => string | null
 }
 
-export interface OptionsOffre { validite: string; ttc: boolean; dateEdition?: string }
+export interface OptionsOffre { validite: string; ttc: boolean; dateEdition?: string; /** Oui par défaut. */ clauses?: boolean }
 
 /** TTC pour un syndic, HTVA pour une entreprise (William, 04/10/2026) : un syndic ne récupère pas la TVA. */
 export const ttcParDefaut = (segment: string | null | undefined) => /^syndic/i.test(segment ?? '')
@@ -101,15 +101,39 @@ function ligne(k: CompteurChiffrage, o: OffreChiffrage, ctx: ContexteOffre, actu
   }
 }
 
-export function construireOffrePdf(c: Chiffrage, ctx: ContexteOffre, options: OptionsOffre): DonneesOffrePdf {
+/** Toutes les offres présentables, de la moins chère à la plus chère — la proposition n'en garde que
+ *  les cinq premières (`MAX_OFFRES`). */
+export function lignesPresentables(c: Chiffrage, ctx: ContexteOffre): LigneOffrePdf[] {
   const k = c.compteurs[0]
-  const offres = c.offres
+  return c.offres
     .filter((o) => o.nature === 'PROPOSEE' && o.statut === 'DISPONIBLE' && !estIndexe(o.type))
     .map((o) => ligne(k, o, ctx, false))
     .filter((l): l is LigneOffrePdf => !!l)
     .sort((a, b) => a.totalHt - b.totalHt)
-    .slice(0, MAX_OFFRES)
-  const actuelle = !c.version.sansComparatif && c.actuelle ? ligne(k, c.actuelle, ctx, true) : null
+}
+
+/** La ligne de l'offre actuelle (la référence), ou `null` pour un appel d'offres sans comparatif. */
+export function ligneActuelle(c: Chiffrage, ctx: ContexteOffre): LigneOffrePdf | null {
+  return !c.version.sansComparatif && c.actuelle ? ligne(c.compteurs[0], c.actuelle, ctx, true) : null
+}
+
+/** Le chiffrage avec d'autres marges, offre par offre — le brouillon du commercial avant génération. */
+export function avecMarges(c: Chiffrage, marges: Record<string, number>): Chiffrage {
+  return {
+    ...c,
+    offres: c.offres.map((o) => (marges[o.id] == null ? o : {
+      ...o,
+      saisies: Object.fromEntries(Object.entries(o.saisies).map(([vc, s]) => [vc, { ...s, marge: marges[o.id] }])),
+    })),
+  }
+}
+
+export const NB_OFFRES_PROPOSITION = MAX_OFFRES
+
+export function construireOffrePdf(c: Chiffrage, ctx: ContexteOffre, options: OptionsOffre): DonneesOffrePdf {
+  const k = c.compteurs[0]
+  const offres = lignesPresentables(c, ctx).slice(0, MAX_OFFRES)
+  const actuelle = ligneActuelle(c, ctx)
 
   /* Une carte par fournisseur, dans l'ordre de sa meilleure offre ; l'offre actuelle n'en ajoute pas. */
   const vus = new Set<string>()
@@ -131,6 +155,7 @@ export function construireOffrePdf(c: Chiffrage, ctx: ContexteOffre, options: Op
     dateEdition: options.dateEdition ?? new Date().toISOString().slice(0, 10),
     validite: options.validite,
     ttc: options.ttc,
+    afficherClauses: options.clauses ?? true,
     consultant: ctx.consultant,
     contact: ctx.contact,
     compteur: {

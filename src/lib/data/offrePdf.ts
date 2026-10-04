@@ -1,4 +1,7 @@
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { Chiffrage } from '@/lib/data/chiffrage'
 import { authHeaderJson } from '@/lib/data/authHeader'
 import type { ContexteOffre } from '@/lib/offrePdf/construction'
 import type { RessourcesOffre } from '@/lib/offrePdf/document'
@@ -144,4 +147,23 @@ export async function imprimerOffrePdf(html: string, nomFichier: string): Promis
     throw new Error(res.status === 404 ? 'L’impression des propositions n’est pas encore en ligne.' : message)
   }
   return await res.blob()
+}
+
+/** Le contexte de la proposition d'une version monosite (client, consultant, fiches et logos). */
+export function useContexteOffre(chiffrage: Chiffrage | null | undefined) {
+  const compteur = chiffrage?.compteurs.length === 1 ? chiffrage.compteurs[0] : null
+  const ids = useMemo(
+    () => [...new Set([...(chiffrage?.offres ?? []), ...(chiffrage?.actuelle ? [chiffrage.actuelle] : [])].map((o) => o.fournisseurId))].sort(),
+    [chiffrage],
+  )
+  return useQuery({
+    queryKey: ['proposition-pdf', chiffrage?.version.id, ids],
+    queryFn: () => chargerContexteOffre(chiffrage!.version.id, ids, compteur!.compteurId),
+    enabled: !!chiffrage && !!compteur,
+    staleTime: 60_000,
+  })
+}
+
+export function useRessourcesOffre() {
+  return useQuery({ queryKey: ['proposition-pdf-ressources'], queryFn: chargerRessourcesOffre, staleTime: Infinity })
 }

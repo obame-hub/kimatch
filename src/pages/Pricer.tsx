@@ -44,9 +44,13 @@ export default function Pricer() {
   const basculer = () => setReplie((r) => { ecrireReplie(!r); return !r })
   const [survol, setSurvol] = useState<{ v: VersionPricing; top: number; left: number } | null>(null)
 
+  /* LES MULTISITES N'Y SONT PAS — William, 04/10/2026 : « Pour l'instant j'ai pas designé le
+     multisite donc ne propose pas les offres en multisite dans le pricer. » Ils reviendront avec leur
+     dessin ; en attendant, l'en-tête dit combien sont écartés. */
+  const multisites = (versions ?? []).filter((v) => v.version_statut === 'EN_CONSTRUCTION' && Number(v.nb_compteurs) > 1).length
   const aTraiter = useMemo(
     () => (versions ?? [])
-      .filter((v) => v.version_statut === 'EN_CONSTRUCTION' && v.jours_avant_livraison != null && v.jours_avant_livraison <= 0)
+      .filter((v) => v.version_statut === 'EN_CONSTRUCTION' && Number(v.nb_compteurs) <= 1 && v.jours_avant_livraison != null && v.jours_avant_livraison <= 0)
       .sort((a, b) => (a.jours_avant_livraison ?? 0) - (b.jours_avant_livraison ?? 0)),
     [versions],
   )
@@ -67,6 +71,7 @@ export default function Pricer() {
         <span className="text-[12px] text-km-side-muted">
           <b className="font-semibold text-km-side-text">{aTraiter.length}</b> dossier{aTraiter.length > 1 ? 's' : ''} à chiffrer
           {enRetard.length > 0 && <> · <b className="font-semibold text-km-side-red">{enRetard.length} en retard</b></>}
+          {multisites > 0 && <span title="Le Pricer ne chiffre pas encore les dossiers multisites."> · {multisites} multisite{multisites > 1 ? 's' : ''} hors Pricer</span>}
         </span>
         <span className="flex-1" />
         <button

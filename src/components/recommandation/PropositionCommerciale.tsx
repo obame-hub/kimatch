@@ -1,11 +1,11 @@
-import { useRef, useState } from 'react'
-import { FileCheck2, FileText, Loader2, Send, Sparkles } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Clock, FileCheck2, FileText, Loader2, Send, Sparkles } from 'lucide-react'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useOuvrirEmail } from '@/lib/voletEmail'
+import { tempsRestant } from '@/lib/data/validiteOffre'
 import { cn } from '@/lib/utils'
 import type { Contact, Recommandation, VersionRecommandation } from '@/types/domain'
 import { LienDocument } from '@/components/document/LienDocument'
-import { GenerationProposition } from '@/components/recommandation/GenerationProposition'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -51,6 +51,7 @@ export function PropositionCommerciale({
   peutModifier,
   signaler,
   onPresentationEnvoyee,
+  onGenerer,
 }: {
   reco: Recommandation
   version: VersionRecommandation
@@ -60,13 +61,14 @@ export function PropositionCommerciale({
   signaler: (message: string) => void
   /** Appelé quand la proposition part chez le client : c'est ce geste qui date la présentation. */
   onPresentationEnvoyee: () => void
+  /** Ouvre « Générer l'offre » à la place du bloc version — présent dès que le comparatif est publié. */
+  onGenerer?: () => void
 }) {
   const ouvrirEmail = useOuvrirEmail()
   const { data: documents } = useDocumentsParEntites([version.id])
   const televerser = useTeleverserDocuments()
   const champFichier = useRef<HTMLInputElement>(null)
   const [depotEnCours, setDepotEnCours] = useState(false)
-  const [generation, setGeneration] = useState(false)
 
   /* LA PROPOSITION EST CELLE DE CETTE VERSION, et d'aucune autre. Deux versions d'un même dossier
      proposent deux choses différentes ; une proposition rangée sur le dossier ne dirait plus
@@ -94,7 +96,7 @@ export function PropositionCommerciale({
 
   /* GÉNÉRÉE PAR KIMATCH dès que le pricing a publié son comparatif (William, 04/10/2026) : le dépôt
      d'un PDF fait ailleurs reste possible, pour les dossiers multisites notamment. */
-  const generable = peutModifier && !close && !!version.date_publication_comparatif
+  const generable = !!onGenerer
 
   async function ranger(fichiers: File[], message: string) {
     await televerser.mutateAsync({
@@ -125,7 +127,7 @@ export function PropositionCommerciale({
   const boutonGenerer = (principal: boolean) => (
     <button
       type="button"
-      onClick={() => setGeneration(true)}
+      onClick={onGenerer}
       className={cn(
         'inline-flex shrink-0 items-center gap-1.5 font-bold transition',
         principal
@@ -134,7 +136,7 @@ export function PropositionCommerciale({
       )}
     >
       <Sparkles className={principal ? 'h-3.5 w-3.5' : 'h-3 w-3'} />
-      {principal ? 'Générer la proposition' : 'régénérer'}
+      {principal ? 'Générer l’offre' : 'régénérer'}
     </button>
   )
 
@@ -149,8 +151,21 @@ export function PropositionCommerciale({
    * lui, `date_presentation_client` resterait vide et Kimatch ne saurait jamais qu'on attend une
    * réponse. Le mail qu'on écrit EST la présentation ; la consigner ailleurs serait la refaire.
    */
+  /* ══ LE COMPTE À REBOURS DE VALIDITÉ ══
+     L'offre générée vaut jusqu'à l'heure saisie à la génération ; passée cette heure, elle est
+     « expirée » et ne s'envoie plus — ses prix ne tiennent plus. La bande se remet à l'heure chaque
+     minute. */
+  const [maintenant, setMaintenant] = useState(() => Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setMaintenant(Date.now()), 60_000)
+    return () => window.clearInterval(t)
+  }, [])
+  const finValidite = version.validite_offre ?? null
+  const restant = finValidite ? new Date(finValidite).getTime() - maintenant : null
+  const expiree = restant != null && restant <= 0
+
   function envoyerAuClient() {
-    if (!ouvrirEmail || !contactSignataire?.email || !proposition) return
+    if (!ouvrirEmail || !contactSignataire?.email || !proposition || expiree) return
     ouvrirEmail({
       a: contactSignataire.email,
       nom: `${contactSignataire.prenom} ${contactSignataire.nom}`.trim(),
@@ -216,13 +231,29 @@ export function PropositionCommerciale({
             </button>
           )}
           {generable && boutonGenerer(false)}
+          {finValidite && (
+            <span
+              title={`Offre valable jusqu’au ${new Date(finValidite).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`}
+              className={cn(
+                'inline-flex shrink-0 items-center gap-1 rounded-km-pill px-2 py-[2px] text-km-label font-bold',
+                expiree ? 'bg-km-red-soft text-km-red' : restant! < 86_400_000 ? 'bg-km-amber-soft text-[#8a4b2a]' : 'bg-white/70 text-km-green',
+              )}
+            >
+              <Clock className="h-3 w-3" />
+              {expiree
+                ? `Expirée depuis le ${new Date(finValidite).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                : `Valable encore ${tempsRestant(restant!)}`}
+            </span>
+          )}
           <span className="flex-1" />
           <button
             type="button"
             onClick={envoyerAuClient}
-            disabled={!contactSignataire?.email || !ouvrirEmail}
+            disabled={!contactSignataire?.email || !ouvrirEmail || expiree}
             title={
-              !contactSignataire?.email
+              expiree
+                ? 'L’offre a expiré : ses prix ne tiennent plus. Régénérez-la avec une nouvelle validité.'
+                : !contactSignataire?.email
                 ? 'Le contact signataire n’a pas d’adresse e-mail — désignez-en un autre ou complétez sa fiche.'
                 : 'Ouvre un e-mail au client, proposition déjà jointe'
             }
@@ -282,14 +313,6 @@ export function PropositionCommerciale({
         className="hidden"
         onChange={(e) => void deposer(e.target.files)}
       />
-      {generable && (
-        <GenerationProposition
-          versionId={version.id}
-          open={generation}
-          onClose={() => setGeneration(false)}
-          onGeneree={(fichier) => ranger([fichier], '✓ Proposition générée et attachée à la version')}
-        />
-      )}
     </div>
   )
 }

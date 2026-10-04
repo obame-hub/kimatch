@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { scoreDesClauses } from '@/lib/offres/clauses'
 import { rendreGabarit } from '@/lib/offrePdf/rendu'
 import { ttcParDefaut } from '@/lib/offrePdf/construction'
+import { margesOptimisees } from '@/lib/offrePdf/margeOptimisee'
+import { tempsRestant } from '@/lib/data/validiteOffre'
 
 /* Les scores des deux maquettes de Claude Design (« Offre B v3 » gaz, « Offre Electricite ») : si la
    règle dérive, c'est ici que ça casse. */
@@ -51,5 +53,44 @@ describe('présentation par défaut', () => {
     expect(ttcParDefaut('Syndic non professionnel')).toBe(true)
     expect(ttcParDefaut('Entreprise')).toBe(false)
     expect(ttcParDefaut(null)).toBe(false)
+  })
+})
+
+describe('marge optimisée', () => {
+  /* Un budget affine : 100 MWh, prix propre à l'offre. */
+  const prix: Record<string, number> = { a: 40, b: 41, c: 42, d: 45 }
+  const budget = (id: string, marge: number) => 100 * (prix[id] + marge)
+  const offres = [{ id: 'a', marge: 3 }, { id: 'b', marge: 3 }, { id: 'c', marge: 3 }, { id: 'd', marge: 3 }]
+
+  it('met l’offre choisie en tête, juste devant, sans toucher aux plus chères', () => {
+    const m = margesOptimisees(offres, 'c', budget)
+    expect(m.c).toBe(3)
+    expect(m.d).toBe(3)
+    const bc = budget('c', m.c)
+    for (const id of ['a', 'b']) {
+      expect(budget(id, m[id])).toBeGreaterThan(bc)
+      expect(budget(id, m[id])).toBeLessThan(bc * 1.03)
+    }
+  })
+  it('garde l’ordre des offres remontées et varie les ajouts', () => {
+    const m = margesOptimisees(offres, 'c', budget)
+    expect(budget('a', m.a)).toBeLessThan(budget('b', m.b))
+    expect(m.a - 3).not.toBeCloseTo(m.b - 3, 2)
+  })
+  it('donne le même résultat à chaque appel', () => {
+    expect(margesOptimisees(offres, 'd', budget)).toEqual(margesOptimisees(offres, 'd', budget))
+  })
+  it('ne change rien si l’offre choisie est déjà la moins chère', () => {
+    expect(margesOptimisees(offres, 'a', budget)).toEqual({ a: 3, b: 3, c: 3, d: 3 })
+  })
+})
+
+describe('validité de la proposition', () => {
+  it('dit le temps qui reste', () => {
+    expect(tempsRestant((2 * 24 + 4) * 3600_000 + 59_000)).toBe('2 j 4 h')
+    expect(tempsRestant(24 * 3600_000)).toBe('1 j')
+    expect(tempsRestant((5 * 60 + 7) * 60_000)).toBe('5 h 07 min')
+    expect(tempsRestant(12 * 60_000)).toBe('12 min')
+    expect(tempsRestant(-5)).toBe('0 min')
   })
 })

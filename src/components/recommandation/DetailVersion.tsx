@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Lock, Trash2, ExternalLink, ChevronDown } from 'lucide-react'
 import {
   useMajDateSouhaitee,
@@ -9,6 +10,7 @@ import { OffresDuFournisseur } from '@/components/recommandation/OffresDuFournis
 import { PropositionsFournisseur } from '@/components/recommandation/PropositionsFournisseur'
 import { PropositionCommerciale } from '@/components/recommandation/PropositionCommerciale'
 import { ComparatifPublie } from '@/components/recommandation/ComparatifPublie'
+import { GenerationOffre } from '@/components/recommandation/proposition/GenerationOffre'
 import { PastilleStatutConsultation } from '@/components/recommandation/PastilleStatutConsultation'
 import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 import { cn } from '@/lib/utils'
@@ -142,6 +144,9 @@ export function DetailVersion({
      le rattraper. Voir useMajStatutVersion. */
   const majStatut = useMajStatutVersion()
   const majDateSouhaitee = useMajDateSouhaitee()
+  /* « Générer l'offre » : le formulaire prend la place du bloc entier (William, 04/10/2026). `ttc`
+     est la présentation choisie dans les onglets, `null` celle du compte. */
+  const [generation, setGeneration] = useState<{ ttc: boolean | null } | null>(null)
 
   const estClose = version.statut === 'CLOTUREE'
 
@@ -202,6 +207,24 @@ export function DetailVersion({
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
     }
+  }
+
+  const generable = peutModifier && !estClose && !!version.date_publication_comparatif
+
+  if (generation) {
+    return (
+      <GenerationOffre
+        reco={reco}
+        versionId={version.id}
+        numeroVersion={version.numero_version ?? null}
+        ttcInitial={generation.ttc}
+        typeDocumentPropositionId={typeDocumentPropositionId}
+        contactSignataire={contactSignataire}
+        signaler={signaler}
+        onPresentationEnvoyee={onPresentationEnvoyee}
+        onFermer={() => setGeneration(null)}
+      />
+    )
   }
 
   return (
@@ -446,7 +469,7 @@ export function DetailVersion({
           puisse voir 3 tableaux (onglets) […]. Ça s'affiche en lieu et place des commandes
           fournisseurs. » Avant la publication, rien ne change : les cartes ci-dessous. */}
       {version.date_publication_comparatif ? (
-        <ComparatifPublie versionId={version.id} />
+        <ComparatifPublie versionId={version.id} peutGenerer={generable} onGenerer={(ttc) => setGeneration({ ttc })} />
       ) : (
       <div className="px-[17px] py-3.5">
         {version.optimisations.length === 0 ? (
@@ -634,6 +657,7 @@ export function DetailVersion({
         peutModifier={peutModifier}
         signaler={signaler}
         onPresentationEnvoyee={onPresentationEnvoyee}
+        onGenerer={generable ? () => setGeneration({ ttc: null }) : undefined}
       />
     </div>
   )

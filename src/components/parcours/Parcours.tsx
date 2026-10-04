@@ -144,7 +144,7 @@ export function useSortieParcours(options: OptionsSortie): SortieParcours {
   return { demander, demandee, reprendre, confirmer, options }
 }
 
-function ConfirmationSortie({ sortie }: { sortie: SortieParcours }) {
+export function ConfirmationSortie({ sortie }: { sortie: SortieParcours }) {
   const o = sortie.options
   const lignes = o.lignes ?? [{ texte: 'Ce que vous avez saisi dans ce parcours sera perdu.', perdu: true }]
   return (

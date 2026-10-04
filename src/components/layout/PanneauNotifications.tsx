@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, CheckCheck, LifeBuoy, X, type LucideIcon } from 'lucide-react'
+import { Check, CheckCheck, Clock, LifeBuoy, X, type LucideIcon } from 'lucide-react'
 import { useMarquerLue, useNotifications, type Notification } from '@/lib/data/notifications'
 import { cn } from '@/lib/utils'
 
@@ -63,6 +63,13 @@ const TYPES: Record<string, { libelle: string; Icone: LucideIcon; bande: string;
     Icone: LifeBuoy,
     bande: 'bg-km-blue',
     etiquette: 'bg-km-blue-soft text-km-blue',
+  },
+  /* L'offre générée arrive au bout de sa validité (04/10/2026). */
+  validite_offre: {
+    libelle: 'Offre bientôt expirée',
+    Icone: Clock,
+    bande: 'bg-km-amber',
+    etiquette: 'bg-km-amber-soft text-[#8a4b2a]',
   },
 }
 
