@@ -11,6 +11,7 @@ import { PropositionsFournisseur } from '@/components/recommandation/Proposition
 import { PropositionCommerciale } from '@/components/recommandation/PropositionCommerciale'
 import { ComparatifPublie } from '@/components/recommandation/ComparatifPublie'
 import { GenerationOffre } from '@/components/recommandation/proposition/GenerationOffre'
+import { AcceptationOffre } from '@/components/recommandation/proposition/AcceptationOffre'
 import { PastilleStatutConsultation } from '@/components/recommandation/PastilleStatutConsultation'
 import { budgetAnnuelDeLOffre } from '@/components/recommandation/CarteOffreEtude'
 import { cn } from '@/lib/utils'
@@ -147,6 +148,8 @@ export function DetailVersion({
   /* « Générer l'offre » : le formulaire prend la place du bloc entier (William, 04/10/2026). `ttc`
      est la présentation choisie dans les onglets, `null` celle du compte. */
   const [generation, setGeneration] = useState<{ ttc: boolean | null } | null>(null)
+  /* « Le client accepte » : la fenêtre qui crée le contrat et clôture la version. */
+  const [acceptation, setAcceptation] = useState(false)
 
   const estClose = version.statut === 'CLOTUREE'
 
@@ -658,7 +661,18 @@ export function DetailVersion({
         signaler={signaler}
         onPresentationEnvoyee={onPresentationEnvoyee}
         onGenerer={generable ? () => setGeneration({ ttc: null }) : undefined}
+        onAccepter={generable ? () => setAcceptation(true) : undefined}
       />
+      {acceptation && (
+        <AcceptationOffre
+          reco={reco}
+          versionId={version.id}
+          compteurs={compteurs}
+          contactSignataire={contactSignataire}
+          onFermer={() => setAcceptation(false)}
+          onToast={signaler}
+        />
+      )}
     </div>
   )
 }

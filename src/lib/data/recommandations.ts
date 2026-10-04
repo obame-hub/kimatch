@@ -2246,9 +2246,13 @@ export function useUpdateVersionPartiel() {
  * statut suffit à faire disparaître la version des files de travail ; c'est déjà ce sur quoi tous
  * les écrans filtrent.
  */
-export type ResultatCloture = 'EXPIREE' | 'REFUSEE'
+export type ResultatCloture = 'EXPIREE' | 'REFUSEE' | 'ACCEPTEE'
 
 /**
+ * ══ L'ACCEPTATION D'UNE OFFRE L'APPELLE DEPUIS LE 04/10/2026 ══
+ * « Le client accepte » crée le contrat et clôture la version « Acceptée » (William, 04/10/2026) —
+ * voir `AcceptationOffre`. Ce qui suit reste vrai pour les deux autres résultats.
+ *
  * ══ PLUS AUCUN ÉCRAN N'APPELLE CETTE MUTATION DEPUIS LE 18/09/2026 ══
  *
  * Le bouton « Clôturer » de l'en-tête de version était son seul appelant. William l'a fait retirer :

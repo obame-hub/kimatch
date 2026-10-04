@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Clock, FileCheck2, FileText, Loader2, Send, Sparkles } from 'lucide-react'
+import { Clock, FileCheck2, FileSignature, FileText, Loader2, Send, Sparkles } from 'lucide-react'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useOuvrirEmail } from '@/lib/voletEmail'
 import { tempsRestant } from '@/lib/data/validiteOffre'
@@ -52,6 +52,7 @@ export function PropositionCommerciale({
   signaler,
   onPresentationEnvoyee,
   onGenerer,
+  onAccepter,
 }: {
   reco: Recommandation
   version: VersionRecommandation
@@ -63,6 +64,8 @@ export function PropositionCommerciale({
   onPresentationEnvoyee: () => void
   /** Ouvre « Générer l'offre » à la place du bloc version — présent dès que le comparatif est publié. */
   onGenerer?: () => void
+  /** « Le client accepte » : crée le contrat depuis l'offre retenue et clôture la version (04/10/2026). */
+  onAccepter?: () => void
 }) {
   const ouvrirEmail = useOuvrirEmail()
   const { data: documents } = useDocumentsParEntites([version.id])
@@ -246,6 +249,18 @@ export function PropositionCommerciale({
             </span>
           )}
           <span className="flex-1" />
+          {onAccepter && (
+            <button
+              type="button"
+              onClick={onAccepter}
+              disabled={expiree}
+              title={expiree ? 'L’offre a expiré : ses prix ne tiennent plus. Régénérez-la avant que le client ne l’accepte.' : 'Le client a choisi une offre : créer le contrat et clôturer la version'}
+              className="inline-flex h-[34px] shrink-0 items-center gap-[7px] rounded-km border border-km-green bg-white px-3.5 text-km-body font-bold text-km-green transition hover:bg-km-green-tint disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <FileSignature className="h-3.5 w-3.5" />
+              Le client accepte
+            </button>
+          )}
           <button
             type="button"
             onClick={envoyerAuClient}

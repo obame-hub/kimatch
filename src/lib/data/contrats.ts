@@ -289,6 +289,8 @@ interface CreateContratInput {
   recommandation_id?: string | null
   /** Version (cotation) retenue qui a abouti à cette demande. */
   version_recommandation_id?: string | null
+  /** L'offre acceptée par le client, dont le contrat reprend les caractéristiques (04/10/2026). */
+  offre_fournisseur_id?: string | null
   /** Statut affiché côté cache local, le temps que la liste se rafraîchisse. */
   statut_code?: string
 }
@@ -357,6 +359,7 @@ export function useCreateContrat() {
           ...(input.clauses ?? {}),
           ...(input.recommandation_id ? { recommandation_id: input.recommandation_id } : {}),
           ...(input.version_recommandation_id ? { version_recommandation_id: input.version_recommandation_id } : {}),
+          ...(input.offre_fournisseur_id ? { offre_fournisseur_id: input.offre_fournisseur_id } : {}),
           ...(input.type_energie_id ? { type_energie_id: input.type_energie_id } : {}),
           ...(input.statut_id ? { statut_id: input.statut_id } : {}),
           ...(input.contact_signataire_id ? { contact_signataire_id: input.contact_signataire_id } : {}),
