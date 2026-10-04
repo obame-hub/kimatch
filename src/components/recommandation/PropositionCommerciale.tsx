@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
-import { FileCheck2, FileText, Loader2, Send } from 'lucide-react'
+import { FileCheck2, FileText, Loader2, Send, Sparkles } from 'lucide-react'
 import { useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useOuvrirEmail } from '@/lib/voletEmail'
 import { cn } from '@/lib/utils'
 import type { Contact, Recommandation, VersionRecommandation } from '@/types/domain'
 import { LienDocument } from '@/components/document/LienDocument'
+import { GenerationProposition } from '@/components/recommandation/GenerationProposition'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -65,6 +66,7 @@ export function PropositionCommerciale({
   const televerser = useTeleverserDocuments()
   const champFichier = useRef<HTMLInputElement>(null)
   const [depotEnCours, setDepotEnCours] = useState(false)
+  const [generation, setGeneration] = useState(false)
 
   /* LA PROPOSITION EST CELLE DE CETTE VERSION, et d'aucune autre. Deux versions d'un même dossier
      proposent deux choses différentes ; une proposition rangée sur le dossier ne dirait plus
@@ -90,20 +92,28 @@ export function PropositionCommerciale({
   const etat: 'prete' | 'manque' | 'attente' =
     close ? 'attente' : proposition ? 'prete' : disponible ? 'manque' : 'attente'
 
+  /* GÉNÉRÉE PAR KIMATCH dès que le pricing a publié son comparatif (William, 04/10/2026) : le dépôt
+     d'un PDF fait ailleurs reste possible, pour les dossiers multisites notamment. */
+  const generable = peutModifier && !close && !!version.date_publication_comparatif
+
+  async function ranger(fichiers: File[], message: string) {
+    await televerser.mutateAsync({
+      fichiers: fichiers.slice(0, 1),
+      entite_type: 'version_recommandation',
+      entite_id: version.id,
+      type_document_id: typeDocumentPropositionId,
+      type_document_libelle: TYPE_PROPOSITION,
+      categorie: CODE_PROPOSITION,
+    })
+    signaler(message)
+  }
+
   async function deposer(liste: FileList | null) {
     const choisis = Array.from(liste ?? [])
     if (choisis.length === 0) return
     setDepotEnCours(true)
     try {
-      await televerser.mutateAsync({
-        fichiers: choisis.slice(0, 1),
-        entite_type: 'version_recommandation',
-        entite_id: version.id,
-        type_document_id: typeDocumentPropositionId,
-        type_document_libelle: TYPE_PROPOSITION,
-        categorie: CODE_PROPOSITION,
-      })
-      signaler('✓ Proposition commerciale attachée à la version')
+      await ranger(choisis, '✓ Proposition commerciale attachée à la version')
     } catch (e) {
       signaler(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
     } finally {
@@ -111,6 +121,22 @@ export function PropositionCommerciale({
       if (champFichier.current) champFichier.current.value = ''
     }
   }
+
+  const boutonGenerer = (principal: boolean) => (
+    <button
+      type="button"
+      onClick={() => setGeneration(true)}
+      className={cn(
+        'inline-flex shrink-0 items-center gap-1.5 font-bold transition',
+        principal
+          ? 'h-[30px] rounded-km bg-km-green px-3 text-km-body text-white hover:brightness-110'
+          : 'rounded-km-sm border border-dashed border-km-line px-2 py-[3px] text-km-label font-semibold text-km-faint hover:border-km-green hover:text-km-green',
+      )}
+    >
+      <Sparkles className={principal ? 'h-3.5 w-3.5' : 'h-3 w-3'} />
+      {principal ? 'Générer la proposition' : 'régénérer'}
+    </button>
+  )
 
   /**
    * « Envoyer au client » : le volet d'e-mail s'ouvre avec l'adresse du contact ET la proposition
@@ -189,6 +215,7 @@ export function PropositionCommerciale({
               {depotEnCours ? <Loader2 className="h-3 w-3 animate-spin" /> : 'remplacer'}
             </button>
           )}
+          {generable && boutonGenerer(false)}
           <span className="flex-1" />
           <button
             type="button"
@@ -211,6 +238,7 @@ export function PropositionCommerciale({
             La version est <b>Disponible</b> mais aucune proposition n'y est jointe — il n'y a donc
             rien à envoyer au client.
           </span>
+          {generable && boutonGenerer(true)}
           {peutModifier && (
             <button
               type="button"
@@ -228,8 +256,11 @@ export function PropositionCommerciale({
           <span className="min-w-[200px] flex-1 text-km-body text-km-faint">
             {close
               ? `${version.nom || `V${version.numero_version ?? ''}`} est clôturée — la prochaine version portera sa propre proposition.`
-              : 'Elle se joindra ici quand la version sera prête à partir.'}
+              : generable
+                ? 'Le comparatif est publié : Kimatch peut l’éditer dès maintenant.'
+                : 'Elle se joindra ici quand la version sera prête à partir.'}
           </span>
+          {generable && boutonGenerer(true)}
           {peutModifier && !close && (
             <button
               type="button"
@@ -251,6 +282,14 @@ export function PropositionCommerciale({
         className="hidden"
         onChange={(e) => void deposer(e.target.files)}
       />
+      {generable && (
+        <GenerationProposition
+          versionId={version.id}
+          open={generation}
+          onClose={() => setGeneration(false)}
+          onGeneree={(fichier) => ranger([fichier], '✓ Proposition générée et attachée à la version')}
+        />
+      )}
     </div>
   )
 }

@@ -1,0 +1,225 @@
+<!-- Gabarit de Claude Design (« Offre B v2-print.dc.html », remis le 04/10/2026), repris tel quel : seules
+     les données sont branchées (voir rendu.ts). Ne pas retoucher les styles ici sans la maquette. -->
+<section class="page" data-screen-label="01 Garde" style="display:flex;flex-direction:column;gap:12px;padding:30px 32px 22px;background:#f2f3ee;font-variant-numeric:tabular-nums">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 4px 6px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <img src="{{ logoKiwee }}" alt="Kiwee" style="height:32px;display:block">
+      <span style="width:1px;height:30px;background:#cfd2c9;display:block"></span>
+      <div>
+        <div style="font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.05;white-space:nowrap">Résultat appel d’offres</div>
+        <div style="font-size:10px;color:#6c6f68;margin-top:3px;font-family:'Geist Mono',monospace">{{ dates.ref }} · Gaz naturel · Monosite · Consultation du {{ dates.consultC }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <div style="background:#1f2123;border-radius:10px;padding:7px 11px;color:#fff"><div style="font-size:8.5px;font-weight:600;color:#e8f200;text-transform:uppercase;letter-spacing:.08em">Valable jusqu’au</div><div style="font-size:12px;font-weight:600;margin-top:2px;font-family:'Geist Mono',monospace">{{ dates.validC }}</div></div>
+    </div>
+  </div>
+
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px">
+    <div style="position:relative;overflow:hidden;background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:22px 24px 20px;display:flex;flex-direction:column">
+      <div style="position:absolute;left:0;right:0;top:0;height:5px;background:linear-gradient(90deg,#e8f200,#8fcf35,#3a9745)"></div>
+      <div style="position: absolute; top: 13px; width: 100px; height: 100px; transform: rotate(70deg); left: 311px"><span style="position:absolute;left:16.1px;top:24.5px;width:9px;height:17px;border-radius:50%;background:#dfe3d9;transform:rotate(-60deg)"></span><span style="position:absolute;left:28.5px;top:12.1px;width:9px;height:17px;border-radius:50%;background:#dfe3d9;transform:rotate(-30deg)"></span><span style="position:absolute;left:45.5px;top:7.5px;width:9px;height:17px;border-radius:50%;background:#dfe3d9;transform:rotate(0deg)"></span></div>
+      <sc-if value="{{ heroCur }}">
+      <div style="position:relative;display:flex;align-items:center;gap:10px">
+        <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2f7a3b">Économie annuelle</span>
+        <span style="background:#e8f200;color:#1f5a2c;font-size:13px;font-weight:800;padding:4px 10px;border-radius:99px;font-family:'Geist Mono',monospace">−{{ ecoPct }} %</span>
+      </div>
+      <div style="position:relative;display:flex;align-items:baseline;gap:8px;margin-top:14px">
+        <span style="font-size:66px;font-weight:700;letter-spacing:-.045em;line-height:.9;color:#1f5a2c">{{ ecoAnN }}<span style="font-size:36px;margin-left:4px">€</span></span>
+        <span style="font-size:12px;color:#56594f;font-weight:500">{{ uLbl }} / an</span>
+      </div>
+      <div style="position:relative;display:flex;align-items:baseline;gap:16px;margin:16px 0 22px;font-size:10px;color:#6c6f68">
+        <span style="white-space:nowrap">soit <b style="font-size:13px;font-weight:600;color:#1f5a2c;font-family:'Geist Mono',monospace">{{ ecoMois }}</b> par mois</span>
+        <span style="width:1px;height:12px;background:#dcdfd6;display:block;align-self:center"></span>
+        <span style="white-space:nowrap"><b style="font-size:13px;font-weight:600;color:#1f5a2c;font-family:'Geist Mono',monospace">{{ ecoDuree }}</b> sur {{ bestDur }}</span>
+      </div>
+      <div style="position:relative;margin-top:auto;padding-top:14px;border-top:1px solid #eceee8;display:grid;gap:7px">
+        <div style="display:grid;grid-template-columns:84px 1fr 62px;gap:10px;align-items:center;font-size:10px"><span style="color:#56594f;white-space:nowrap">Actuel · {{ cur.f }}</span><span style="height:9px;border-radius:5px;background:#dcdfd6;display:block"></span><span style="text-align:right;font-family:'Geist Mono',monospace;color:#1f2123">{{ curTot }}</span></div>
+        <div style="display:grid;grid-template-columns:84px 1fr 62px;gap:10px;align-items:center;font-size:10px"><span style="color:#1f5a2c;font-weight:700">{{ bestF }}</span><span style="display:block"><span style="display:block;height:9px;border-radius:5px;background:linear-gradient(90deg,#8fcf35,#3a9745);width:{{ bestW }}"></span></span><span style="text-align:right;font-family:'Geist Mono',monospace;color:#1f5a2c;font-weight:700">{{ bestTot }}</span></div>
+      </div>
+      </sc-if>
+      <sc-if value="{{ heroNoCur }}">
+      <div style="position:relative;display:flex;align-items:center;gap:10px">
+        <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2f7a3b">Meilleur budget annuel</span>
+        <span style="background:#e8f200;color:#1f5a2c;font-size:11px;font-weight:700;padding:4px 10px;border-radius:99px">{{ nbOff }} offres comparées</span>
+      </div>
+      <div style="position:relative;display:flex;align-items:baseline;gap:8px;margin-top:14px">
+        <span style="font-size:66px;font-weight:700;letter-spacing:-.045em;line-height:.9;color:#1f5a2c">{{ bestTotN }}<span style="font-size:36px;margin-left:4px">€</span></span>
+        <span style="font-size:12px;color:#56594f;font-weight:500">{{ uLbl }} / an</span>
+      </div>
+      <div style="position:relative;display:flex;align-items:center;gap:14px;line-height:1;margin:16px 0 22px;font-size:10px;color:#6c6f68">
+        <span style="display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0;overflow:hidden"><img src="{{ best.logo }}" alt="" style="width:16px;height:16px;object-fit:contain;flex-shrink:0"><b style="font-size:12px;font-weight:600;color:#1f2123;line-height:1;overflow:hidden;text-overflow:ellipsis">{{ bestF }}</b> · {{ bestType }} {{ bestDur }}</span>
+        <span style="width:1px;height:12px;background:#dcdfd6;display:block;"></span>
+        <span style="display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0">soit <b style="font-size:12px;font-weight:600;color:#1f5a2c;font-family:'Geist Mono',monospace;line-height:1">{{ bestMois }}</b> par mois</span>
+      </div>
+      <div style="position:relative;margin-top:auto;padding-top:14px;border-top:1px solid #eceee8;display:grid;gap:7px">
+        <div style="display:grid;grid-template-columns:84px 1fr 62px;gap:10px;align-items:center;font-size:10px"><span style="color:#1f5a2c;font-weight:700">{{ bestF }}</span><span style="display:block"><span style="display:block;height:9px;border-radius:5px;background:linear-gradient(90deg,#8fcf35,#3a9745);width:{{ bestVsWorstW }}"></span></span><span style="text-align:right;font-family:'Geist Mono',monospace;color:#1f5a2c;font-weight:700">{{ bestTot }}</span></div>
+        <div style="display:grid;grid-template-columns:84px 1fr 62px;gap:10px;align-items:center;font-size:10px"><span style="color:#56594f;white-space:nowrap">Plus haute · {{ worstF }}</span><span style="height:9px;border-radius:5px;background:#dcdfd6;display:block"></span><span style="text-align:right;font-family:'Geist Mono',monospace;color:#1f2123">{{ worstTot }}</span></div>
+      </div>
+      </sc-if>
+    </div>
+    <div style="display:grid;grid-template-rows:auto 1fr;gap:12px">
+      <div style="background:#eef6e2;border:1px solid #d5e8c1;border-radius:16px;padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;color:#1f2123">
+        <div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2f7a3b">Votre consultant Kiwee</div>
+          <div style="font-size:15px;font-weight:700;margin-top:5px;letter-spacing:-.01em">{{ com.nom }}</div>
+          <div style="font-size:10px;margin-top:4px;line-height:1.5;color:#3f5a37">{{ com.mail }}<br><b style="font-family:'Geist Mono',monospace;color:#1f2123">{{ com.tel }}</b></div>
+        </div>
+        <span style="width:34px;height:34px;border-radius:50% 50% 50% 4px;background:#2f7a3b;color:#ffffff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ com.ini }}</span>
+      </div>
+      <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:14px 16px;display:grid;gap:11px;align-content:start">
+        <div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6c6f68">Client</div>
+          <div style="font-size:13px;font-weight:700;margin-top:4px;line-height:1.25">{{ compte.nom }}</div>
+          <div style="font-size:10px;color:#56594f;margin-top:2px">{{ compte.adr.0 }}, {{ compte.adr.1 }}</div>
+        </div>
+        <div style="padding-top:10px;border-top:1px dashed #dcdfd6">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6c6f68">Contact</div>
+          <div style="font-size:12px;font-weight:600;margin-top:4px">{{ contact.nom }}</div>
+          <div style="font-size:10px;color:#56594f;margin-top:2px;line-height:1.5">{{ contact.mail }} · {{ contact.tel }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:12px 16px">
+    <sc-if value="{{ titrePerim }}"><div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0 10px;margin-bottom:11px;border-bottom:1px solid #eceee8"><span style="font-size:12px;font-weight:700;letter-spacing:-.01em">Périmètre de l’appel d’offres</span><span style="font-size:9.5px;color:#6c6f68">1 site · 1 point de livraison · Gaz naturel</span></div></sc-if>
+  <div style="display:grid;grid-template-columns:auto 1.85fr 1.3fr .5fr .6fr .95fr .85fr;gap:0;align-items:center">
+    <div style="padding-right:14px;margin-right:4px;border-right:1px solid #eceee8">
+      <div style="width:30px;height:30px;border-radius:9px;background:#eef6e2;display:flex;align-items:center;justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2f7a3b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg></div>
+    </div>
+    <div style="padding:0 10px;white-space:nowrap;min-width:0"><div style="font-size:8.5px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Site</div><div style="font-size:10.5px;font-weight:600;margin-top:3px;">{{ pce.lib }}</div></div><div style="padding:0 10px;border-left:1px solid #eceee8;white-space:nowrap;min-width:0"><div style="font-size:8.5px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">N° PCE</div><div style="font-size:10.5px;font-weight:600;margin-top:3px;font-family:'Geist Mono',monospace">{{ pce.numC }}</div></div><div style="padding:0 10px;border-left:1px solid #eceee8;white-space:nowrap;min-width:0"><div style="font-size:8.5px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Tarif</div><div style="font-size:10.5px;font-weight:600;margin-top:3px;">{{ pce.tarif }}</div></div><div style="padding:0 10px;border-left:1px solid #eceee8;white-space:nowrap;min-width:0"><div style="font-size:8.5px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Profil</div><div style="font-size:10.5px;font-weight:600;margin-top:3px;">{{ pce.profil }}</div></div><div style="padding:0 10px;border-left:1px solid #eceee8;white-space:nowrap;min-width:0"><div style="font-size:8.5px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">CAR</div><div style="font-size:10.5px;font-weight:600;margin-top:3px;font-family:'Geist Mono',monospace">{{ pce.car }}</div></div><div style="padding:0 10px;border-left:1px solid #eceee8;white-space:nowrap;min-width:0"><div style="font-size:8.5px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Échéance</div><div style="font-size:10.5px;font-weight:600;margin-top:3px;font-family:'Geist Mono',monospace">{{ pce.ech }}</div></div>
+  </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px 14px 10px;flex:1;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px">
+      <div style="font-size:15px;font-weight:700;letter-spacing:-.01em">Comparatif des offres</div>
+    </div>
+    <div style="display:grid;grid-template-columns:{{ gcols }};gap:0 7px;align-items:end;padding:24px 8px 7px;font-size:8.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#6c6f68;border-bottom:1px solid #eceee8">
+      <span>#</span><span>Fournisseur</span><span>Prix</span><span>Durée</span><span style="text-align:right">Abonnt.</span><span style="text-align:right">Énergie</span><span style="text-align:right">Taxes</span><sc-if value="{{ ttc }}"><span style="text-align:right">Total HTVA</span><span style="text-align:right;color:#1f2123">Total TTC</span></sc-if><sc-if value="{{ ht }}"><span style="text-align:right;color:#1f2123">Total HTVA</span></sc-if><sc-if value="{{ hasCur }}"><span style="text-align:right">Écart / an</span></sc-if>
+    </div>
+    <sc-if value="{{ hasCur }}">
+    <div style="position:relative;display:grid;grid-template-columns:{{ gcols }};gap:0 7px;align-items:center;padding:17px 8px;margin-top:16px;border-radius:10px;background:#f5f6f2;box-shadow:inset 0 0 0 1.5px #d3d6cd;font-size:10.5px;color:#56594f">
+      <span style="position:absolute;top:-7px;left:38px;background:#8a8d85;color:#fff;font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:99px">Offre actuelle</span>
+      <span style="width:20px;height:20px;border-radius:50%;background:#dcdfd6;color:#56594f;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">—</span>
+      <span style="display:flex;align-items:center;gap:7px;white-space:nowrap"><img src="{{ cur.logo }}" alt="" style="width:20px;height:20px;object-fit:contain"><span style="font-weight:600;color:#1f2123">{{ cur.f }}</span></span>
+      <span style="white-space:nowrap">{{ cur.type }}</span><span style="white-space:nowrap">{{ cur.dur }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;color:#56594f;">{{ cur.abo }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;color:#56594f;">{{ cur.en }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;color:#56594f;">{{ cur.tax }}</span><sc-if value="{{ ttc }}"><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;color:#56594f;">{{ cur.ht }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;font-weight:700;color:#1f2123;">{{ cur.ttc }}</span></sc-if><sc-if value="{{ ht }}"><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;font-weight:700;color:#1f2123;">{{ cur.ht }}</span></sc-if><span style="text-align:right;font-size:9.5px;white-space:nowrap">Référence</span>
+    </div>
+    </sc-if>
+    <div style="display:grid;gap:6px;margin-top:14px">
+      <sc-for list="{{ offers }}" as="o">
+        <sc-if value="{{ o.best }}">
+          <div style="position:relative;display:grid;grid-template-columns:{{ gcols }};gap:0 7px;align-items:center;padding:18px 8px;border-radius:10px;background:#f4fbd0;box-shadow:inset 0 0 0 1.5px #8fcf35;font-size:10.5px">
+            <span style="position:absolute;top:-7px;left:38px;background:#1f5a2c;color:#e8f200;font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:99px">Meilleur prix</span>
+            <span style="width:20px;height:20px;border-radius:50%;background:#1f5a2c;color:#e8f200;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ o.rank }}</span>
+            <span style="display:flex;align-items:center;gap:7px;white-space:nowrap"><img src="{{ o.logo }}" alt="" style="width:20px;height:20px;object-fit:contain"><span style="font-weight:700">{{ o.f }}</span></span>
+            <span style="white-space:nowrap">{{ o.type }}</span><span style="white-space:nowrap">{{ o.dur }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;">{{ o.abo }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;">{{ o.en }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;">{{ o.tax }}</span><sc-if value="{{ ttc }}"><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;">{{ o.ht }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;font-weight:700;color:#1f2123;font-size:11px;">{{ o.ttc }}</span></sc-if><sc-if value="{{ ht }}"><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;font-weight:700;color:#1f2123;font-size:11px;">{{ o.ht }}</span></sc-if>
+            <sc-if value="{{ hasCur }}"><span style="display:flex;justify-content:flex-end"><span style="background:#2f7a3b;color:#fff;font-weight:700;font-size:10px;padding:2px 8px;border-radius:99px;font-family:'Geist Mono',monospace;white-space:nowrap">{{ o.dd }}</span></span></sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ o.notBest }}">
+          <div style="display:grid;grid-template-columns:{{ gcols }};gap:0 7px;align-items:center;padding:15px 8px;border-bottom:1px solid #f0f1ec;font-size:10.5px">
+            <span style="width:20px;height:20px;border-radius:50%;background:#eef0ea;color:#56594f;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ o.rank }}</span>
+            <span style="display:flex;align-items:center;gap:7px;white-space:nowrap"><img src="{{ o.logo }}" alt="" style="width:20px;height:20px;object-fit:contain"><span style="font-weight:600">{{ o.f }}</span></span>
+            <span style="white-space:nowrap">{{ o.type }}</span><span style="white-space:nowrap">{{ o.dur }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;color:#56594f;">{{ o.abo }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;color:#56594f;">{{ o.en }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;color:#56594f;">{{ o.tax }}</span><sc-if value="{{ ttc }}"><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;color:#56594f;">{{ o.ht }}</span><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;font-weight:700;color:#1f2123;">{{ o.ttc }}</span></sc-if><sc-if value="{{ ht }}"><span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px;white-space:nowrap;font-weight:700;color:#1f2123;">{{ o.ht }}</span></sc-if>
+            <sc-if value="{{ hasCur }}"><span style="display:flex;justify-content:flex-end">
+              <sc-if value="{{ o.down }}"><span style="background:#e6f3d6;color:#1f5a2c;font-weight:700;font-size:10px;padding:2px 8px;border-radius:99px;font-family:'Geist Mono',monospace;white-space:nowrap">{{ o.dd }}</span></sc-if>
+              <sc-if value="{{ o.up }}"><span style="background:#fbe3dc;color:#a8351f;font-weight:700;font-size:10px;padding:2px 8px;border-radius:99px;font-family:'Geist Mono',monospace;white-space:nowrap">{{ o.dd }}</span></sc-if>
+            </span></sc-if>
+          </div>
+        </sc-if>
+      </sc-for>
+    </div>
+    
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:9px;color:#8a8d85;padding:0 4px;font-family:'Geist Mono',monospace"><span>kiwee-energie.fr</span><span>1 / 3</span></div>
+</section>
+
+<section class="page" data-screen-label="02 Détail des offres" style="display:flex;flex-direction:column;gap:12px;padding:30px 32px 22px;background:#f2f3ee;font-variant-numeric:tabular-nums">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 4px 2px">
+    <div style="display:flex;align-items:center;gap:14px"><img src="{{ logoKiwee }}" alt="Kiwee" style="height:24px;display:block"><span style="width:1px;height:22px;background:#cfd2c9;display:block"></span><span style="font-size:17px;font-weight:700;letter-spacing:-.02em">Détail des offres</span></div>
+    <span style="font-size:10px;color:#6c6f68;font-family:'Geist Mono',monospace">{{ dates.ref }} · {{ compte.nom }}</span>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px 14px 14px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px"><div style="font-size:15px;font-weight:700;letter-spacing:-.01em">Prix unitaires</div><div style="font-size:9.5px;color:#6c6f68">HTVA · taxes réglementées identiques pour tous</div></div>
+    <div style="padding:0 8px;margin-top:12px">
+      <div style="display:grid;grid-template-columns:168px 64px 1fr 176px;gap:0 10px">
+        <span></span><span></span>
+        <span style="background:#e3f0d3;color:#1f5a2c;border-radius:8px 8px 0 0;padding:6px 10px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;text-align:center">Énergie</span>
+        <span style="background:#e3f0d3;color:#1f5a2c;border-radius:8px 8px 0 0;padding:6px 10px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;text-align:center;background:#e7e8e3;color:#45473f">Taxes</span>
+      </div>
+      <div style="display:grid;grid-template-columns:168px 64px 1fr 176px;gap:0 10px;font-size:8.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6c6f68;border-bottom:1px solid #e1e3dc">
+        <span style="padding:8px 0"><span style="display:block">Offre</span><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;margin-top:2px">&nbsp;</span></span><span style="padding:8px 0;text-align:right"><span style="display:block">Abonnt.</span><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;margin-top:2px">€/mois</span></span>
+        <span style="display:grid;grid-template-columns:repeat(4,1fr);text-align:right;background:#eef6e2;padding:8px 10px"><span style=""><span style="display:block">Molécule</span><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;margin-top:2px">€/MWh</span></span><span style=""><span style="display:block">CEE</span><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;margin-top:2px">€/MWh</span></span><span style=""><span style="display:block">CPB</span><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;margin-top:2px">€/MWh</span></span><span style="color:#1f5a2c"><span style="display:block">Total</span><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;margin-top:2px">€/MWh</span></span></span>
+        <span style="display:grid;grid-template-columns:repeat(3,1fr);text-align:right;background:#f0f1ed;padding:8px 10px"><span style=""><span style="display:block">TQd</span><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;margin-top:2px">€/MWh</span></span><span style=""><span style="display:block">AG</span><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;margin-top:2px">€/MWh</span></span><span style=""><span style="display:block">CTA</span><span style="display:block;text-transform:none;letter-spacing:0;font-weight:500;margin-top:2px">€/an</span></span></span>
+      </div>
+      <sc-if value="{{ hasCur }}"><div style="display:grid;grid-template-columns:168px 64px 1fr 176px;gap:0 10px;align-items:center;font-size:10.5px;background:#ebece8;color:#6c6f68;border-bottom:1.5px dashed #b9bcb3">
+        <span style="display:flex;align-items:center;gap:7px;padding:9px 0 9px 6px"><img src="{{ cur.logo }}" alt="" style="width:20px;height:20px;object-fit:contain;filter:grayscale(1);opacity:.6"><span><span style="display:block;font-weight:600;color:#45473f">{{ cur.f }}</span><span style="display:inline-block;margin-top:2px;background:#8a8d85;color:#fff;font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:1px 6px;border-radius:99px">Offre actuelle</span></span></span>
+        <span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px">{{ cur.uAbo }}</span>
+        <span style="display:grid;grid-template-columns:repeat(4,1fr);text-align:right;font-family:'Geist Mono',monospace;font-size:10px;padding:0 10px;background:#e4e6e1;align-self:stretch;align-items:center"><span>{{ cur.uMol }}</span><span>{{ cur.uCee }}</span><span>{{ cur.uCpb }}</span><span style="font-weight:700;color:#45473f">{{ cur.uEn }}</span></span><span style="display:grid;grid-template-columns:repeat(3,1fr);text-align:right;font-family:'Geist Mono',monospace;font-size:10px;color:#6c6f68;padding:0 10px;background:#e4e6e1;align-self:stretch;align-items:center"><span>{{ cur.uTqd }}</span><span>{{ cur.uAg }}</span><span>{{ cur.uCta }}</span></span>
+      </div></sc-if>
+      <sc-for list="{{ offers }}" as="o">
+        <div style="display:grid;grid-template-columns:168px 64px 1fr 176px;gap:0 10px;align-items:center;font-size:10.5px;border-bottom:1px solid #eceee8">
+          <span style="display:flex;align-items:center;gap:7px;padding:8px 0"><span style="width:16px;height:16px;border-radius:50%;background:#eef0ea;color:#56594f;font-size:8.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">{{ o.rank }}</span><img src="{{ o.logo }}" alt="" style="width:20px;height:20px;object-fit:contain"><span><span style="display:block;font-weight:600">{{ o.f }}</span><span style="display:block;font-size:9px;color:#6c6f68">{{ o.type }} · {{ o.dur }}</span></span></span>
+          <span style="text-align:right;font-family:'Geist Mono',monospace;font-size:10px">{{ o.uAbo }}</span>
+          <span style="display:grid;grid-template-columns:repeat(4,1fr);text-align:right;font-family:'Geist Mono',monospace;font-size:10px;padding:0 10px;background:#f6faf0;align-self:stretch;align-items:center"><span>{{ o.uMol }}</span><span>{{ o.uCee }}</span><span>{{ o.uCpb }}</span><span style="font-weight:700;color:#1f5a2c">{{ o.uEn }}</span></span><span style="display:grid;grid-template-columns:repeat(3,1fr);text-align:right;font-family:'Geist Mono',monospace;font-size:10px;color:#56594f;padding:0 10px;background:#f6f6f3;align-self:stretch;align-items:center"><span>{{ o.uTqd }}</span><span>{{ o.uAg }}</span><span>{{ o.uCta }}</span></span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:10px;margin:18px 8px 0;padding-top:10px;border-top:1px solid #f0f1ec;font-size:8.5px;color:#6c6f68;white-space:nowrap"><span><b style="color:#45473f">CEE</b> Économies d’énergie</span><span><b style="color:#45473f">CPB</b> Production de biogaz</span><span><b style="color:#45473f">TQd</b> Terme de quantité distribution</span><span><b style="color:#45473f">AG</b> Accise sur le gaz</span><span><b style="color:#45473f">CTA</b> Contrib. tarifaire d’acheminement</span></div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px 14px 12px;flex:1;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px"><div style="font-size:15px;font-weight:700;letter-spacing:-.01em">Clauses contractuelles</div></div>
+    <div style="display:grid;grid-template-columns:160px repeat(6,minmax(0,1fr)) 90px;gap:0 6px;align-items:end;margin-top:24px;padding:0 8px 9px;border-bottom:1px solid #eceee8">
+      <span style="font-size:8.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#6c6f68">Offre</span>
+      <sc-for list="{{ clauses }}" as="c"><span style="text-align:center;font-size:8.5px;font-weight:600;line-height:1.25">{{ c.k }}</span></sc-for>
+      <span style="text-align:center;font-size:8.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Score</span>
+    </div>
+    <sc-for list="{{ offers }}" as="o">
+      <div style="display:grid;grid-template-columns:160px repeat(6,minmax(0,1fr)) 90px;gap:0 6px;align-items:center;padding:17px 8px;border-bottom:1px solid #f0f1ec">
+        <span style="display:flex;align-items:center;gap:7px;font-size:10.5px"><span style="width:16px;height:16px;border-radius:50%;background:#eef0ea;color:#56594f;font-size:8.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">{{ o.rank }}</span><img src="{{ o.logo }}" alt="" style="width:20px;height:20px;object-fit:contain"><span><span style="display:block;font-weight:600">{{ o.f }}</span><span style="display:block;font-size:9px;color:#6c6f68">{{ o.type }} · {{ o.dur }}</span></span></span>
+        <sc-for list="{{ o.cl }}" as="x"><span style="display:flex;justify-content:center"><sc-if value="{{ x.v }}"><sc-if value="{{ x.good }}"><span style="width:18px;height:18px;border-radius:50%;background:#2f7a3b;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">✓</span></sc-if><sc-if value="{{ x.bad }}"><span style="width:18px;height:18px;border-radius:50%;background:#c2452d;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">✓</span></sc-if></sc-if>
+            <sc-if value="{{ x.no }}"><sc-if value="{{ x.good }}"><span style="width:18px;height:18px;border-radius:50%;border:1.5px solid #cfd2c9;display:block"></span></sc-if><sc-if value="{{ x.bad }}"><span style="width:18px;height:18px;border-radius:50%;border:1.5px dashed #c2452d;display:block"></span></sc-if></sc-if></span></sc-for>
+        <span style="display:flex;align-items:center;justify-content:center;gap:6px"><span style="width:36px;height:36px;border-radius:50%;background:conic-gradient({{ o.gc }} {{ o.scoreDeg }},#eceee8 0);display:flex;align-items:center;justify-content:center"><span style="width:28px;height:28px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Geist Mono',monospace">{{ o.score }}</span></span><span style="font-size:13px;font-weight:800;color:{{ o.gc }};width:10px">{{ o.grade }}</span></span>
+      </div>
+    </sc-for>
+    <div style="margin-top:auto;display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start;padding:14px 10px 2px">
+      <div style="display:grid;gap:6px;font-size:9.5px">
+        <span style="display:flex;align-items:center;gap:7px"><span style="width:13px;height:13px;border-radius:50%;background:#2f7a3b;color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center">✓</span>Clause favorable présente</span>
+        <span style="display:flex;align-items:center;gap:7px"><span style="width:13px;height:13px;border-radius:50%;background:#c2452d;color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center">✓</span>Clause défavorable présente</span>
+        <span style="display:flex;align-items:center;gap:7px"><span style="width:13px;height:13px;border-radius:50%;border:1.5px dashed #c2452d;display:block"></span>Protection absente</span>
+      </div>
+      <div style="font-size:9.5px;line-height:1.55;color:#56594f;text-wrap:pretty"><b style="color:#1f2123">Lecture du score.</b> Le score valorise les protections du contrat (contrat sécurisé, renégociation anticipée, SWAP) et pénalise les contraintes (dépôt de garantie, engagement de consommation, tacite reconduction). Une protection absente fait baisser le score. Échelle de A (très élevée) à E (très faible).</div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:9px;color:#8a8d85;padding:0 4px;font-family:'Geist Mono',monospace"><span>kiwee-energie.fr</span><span>2 / 3</span></div>
+</section>
+
+<section class="page" data-screen-label="03 Fournisseurs" style="display:flex;flex-direction:column;gap:12px;padding:30px 32px 22px;background:#f2f3ee">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 4px 2px">
+    <div style="display:flex;align-items:center;gap:14px"><img src="{{ logoKiwee }}" alt="Kiwee" style="height:24px;display:block"><span style="width:1px;height:22px;background:#cfd2c9;display:block"></span><span style="font-size:17px;font-weight:700;letter-spacing:-.02em">Les fournisseurs consultés</span></div>
+    <span style="font-size:10px;color:#6c6f68;font-family:'Geist Mono',monospace">{{ dates.ref }} · {{ compte.nom }}</span>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,minmax(0,1fr));gap:12px;flex:1">
+    <sc-for list="{{ fourn }}" as="f">
+      <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:11px">
+        <div style="display:flex;align-items:center;gap:11px">
+          <span style="width:40px;height:40px;border-radius:11px;background:#f5f6f2;display:flex;align-items:center;justify-content:center;flex:none"><img src="{{ f.logo }}" alt="" style="width:26px;height:26px;object-fit:contain"></span>
+          <span style="flex:1;min-width:0"><span style="display:block;font-size:15px;font-weight:700;letter-spacing:-.01em">{{ f.nom }}</span><sc-if value="{{ f.aStatut }}"><span style="display:block;font-size:9.5px;color:#6c6f68;margin-top:1px">{{ f.statut }}</span></sc-if></span>
+        </div>
+        <sc-if value="{{ f.aTuiles }}"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <sc-if value="{{ f.aOrigine }}"><div style="background:#f5f6f2;border-radius:9px;padding:7px 9px"><div style="font-size:8px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Origine</div><div style="font-size:10.5px;font-weight:600;margin-top:2px">{{ f.origine }}</div></div></sc-if>
+          <sc-if value="{{ f.aCrea }}"><div style="background:#f5f6f2;border-radius:9px;padding:7px 9px"><div style="font-size:8px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Création</div><div style="font-size:10.5px;font-weight:600;margin-top:2px;font-family:'Geist Mono',monospace">{{ f.crea }}</div></div>
+          <div style="background:#f5f6f2;border-radius:9px;padding:7px 9px"><div style="font-size:8px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Ancienneté</div><div style="font-size:10.5px;font-weight:600;margin-top:2px">{{ f.age }}</div></div></sc-if>
+        </div></sc-if>
+        <div style="flex:1;font-size:10.5px;line-height:1.55;color:#45473f;text-wrap:pretty">{{ f.desc }}</div>
+        <sc-if value="{{ f.aPied }}"><div style="display:grid;gap:3px;font-size:9.5px;color:#56594f;padding-top:10px;border-top:1px dashed #dcdfd6"><sc-if value="{{ f.aSiege }}"><span><b style="color:#1f2123;font-weight:600">Siège</b> · {{ f.siege }}</span></sc-if><sc-if value="{{ f.aClients }}"><span><b style="color:#1f2123;font-weight:600">Clients</b> · {{ f.clients }}</span></sc-if></div></sc-if>
+        <sc-if value="{{ f.aTags }}"><div style="display:flex;gap:5px;flex-wrap:wrap"><sc-for list="{{ f.exp }}" as="t"><span style="font-size:9px;font-weight:600;padding:3px 8px;border-radius:99px;background:#eef6e2;color:#1f5a2c;white-space:nowrap">{{ t }}</span></sc-for></div></sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:9px;color:#8a8d85;padding:0 4px;font-family:'Geist Mono',monospace"><span>Informations indicatives</span><span>3 / 3</span></div>
+</section>

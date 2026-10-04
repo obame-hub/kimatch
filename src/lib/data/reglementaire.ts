@@ -140,6 +140,8 @@ export interface Reglementaire {
   envoiFige: boolean
   /** Le début de fourniture, d'où part le CPB. */
   dateReference: string | null
+  /** L'échéance du compteur retenue par la base (`fn_echeance_compteur` : contrats signés et validés). */
+  echeance: string | null
   /** D'où elle vient : l'échéance du compteur, le début de fourniture saisi, ou le mois prochain. */
   sourceDate: 'ECHEANCE' | 'DEBUT_FOURNITURE' | 'MOIS_PROCHAIN' | null
   /** AE (électricité) ou AG (gaz), €/MWh. */
@@ -168,6 +170,7 @@ function lireReglementaire(j: any): Reglementaire {
     dateEnvoi: j?.date_envoi ?? null,
     envoiFige: !!j?.envoi_fige,
     dateReference: j?.date_reference ?? null,
+    echeance: j?.echeance ?? null,
     sourceDate: j?.source_date ?? null,
     accise: n(j?.accise), tqd: n(j?.tqd), cta: n(j?.cta), ctaTaux: n(j?.cta_taux), cpb,
     turpe: j?.turpe ? lireTurpe(j.turpe) : null,

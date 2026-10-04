@@ -643,6 +643,8 @@ export interface Compte {
   clientele?: string | null
   /** Trois au plus. Nommé ainsi pour ne pas se confondre avec d'autres « tags ». */
   tags_fournisseur?: string[]
+  /** Le logo déposé pour la proposition commerciale (04/10/2026) ; à défaut, celui de Kimatch. */
+  logo_url?: string | null
   max_consumption?: number | null
   min_ellipro_score?: number | null
   max_ddf?: string | null

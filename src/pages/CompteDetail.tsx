@@ -25,6 +25,7 @@ import { CreateRecommandationDialog } from '@/pages/Recommandations'
 import { DialogCreationOpportunite } from '@/pages/Opportunites'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { InlineField } from '@/components/ui/inline-field'
+import { LogoFournisseur } from '@/components/compte/LogoFournisseur'
 import { ExplicationCalcul } from '@/components/ui/explication-calcul'
 import {
   useCompte,
@@ -874,6 +875,7 @@ export default function CompteDetail() {
                             déduit de l'année de création. */}
                         <div className="mt-3 space-y-1.5 border-t border-km-line pt-3">
                           <p className="text-km-label font-semibold uppercase tracking-[0.06em] text-km-muted">Présentation dans la proposition</p>
+                          <LogoFournisseur compteId={compte.id} nom={compte.nom} logoUrl={compte.logo_url} modifiable={canManage} signaler={showToast} />
                           <div className="flex items-start gap-1.5">
                             <span className="shrink-0 text-km-faint">Qualification :</span>
                             <InlineField

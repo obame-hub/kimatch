@@ -53,6 +53,8 @@ interface RawCompteFournisseur {
   siege?: string | null
   clientele?: string | null
   tags?: string[] | null
+  /** Le logo déposé pour la proposition commerciale (bucket « logos », 04/10/2026). */
+  logo_url?: string | null
 }
 
 interface RawComptePartenaire {
@@ -144,6 +146,7 @@ async function fetchComptes(compteId?: string): Promise<Compte[]> {
               siege: fournisseur.siege ?? null,
               clientele: fournisseur.clientele ?? null,
               tags_fournisseur: fournisseur.tags ?? [],
+              logo_url: fournisseur.logo_url ?? null,
             }
           : {}),
         ...(partenaire
@@ -653,6 +656,7 @@ export interface ConditionsFournisseur {
   siege?: string | null
   clientele?: string | null
   tags?: string[]
+  logo_url?: string | null
 }
 
 /**

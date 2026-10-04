@@ -47,6 +47,8 @@ export interface ProfilAdmin {
   prenom: string
   nom: string
   email: string
+  /** Imprimé sur la proposition commerciale du consultant (04/10/2026). */
+  telephone: string | null
   actif: boolean
   role_acces: { id: string; code: string; libelle: string; recoit_le_support: boolean } | null
   poste: { id: string; code: string; libelle: string } | null
@@ -113,6 +115,7 @@ interface RawProfilAdmin {
   prenom: string
   nom: string
   email: string
+  telephone: string | null
   actif: boolean
 }
 interface RawProfilRoleAcces {
@@ -126,7 +129,7 @@ interface RawProfilPoste {
 
 async function fetchProfilsAdmin(): Promise<ProfilAdmin[]> {
   const [profilsRes, rolesRes, postesRes] = await Promise.all([
-    supabase.from('profils').select('id, prenom, nom, email, actif').order('nom'),
+    supabase.from('profils').select('id, prenom, nom, email, telephone, actif').order('nom'),
     supabase.from('profils_roles_acces').select('profil_id, role_acces:roles_acces(id, code, libelle, recoit_le_support)'),
     supabase.from('profils_postes').select('profil_id, poste:postes(id, code, libelle)'),
   ])
@@ -199,6 +202,18 @@ export function useAssignPoste() {
       const { error: deleteError } = await supabase.from('profils_postes').delete().eq('profil_id', profilId)
       if (deleteError) throw new Error(deleteError.message)
       const { error } = await supabase.from('profils_postes').insert({ profil_id: profilId, poste_id: posteId })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-admin'] }) },
+  })
+}
+
+/** Le téléphone d'un utilisateur, celui que porte sa proposition commerciale. */
+export function useMajTelephoneProfil() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ profilId, telephone }: { profilId: string; telephone: string | null }) => {
+      const { error } = await supabase.from('profils').update({ telephone }).eq('id', profilId)
       if (error) throw new Error(error.message)
     },
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-admin'] }) },

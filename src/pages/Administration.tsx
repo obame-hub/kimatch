@@ -24,6 +24,7 @@ import {
   usePostes,
   useAssignRoleAcces,
   useAssignPoste,
+  useMajTelephoneProfil,
   useIsAdmin,
   useProfilsAutorises,
   useAddProfilAutorise,
@@ -118,6 +119,7 @@ function UtilisateursTab() {
   const { data: postes } = usePostes()
   const assignRole = useAssignRoleAcces()
   const assignPoste = useAssignPoste()
+  const majTelephone = useMajTelephoneProfil()
   const impersonate = useImpersonateProfil()
   const [feedback, setFeedback] = useState<string | null>(null)
 
@@ -141,6 +143,7 @@ function UtilisateursTab() {
           <tr className="border-b border-km-line text-left text-xs uppercase tracking-wide text-km-faint">
             <th className="py-2 pr-4">Nom</th>
             <th className="py-2 pr-4">Email</th>
+            <th className="py-2 pr-4">Téléphone</th>
             <th className="py-2 pr-4">Poste</th>
             <th className="py-2 pr-4">Rôle d'accès</th>
             <th className="py-2 pr-4">Statut</th>
@@ -152,6 +155,21 @@ function UtilisateursTab() {
             <tr key={p.id} className="border-b border-navy-50">
               <td className="py-2 pr-4 font-medium text-km-text">{p.prenom} {p.nom}</td>
               <td className="py-2 pr-4 text-km-muted"><EmailLink value={p.email} /></td>
+              <td className="py-2 pr-4">
+                {/* Imprimé sur la proposition commerciale quand l'utilisateur en est le consultant. */}
+                <Input
+                  key={p.telephone ?? ''}
+                  type="tel"
+                  defaultValue={p.telephone ?? ''}
+                  placeholder="06 12 34 56 78"
+                  aria-label={`Téléphone de ${p.prenom} ${p.nom}`}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim() || null
+                    if (v !== (p.telephone ?? null)) majTelephone.mutate({ profilId: p.id, telephone: v })
+                  }}
+                  className="w-[150px]"
+                />
+              </td>
               <td className="py-2 pr-4">
                 <Select
                   value={p.poste?.id ?? ''}

@@ -88,3 +88,20 @@ export function initialesFournisseur(nom: string | null | undefined): string {
     .join('')
     .toUpperCase()
 }
+
+/* ══ LES LOGOS HAUTE DÉFINITION, POUR LA PROPOSITION IMPRIMÉE — 04/10/2026 ══
+   Les logos ci-dessus font 32 à 128 px : nets à l'écran, flous une fois imprimés. Ceux de
+   `fournisseurs/hd/` (remis par Claude Design avec le modèle de proposition) font 400 à 1 600 px. */
+const FICHIERS_HD = import.meta.glob<string>('@/assets/fournisseurs/hd/*.png', { eager: true, import: 'default', query: '?url' })
+const PAR_CLE_HD = new Map<string, string>(
+  Object.entries(FICHIERS_HD).map(([chemin, url]) => [normaliser(chemin.split('/').pop()!.replace(/\.png$/, '')), url]),
+)
+
+/** Le logo le plus net qu'on ait pour ce fournisseur (HD, sinon le logo courant), ou `null`. */
+export function logoFournisseurNet(nom: string | null | undefined): string | null {
+  if (!nom) return null
+  const cle = normaliser(nom)
+  const sansTirets = cle.replace(/-/g, '')
+  for (const [k, url] of PAR_CLE_HD) if (k === cle || k.replace(/-/g, '') === sansTirets) return url
+  return logoFournisseur(nom)
+}

@@ -189,7 +189,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
     try {
       c.reglementaire = await calculerReglementaire(c.vcId)
     } catch (e) {
-      c.reglementaire = { dateEnvoi: null, envoiFige: false, dateReference: null, sourceDate: null, accise: null, tqd: null, cta: null, ctaTaux: null, cpb: {}, turpe: null, derniereValeurConnue: [], manques: [`Calcul impossible : ${(e as Error).message}`] }
+      c.reglementaire = { dateEnvoi: null, envoiFige: false, dateReference: null, echeance: null, sourceDate: null, accise: null, tqd: null, cta: null, ctaTaux: null, cpb: {}, turpe: null, derniereValeurConnue: [], manques: [`Calcul impossible : ${(e as Error).message}`] }
     }
   }))
 
