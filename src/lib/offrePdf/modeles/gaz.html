@@ -203,9 +203,9 @@
     <div style="display:flex;align-items:center;gap:14px"><img src="{{ logoKiwee }}" alt="Kiwee" style="height:24px;display:block"><span style="width:1px;height:22px;background:#cfd2c9;display:block"></span><span style="font-size:17px;font-weight:700;letter-spacing:-.02em">Les fournisseurs consultés</span></div>
     <span style="font-size:10px;color:#6c6f68;font-family:'Geist Mono',monospace">{{ dates.ref }} · {{ compte.nom }}</span>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,minmax(0,1fr));gap:12px;flex:1">
+  <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,minmax(0,1fr));gap:12px;flex:1;min-height:0">
     <sc-for list="{{ fourn }}" as="f">
-      <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:11px">
+      <div style="background:#fff;border:1px solid #e1e3dc;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:9px;min-height:0;overflow:hidden">
         <div style="display:flex;align-items:center;gap:11px">
           <span style="width:40px;height:40px;border-radius:11px;background:#f5f6f2;display:flex;align-items:center;justify-content:center;flex:none"><img src="{{ f.logo }}" alt="" style="width:26px;height:26px;object-fit:contain"></span>
           <span style="flex:1;min-width:0"><span style="display:block;font-size:15px;font-weight:700;letter-spacing:-.01em">{{ f.nom }}</span><sc-if value="{{ f.aStatut }}"><span style="display:block;font-size:9.5px;color:#6c6f68;margin-top:1px">{{ f.statut }}</span></sc-if></span>
@@ -215,7 +215,7 @@
           <sc-if value="{{ f.aCrea }}"><div style="background:#f5f6f2;border-radius:9px;padding:7px 9px"><div style="font-size:8px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Création</div><div style="font-size:10.5px;font-weight:600;margin-top:2px;font-family:'Geist Mono',monospace">{{ f.crea }}</div></div>
           <div style="background:#f5f6f2;border-radius:9px;padding:7px 9px"><div style="font-size:8px;color:#6c6f68;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Ancienneté</div><div style="font-size:10.5px;font-weight:600;margin-top:2px">{{ f.age }}</div></div></sc-if>
         </div></sc-if>
-        <div style="flex:1;font-size:10.5px;line-height:1.55;color:#45473f;text-wrap:pretty">{{ f.desc }}</div>
+        <div style="flex:1;min-height:0;overflow:hidden;font-size:10.5px;line-height:1.55;color:#45473f;text-wrap:pretty"><div style="display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden">{{ f.desc }}</div></div>
         <sc-if value="{{ f.aPied }}"><div style="display:grid;gap:3px;font-size:9.5px;color:#56594f;padding-top:10px;border-top:1px dashed #dcdfd6"><sc-if value="{{ f.aSiege }}"><span><b style="color:#1f2123;font-weight:600">Siège</b> · {{ f.siege }}</span></sc-if><sc-if value="{{ f.aClients }}"><span><b style="color:#1f2123;font-weight:600">Clients</b> · {{ f.clients }}</span></sc-if></div></sc-if>
         <sc-if value="{{ f.aTags }}"><div style="display:flex;gap:5px;flex-wrap:wrap"><sc-for list="{{ f.exp }}" as="t"><span style="font-size:9px;font-weight:600;padding:3px 8px;border-radius:99px;background:#eef6e2;color:#1f5a2c;white-space:nowrap">{{ t }}</span></sc-for></div></sc-if>
       </div>

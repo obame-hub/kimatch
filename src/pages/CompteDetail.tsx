@@ -944,14 +944,14 @@ export default function CompteDetail() {
                             />
                           </div>
                           <div className="flex items-start gap-1.5">
-                            <span className="shrink-0 text-km-faint">Tags (3 au plus) :</span>
+                            <span className="shrink-0 text-km-faint">Tags (4 au plus) :</span>
                             <InlineField
                               variant="text"
                               label=""
                               emptyLabel="ex. Gaz naturel, Chauffage collectif"
                               value={(compte.tags_fournisseur ?? []).join(', ')}
                               disabled={!canManage}
-                              onCommit={(v) => majConditionsFournisseur(compte.id, { tags: v.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 3) }).then(() => showToast('✓ Tags (3 au plus) enregistré(e)'))}
+                              onCommit={(v) => majConditionsFournisseur(compte.id, { tags: v.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 4) }).then(() => showToast('✓ Tags enregistrés'))}
                               onSaved={() => undefined}
                               onError={(err) => showToast(`Erreur : ${err.message}`)}
                             />
