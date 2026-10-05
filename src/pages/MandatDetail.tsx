@@ -37,7 +37,7 @@ import { useCanManage } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { FALLBACK_STATUTS_MANDATS, FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { sendMandatForSignature, connectDocusign, DocusignNonConnecte, useReprendreArchivage } from '@/lib/data/docusign'
-import { useValiderMandatManuellement } from '@/lib/data/mandats'
+import { addMonthsISO, useValiderMandatManuellement } from '@/lib/data/mandats'
 import { useGoBack } from '@/lib/useGoBack'
 import { jourLocalISO } from '@/lib/heureTache'
 import { cn } from '@/lib/utils'
@@ -187,12 +187,10 @@ function ValiderManuellementDialog({
 
   // Ce que la validation va écrire, montré AVANT de cliquer : la date de fin se calcule, et une date
   // calculée qu'on découvre après coup est une date qu'on n'a pas choisie.
+  /* La validité part de la signature : fin = signature + durée (William, 05/10/2026). */
   const finPrevue = (() => {
-    if (mandat.date_fin_validite) return mandat.date_fin_validite.slice(0, 10)
-    if (!mandat.duree_mois) return null
-    const d = new Date((mandat.date_debut_validite?.slice(0, 10) ?? date) + 'T12:00:00')
-    d.setMonth(d.getMonth() + mandat.duree_mois)
-    return d.toISOString().slice(0, 10)
+    if (!mandat.duree_mois) return mandat.date_fin_validite?.slice(0, 10) ?? null
+    return addMonthsISO(date, mandat.duree_mois)
   })()
   const seraExpire = Boolean(finPrevue && finPrevue < aujourdHui)
 
@@ -223,7 +221,7 @@ function ValiderManuellementDialog({
         <div className="rounded-lg border border-km-line bg-km-bg px-3 py-2">
           <p className="text-km-xs uppercase tracking-wide text-km-faint">Ce qui sera enregistré</p>
           <p className="mt-1 text-xs text-km-text">
-            Validité du {new Date(((mandat.date_debut_validite?.slice(0, 10)) ?? date) + 'T12:00:00').toLocaleDateString('fr-FR')}
+            Validité du {new Date(date + 'T12:00:00').toLocaleDateString('fr-FR')}
             {finPrevue ? ` au ${new Date(finPrevue + 'T12:00:00').toLocaleDateString('fr-FR')}` : ', sans date de fin connue'}
             {' · statut '}
             <strong>{seraExpire ? 'Expiré' : 'Actif'}</strong>

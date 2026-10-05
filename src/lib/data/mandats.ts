@@ -422,12 +422,15 @@ export function useMandatEnDirect(mandatId: string | undefined) {
  * convention plutôt que d'introduire un troisième état que rien ne lit — sans quoi les mandats
  * validés à la main formeraient un groupe à part, invisible des écrans qui filtrent sur « actif ».
  *
- * ══ LA VALIDITÉ SE COMPLÈTE, ELLE NE S'ÉCRASE PAS ══
+ * ══ LA VALIDITÉ PART DE LA SIGNATURE — William, 05/10/2026 ══
  *
- * Un mandat « à préparer » n'a pas de dates de validité (291 des 294 sont dans ce cas). On les pose
- * donc à la validation, avec la même formule qu'à la création — début = signature, fin = début +
- * `duree_mois`. Mais on ne touche PAS à celles déjà renseignées : elles peuvent venir du document
- * lui-même, et le partenaire a signé ce document-là, pas notre calcul.
+ * « Quand je signe un mandat manuellement, il faut que la date de début du mandat soit celle de la
+ * date de signature. […] Sur une durée de 12 mois, la fin sera alors au 03/02/2027. »
+ *
+ * Début = signature, fin = début + `duree_mois`, TOUJOURS. La règle d'avant gardait des dates déjà
+ * posées : or un mandat créé reçoit d'emblée un début au jour de sa création — HAASE INNOVATION,
+ * créé le 05/10/2026 et signé le 03/02/2026, courait donc du 05/10/2026 au 05/10/2027. Seule une
+ * fin sans durée connue se garde telle quelle.
  */
 export function useValiderMandatManuellement() {
   const queryClient = useQueryClient()
@@ -445,10 +448,8 @@ export function useValiderMandatManuellement() {
       dateFinValidite: string | null
       dureeMois: number | null
     }) => {
-      const debut = input.dateDebutValidite ?? input.dateSignature
-      const fin =
-        input.dateFinValidite ??
-        (input.dureeMois ? addMonthsISO(debut, input.dureeMois) : null)
+      const debut = input.dateSignature
+      const fin = input.dureeMois ? addMonthsISO(debut, input.dureeMois) : input.dateFinValidite
 
       // Le statut suit la validité, pas la date du jour de la saisie : on peut très bien enregistrer
       // aujourd'hui un mandat signé l'an dernier et déjà périmé.
