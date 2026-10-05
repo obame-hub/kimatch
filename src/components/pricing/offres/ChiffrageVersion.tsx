@@ -11,6 +11,7 @@ import type { DocumentItem } from '@/types/domain'
 import { estLisible, useLectures, type Lectures } from '@/lib/data/lectureOffre'
 import { depuisSaisieLocale, versSaisieLocale } from '@/lib/pricing/lectureOffre'
 import { VoletLectures } from '@/components/pricing/offres/LecturesPropositions'
+import { BoutonTradeo } from '@/components/pricing/offres/BoutonTradeo'
 import { BudgetCliquable } from '@/components/pricing/offres/DetailCalcul'
 import {
   SAISIE_VIDE, budgetLigne, saisieComplete, useChiffrage, useChiffrageMutations,
@@ -161,7 +162,7 @@ export function ChiffrageVersion({ versionId, onToast }: { versionId: string; on
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setSurvol(false) }}
       onDrop={(e) => { if (avecFichiers(e)) { e.preventDefault(); setSurvol(false); depot.envoyer(e.dataTransfer.files) } }}
     >
-      <EnTete chiffrage={chiffrage} depot={depot} />
+      <EnTete chiffrage={chiffrage} depot={depot} tradeo={<BoutonTradeo chiffrage={chiffrage} lectures={lectures} onToast={onToast} />} />
       {compteur
         ? <Offres key={compteur.vcId} chiffrage={chiffrage} compteur={compteur} choisirCompteur={setVcId} ttc={ttc} setTtc={setTtc} versionId={versionId} onToast={onToast} />
         : <p className="p-6 text-km-body text-km-faint">Aucun compteur dans le périmètre de cette version.</p>}
@@ -182,7 +183,7 @@ function Cadre({ children, ...glisser }: { children: React.ReactNode } & Pick<Re
 }
 
 /** L'en-tête, sur une seule ligne : ce qui ne tient pas se coupe, le nom du dossier en premier. */
-function EnTete({ chiffrage, depot }: { chiffrage: Chiffrage; depot: Depot }) {
+function EnTete({ chiffrage, depot, tradeo }: { chiffrage: Chiffrage; depot: Depot; tradeo?: React.ReactNode }) {
   const v = chiffrage.version
   const jours = v.dateSouhaitee ? Math.round((Date.parse(v.dateSouhaitee) - Date.parse(new Date().toISOString().slice(0, 10))) / 86400000) : null
   const quand = jours == null ? '' : jours === 0 ? 'aujourd’hui' : jours < 0 ? `retard ${-jours} j` : jours === 1 ? 'demain' : `dans ${jours} j`
@@ -198,6 +199,7 @@ function EnTete({ chiffrage, depot }: { chiffrage: Chiffrage; depot: Depot }) {
       <span className="flex-1" />
       <AvancementGlobal chiffrage={chiffrage} />
       <span className="h-4 w-px shrink-0 bg-km-line" aria-hidden="true" />
+      {tradeo}
       <BoutonDepot depot={depot} />
       {v.dateSouhaitee && (
         <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-bold', retard ? 'border-km-red-line bg-km-red-soft text-km-red' : 'border-km-amber/40 bg-km-amber-soft text-[#8a4b2a]')}>

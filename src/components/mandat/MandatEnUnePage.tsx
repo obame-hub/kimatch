@@ -24,7 +24,7 @@ import type { Contact } from '@/types/domain'
  *
  *   Zone 1 · le responsable, celui-là même qui a été posé sur les compteurs
  *   Zone 2 · les compteurs du périmètre qu'on vient de créer, et eux seuls, présélectionnés
- *   Zone 3 · la durée (36 mois par défaut, ou personnalisée) et le choix du mandat
+ *   Zone 3 · la durée (12 mois par défaut depuis le 05/10/2026, fixée avec Energix) et le choix du mandat
  *
  * ══ POURQUOI CET ÉCRAN N'EST PAS LE PARCOURS DE CRÉATION D'UN MANDAT ══
  *

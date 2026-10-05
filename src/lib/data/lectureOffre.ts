@@ -60,6 +60,8 @@ export interface Lecture {
   etat: 'lecture' | 'prete' | 'erreur'
   proposition?: PropositionLue
   erreur?: string
+  /** Ce que la source n'a pas pu rendre, quand elle a rendu le reste. */
+  note?: string
 }
 
 /** Les lectures en cours sur la version : lancées au dépôt, ou depuis un fichier déjà rangé. */
@@ -73,8 +75,23 @@ export function useLectures() {
       .then((proposition) => maj({ etat: 'prete', proposition }))
       .catch((e: Error) => maj({ etat: 'erreur', erreur: e.message }))
   }
+  /** Une source qui rend plusieurs propositions d'un coup — Tradeo, un fournisseur par proposition. */
+  const suivrePlusieurs = (nom: string, lire: () => Promise<{ propositions: PropositionLue[]; manques: string[] }>) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    setLectures((l) => [{ id, nom, etat: 'lecture' }, ...l.filter((x) => !x.nom.startsWith(nom))])
+    lire()
+      .then(({ propositions, manques }) => setLectures((l) => [
+        ...propositions.map((proposition, i): Lecture => ({ id: `${id}-${i}`, nom: `${nom} · ${proposition.fournisseur_nom ?? ''}`, etat: 'prete', proposition })),
+        ...(propositions.length === 0
+          ? [{ id, nom, etat: 'erreur' as const, erreur: manques.join(' · ') || 'Aucun prix rendu.' }]
+          : manques.length ? [{ id, nom: `${nom} · à savoir`, etat: 'prete' as const, note: manques.join(' · ') }] : []),
+        ...l.filter((x) => x.id !== id),
+      ]))
+      .catch((e: Error) => setLectures((l) => l.map((x) => (x.id === id ? { ...x, etat: 'erreur', erreur: e.message } : x))))
+  }
   return {
     lectures,
+    suivrePlusieurs,
     lireFichier: (f: File) => suivre(f.name, () => lireProposition(f, f.name)),
     lireDeposee: (url: string, nom: string) => suivre(nom, () => lirePropositionDeposee(url, nom)),
     fermer: (id: string) => setLectures((l) => l.filter((x) => x.id !== id)),

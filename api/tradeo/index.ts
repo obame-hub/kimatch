@@ -146,8 +146,10 @@ function pourJournal(corps: CorpsTradeo): unknown {
   return sortie
 }
 
+/* Depuis le 05/10/2026, le Pricer appelle aussi Tradeo : le droit est `peut_appeler_tradeo()`
+   (testeurs du banc, pricing, administration), plus large que l'onglet du banc. */
 async function ouvreLeBanc(utilisateur: UtilisateurAuthentifie, res: VercelResponse): Promise<boolean> {
-  const reponse = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/rpc/ouvre_banc_tradeo`, {
+  const reponse = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/rpc/peut_appeler_tradeo`, {
     method: 'POST',
     headers: {
       apikey: process.env.VITE_SUPABASE_ANON_KEY ?? '',

@@ -57,6 +57,7 @@ export function VoletLectures({ lectures, chiffrage, versionId, choisirCompteur,
             <p className="flex items-center gap-2 px-3 py-4 text-[12px] text-km-muted"><Loader2 className="h-3.5 w-3.5 animate-spin text-km-violet" /> Lecture de la proposition…</p>
           )}
           {l.etat === 'erreur' && <p className="px-3 py-3 text-[12px] text-km-red">{l.erreur}</p>}
+          {l.note && <p className="px-3 py-3 text-[12px] leading-[16px] text-[#8a4b2a]">{l.note}</p>}
           {l.etat === 'prete' && l.proposition && (
             <Proposition p={l.proposition} chiffrage={chiffrage} versionId={versionId} choisirCompteur={choisirCompteur} onToast={onToast} />
           )}
@@ -104,8 +105,8 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
   const offre = chiffrage.offres.find((o) => o.id === offreId) ?? null
   const compteur = chiffrage.compteurs.find((c) => c.vcId === vcId) ?? null
   const existante = offre && compteur ? offre.saisies[compteur.vcId] : undefined
-  /* Vide : le pricing la donne à chaque offre. */
-  const [margeTexte, setMargeTexte] = useState('')
+  /* Vide : le pricing la donne à chaque offre — sauf quand la source la dit (Tradeo). */
+  const [margeTexte, setMargeTexte] = useState(() => p.marge_incluse_proposee == null ? '' : String(p.marge_incluse_proposee).replace('.', ','))
   const [validite, setValidite] = useState(() => versSaisieLocale(trouve.offre?.validite))
   const [incluse, setIncluse] = useState(false)
   const marge = lireNombre(margeTexte)

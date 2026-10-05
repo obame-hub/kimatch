@@ -60,7 +60,7 @@ export interface RapportTradeo {
 }
 
 /** Les prix d'une offre Tradeo sur toute la durée : la moyenne quand Tradeo la donne, sinon celle des années. */
-function prixSurLaDuree(o: OffreTradeo): { prix: Record<string, number>; marge: number | null } | null {
+export function prixSurLaDuree(o: OffreTradeo): { prix: Record<string, number>; marge: number | null } | null {
   if (o.prixMoyens) {
     return { prix: o.prixMoyens, marge: o.periodes[0]?.margeAppliquee ?? o.marge }
   }
