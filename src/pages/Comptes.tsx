@@ -29,6 +29,8 @@ import { useListeServeur } from '@/lib/useListeServeur'
 import { useCreerUnCompte } from '@/lib/creationCompte'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import type { TypeCompte } from '@/types/domain'
 import { estConsommateur } from '@/types/domain'
 import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
@@ -61,10 +63,46 @@ interface LigneCompte {
    * un tiret plutôt que « Prospect » — c'est-à-dire plutôt qu'exactement le mensonge qu'on corrige.
    */
   est_client?: boolean
+  /** Kiwee, Energix, OBD ou non partenaire — pour un fournisseur seulement (05/10/2026). */
+  zone_fournisseur?: ZoneFournisseur | null
 }
 
 /** Les trois vues de la synthèse. La valeur est celle passée en filtre à PostgREST. */
 type FiltreStatut = '' | 'true' | 'false'
+
+/* ══ LES FOURNISSEURS SE LISENT PAR PARTENARIAT — William, 05/10/2026 ══
+   « Si je choisis de voir les comptes fournisseurs, que le filtre d'affichage soit Kiwee, Energix,
+   OBD et non partenaire. » Client / prospect n'a pas de sens pour un fournisseur ; ce qui compte est
+   la façon de lui demander une offre. La zone vient de la base (`v_comptes_liste.zone_fournisseur`). */
+type ZoneFournisseur = 'kiwee' | 'energix' | 'obd' | 'non_partenaire'
+const ZONES: { cle: '' | ZoneFournisseur; libelle: string }[] = [
+  { cle: '', libelle: 'Tous' },
+  { cle: 'kiwee', libelle: 'Kiwee' },
+  { cle: 'energix', libelle: 'Energix' },
+  { cle: 'obd', libelle: 'OBD' },
+  { cle: 'non_partenaire', libelle: 'Non partenaire' },
+]
+const LIBELLE_ZONE: Record<ZoneFournisseur, { libelle: string; tone: 'kiwi' | 'blue' | 'amber' | 'neutral' }> = {
+  kiwee: { libelle: 'Kiwee', tone: 'kiwi' },
+  energix: { libelle: 'Energix', tone: 'blue' },
+  obd: { libelle: 'OBD', tone: 'amber' },
+  non_partenaire: { libelle: 'Non partenaire', tone: 'neutral' },
+}
+
+function useDecompteZones(actif: boolean) {
+  return useQuery({
+    queryKey: ['comptes', 'decompte-zones'],
+    enabled: actif,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await supabase.from('v_comptes_liste').select('zone_fournisseur').eq('type_compte', 'fournisseur')
+      if (error) throw new Error(error.message)
+      const n: Record<string, number> = {}
+      for (const r of (data ?? []) as { zone_fournisseur: string | null }[]) n[r.zone_fournisseur ?? 'non_partenaire'] = (n[r.zone_fournisseur ?? 'non_partenaire'] ?? 0) + 1
+      return n
+    },
+  })
+}
 
 /**
  * ENCAPSULABLE DANS LA PAGE PATRIMOINE. `sansEntete` masque la barre du haut quand cette liste est
@@ -86,6 +124,9 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
   useOuvrirCreation(creerUnCompte)
   const [typeFilter, setTypeFilter] = useState('')
   const [statutFilter, setStatutFilter] = useState<FiltreStatut>('')
+  const [zoneFilter, setZoneFilter] = useState<'' | ZoneFournisseur>('')
+  const fournisseurs = typeFilter === 'fournisseur'
+  const decompteZones = useDecompteZones(fournisseurs)
 
   /**
 
@@ -131,7 +172,8 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
       proprietaire_id: filtreProprietaire,
       type_compte: typeFilter || null,
       // 'true' / 'false' partent tels quels : PostgREST lit `est_client=eq.true` sur un booléen.
-      est_client: statutFilter || null,
+      est_client: fournisseurs ? null : statutFilter || null,
+      zone_fournisseur: fournisseurs ? zoneFilter || null : null,
     },
   })
 
@@ -177,7 +219,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
               ligne bleue du système. `MenuChoix` reprend la main sur les trois. */}
           <MenuChoix
             valeur={typeFilter}
-            onChange={setTypeFilter}
+            onChange={(v) => { setTypeFilter(v); setZoneFilter('') }}
             ariaLabel="Filtrer par type de compte"
             choix={[
               { valeur: '', libelle: 'Tous les types' },
@@ -193,6 +235,34 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
             le dit. Une synthèse qui se recalcule à chaque frappe n'est plus une synthèse : la
             question posée ici est « combien en ai-je », pas « combien parmi ceux dont le nom
             contient Dup ». La recherche continue de filtrer le tableau, en dessous. */}
+        {fournisseurs ? (
+        <div className="mb-3.5 flex flex-wrap items-center gap-2">
+          <span className="mr-0.5 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
+            Partenariat
+          </span>
+          {ZONES.map((z) => {
+            const n = decompteZones.data
+            const nombre = !n ? null : z.cle ? n[z.cle] ?? 0 : Object.values(n).reduce((a: number, b: number) => a + b, 0)
+            return (
+              <button
+                key={z.cle}
+                type="button"
+                onClick={() => setZoneFilter(z.cle)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-km border px-2.5 py-1 text-km-label font-bold transition-colors',
+                  zoneFilter === z.cle
+                    ? 'border-km-green/30 bg-km-green-soft text-km-green'
+                    : 'border-km-line bg-white text-km-muted hover:text-km-text',
+                )}
+              >
+                {z.libelle}
+                <span className="tabular-nums font-[580]">{nombre === null ? '—' : nombre.toLocaleString('fr-FR')}</span>
+              </button>
+            )
+          })}
+          <span className="text-km-label text-km-faint">au total · Kiwee = partenaire en direct ; Energix, OBD = par l’intermédiaire</span>
+        </div>
+        ) : (
         <div className="mb-3.5 flex flex-wrap items-center gap-2">
           <span className="mr-0.5 text-km-label font-bold uppercase tracking-[0.08em] text-km-faint">
             Statut commercial
@@ -219,6 +289,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
             au total · Client = au moins un compteur sous contrat en cours
           </span>
         </div>
+        )}
 
         {/* LE TABLEAU PASSE SUR LE COMPOSANT PARTAGE. Cinq ecrans ecrivaient le leur a la main
             avec les memes classes recopiees — et elles avaient deja diverge : 640 px de largeur
@@ -283,6 +354,8 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
                       <Badge tone={compte.est_client ? 'kiwi' : 'neutral'}>
                         {compte.est_client ? 'Client' : 'Prospect'}
                       </Badge>
+                    ) : compte.type_compte === 'fournisseur' && compte.zone_fournisseur ? (
+                      <Badge tone={LIBELLE_ZONE[compte.zone_fournisseur].tone}>{LIBELLE_ZONE[compte.zone_fournisseur].libelle}</Badge>
                     ) : (
                       <span className="text-km-faint">—</span>
                     )}
