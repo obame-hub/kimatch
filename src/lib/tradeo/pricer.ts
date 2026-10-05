@@ -121,7 +121,7 @@ async function lireDemandes(siret: string): Promise<DemandeLue[]> {
 }
 
 /** Note l'étape sur chaque mandat concerné. Une date déjà posée ne recule jamais (côté base). */
-async function noterSurLesMandats(mandatIds: string[], etape: 'DEMANDEE' | 'HOMOLOGUE', demande: number | null) {
+export async function noterSurLesMandats(mandatIds: string[], etape: 'DEMANDEE' | 'HOMOLOGUE', demande: number | null) {
   for (const id of new Set(mandatIds)) {
     const { error } = await supabase.rpc('fn_noter_homologation_tradeo', { p_mandat: id, p_etape: etape, p_demande: demande })
     if (error) throw new Error(error.message)

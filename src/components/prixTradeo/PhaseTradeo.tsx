@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { appelerBanc, chargerDossierKimatch, chargerMandatsActifs, messageErreur, type MandatDuCompteur } from '@/lib/data/tradeo'
 import { compteursPourTradeo, manquesDemande, responsablePourTradeo, type CompteurTradeo, type DossierKimatch, type ResponsableTradeo } from '@/lib/tradeo/dossier'
+import { noterSurLesMandats } from '@/lib/tradeo/pricer'
 import { EnteteEtapes, Explication, Ligne, PiedAssistant } from './assistant'
 import { EtapePrix, FormulaireCorrection } from './ElementsTradeo'
 
@@ -138,6 +139,10 @@ export function PhaseTradeo({ versionId, avant, onContinuer }: {
        on relit l'état, qui retrouve la demande, puis on prévient Tradeo pour chacune en attente. */
     await lireTradeo(siret, tous)
     await prevenir(true)
+    /* L'HOMOLOGATION EST TENUE PAR LE MANDAT (05/10/2026) : une demande partie du banc se note
+       comme une demande partie du Pricer. */
+    const ids = aEnvoyer.map((c) => mandats.get(c.num_compteur)?.mandat_id).filter((x): x is string => !!x)
+    await noterSurLesMandats(ids, 'DEMANDEE', null).catch((e: Error) => setErreur(`Demande partie, mais non notée sur le mandat : ${e.message}`))
     setAction(false)
   }
 
