@@ -81,7 +81,7 @@ function Proposition({ p, chiffrage, versionId, choisirCompteur, onToast }: { p:
       {p.offres.map((o, i) => (
         <OffreLueCarte key={i} p={p} lue={o} chiffrage={chiffrage} versionId={versionId} choisirCompteur={choisirCompteur} onToast={onToast} />
       ))}
-      {p.remarques && <p className="border-t border-km-line-soft px-3 py-2 text-[11px] italic text-km-muted">L’IA note : {p.remarques}</p>}
+      {p.remarques && <p className="border-t border-km-line-soft px-3 py-2 text-[11px] italic text-km-muted">{p.source === 'TRADEO' ? 'Tradeo' : 'L’IA note'} : {p.remarques}</p>}
     </div>
   )
 }

@@ -307,3 +307,30 @@ export async function chargerMandatsActifs(compteurIds: string[]): Promise<Map<s
   if (error) throw new Error(error.message)
   return new Map(((data ?? []) as MandatDuCompteur[]).map((m) => [(m.numero_point ?? '').replace(/\s/g, ''), m]))
 }
+
+/**
+ * L'HOMOLOGATION TRADEO D'UN MANDAT — réunion du 05/10/2026 : « le champ qui nous dit que c'est
+ * homologué chez Tradeo doit être tenu par le mandat ». Écrite par le Pricer
+ * (`fn_noter_homologation_tradeo`), lue sur la fiche du mandat.
+ */
+export interface HomologationTradeo {
+  demandeeLe: string | null
+  demandeNumero: number | null
+  homologueLe: string | null
+}
+
+export function useHomologationTradeo(mandatId: string | undefined, actif: boolean) {
+  return useQuery({
+    queryKey: ['mandats', 'homologation-tradeo', mandatId],
+    enabled: !!mandatId && actif,
+    queryFn: async (): Promise<HomologationTradeo> => {
+      const { data, error } = await supabase
+        .from('mandats')
+        .select('tradeo_homologation_demandee_le, tradeo_demande_numero, tradeo_homologue_le')
+        .eq('id', mandatId as string)
+        .single()
+      if (error) throw new Error(error.message)
+      return { demandeeLe: data.tradeo_homologation_demandee_le, demandeNumero: data.tradeo_demande_numero, homologueLe: data.tradeo_homologue_le }
+    },
+  })
+}

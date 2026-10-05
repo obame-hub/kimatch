@@ -355,8 +355,9 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
       client: chiffrage.version.compteNom,
       date_prise_effet: null,
       offres,
-      remarques: `Prix calculés par Tradeo le ${aujourdHui.toLocaleDateString('fr-FR')}, avec une marge de ${(marge ?? MARGE_APPEL_TRADEO).toLocaleString('fr-FR')} €/MWh dans le prix.`,
+      remarques: `prix calculés le ${aujourdHui.toLocaleDateString('fr-FR')}, avec une marge de ${(marge ?? MARGE_APPEL_TRADEO).toLocaleString('fr-FR')} €/MWh dans le prix.`,
       marge_incluse_proposee: marge ?? MARGE_APPEL_TRADEO,
+      source: 'TRADEO',
     })
   }
   return { propositions, manques }

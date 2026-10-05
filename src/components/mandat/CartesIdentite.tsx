@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useOuvrirEmail } from '@/lib/voletEmail'
 import { Link } from 'react-router-dom'
 import type { Compte, Contact, Mandat } from '@/types/domain'
+import { useHomologationTradeo } from '@/lib/data/tradeo'
 import { PictoCompte, PictoContact, PictoEnveloppe, PictoLoupe, PictoMandat, PictoTelephone, PictoValidite } from './pictos'
 
 /**
@@ -425,6 +426,8 @@ const ACD = [
 
 export function CarteTypeMandat({ mandat }: { mandat: Mandat }) {
   const actif = mandat.statut === 'ACTIF'
+  const energix = mandat.courtier_codes.includes('ENERGIX')
+  const { data: homologation } = useHomologationTradeo(mandat.id, energix)
 
   return (
     <div
@@ -487,12 +490,28 @@ export function CarteTypeMandat({ mandat }: { mandat: Mandat }) {
             voisines, et donc leur contenu flottant au milieu d'un vide. La règle complète — un
             changement de couverture fait un nouveau mandat, jamais un avenant — vit dans l'infobulle
             et dans le commentaire d'en-tête, là où on la cherche. */}
-        <p
-          className="pt-[3px] text-[10px] leading-[1.45] text-[#a3a5a0]"
-          title="Un changement de couverture donne lieu à un nouveau mandat, jamais à un avenant."
-        >
-          Défini à la demande de mandat.
-        </p>
+        {/* AVEC ENERGIX, LA LIGNE DIT L'HOMOLOGATION TRADEO (05/10/2026) : c'est le mandat qui la
+            tient, et elle vaut tant qu'il est actif. Sans Energix, la note d'origine. */}
+        {energix && homologation ? (
+          <p
+            className="pt-[3px] text-[10px] font-semibold leading-[1.45]"
+            style={{ color: homologation.homologueLe ? '#0d7a5f' : homologation.demandeeLe ? '#9a7a0d' : '#a3a5a0' }}
+            title={homologation.demandeNumero ? `Demande Tradeo n° ${homologation.demandeNumero}` : 'Se demande depuis le Pricer, bouton « Tradeo »'}
+          >
+            {homologation.homologueLe
+              ? `Homologué Tradeo le ${new Date(homologation.homologueLe).toLocaleDateString('fr-FR')}`
+              : homologation.demandeeLe
+                ? `Homologation Tradeo demandée le ${new Date(homologation.demandeeLe).toLocaleDateString('fr-FR')}`
+                : 'Pas encore homologué chez Tradeo'}
+          </p>
+        ) : (
+          <p
+            className="pt-[3px] text-[10px] leading-[1.45] text-[#a3a5a0]"
+            title="Un changement de couverture donne lieu à un nouveau mandat, jamais à un avenant."
+          >
+            Défini à la demande de mandat.
+          </p>
+        )}
       </div>
     </div>
   )

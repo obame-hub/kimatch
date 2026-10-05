@@ -47,6 +47,8 @@ export interface PropositionLue {
   /** La marge que la source dit avoir mise dans ses prix — Tradeo cote avec la marge de sa
    *  calculatrice (05/10/2026). Proposée dans la case, le pricing la confirme. Absente d'un PDF. */
   marge_incluse_proposee?: number | null
+  /** D'où vient la proposition : un document lu par l'IA (par défaut), ou l'API Tradeo. */
+  source?: 'IA' | 'TRADEO'
 }
 
 const auDixMillieme = (n: number) => Math.round(n * 10000) / 10000
