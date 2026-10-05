@@ -56,3 +56,7 @@ essai-rattachement/
 # Les captures posees a la racine pendant un essai : jamais un livrable.
 /appels-non-lies.png
 /rattacher.png
+# Le relevé des colonnes nommées dans le code : recalculé à chaque `npm run dev` et `npm run build`
+# (scripts/recenser-mots-du-code.cjs). Versionné, il entrait en conflit à chaque pull entre deux
+# postes qui avaient lancé un build (05/10/2026).
+/src/generated/mots-du-code.json

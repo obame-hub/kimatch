@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/recenser-mots-du-code.cjs && vite",
     "build": "node scripts/recenser-mots-du-code.cjs && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -17,7 +17,7 @@
     "carte:evolution:lire": "node scripts/carte-evolution.cjs --lire",
     "verifier:sandbox": "node scripts/verifier-liste-sandbox.cjs",
     "auditer:compteurs": "node scripts/auditer-compteurs-salesforce.cjs",
-    "dev:sandbox": "vite --mode sandbox",
+    "dev:sandbox": "node scripts/recenser-mots-du-code.cjs && vite --mode sandbox",
     "croisement": "node scripts/verifier-croisement.cjs",
     "rattachements": "node scripts/auditer-rattachements.cjs",
     "sf:identifiants": "node scripts/importer-identifiants-salesforce.cjs",
