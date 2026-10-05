@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -39,6 +39,9 @@ const CANAUX = [
   { value: 'PLATEFORME', label: 'Plateforme du fournisseur' },
   { value: 'GRILLE', label: 'Grille de prix' },
 ]
+/* La liste des intermédiaires — William, 05/10/2026 : « pour l'instant un seul choix (mais peut-être
+   plusieurs à l'avenir) = Energix ». Une valeur déjà en base hors de cette liste (OBD) reste affichée. */
+const INTERMEDIAIRES = [{ value: 'Energix', label: 'Energix' }]
 const PARTENARIATS = [
   { value: 'kiwee', label: 'Kiwee (en direct)' },
   { value: 'intermediaire', label: 'Intermédiaire' },
@@ -65,6 +68,10 @@ export function OngletPricingFournisseur({ compte, modifiable, onToast }: { comp
   const queryClient = useQueryClient()
   const { data: regles } = useEligibilityRules()
   const regle = (cle: string) => regles?.find((r) => r.rule_key === cle)
+  /* Le partenariat suit le choix sans attendre la relecture : l'intermédiaire apparaît ou disparaît
+     aussitôt. */
+  const [partenariat, setPartenariat] = useState(compte.partnership ?? '')
+  useEffect(() => { setPartenariat(compte.partnership ?? '') }, [compte.partnership])
 
   const enregistrer = async (c: ConditionsFournisseur, message: string) => {
     await majConditionsFournisseur(compte.id, c)
@@ -115,17 +122,25 @@ export function OngletPricingFournisseur({ compte, modifiable, onToast }: { comp
             label=""
             emptyLabel="non renseigné"
             options={PARTENARIATS}
-            value={compte.partnership ?? ''}
+            value={partenariat}
             disabled={!modifiable}
-            onCommit={(v) => enregistrer({ partnership: v || null }, '✓ Partenariat enregistré')}
+            onCommit={(v) => {
+              setPartenariat(v ?? '')
+              /* HORS « INTERMÉDIAIRE », PAS D'INTERMÉDIAIRE : la fiche ne peut pas se contredire
+                 (un partenaire Kiwee en direct « via Energix »). */
+              return enregistrer({ partnership: v || null, ...(v === 'intermediaire' ? {} : { intermediary: null }) }, '✓ Partenariat enregistré')
+            }}
             onSaved={() => undefined}
             onError={erreur}
           />
         </Champ>
-        <Champ libelle="Intermédiaire" note="Pour information : Energix, OBD…">
-          <InlineField variant="text" label="" emptyLabel="aucun" value={compte.intermediary ?? ''} disabled={!modifiable}
-            onCommit={(v) => enregistrer({ intermediary: v.trim() || null }, '✓ Intermédiaire enregistré')} onSaved={() => undefined} onError={erreur} />
-        </Champ>
+        {/* L'INTERMÉDIAIRE N'EXISTE QUE POUR UN PARTENARIAT « INTERMÉDIAIRE » (William, 05/10/2026). */}
+        {partenariat === 'intermediaire' && (
+          <Champ libelle="Intermédiaire" note="Celui par qui passent les demandes d'offre.">
+            <InlineField variant="select" label="" emptyLabel="à choisir" options={compte.intermediary && !INTERMEDIAIRES.some((i) => i.value === compte.intermediary) ? [...INTERMEDIAIRES, { value: compte.intermediary, label: compte.intermediary }] : INTERMEDIAIRES} value={compte.intermediary ?? ''} disabled={!modifiable}
+              onCommit={(v) => enregistrer({ intermediary: v || null }, `✓ Intermédiaire : ${v || '—'}`)} onSaved={() => undefined} onError={erreur} />
+          </Champ>
+        )}
         <Champ libelle="Clients acceptés" regle={regle('target')} cle="target">
           <Pastilles options={CIBLES} valeurs={compte.targets ?? []} modifiable={modifiable}
             onChange={(v) => enregistrer({ targets: v }, '✓ Clients acceptés enregistrés').catch(erreur)} />
