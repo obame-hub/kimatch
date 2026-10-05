@@ -112,7 +112,13 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
   /* `perimetre` vaut déjà « tous » pour un partenaire : `usePerimetre` s'en charge, une fois pour
      les six listes du patrimoine (voir le commentaire dans `lib/perimetre.tsx`). Rien à ajouter
      ici — et surtout pas une seconde règle qui divergerait de la première. */
-  const filtreProprietaire = perimetre === 'moi' && monProfil?.id ? monProfil.id : null
+  /* ══ UN FOURNISSEUR OU UN PARTENAIRE N'A PAS DE « PROPRIÉTAIRE » COMMERCIAL — William, 05/10/2026 ══
+     « Quand je choisis le type fournisseur, seuls 8 comptes sont visibles alors que je suis censé en
+     avoir bien plus. » Le périmètre « Mes comptes » ne gardait que les 8 fournisseurs dont il est
+     propriétaire, sur 53 (21 n'en ont aucun). Ces comptes ne se répartissent pas entre commerciaux :
+     filtrés sur ces types, ils s'affichent tous, et le choix du périmètre disparaît. */
+  const sansProprietaire = typeFilter === 'fournisseur' || typeFilter === 'partenaire'
+  const filtreProprietaire = perimetre === 'moi' && monProfil?.id && !sansProprietaire ? monProfil.id : null
 
 
   const liste = useListeServeur<LigneCompte>({
@@ -164,7 +170,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
         />
 
         <ListToolbar query={liste.query} onQueryChange={liste.setQuery} placeholder="Rechercher un compte, une ville…" count={liste.total}>
-          {!sansBascule && (
+          {!sansBascule && !sansProprietaire && (
             <BasculePerimetre valeur={perimetre} onChange={setPerimetre} libelleMien="Mes comptes" libelleTous="Tous les comptes" />
           )}
           {/* Le sélecteur que Naoëlle a photographié ouvert : liste blanche à coins droits et
