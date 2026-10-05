@@ -86,6 +86,14 @@ export function AssistantPrix({ onFermer, siretInitial }: { onFermer: () => void
               </div>
             </div>
           )}
+          {/* AUCUN DOSSIER OUVERT POUR CETTE SOCIÉTÉ (05/10/2026) : « Suivre » sur DIMOTRANS, dont le dossier
+              venait d'être clôturé, ouvrait une recherche vide, sans un mot. On dit pourquoi. */}
+          {siretInitial && recos && duSiret.length === 0 && !recoId && (
+            <p className="mb-3 rounded-km border border-[#f0e4cd] bg-km-amber-soft px-3 py-2 text-km-label text-[#8a4b2a]">
+              Aucun dossier ouvert pour cette société (SIRET {siretInitial}) : son dossier est sans doute clôturé. La demande Tradeo reste
+              valable — tant que le mandat Energix court, son prochain dossier n’aura pas à repasser par l’homologation.
+            </p>
+          )}
 
           <Label>Dossier</Label>
           <ChoixParRecherche

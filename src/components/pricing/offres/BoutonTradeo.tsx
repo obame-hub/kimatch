@@ -109,7 +109,7 @@ export function BoutonTradeo({ chiffrage, lectures, onToast }: { chiffrage: Chif
           {etat && etat.etape !== 'SANS_MANDAT' && etat.sansPrixAutomatiques.length < etat.fournisseurs.length && (
             <button
               type="button"
-              disabled={etat.etape !== 'HOMOLOGUE' || action}
+              disabled={etat.etape !== 'HOMOLOGUE' || action || isFetching}
               title={etat.etape !== 'HOMOLOGUE' ? 'Disponible quand Tradeo a accepté les compteurs' : undefined}
               onClick={() => recuperer(etat)}
               className={cn(bouton, 'bg-km-violet text-white hover:opacity-90')}
