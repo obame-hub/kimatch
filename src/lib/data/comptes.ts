@@ -57,7 +57,8 @@ interface RawCompteFournisseur {
   logo_url?: string | null
   /** Le canal de la demande d'offre : MAIL, TRADEO, PLATEFORME, GRILLE (18/09/2026). */
   mode_reponse?: string | null
-  url_outil_consultation?: string | null
+  /** Au mode TRADEO : les prix reviennent-ils par l'API ? (colonne du Pricer Tradéo, 05/10/2026). */
+  tradeo_prix_automatiques?: boolean | null
 }
 
 interface RawComptePartenaire {
@@ -151,7 +152,7 @@ async function fetchComptes(compteId?: string): Promise<Compte[]> {
               tags_fournisseur: fournisseur.tags ?? [],
               logo_url: fournisseur.logo_url ?? null,
               mode_reponse: fournisseur.mode_reponse ?? null,
-              url_outil_consultation: fournisseur.url_outil_consultation ?? null,
+              tradeo_prix_automatiques: fournisseur.tradeo_prix_automatiques ?? true,
             }
           : {}),
         ...(partenaire
@@ -672,7 +673,7 @@ export interface ConditionsFournisseur {
   max_dff?: string | null
   update_delay_days?: number | null
   mode_reponse?: string | null
-  url_outil_consultation?: string | null
+  tradeo_prix_automatiques?: boolean
 }
 
 /**

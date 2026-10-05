@@ -51,6 +51,8 @@ export interface CommandeFournisseur {
   fournisseurId: string
   nom: string
   modeReponse: string | null
+  /** Au mode TRADEO : vrai si les prix reviennent par l'API (`tradeo_prix_automatiques`), faux par document. */
+  prixAutomatiques?: boolean
   durees: number[]
   types: string[]
 }
@@ -213,11 +215,12 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
     if (eO) throw new Error(eO.message)
     const idsFournisseurs = ((ofs ?? []) as any[]).map((f) => f.fournisseur_compte_id)
     const { data: fiches } = idsFournisseurs.length
-      ? await supabase.from('comptes_fournisseurs').select('compte_id, mode_reponse').in('compte_id', idsFournisseurs)
+      ? await supabase.from('comptes_fournisseurs').select('compte_id, mode_reponse, tradeo_prix_automatiques').in('compte_id', idsFournisseurs)
       : { data: [] as any[] }
     const modes = new Map(((fiches ?? []) as any[]).map((f) => [f.compte_id, f.mode_reponse ?? null]))
+    const automatiques = new Map(((fiches ?? []) as any[]).map((f) => [f.compte_id, f.tradeo_prix_automatiques !== false]))
     commande = ((ofs ?? []) as any[]).map((f) => ({
-      id: f.id, fournisseurId: f.fournisseur_compte_id, nom: premier(f.fournisseur)?.nom ?? 'Fournisseur', modeReponse: modes.get(f.fournisseur_compte_id) ?? null,
+      id: f.id, fournisseurId: f.fournisseur_compte_id, nom: premier(f.fournisseur)?.nom ?? 'Fournisseur', modeReponse: modes.get(f.fournisseur_compte_id) ?? null, prixAutomatiques: automatiques.get(f.fournisseur_compte_id) ?? true,
       durees: [...(f.durees_mois ?? [])].sort((a: number, b: number) => a - b), types: f.types_prix ?? [],
     }))
     const lire = (o: any): OffreChiffrage => {

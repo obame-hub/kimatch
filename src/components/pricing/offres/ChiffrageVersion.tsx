@@ -741,7 +741,7 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
               const prets = grp.offres.filter((o) => o.statut !== 'EN_ATTENTE').length
               return (
                 <div key={grp.nom + gi} role="group" aria-label={grp.nom} className="overflow-hidden rounded-[12px] border border-km-line bg-white shadow-[0_1px_2px_rgba(25,40,33,.04)]">
-                  <BandeFournisseur nom={grp.nom} logo={grp.offres[0].fournisseurLogo || logoFournisseurNet(grp.nom)} rang={gi} source={fournisseur?.modeReponse ?? null} detail={`${grp.offres.length} offre${grp.offres.length > 1 ? 's' : ''}`} avancement={[prets, grp.offres.length]} />
+                  <BandeFournisseur nom={grp.nom} logo={grp.offres[0].fournisseurLogo || logoFournisseurNet(grp.nom)} rang={gi} source={fournisseur?.modeReponse ?? null} prixAutomatiques={fournisseur?.prixAutomatiques ?? true} detail={`${grp.offres.length} offre${grp.offres.length > 1 ? 's' : ''}`} avancement={[prets, grp.offres.length]} />
                   {grp.offres.map((o, i) => (
                     <LigneOffre
                       key={o.id}
@@ -871,7 +871,7 @@ function EnTeteTableau({ g, ttc, setTtc }: { g: Grille; ttc: boolean; setTtc: (v
 }
 
 /** La bande qui ouvre la carte d'un fournisseur. */
-function BandeFournisseur({ nom, logo, rang, source, detail, avancement }: { nom: string; logo?: string | null; rang: number; source?: string | null; detail?: string; avancement?: [number, number] }) {
+function BandeFournisseur({ nom, logo, rang, source, prixAutomatiques = true, detail, avancement }: { nom: string; logo?: string | null; rang: number; source?: string | null; prixAutomatiques?: boolean; detail?: string; avancement?: [number, number] }) {
   const [libelleSource, classesSource] = SOURCES[source ?? ''] ?? ['', '']
   const [fond, encre] = LOGOS[rang % LOGOS.length]
   return (
@@ -889,6 +889,14 @@ function BandeFournisseur({ nom, logo, rang, source, detail, avancement }: { nom
       )}
       <span className="min-w-0 truncate text-[13px] font-extrabold text-km-text">{nom}</span>
       {libelleSource && <span className={cn('shrink-0 rounded-full border px-1.5 text-[9px] font-extrabold leading-[15px] tracking-[.03em]', classesSource)}>{libelleSource}</span>}
+      {/* TRADÉO EST UN OUTIL, PAS UN CANAL — William, 05/10/2026 : « chaque offre d'un fournisseur
+          Energix sera tagguée TRADEO - API ou TRADEO - MAIL, 2 cartouches ». Le second dit comment
+          ses prix reviennent (`tradeo_prix_automatiques`, la colonne du Pricer Tradéo). */}
+      {source === 'TRADEO' && (
+        <span className={cn('shrink-0 rounded-full border px-1.5 text-[9px] font-extrabold leading-[15px] tracking-[.03em]', prixAutomatiques ? 'border-km-green/30 bg-km-green-soft text-km-green' : SOURCES.MAIL[1])}>
+          {prixAutomatiques ? 'API' : 'MAIL'}
+        </span>
+      )}
       {detail && <span className="shrink-0 text-[11px] text-km-faint">{detail}</span>}
       <span className="flex-1" />
       {avancement && avancement[1] > 0 && (

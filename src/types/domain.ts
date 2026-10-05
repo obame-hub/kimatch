@@ -649,8 +649,8 @@ export interface Compte {
   logo_url?: string | null
   /** Le canal de la demande d'offre : MAIL, TRADEO, PLATEFORME ou GRILLE (05/10/2026 sur la fiche). */
   mode_reponse?: string | null
-  /** L'adresse de la plateforme du fournisseur, quand on y va chercher les prix. */
-  url_outil_consultation?: string | null
+  /** Au mode TRADEO : vrai si les prix reviennent par l'API Tradéo, faux par document (mail). */
+  tradeo_prix_automatiques?: boolean
   max_consumption?: number | null
   min_ellipro_score?: number | null
   max_ddf?: string | null

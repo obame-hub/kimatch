@@ -33,9 +33,12 @@ const CIBLES = ['Entreprise', 'Syndic professionnel', 'Syndic non professionnel'
 const TARIFS_GAZ = ['T1', 'T2', 'T3', 'T4', 'TP']
 const PROFILS_GAZ = ['P011', 'P012', 'P013', 'P014', 'P015', 'P016', 'P017', 'P018', 'P019']
 const SEGMENTS_ELEC = ['C1', 'C2', 'C3', 'C4', 'C5']
-const CANAUX = [
+/* L'outil de l'intermédiaire, et le canal selon l'outil : sur Tradeo, API ou mail ; sans outil,
+   mail, plateforme du fournisseur ou grille de prix. */
+const OUTILS = [{ value: 'TRADEO', label: 'Tradeo' }]
+const CANAUX_TRADEO = [{ value: 'API', label: 'API' }, { value: 'MAIL', label: 'Mail' }]
+const CANAUX_DIRECTS = [
   { value: 'MAIL', label: 'Mail' },
-  { value: 'TRADEO', label: 'Tradeo' },
   { value: 'PLATEFORME', label: 'Plateforme du fournisseur' },
   { value: 'GRILLE', label: 'Grille de prix' },
 ]
@@ -70,6 +73,7 @@ export function OngletPricingFournisseur({ compte, modifiable, onToast }: { comp
   const regle = (cle: string) => regles?.find((r) => r.rule_key === cle)
   /* Le partenariat suit le choix sans attendre la relecture : l'intermédiaire apparaît ou disparaît
      aussitôt. */
+  const tradeo = compte.mode_reponse === 'TRADEO'
   const [partenariat, setPartenariat] = useState(compte.partnership ?? '')
   useEffect(() => { setPartenariat(compte.partnership ?? '') }, [compte.partnership])
 
@@ -90,28 +94,48 @@ export function OngletPricingFournisseur({ compte, modifiable, onToast }: { comp
         À chaque version, Kimatch vérifie ces critères pour proposer — ou écarter — ce fournisseur. Sous chaque champ, la règle qui le lit et ce que vaut un champ vide.
       </p>
 
-      {/* ══ LE CANAL DE LA DEMANDE — William, 05/10/2026 ══
-          « Sur une fiche fournisseur, le canal est-il existant ? […] les demandes pour GAZ EUROPEEN se
-          font par mail, pour Primeo via la plateforme Tradeo. » Il existait (`mode_reponse`, 18/09)
-          et le Pricer s'en sert — mail et Tradeo partent dès la création, plateforme et grille le
-          jour J — mais il ne se voyait nulle part. */}
+      {/* ══ L'OUTIL ET LE CANAL DE LA DEMANDE — William, 05/10/2026 ══
+          « Tradeo c'est l'outil de l'intermédiaire Energix. Tous les fournisseurs d'Energix passent
+          par Tradeo, mais le canal peut différer : on peut avoir des demandes mail sur Tradeo, ou
+          des demandes API. » Rien de nouveau en base : l'outil est `mode_reponse = TRADEO`, le canal
+          sur Tradeo est `tradeo_prix_automatiques` (API ou mail) — les deux colonnes que lit le
+          Pricer Tradéo de Naoëlle, inchangé. Sans outil, le canal est `mode_reponse` lui-même. */}
       <Section titre="Demande d’offre">
-        <Champ libelle="Canal" note="Mail et Tradeo : la demande part dès la création de la version. Plateforme et grille : les prix se cherchent le jour de livraison souhaitée.">
+        <Champ libelle="Outil" note="L'outil de l'intermédiaire par lequel passe la demande — Tradeo pour Energix.">
           <InlineField
             variant="select"
             label=""
-            emptyLabel="non renseigné"
-            options={CANAUX}
-            value={compte.mode_reponse ?? ''}
+            emptyLabel="aucun"
+            options={OUTILS}
+            value={tradeo ? 'TRADEO' : ''}
             disabled={!modifiable}
-            onCommit={(v) => enregistrer({ mode_reponse: v || null }, `✓ Canal : ${CANAUX.find((c) => c.value === v)?.label ?? '—'}`)}
+            onCommit={(v) => {
+              const vers = v === 'TRADEO'
+              if (vers === tradeo) return Promise.resolve()
+              /* Sans outil, le canal repart sur le mail : l'API n'existe que par un outil. */
+              return enregistrer({ mode_reponse: vers ? 'TRADEO' : 'MAIL' }, vers ? '✓ Outil : Tradeo' : '✓ Sans outil · canal : Mail')
+            }}
             onSaved={() => undefined}
             onError={erreur}
           />
         </Champ>
-        <Champ libelle="Adresse de la plateforme" note="Là où l'on va chercher les prix, quand le fournisseur a sa propre plateforme.">
-          <InlineField variant="text" label="" emptyLabel="aucune" value={compte.url_outil_consultation ?? ''} disabled={!modifiable}
-            onCommit={(v) => enregistrer({ url_outil_consultation: v.trim() || null }, '✓ Adresse enregistrée')} onSaved={() => undefined} onError={erreur} />
+        <Champ libelle="Canal" note={tradeo
+          ? 'API : le Pricer va chercher les prix sur Tradeo. Mail : la proposition arrive en document, à déposer.'
+          : 'Mail : la demande part dès la création de la version. Plateforme et grille : les prix se cherchent le jour de livraison souhaitée.'}>
+          <InlineField
+            key={tradeo ? 'tradeo' : 'direct'}
+            variant="select"
+            label=""
+            emptyLabel="non renseigné"
+            options={tradeo ? CANAUX_TRADEO : CANAUX_DIRECTS}
+            value={tradeo ? (compte.tradeo_prix_automatiques === false ? 'MAIL' : 'API') : compte.mode_reponse ?? ''}
+            disabled={!modifiable}
+            onCommit={(v) => tradeo
+              ? enregistrer({ tradeo_prix_automatiques: v !== 'MAIL' }, `✓ Canal : ${v === 'MAIL' ? 'Mail' : 'API'}`)
+              : enregistrer({ mode_reponse: v || null }, `✓ Canal : ${CANAUX_DIRECTS.find((c) => c.value === v)?.label ?? '—'}`)}
+            onSaved={() => undefined}
+            onError={erreur}
+          />
         </Champ>
       </Section>
 
