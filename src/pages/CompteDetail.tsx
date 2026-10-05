@@ -26,6 +26,7 @@ import { DialogCreationOpportunite } from '@/pages/Opportunites'
 import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { InlineField } from '@/components/ui/inline-field'
 import { LogoFournisseur } from '@/components/compte/LogoFournisseur'
+import { OngletPricingFournisseur } from '@/components/compte/OngletPricingFournisseur'
 import { ExplicationCalcul } from '@/components/ui/explication-calcul'
 import {
   useCompte,
@@ -39,7 +40,6 @@ import {
   useDeleteCompte,
   findCompteBySiret,
   majConditionsFournisseur,
-  decouperCodes,
 } from '@/lib/data/comptes'
 import { useContactsParCompte } from '@/lib/data/contacts'
 import { useCompteursParCompte } from '@/lib/data/compteurs'
@@ -111,7 +111,7 @@ const AFFICHER_COMMENTAIRE: boolean = false
  */
 const AFFICHER_CONTRATS_ET_MANDATS: boolean = false
 
-type TabKey = 'synthese' | 'detail' | 'contacts' | 'contrats' | 'compteurs' | 'opportunites' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
+type TabKey = 'synthese' | 'detail' | 'pricing' | 'contacts' | 'contrats' | 'compteurs' | 'opportunites' | 'recommandations' | 'mandats' | 'fichiers' | 'historique' | 'activite'
 
 /* `copyToClipboard` est parti avec `InfoFieldKw`, son dernier appelant (22/09/2026). La copie
    n'est pas perdue pour autant : `InlineField`, qui prend la relève sur le SIRET et le SIREN,
@@ -403,6 +403,9 @@ export default function CompteDetail() {
        typologie se consultent une fois, à la prise en main du dossier ; ce qu'il y a à traiter se
        regarde chaque semaine. Les séparer met le travail devant. */
     { key: 'detail', label: 'Détail' },
+    /* L'ONGLET PRICING DES FOURNISSEURS — William, 05/10/2026 : les critères qui décident s'il est
+       consulté à chaque version (`OngletPricingFournisseur`). */
+    ...(compte?.type_compte === 'fournisseur' ? [{ key: 'pricing' as const, label: 'Pricing' }] : []),
     /* Les contacts sortent du volet gauche pour rejoindre les autres objets liés (Michel et
        Naoëlle, 31/08/2026). Ils occupaient 300 px en permanence sur les huit onglets, y compris
        ceux où l'on ne travaille pas sur les personnes. */
@@ -741,131 +744,14 @@ export default function CompteDetail() {
                         <p><span className="text-km-faint">Fournit :</span> {[compte.fournit_electricite && 'Électricité', compte.fournit_gaz && 'Gaz'].filter(Boolean).join(', ') || '—'}</p>
                         <p><span className="text-km-faint">Contact commercial :</span> {compte.contact_commercial_nom || '—'}</p>
                         <p><span className="text-km-faint">Statut partenariat :</span> <Badge tone="neutral">{compte.statut_partenariat || 'À qualifier'}</Badge></p>
-                        {/* LA NOTE ELLISPHERE MINIMALE : le critère qui écarte le plus souvent, et
-                            celui qui bouge le plus d'un document à l'autre. */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-km-faint">Limite Ellipro :</span>
-                          <InlineField
-                            variant="number"
-                            label=""
-                            emptyLabel="non renseignée"
-                            unit=""
-                            value={compte.limite_ellipro ?? null}
-                            disabled={!canManage}
-                            onCommit={(v) =>
-                              majConditionsFournisseur(compte.id, { min_ellipro_score: v })
-                                .then(() => showToast(v == null ? '✓ Limite Ellipro retirée' : `✓ Limite Ellipro : ${v}`))
-                            }
-                            onSaved={() => undefined}
-                            onError={(err) => showToast(`Erreur : ${err.message}`)}
-                          />
-                        </div>
-                        {/* ══ LES CONDITIONS QUI DÉCIDENT SI ON PEUT LE CONSULTER — 24/09/2026 ══
-                         *
-                         * Naoëlle : « il faut pouvoir modifier directement sur les fiches et pas
-                         * juste en base, des modifications de champs inline ».
-                         *
-                         * CE SONT LES SIX CRITÈRES DU MOTEUR D'ÉLIGIBILITÉ (`lib/eligibility.ts`) :
-                         * ils décident si le fournisseur est proposé au commercial pendant la
-                         * cotation. Ils vivaient en base sans être ni affichés ni modifiables — on
-                         * pouvait donc écarter un fournisseur pendant des semaines sans jamais voir
-                         * pourquoi, ni pouvoir le corriger.
-                         *
-                         * TOUS AFFICHÉS, MÊME VIDES, contrairement à la première version : un
-                         * critère absent n'est pas neutre, il ÉCARTE le fournisseur — le moteur dit
-                         * « ne gère pas les segments » quand la liste est vide. Le cacher reviendrait
-                         * à masquer la cause du refus. */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-km-faint">Profils électricité :</span>
-                          <InlineField
-                            variant="text"
-                            label=""
-                            emptyLabel="aucun"
-                            value={(compte.segments ?? []).join(', ')}
-                            disabled={!canManage}
-                            onCommit={(v) =>
-                              majConditionsFournisseur(compte.id, {
-                                segments: decouperCodes(v),
-                              }).then(() => showToast('✓ Profils électricité enregistrés'))
-                            }
-                            onSaved={() => undefined}
-                            onError={(err) => showToast(`Erreur : ${err.message}`)}
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-km-faint">Profils gaz :</span>
-                          <InlineField
-                            variant="text"
-                            label=""
-                            emptyLabel="aucun"
-                            value={(compte.tariffs ?? []).join(', ')}
-                            disabled={!canManage}
-                            onCommit={(v) =>
-                              majConditionsFournisseur(compte.id, {
-                                tariffs: decouperCodes(v),
-                              }).then(() => showToast('✓ Profils gaz enregistrés'))
-                            }
-                            onSaved={() => undefined}
-                            onError={(err) => showToast(`Erreur : ${err.message}`)}
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-km-faint">Type de client :</span>
-                          <InlineField
-                            variant="text"
-                            label=""
-                            emptyLabel="aucun"
-                            value={(compte.targets ?? []).join(', ')}
-                            disabled={!canManage}
-                            onCommit={(v) =>
-                              majConditionsFournisseur(compte.id, {
-                                /* LES CIBLES NE SONT PAS DES CODES : « Syndic professionnel » porte
-                                   une espace. On découpe donc sur la virgule seule. */
-                                targets: v.split(',').map((x) => x.trim()).filter(Boolean),
-                              }).then(() => showToast('✓ Types de client enregistrés'))
-                            }
-                            onSaved={() => undefined}
-                            onError={(err) => showToast(`Erreur : ${err.message}`)}
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-km-faint">Délai de réponse :</span>
-                          <InlineField
-                            variant="number"
-                            label=""
-                            emptyLabel="non renseigné"
-                            unit="j"
-                            value={compte.response_delay_days ?? null}
-                            disabled={!canManage}
-                            onCommit={(v) =>
-                              majConditionsFournisseur(compte.id, {
-                                response_delay_days: v,
-                              }).then(() =>
-                                showToast(v === 0 ? '✓ Délai : instantané' : `✓ Délai : ${v ?? '—'} jour(s)`),
-                              )
-                            }
-                            onSaved={() => undefined}
-                            onError={(err) => showToast(`Erreur : ${err.message}`)}
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-km-faint">Minimum annuel :</span>
-                          <InlineField
-                            variant="number"
-                            label=""
-                            emptyLabel="aucun"
-                            unit="MWh"
-                            value={compte.min_consumption ?? null}
-                            disabled={!canManage}
-                            onCommit={(v) =>
-                              majConditionsFournisseur(compte.id, {
-                                min_consumption: v,
-                              }).then(() => showToast(v == null ? '✓ Aucun minimum' : `✓ Minimum : ${v} MWh`))
-                            }
-                            onSaved={() => undefined}
-                            onError={(err) => showToast(`Erreur : ${err.message}`)}
-                          />
-                        </div>
+                        {/* ══ LES CRITÈRES D'ÉLIGIBILITÉ ONT LEUR ONGLET — William, 05/10/2026 ══
+                            Note Ellisphere, segments, tarifs, cibles, délai et consommation vivaient
+                            ici, six sur les douze que lit le moteur. Ils sont tous dans l'onglet
+                            Pricing, avec la règle qui les lit et ce que vaut un champ vide. */}
+                        <p className="text-km-faint">
+                          Critères d’éligibilité :{' '}
+                          <button type="button" onClick={() => setTab('pricing')} className="font-semibold text-km-green hover:underline">onglet Pricing</button>
+                        </p>
 
                         {/* ══ LA PRÉSENTATION DANS LA PROPOSITION COMMERCIALE — 30/09/2026 ══
                             William : « il va falloir qu'on travaille aussi sur notre base à bien
@@ -1266,6 +1152,10 @@ export default function CompteDetail() {
                 ))
               )}
             </div>
+          )}
+
+          {tab === 'pricing' && compte.type_compte === 'fournisseur' && (
+            <OngletPricingFournisseur compte={compte} modifiable={canManage} onToast={showToast} />
           )}
 
           {tab === 'fichiers' && (

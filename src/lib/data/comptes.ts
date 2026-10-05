@@ -657,6 +657,15 @@ export interface ConditionsFournisseur {
   clientele?: string | null
   tags?: string[]
   logo_url?: string | null
+  /* Les autres critères du moteur d'éligibilité, réunis dans l'onglet Pricing (05/10/2026). */
+  partnership?: string | null
+  intermediary?: string | null
+  energy_types?: string[]
+  profiles?: string[]
+  max_consumption?: number | null
+  max_ddf?: string | null
+  max_dff?: string | null
+  update_delay_days?: number | null
 }
 
 /**
