@@ -33,7 +33,11 @@ const ETAT_COMPTEUR = { NON_ENVOYE: 'pas encore envoyé', EN_ATTENTE: 'en attent
 export function BoutonTradeo({ chiffrage, lectures, onToast }: { chiffrage: Chiffrage; lectures: Lectures; onToast: (m: string) => void }) {
   const avecTradeo = fournisseursTradeo(chiffrage.commande).length > 0
   const qc = useQueryClient()
-  const cle = ['tradeo-pricer', chiffrage.version.id]
+  /* LA COMMANDE FAIT PARTIE DE LA CLÉ (05/10/2026) : Michel ajoute GEG, Ekwateur et Mint Energie à
+     une version ouverte, et le bouton gardait les fournisseurs lus avant l'ajout — ils n'étaient pas
+     interrogés. Un fournisseur ou une durée de plus relit l'état. */
+  const commandeTradeo = fournisseursTradeo(chiffrage.commande).map((f) => `${f.id}:${f.durees.join('-')}:${f.types.join('-')}`).join('|')
+  const cle = ['tradeo-pricer', chiffrage.version.id, commandeTradeo]
   const { data: etat, isFetching, error, refetch } = useQuery({
     queryKey: cle,
     enabled: avecTradeo,

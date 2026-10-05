@@ -110,3 +110,13 @@ describe('les lignes où une proposition peut s’écrire', () => {
     expect(lignesProposables(chiffrage, { fournisseur_nom: 'PRIMEO ENERGIE' } as never)).toHaveLength(4)
   })
 })
+
+describe('les noms Tradeo retrouvent les fiches Kimatch (réponses du 05/10/2026)', () => {
+  it.each([['Ekwateur', 'EKWATEUR'], ['mint-energie', 'MINT ENERGIE'], ['Total', 'TOTAL ENERGIES'], ['GEG', 'GEG'], ['Primeo', 'PRIMEO ENERGIE']])('%s → %s', (tradeo, kimatch) => {
+    expect(rapprocherFournisseur(tradeo, [{ nom: kimatch }])).not.toBeNull()
+  })
+  it('sans confondre deux fournisseurs', () => {
+    expect(rapprocherFournisseur('GEG', [{ nom: 'GEDIA' }])).toBeNull()
+    expect(rapprocherFournisseur('Total', [{ nom: 'EKWATEUR' }])).toBeNull()
+  })
+})
