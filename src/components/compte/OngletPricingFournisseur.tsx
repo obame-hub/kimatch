@@ -33,6 +33,12 @@ const CIBLES = ['Entreprise', 'Syndic professionnel', 'Syndic non professionnel'
 const TARIFS_GAZ = ['T1', 'T2', 'T3', 'T4', 'TP']
 const PROFILS_GAZ = ['P011', 'P012', 'P013', 'P014', 'P015', 'P016', 'P017', 'P018', 'P019']
 const SEGMENTS_ELEC = ['C1', 'C2', 'C3', 'C4', 'C5']
+const CANAUX = [
+  { value: 'MAIL', label: 'Mail' },
+  { value: 'TRADEO', label: 'Tradeo' },
+  { value: 'PLATEFORME', label: 'Plateforme du fournisseur' },
+  { value: 'GRILLE', label: 'Grille de prix' },
+]
 const PARTENARIATS = [
   { value: 'kiwee', label: 'Kiwee (en direct)' },
   { value: 'intermediaire', label: 'Intermédiaire' },
@@ -76,6 +82,31 @@ export function OngletPricingFournisseur({ compte, modifiable, onToast }: { comp
       <p className="text-[12.5px] leading-relaxed text-km-muted">
         À chaque version, Kimatch vérifie ces critères pour proposer — ou écarter — ce fournisseur. Sous chaque champ, la règle qui le lit et ce que vaut un champ vide.
       </p>
+
+      {/* ══ LE CANAL DE LA DEMANDE — William, 05/10/2026 ══
+          « Sur une fiche fournisseur, le canal est-il existant ? […] les demandes pour GAZ EUROPEEN se
+          font par mail, pour Primeo via la plateforme Tradeo. » Il existait (`mode_reponse`, 18/09)
+          et le Pricer s'en sert — mail et Tradeo partent dès la création, plateforme et grille le
+          jour J — mais il ne se voyait nulle part. */}
+      <Section titre="Demande d’offre">
+        <Champ libelle="Canal" note="Mail et Tradeo : la demande part dès la création de la version. Plateforme et grille : les prix se cherchent le jour de livraison souhaitée.">
+          <InlineField
+            variant="select"
+            label=""
+            emptyLabel="non renseigné"
+            options={CANAUX}
+            value={compte.mode_reponse ?? ''}
+            disabled={!modifiable}
+            onCommit={(v) => enregistrer({ mode_reponse: v || null }, `✓ Canal : ${CANAUX.find((c) => c.value === v)?.label ?? '—'}`)}
+            onSaved={() => undefined}
+            onError={erreur}
+          />
+        </Champ>
+        <Champ libelle="Adresse de la plateforme" note="Là où l'on va chercher les prix, quand le fournisseur a sa propre plateforme.">
+          <InlineField variant="text" label="" emptyLabel="aucune" value={compte.url_outil_consultation ?? ''} disabled={!modifiable}
+            onCommit={(v) => enregistrer({ url_outil_consultation: v.trim() || null }, '✓ Adresse enregistrée')} onSaved={() => undefined} onError={erreur} />
+        </Champ>
+      </Section>
 
       <Section titre="Partenariat et clients">
         <Champ libelle="Partenariat" regle={regle('partnership')} cle="partnership">

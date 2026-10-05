@@ -55,6 +55,9 @@ interface RawCompteFournisseur {
   tags?: string[] | null
   /** Le logo déposé pour la proposition commerciale (bucket « logos », 04/10/2026). */
   logo_url?: string | null
+  /** Le canal de la demande d'offre : MAIL, TRADEO, PLATEFORME, GRILLE (18/09/2026). */
+  mode_reponse?: string | null
+  url_outil_consultation?: string | null
 }
 
 interface RawComptePartenaire {
@@ -147,6 +150,8 @@ async function fetchComptes(compteId?: string): Promise<Compte[]> {
               clientele: fournisseur.clientele ?? null,
               tags_fournisseur: fournisseur.tags ?? [],
               logo_url: fournisseur.logo_url ?? null,
+              mode_reponse: fournisseur.mode_reponse ?? null,
+              url_outil_consultation: fournisseur.url_outil_consultation ?? null,
             }
           : {}),
         ...(partenaire
@@ -666,6 +671,8 @@ export interface ConditionsFournisseur {
   max_ddf?: string | null
   max_dff?: string | null
   update_delay_days?: number | null
+  mode_reponse?: string | null
+  url_outil_consultation?: string | null
 }
 
 /**

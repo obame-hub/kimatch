@@ -647,6 +647,10 @@ export interface Compte {
   tags_fournisseur?: string[]
   /** Le logo déposé pour la proposition commerciale (04/10/2026) ; à défaut, celui de Kimatch. */
   logo_url?: string | null
+  /** Le canal de la demande d'offre : MAIL, TRADEO, PLATEFORME ou GRILLE (05/10/2026 sur la fiche). */
+  mode_reponse?: string | null
+  /** L'adresse de la plateforme du fournisseur, quand on y va chercher les prix. */
+  url_outil_consultation?: string | null
   max_consumption?: number | null
   min_ellipro_score?: number | null
   max_ddf?: string | null
