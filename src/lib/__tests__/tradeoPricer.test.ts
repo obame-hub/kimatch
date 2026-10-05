@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { etapeTradeo, etatsDepuisDemandes, fournisseursTradeo, offreLueDepuisTradeo } from '@/lib/tradeo/pricer'
-import { lireOffresTradeo } from '@/lib/tradeo/prixUnitaires'
+import { lireOffresTradeo, rapprocherFournisseur } from '@/lib/tradeo/prixUnitaires'
 import { saisieDepuisLecture } from '@/lib/pricing/lectureOffre'
 import type { CommandeFournisseur, CompteurChiffrage } from '@/lib/data/chiffrage'
 
@@ -83,5 +83,19 @@ describe('offreLueDepuisTradeo', () => {
   it('rien sans prix d’énergie', () => {
     const o = lireOffresTradeo({ GI110001: { result: true, resultatFinal: { result: { GI110001: [{ fournisseur: 'Alpiq', success: true, abo: 40 }] } } } }).offres[0]
     expect(offreLueDepuisTradeo(o, true, 12)).toBeNull()
+  })
+
+  it('CEE « Non Soumis » (LA MARMOTTE GOURMANDE, 05/10/2026) : un prix de 0, pas une case vide', () => {
+    const o = lireOffresTradeo({ X: { result: true, resultatFinal: [{
+      fournisseur: 'Primeo', success: true, typeOffre: 'Fixe', typeCapa: 'Valeur', marge: 2, abo: 0,
+      lesPrix: { abo: 0, cee: 'Non Soumis', prixHph: 137.53, prixHce: 56.89, prixCapaHph: 4.1 },
+    }] } }).offres[0]
+    const lue = offreLueDepuisTradeo(o, false, 36)!
+    expect(lue.cee_mwh).toBe(0)
+    expect(lue.prix_postes_mwh).toMatchObject({ HPH: 137.53, HCE: 56.89 })
+  })
+
+  it('« Primeo » chez Tradeo est « PRIMEO ENERGIE » dans Kimatch', () => {
+    expect(rapprocherFournisseur('Primeo', [{ nom: 'PRIMEO ENERGIE' }])).not.toBeNull()
   })
 })

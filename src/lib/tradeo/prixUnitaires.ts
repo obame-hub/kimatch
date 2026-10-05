@@ -179,16 +179,23 @@ export function lireOffresTradeo(reponse: unknown): { offres: OffreTradeo[]; err
 
   for (const [num, bloc] of Object.entries(reponse as Record<string, unknown>)) {
     if (!bloc || typeof bloc !== 'object') continue
-    const b = bloc as { result?: unknown; message?: unknown; resultatFinal?: { result?: Record<string, unknown>; dataCta?: Record<string, unknown> } }
+    const b = bloc as { result?: unknown; message?: unknown; resultatFinal?: unknown[] | { result?: Record<string, unknown>; dataCta?: Record<string, unknown> } }
     if (b.result === false) {
       erreurs.push({ numCompteur: num, message: texte(b.message) ?? 'Tradeo a refusé ce compteur.' })
+      continue
+    }
+    /* LA LISTE EST DIRECTEMENT DANS `resultatFinal` — mesuré le 05/10/2026 sur un compteur accepté
+       (LA MARMOTTE GOURMANDE, élec C4) : la documentation v1.4 la range sous
+       `resultatFinal.result.<compteur>`, la réponse réelle non. On lit les deux. */
+    if (Array.isArray(b.resultatFinal)) {
+      for (const o of b.resultatFinal) if (o && typeof o === 'object') offres.push(lireOffre(num, o as Record<string, unknown>))
       continue
     }
     const parCompteur = b.resultatFinal?.result ?? {}
     for (const [numInterne, liste] of Object.entries(parCompteur)) {
       if (!Array.isArray(liste)) continue
       for (const o of liste) {
-        if (o && typeof o === 'object') offres.push(lireOffre(numInterne || num, o as Record<string, unknown>, b.resultatFinal?.dataCta))
+        if (o && typeof o === 'object') offres.push(lireOffre(numInterne || num, o as Record<string, unknown>, (b.resultatFinal as { dataCta?: Record<string, unknown> } | undefined)?.dataCta))
       }
     }
   }

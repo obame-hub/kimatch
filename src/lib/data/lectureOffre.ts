@@ -83,7 +83,7 @@ export function useLectures() {
       .then(({ propositions, manques }) => setLectures((l) => [
         ...propositions.map((proposition, i): Lecture => ({ id: `${id}-${i}`, nom: `${nom} · ${proposition.fournisseur_nom ?? ''}`, etat: 'prete', proposition })),
         ...(propositions.length === 0
-          ? [{ id, nom, etat: 'erreur' as const, erreur: manques.join(' · ') || 'Aucun prix rendu.' }]
+          ? [{ id, nom, etat: 'prete' as const, note: manques.join(' · ') || 'Aucun prix rendu.' }]
           : manques.length ? [{ id, nom: `${nom} · à savoir`, etat: 'prete' as const, note: manques.join(' · ') }] : []),
         ...l.filter((x) => x.id !== id),
       ]))

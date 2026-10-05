@@ -221,6 +221,14 @@ const CAPACITE_PAR_CHAMP: Record<string, string> = {
   prixCapaBase: 'BASE', prixCapaHp: 'HP', prixCapaHc: 'HC', prixCapaHph: 'HPH', prixCapaHch: 'HCH', prixCapaHpe: 'HPE', prixCapaHce: 'HCE', prixCapaPointe: 'POINTE',
 }
 const arrondi = (n: number) => Math.round(n * 10000) / 10000
+const fr = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR')
+
+/** « Non Soumis » : le client n'est pas soumis aux CEE (mesuré le 05/10/2026, toutes les offres
+ *  élec de LA MARMOTTE GOURMANDE) — c'est un prix de 0, pas une case vide. */
+function ceeNonSoumis(o: OffreTradeo): boolean {
+  const b = o.brut as { cee?: unknown; lesPrix?: { cee?: unknown } }
+  return [b.cee, b.lesPrix?.cee].some((v) => typeof v === 'string' && /non\s*soumis/i.test(v))
+}
 
 /**
  * Une offre Tradeo, telle qu'une proposition imprimée la donnerait : le prix MARGÉ (la marge de la
@@ -253,7 +261,7 @@ export function offreLueDepuisTradeo(o: OffreTradeo, gaz: boolean, dureeMois: nu
     abonnement_imprime: abo == null ? null : { montant: abo, periode: 'mois' },
     cee_classiques_mwh: null,
     cee_precarite_mwh: null,
-    cee_mwh: lu.prix.cee ?? null,
+    cee_mwh: lu.prix.cee ?? (ceeNonSoumis(o) ? 0 : null),
   }
 }
 
@@ -293,6 +301,7 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
   }
 
   const parDuree = new Map<number, OffreTradeo[]>()
+  const periodeDe = new Map<string, { debut: string; duree: number }[]>()
   const energieDe = new Map(acceptes.map((c) => [c.numero, c.energie]))
   for (const energie of ['ELEC', 'GAZ'] as const) {
     const lot = acceptes.filter((c) => (c.energie === 'gaz') === (energie === 'GAZ'))
@@ -319,6 +328,7 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
         const compteur: Record<string, unknown> = {}
         for (const [num, c] of Object.entries(parNum)) {
           const debut = debuts.get(sansEspace(num)) ?? dateDebutProposee(null, aujourdHui)
+          periodeDe.set(sansEspace(num), [...(periodeDe.get(sansEspace(num)) ?? []), { debut, duree }])
           compteur[num] = { id: c.id, marge: MARGE_APPEL_TRADEO, objetConsommation: { ...(c.objetConsommation ?? {}), dateDebut: debut, dateFin: dateFinPour(debut, duree) }, autreFournisseur: c.autreFournisseur ?? [] }
         }
         const calcul = await appelerBanc('calculer', { compteur })
@@ -331,12 +341,23 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
   }
 
   const propositions: PropositionLue[] = []
+  const refuses = new Set<string>()
   for (const f of interroges) {
     const offres: OffreLue[] = []
     let marge: number | null = null
     for (const duree of f.durees) {
       for (const o of parDuree.get(duree) ?? []) {
-        if (!o.succes || o.actuel || rapprocherFournisseur(o.fournisseur, [{ nom: f.nom }]) === null) continue
+        if (o.actuel || rapprocherFournisseur(o.fournisseur, [{ nom: f.nom }]) === null) continue
+        /* LE REFUS DU FOURNISSEUR, DANS SES MOTS. Le 05/10/2026 sur LA MARMOTTE GOURMANDE, Primeo et
+           Total refusaient une fourniture au 01/01/2028 (« date de fin en dehors des limites », « la
+           DDF maximum acceptée est 01/05/2027 ») ; l'écran disait seulement « aucun prix ». */
+        if (!o.succes) {
+          const p = periodeDe.get(sansEspace(o.numCompteur))?.find((x) => x.duree === duree)
+          const periode = p ? ` — fourniture demandée du ${fr(p.debut)} au ${fr(dateFinPour(p.debut, duree))}` : ''
+          manques.push(`${f.nom} ${duree} mois : non disponible (${o.message ?? 'sans raison donnée'})${periode}.`)
+          refuses.add(f.id)
+          continue
+        }
         if (o.sansPrixUnitaire) { manques.push(`${f.nom} ${duree} mois (${o.numCompteur}) : Tradeo rend un budget sans prix unitaire.`); continue }
         const lue = offreLueDepuisTradeo(o, energieDe.get(sansEspace(o.numCompteur)) === 'gaz', duree)
         if (!lue) continue
@@ -346,7 +367,7 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
         marge ??= prixSurLaDuree(o)?.marge ?? null
       }
     }
-    if (offres.length === 0) { manques.push(`${f.nom} : Tradeo ne rend aucun prix sur ${f.durees.join(', ')} mois.`); continue }
+    if (offres.length === 0) { if (!refuses.has(f.id)) manques.push(`${f.nom} : Tradeo ne rend aucun prix sur ${f.durees.join(', ')} mois.`); continue }
     const energie = offres.some((o) => energieDe.get(sansEspace(o.numero_point)) === 'gaz') ? 'gaz' : 'electricite'
     propositions.push({
       fournisseur_nom: f.nom,
