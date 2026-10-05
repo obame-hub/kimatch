@@ -42,7 +42,7 @@ export function logoInitiales(nom: string): string {
 
 const CLAUSES_GAZ: [keyof LigneOffrePdf['clauses'], string, boolean][] = [
   ['securise', 'Contrat sécurisé', true], ['depot', 'Dépôt de garantie', false], ['engagement', 'Engagement de conso.', false],
-  ['renegociation', 'Renégociation anticipée', true], ['swap', 'SWAP', true], ['tacite', 'Tacite reconduction', false],
+  ['renegociation', 'Renégociation anticipée', true], ['tacite', 'Tacite reconduction', false],
 ]
 const CLAUSES_ELEC: [keyof LigneOffrePdf['clauses'], string, boolean][] = [
   ['securise', 'Contrat sécurisé', true], ['depot', 'Dépôt de garantie', false], ['tacite', 'Tacite reconduction', false],

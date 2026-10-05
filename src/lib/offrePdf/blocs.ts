@@ -20,5 +20,7 @@ export function htmlBloc(complet: string, bloc: BlocOffre): string | null {
   const style = doc.querySelector('style')?.textContent ?? ''
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${style}
 html,body{background:transparent!important;overflow:hidden}body{padding:1px}</style></head>`
-    + `<body><div style="width:${LARGEUR_BLOC}px;font-variant-numeric:tabular-nums">${el.outerHTML}</div></body></html>`
+    /* La largeur suit le cadre (au moins celle de la page) : les colonnes du tableau s'étirent au lieu
+       que tout le texte grossisse — voir `ApercuBloc`. */
+    + `<body><div style="min-width:${LARGEUR_BLOC}px;font-variant-numeric:tabular-nums">${el.outerHTML}</div></body></html>`
 }

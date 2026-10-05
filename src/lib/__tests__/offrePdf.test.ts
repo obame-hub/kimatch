@@ -2,28 +2,29 @@ import { describe, expect, it } from 'vitest'
 import { scoreDesClauses } from '@/lib/offres/clauses'
 import { rendreGabarit } from '@/lib/offrePdf/rendu'
 import { ttcParDefaut } from '@/lib/offrePdf/construction'
-import { margesOptimisees } from '@/lib/offrePdf/margeOptimisee'
+import { margeSousReference, margesOptimisees } from '@/lib/offrePdf/margeOptimisee'
 import { tempsRestant } from '@/lib/data/validiteOffre'
 
 /* Les scores des deux maquettes de Claude Design (« Offre B v3 » gaz, « Offre Electricite ») : si la
    règle dérive, c'est ici que ça casse. */
 const sans = { depot_garantie: false, engagement_consommation: false, renegociation_anticipee: false, swap: false, tacite_reconduction: false }
 
-describe('score des clauses — gaz', () => {
-  /* Les clauses d'`offre-data.js` : [sécurisé, dépôt, engagement, renégociation, SWAP, tacite]. */
+describe('score des clauses — gaz (sans SWAP depuis le 05/10/2026)', () => {
+  /* [sécurisé, dépôt, engagement, renégociation, tacite] — base 65, le SWAP ne compte plus. */
   const cas: [string, number[], number, string][] = [
-    ['GME', [1, 0, 1, 1, 0, 0], 70, 'B'],
-    ['TotalEnergies', [1, 0, 0, 1, 1, 1], 95, 'A'],
-    ['Picoty', [0, 0, 0, 1, 1, 1], 65, 'C'],
-    ['Gaz Européen', [1, 1, 0, 0, 0, 0], 45, 'D'],
-    ['ENGIE', [1, 0, 1, 1, 1, 1], 85, 'A'],
+    ['sécurisé, engagement, renégociation', [1, 0, 1, 1, 0], 80, 'B'],
+    ['sécurisé, renégociation, tacite', [1, 0, 0, 1, 1], 85, 'A'],
+    ['indexé, renégociation, tacite', [0, 0, 0, 1, 1], 55, 'C'],
+    ['sécurisé, dépôt', [1, 1, 0, 0, 0], 55, 'C'],
+    ['sécurisé, engagement, renégociation, tacite', [1, 0, 1, 1, 1], 75, 'B'],
+    ['le meilleur contrat', [1, 0, 0, 1, 0], 90, 'A'],
   ]
-  it.each(cas)('%s', (_f, [sec, depot, engagement, reneg, swap, tacite], score, note) => {
-    const clauses = { depot_garantie: !!depot, engagement_consommation: !!engagement, renegociation_anticipee: !!reneg, swap: !!swap, tacite_reconduction: !!tacite }
+  it.each(cas)('%s', (_f, [sec, depot, engagement, reneg, tacite], score, note) => {
+    const clauses = { depot_garantie: !!depot, engagement_consommation: !!engagement, renegociation_anticipee: !!reneg, swap: true, tacite_reconduction: !!tacite }
     expect(scoreDesClauses(clauses, sec ? 'Fixe' : 'Indexé PEG', 'gaz')).toEqual({ score, note })
   })
-  it('pénalise un prix non sécurisé et borne à 0', () => {
-    expect(scoreDesClauses({ ...sans, depot_garantie: true, engagement_consommation: true, tacite_reconduction: true }, 'Indexé', 'gaz')).toEqual({ score: 0, note: 'E' })
+  it('pénalise un prix non sécurisé', () => {
+    expect(scoreDesClauses({ ...sans, depot_garantie: true, engagement_consommation: true, tacite_reconduction: true }, 'Indexé', 'gaz')).toEqual({ score: 10, note: 'E' })
   })
 })
 
@@ -92,5 +93,18 @@ describe('validité de la proposition', () => {
     expect(tempsRestant((5 * 60 + 7) * 60_000)).toBe('5 h 07 min')
     expect(tempsRestant(12 * 60_000)).toBe('12 min')
     expect(tempsRestant(-5)).toBe('0 min')
+  })
+})
+
+describe('marge sous la référence', () => {
+  const budget = (id: string, marge: number) => 100 * ((id === 'a' ? 40 : 52) + marge)
+  it('monte la marge jusqu’à l’économie visée', () => {
+    const r = margeSousReference({ id: 'a', marge: 3 }, budget, 5000, 0.01)
+    expect(r).toEqual({ marge: 9.5, atteinte: true })
+    expect(budget('a', r.marge)).toBeLessThanOrEqual(4950)
+  })
+  it('la descend, sans passer sous zéro', () => {
+    expect(margeSousReference({ id: 'b', marge: 3 }, budget, 5000, 0.01)).toEqual({ marge: 0, atteinte: false })
+    expect(margeSousReference({ id: 'b', marge: 3 }, budget, 5300, 0.01).marge).toBe(0.47)
   })
 })

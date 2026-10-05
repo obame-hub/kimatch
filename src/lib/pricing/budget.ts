@@ -45,7 +45,9 @@ export interface CommunsGaz { car: number | null; tqd: number | null; accise: nu
  * est inclus dans le calcul final, de peur de calculer deux fois une même composante. » Rien par défaut.
  */
 export type ComposanteIncluse = 'CEE' | 'TQD' | 'CPB' | 'ACCISE' | 'CAPACITE'
-export const INCLUSIONS_GAZ: ComposanteIncluse[] = ['CEE', 'TQD', 'CPB', 'ACCISE']
+/* Sans l'accise au gaz — William, 05/10/2026 : « le "+" dans le P0 en gaz ne doit pas proposer
+   "Accise" ». Aucune offre ne l'avait cochée ; le calcul la sait toujours retirer, le cas échéant. */
+export const INCLUSIONS_GAZ: ComposanteIncluse[] = ['CEE', 'TQD', 'CPB']
 export const INCLUSIONS_ELEC: ComposanteIncluse[] = ['CEE', 'CAPACITE']
 export const LIBELLE_INCLUSION: Record<ComposanteIncluse, string> = { CEE: 'CEE', TQD: 'TQD', CPB: 'CPB', ACCISE: 'Accise', CAPACITE: 'Capacité' }
 

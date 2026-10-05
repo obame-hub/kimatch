@@ -20,7 +20,7 @@ import logoKiwee from '@/assets/logo-kiwee.svg?raw'
  * Provenances (William, 04/10/2026) :
  *   consultant   le propriétaire de la recommandation (nom, e-mail, téléphone — `profils.telephone`)
  *   client       le compte de la recommandation (nom, adresse)
- *   contact      le contact principal de la recommandation (à défaut, celui de la version)
+ *   contact      le contact signataire de la recommandation (à défaut le principal, puis celui de la version)
  *   page 3       la fiche de chaque fournisseur (`comptes_fournisseurs`), son logo s'il en a un
  */
 
@@ -71,12 +71,15 @@ export async function logoPourImpression(url: string | null | undefined): Promis
 export async function chargerContexteOffre(versionId: string, fournisseurIds: string[], compteurId: string): Promise<ContexteOffre> {
   const { data: v, error } = await supabase
     .from('versions_recommandation')
-    .select('id, contact_id, reference_appel_offres, reco:recommandations(id, reference, compte_id, contact_principal_id, proprietaire_id, responsable_profil_id)')
+    .select('id, contact_id, reference_appel_offres, reco:recommandations(id, reference, compte_id, contact_principal_id, contact_signataire_id, proprietaire_id, responsable_profil_id)')
     .eq('id', versionId)
     .single()
   if (error) throw new Error(error.message)
   const reco = premier((v as any).reco)
-  const contactId = reco?.contact_principal_id ?? (v as any).contact_id ?? null
+  /* LE CONTACT DE LA RECOMMANDATION EST SON SIGNATAIRE — William, 05/10/2026 : sur ERIMMO, Eddy
+     ROCHEREAU manquait au PDF. Le « contact principal » n'est renseigné que sur 1 recommandation sur
+     1 828, le signataire sur 1 704 : c'est lui que la fiche montre, c'est lui que la proposition nomme. */
+  const contactId = reco?.contact_signataire_id ?? reco?.contact_principal_id ?? (v as any).contact_id ?? null
   const consultantId = reco?.proprietaire_id ?? reco?.responsable_profil_id ?? null
 
   const [compte, contact, consultant, fiches, compteur] = await Promise.all([

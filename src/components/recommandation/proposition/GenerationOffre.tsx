@@ -1,16 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ArrowLeft, ArrowRight, Check, Crown, Download, Loader2, Minus, Plus, RotateCcw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { budgetLigne, useChiffrage, useChiffrageMutations, type OffreChiffrage } from '@/lib/data/chiffrage'
 import { useContexteOffre, useRessourcesOffre, imprimerOffrePdf } from '@/lib/data/offrePdf'
 import { useTeleverserDocuments } from '@/lib/data/documents'
 import { useOuvrirEmail } from '@/lib/voletEmail'
+import { nomJourFerieFR } from '@/lib/joursFeries'
 import { enregistrerValiditeOffre } from '@/lib/data/validiteOffre'
 import {
   avecMarges, construireOffrePdf, ligneActuelle, lignesPresentables, NB_OFFRES_PROPOSITION, raisonIndisponible, ttcParDefaut,
 } from '@/lib/offrePdf/construction'
 import { htmlOffre } from '@/lib/offrePdf/document'
-import { margesOptimisees } from '@/lib/offrePdf/margeOptimisee'
+import { margeSousReference, margesOptimisees } from '@/lib/offrePdf/margeOptimisee'
 import { logoInitiales } from '@/lib/offrePdf/vue'
 import type { LigneOffrePdf } from '@/lib/offrePdf/types'
 import { Champ, ConfirmationSortie, SAISIE, Segments, useSortieParcours } from '@/components/parcours/Parcours'
@@ -88,17 +89,27 @@ export function GenerationOffre({
   const [etape, setEtape] = useState<1 | 2>(1)
   const [mode, setMode] = useState<'perso' | 'optimisee'>('perso')
   const [enTete, setEnTete] = useState<string | null>(null)
+  /* Les deux objectifs de la marge optimisée (William, 05/10/2026) : la plus intéressante des offres
+     proposées, ou plus intéressante que l'offre de référence — d'une économie visée, 1 % par défaut. */
+  const [objectif, setObjectif] = useState<'tete' | 'reference'>('tete')
+  const [economieTxt, setEconomieTxt] = useState('1')
+  const [alerteOptim, setAlerteOptim] = useState<string | null>(null)
   const [ttcChoisi, setTtc] = useState<boolean | null>(ttcInitial)
   const ttc = ttcChoisi ?? ttcParDefaut(contexte.data?.clientSegment)
   const [clauses, setClauses] = useState(true)
+  /* LES PRIX NE VALENT QUE LA JOURNÉE : par défaut, aujourd'hui à 18 h — ou le prochain jour ouvré
+     passé 17 h. La validité n'est plus portée par les offres (William, 05/10/2026 : « c'est la
+     proposition complète » qui est valable) ; elle se règle ici. */
   const validiteDefaut = useMemo(() => {
-    const dates = (chiffrage?.offres ?? []).filter((o) => o.statut === 'DISPONIBLE' && o.validite).map((o) => o.validite!.slice(0, 10)).sort()
-    if (dates[0]) return `${dates[0]}T18:00`
-    const demain = new Date()
-    demain.setDate(demain.getDate() + 1)
-    demain.setHours(18, 0, 0, 0)
-    return localIso(demain)
-  }, [chiffrage])
+    const d = new Date()
+    const ouvre = (x: Date) => x.getDay() !== 0 && x.getDay() !== 6 && !nomJourFerieFR(x)
+    if (d.getHours() >= 17 || !ouvre(d)) {
+      do d.setDate(d.getDate() + 1)
+      while (!ouvre(d))
+    }
+    d.setHours(18, 0, 0, 0)
+    return localIso(d)
+  }, [])
   const [validiteChoisie, setValidite] = useState<string | null>(null)
   const validite = validiteChoisie ?? validiteDefaut
   const [enCours, setEnCours] = useState(false)
@@ -125,18 +136,29 @@ export function GenerationOffre({
 
   const changer = (id: string, valeur: number) => setBrouillon((b) => ({ ...b, [id]: Math.max(0, Math.round(valeur * 100) / 100) }))
   /* L'optimisation part toujours des marges enregistrées : rechoisir un fournisseur ne cumule pas. */
-  function mettreEnTete(id: string) {
+  function optimiser(id: string, but = objectif, economieSaisie = economieTxt) {
     if (!k || !chiffrage) return
     setEnTete(id)
-    const eligibles = lignes.map((l) => offreDe(l.id)).filter((o): o is OffreChiffrage => !!o)
+    setAlerteOptim(null)
     const budget = (oid: string, m: number) => {
       const o = offreDe(oid)
       const s = o?.saisies[vc]
       return o && s ? budgetLigne(k, { ...s, marge: m }, o.duree)?.total ?? 0 : 0
     }
+    if (but === 'reference') {
+      /* SOUS LA RÉFÉRENCE : seule l'offre choisie bouge ; les autres reprennent leur marge. */
+      const reference = actuelle?.totalHt
+      if (!reference) { setAlerteOptim('Pas d’offre de référence sur cette version : rien à battre.'); return }
+      const economie = Math.max(0, Math.min(50, Number(economieSaisie.replace(',', '.')) || 0)) / 100
+      const r = margeSousReference({ id, marge: enregistrees[id] ?? 0 }, budget, reference, economie)
+      setBrouillon({ [id]: r.marge })
+      if (!r.atteinte) setAlerteOptim(`Même sans marge, ${offreDe(id)?.fournisseurNom ?? 'cette offre'} ne fait pas ${economieSaisie} % d’économie sur l’offre de référence.`)
+      return
+    }
+    const eligibles = lignes.map((l) => offreDe(l.id)).filter((o): o is OffreChiffrage => !!o)
     setBrouillon(margesOptimisees(eligibles.map((o) => ({ id: o.id, marge: enregistrees[o.id] ?? 0 })), id, budget))
   }
-  const revenirAuPricing = () => { setBrouillon(duPricing); setEnTete(null) }
+  const revenirAuPricing = () => { setBrouillon(duPricing); setEnTete(null); setAlerteOptim(null) }
 
   const html = useMemo(() => {
     if (!chiffrageBrouillon || !contexte.data || !ressources.data || raison) return null
@@ -228,19 +250,51 @@ export function GenerationOffre({
               <Segments
                 valeur={mode}
                 obligatoire
-                onChoisir={(v) => { setMode(v as 'perso' | 'optimisee'); if (v === 'perso') setEnTete(null) }}
+                onChoisir={(v) => { setMode(v as 'perso' | 'optimisee'); if (v === 'perso') { setEnTete(null); setAlerteOptim(null) } }}
                 options={[{ valeur: 'perso', libelle: 'Marge personnalisée' }, { valeur: 'optimisee', libelle: 'Marge optimisée' }]}
               />
             </div>
             <span className="min-w-0 flex-1 text-[12px] text-km-muted">
               {mode === 'perso'
                 ? 'Ajustez la marge offre par offre : prix et budgets suivent en direct.'
-                : 'Choisissez le fournisseur à placer en tête : les offres moins chères remontent juste derrière lui, par petites touches.'}
+                : objectif === 'tete'
+                  ? 'Choisissez le fournisseur à placer en tête : les offres moins chères remontent juste derrière lui, par petites touches.'
+                  : 'Choisissez l’offre : sa marge monte au plus haut qui laisse au client l’économie visée sur l’offre de référence.'}
             </span>
             {Object.keys(brouillon).length > 0 && (
               <button type="button" onClick={revenirAuPricing} className="inline-flex h-7 items-center gap-1 rounded-km border border-km-line bg-white px-2.5 text-[11px] font-medium text-km-muted hover:bg-km-soft">
                 <RotateCcw className="h-3 w-3" /> Marges du pricing
               </button>
+            )}
+            {mode === 'optimisee' && (
+              <div className="flex w-full flex-wrap items-center gap-3">
+                <div className="w-[400px]">
+                  <Segments
+                    valeur={objectif}
+                    obligatoire
+                    onChoisir={(v) => { const b = v as 'tete' | 'reference'; setObjectif(b); if (enTete) optimiser(enTete, b) }}
+                    options={[
+                      { valeur: 'tete', libelle: 'La plus intéressante des offres' },
+                      { valeur: 'reference', libelle: 'Plus intéressante que la référence', titre: actuelle ? undefined : 'Pas d’offre de référence sur cette version' },
+                    ]}
+                  />
+                </div>
+                {objectif === 'reference' && (
+                  <label className="flex items-center gap-1.5 text-[12px] text-km-muted">
+                    Économie visée
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={economieTxt}
+                      onChange={(e) => { setEconomieTxt(e.target.value); if (enTete) optimiser(enTete, 'reference', e.target.value) }}
+                      aria-label="Économie visée sur l’offre de référence, en %"
+                      className="h-7 w-[52px] rounded-km-sm border border-km-line bg-white text-center font-mono text-[12.5px] font-bold outline-none focus:border-km-green"
+                    />
+                    %
+                  </label>
+                )}
+                {alerteOptim && <span className="text-[12px] font-semibold text-km-amber">{alerteOptim}</span>}
+              </div>
             )}
             <div className="flex gap-[2px] rounded-[9px] border border-km-line bg-km-soft p-[3px]">
               {([[false, 'HTVA'], [true, 'TTC']] as const).map(([v, libelle]) => (
@@ -263,7 +317,8 @@ export function GenerationOffre({
             volume={volume}
             total={total}
             onMarge={changer}
-            onEnTete={mettreEnTete}
+            onEnTete={(id) => optimiser(id)}
+            titreChoix={objectif === 'tete' ? 'en tête' : 'sous la référence'}
           />
 
           <div className="flex items-center justify-end gap-2 border-t border-km-line-soft pt-3">
@@ -306,7 +361,7 @@ export function GenerationOffre({
           <div className="h-[560px] min-w-0 flex-1 overflow-y-auto overflow-x-hidden rounded-km border border-km-line bg-[#f2f3ee]">
             {apercu && (
               <div style={{ width: LARGEUR_PAGE * ECHELLE, height: hauteurApercu * ECHELLE }} className="mx-auto">
-                <iframe title="Aperçu de l’offre" srcDoc={apercu} sandbox="" scrolling="no" style={{ width: LARGEUR_PAGE + 32, height: hauteurApercu, transform: `scale(${ECHELLE})`, transformOrigin: '0 0', marginLeft: -16 * ECHELLE, border: 0 }} />
+                <ApercuDocument html={apercu} style={{ width: LARGEUR_PAGE + 32, height: hauteurApercu, transform: `scale(${ECHELLE})`, transformOrigin: '0 0', marginLeft: -16 * ECHELLE, border: 0 }} />
               </div>
             )}
           </div>
@@ -320,7 +375,7 @@ export function GenerationOffre({
 /* ════════════════════════════════════════════════════════════════════════════════════════════════ */
 
 function TableauMarges({
-  lignes, actuelle, gaz, ttc, mode, enTete, marges, duPricing, enregistrees, p0De, volume, total, onMarge, onEnTete,
+  lignes, actuelle, gaz, ttc, mode, enTete, marges, duPricing, enregistrees, p0De, volume, total, onMarge, onEnTete, titreChoix,
 }: {
   lignes: LigneOffrePdf[]
   actuelle: LigneOffrePdf | null
@@ -336,6 +391,7 @@ function TableauMarges({
   total: (l: LigneOffrePdf) => number
   onMarge: (id: string, v: number) => void
   onEnTete: (id: string) => void
+  titreChoix: string
 }) {
   /* Les postes qu'on montre en électricité : ceux qui portent un prix. */
   const postes = gaz ? [] : POSTES.filter((p) => lignes.some((l) => l.unitaires.postes?.[p] != null))
@@ -394,7 +450,7 @@ function TableauMarges({
                   type="button"
                   onClick={() => onEnTete(l.id)}
                   aria-pressed={enTete === l.id}
-                  title={`Placer ${l.fournisseur} en tête`}
+                  title={`Placer ${l.fournisseur} ${titreChoix}`}
                   className={cn('flex h-[26px] w-[26px] items-center justify-center rounded-full border transition', enTete === l.id ? 'border-km-green bg-km-green text-white' : 'border-km-line text-km-faint hover:border-km-green hover:text-km-green')}
                 >
                   <Crown className="h-3.5 w-3.5" />
@@ -473,6 +529,29 @@ function ChampMarge({ valeur, modifiee, libelle, onChange }: { valeur: number; m
       onBlur={() => setSaisie(null)}
       aria-label={libelle}
       className={cn('h-6 w-[58px] rounded-km-sm border bg-white text-center font-mono text-[12.5px] font-bold outline-none focus:border-km-green', modifiee ? 'border-km-amber text-km-amber' : 'border-km-line text-km-text')}
+    />
+  )
+}
+
+/** L'aperçu du PDF : chargé une fois, puis mis à jour sur place — sans flash quand une option change. */
+function ApercuDocument({ html, style }: { html: string; style: CSSProperties }) {
+  const cadre = useRef<HTMLIFrameElement>(null)
+  const [premier] = useState(html)
+  const charge = useRef(false)
+  const injecter = (h: string) => {
+    const doc = cadre.current?.contentDocument
+    if (doc?.body) doc.body.innerHTML = new DOMParser().parseFromString(h, 'text/html').body.innerHTML
+  }
+  useEffect(() => { if (charge.current) injecter(html) }, [html])
+  return (
+    <iframe
+      ref={cadre}
+      title="Aperçu de l’offre"
+      srcDoc={premier}
+      sandbox="allow-same-origin"
+      scrolling="no"
+      onLoad={() => { charge.current = true; if (html !== premier) injecter(html) }}
+      style={style}
     />
   )
 }

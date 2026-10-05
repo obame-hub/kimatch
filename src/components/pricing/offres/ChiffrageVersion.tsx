@@ -9,10 +9,11 @@ import { FenetreApercu } from '@/components/document/FenetreApercu'
 import { CategorieDocument } from '@/components/document/CategorieDocument'
 import type { DocumentItem } from '@/types/domain'
 import { estLisible, useLectures, type Lectures } from '@/lib/data/lectureOffre'
-import { depuisSaisieLocale, versSaisieLocale } from '@/lib/pricing/lectureOffre'
 import { VoletLectures } from '@/components/pricing/offres/LecturesPropositions'
 import { BoutonTradeo } from '@/components/pricing/offres/BoutonTradeo'
 import { BudgetCliquable } from '@/components/pricing/offres/DetailCalcul'
+import { ttcParDefaut } from '@/lib/offrePdf/construction'
+import { logoFournisseurNet } from '@/lib/logosFournisseurs'
 import {
   SAISIE_VIDE, budgetLigne, saisieComplete, useChiffrage, useChiffrageMutations,
   type Chiffrage, type CompteurChiffrage, type OffreChiffrage, type SaisieLigne,
@@ -147,9 +148,12 @@ export function ChiffrageVersion({ versionId, onToast }: { versionId: string; on
   const depot = useDepot(versionId, onToast, lectures)
   const [vcId, setVcId] = useState<string | null>(null)
   const [survol, setSurvol] = useState(false)
-  /* HTVA ou TTC : un seul choix pour tout le tableau, gardé d'un compteur à l'autre. */
-  const [ttc, setTtc] = useState(false)
-  useEffect(() => { setVcId(null) }, [versionId])
+  /* HTVA ou TTC : un seul choix pour tout le tableau, gardé d'un compteur à l'autre. PAR DÉFAUT,
+     CELUI DU COMPTE — William, 05/10/2026 : « la même logique HTVA et TTC en fonction du type de
+     compte que pour la génération de l'offre » : TTC pour un syndic, HTVA pour une entreprise. */
+  const [ttcChoisi, setTtc] = useState<boolean | null>(null)
+  const ttc = ttcChoisi ?? ttcParDefaut(chiffrage?.version.compteSegment)
+  useEffect(() => { setVcId(null); setTtc(null) }, [versionId])
 
   if (isLoading) return <Cadre><p className="p-6 text-km-body text-km-faint">Chargement de la version…</p></Cadre>
   if (error || !chiffrage) return <Cadre><p className="p-6 text-km-body text-km-red">Impossible de charger la version : {String((error as Error)?.message ?? 'introuvable')}</p></Cadre>
@@ -401,16 +405,14 @@ function MiniAvancement({ fait, total }: { fait: number; total: number }) {
  */
 function AvancementGlobal({ chiffrage }: { chiffrage: Chiffrage }) {
   const offres = chiffrage.offres.filter((o) => !estIndexe(o.type))
-  const complete = (o: OffreChiffrage) => chiffrage.compteurs.every((c) => saisieComplete(c, o.saisies[c.vcId]))
+  /* Plus d'état « à confirmer » (05/10/2026) : une offre chiffrée est validée d'elle-même. */
   const pretes = offres.filter((o) => o.statut === 'DISPONIBLE').length
   const indispo = offres.filter((o) => o.statut === 'INDISPONIBLE').length
-  const aConfirmer = offres.filter((o) => o.statut === 'EN_ATTENTE' && complete(o)).length
   const total = offres.length
   const segments: [number, string, string][] = [
-    [pretes, 'bg-km-green', `${pretes} prête${pretes > 1 ? 's' : ''}`],
+    [pretes, 'bg-km-green', `${pretes} chiffrée${pretes > 1 ? 's' : ''}`],
     [indispo, 'bg-km-red/45', `${indispo} indisponible${indispo > 1 ? 's' : ''}`],
-    [aConfirmer, 'bg-km-green/35', `${aConfirmer} à confirmer`],
-    [total - pretes - indispo - aConfirmer, 'bg-km-line', `${total - pretes - indispo - aConfirmer} à chiffrer`],
+    [total - pretes - indispo, 'bg-km-line', `${total - pretes - indispo} à chiffrer`],
   ]
   return (
     <span className="flex shrink-0 items-center gap-2" title={segments.map((x) => x[2]).join(' · ')}>
@@ -697,10 +699,9 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
   const publiables = chiffrage.offres.filter((o) => !estIndexe(o.type))
   const completePartout = (o: OffreChiffrage) => chiffrage.compteurs.every((c) => saisieComplete(c, o.saisies[c.vcId]))
   const aChiffrer = publiables.filter((o) => o.statut === 'EN_ATTENTE' && !completePartout(o)).length
-  const aConfirmer = publiables.filter((o) => o.statut === 'EN_ATTENTE' && completePartout(o)).length
   const sansComparatif = chiffrage.version.sansComparatif
   const actuelleOk = sansComparatif || (!!chiffrage.actuelle && chiffrage.compteurs.every((c) => saisieComplete(c, chiffrage.actuelle!.saisies[c.vcId])))
-  const pret = aChiffrer === 0 && aConfirmer === 0 && actuelleOk && publiables.some((o) => o.statut === 'DISPONIBLE')
+  const pret = aChiffrer === 0 && actuelleOk && publiables.some((o) => o.statut === 'DISPONIBLE')
   const publiee = !!chiffrage.version.publieeLe
   const meilleur = classees[0]
   const vMeilleur = valeurDe(meilleur)
@@ -740,7 +741,7 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
               const prets = grp.offres.filter((o) => o.statut !== 'EN_ATTENTE').length
               return (
                 <div key={grp.nom + gi} role="group" aria-label={grp.nom} className="overflow-hidden rounded-[12px] border border-km-line bg-white shadow-[0_1px_2px_rgba(25,40,33,.04)]">
-                  <BandeFournisseur nom={grp.nom} rang={gi} source={fournisseur?.modeReponse ?? null} detail={`${grp.offres.length} offre${grp.offres.length > 1 ? 's' : ''}`} avancement={[prets, grp.offres.length]} />
+                  <BandeFournisseur nom={grp.nom} logo={grp.offres[0].fournisseurLogo || logoFournisseurNet(grp.nom)} rang={gi} source={fournisseur?.modeReponse ?? null} detail={`${grp.offres.length} offre${grp.offres.length > 1 ? 's' : ''}`} avancement={[prets, grp.offres.length]} />
                   {grp.offres.map((o, i) => (
                     <LigneOffre
                       key={o.id}
@@ -752,12 +753,12 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
                       enregistrer={(saisie) => m.enregistrerLigne.mutateAsync({ offre: o, compteur, saisie }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
                       changerStatut={(statut) => m.changerStatut.mutateAsync({ offreId: o.id, statut }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
                       changerClauses={(clauses) => m.majClauses.mutateAsync({ offreId: o.id, clauses }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
-                      changerValidite={(validite) => m.majValidite.mutateAsync({ offreId: o.id, validite }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
                     />
                   ))}
                 </div>
               )
             })}
+            {!publiee && chiffrage.optimisationId && <AjouterOffre chiffrage={chiffrage} versionId={versionId} onToast={onToast} />}
           </div>
         </div>
       </div>
@@ -783,7 +784,6 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
         <span className="flex-1" />
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Condition ok={aChiffrer === 0} texte={aChiffrer === 0 ? 'Tout est chiffré' : `${aChiffrer} à chiffrer`} />
-          <Condition ok={aConfirmer === 0} texte={aConfirmer === 0 ? 'Rien à confirmer' : `${aConfirmer} à confirmer`} />
           <Condition ok={actuelleOk} texte={sansComparatif ? 'Sans comparatif' : actuelleOk ? 'Référence saisie' : 'Référence à saisir'} />
         </span>
         <button
@@ -871,14 +871,22 @@ function EnTeteTableau({ g, ttc, setTtc }: { g: Grille; ttc: boolean; setTtc: (v
 }
 
 /** La bande qui ouvre la carte d'un fournisseur. */
-function BandeFournisseur({ nom, rang, source, detail, avancement }: { nom: string; rang: number; source?: string | null; detail?: string; avancement?: [number, number] }) {
+function BandeFournisseur({ nom, logo, rang, source, detail, avancement }: { nom: string; logo?: string | null; rang: number; source?: string | null; detail?: string; avancement?: [number, number] }) {
   const [libelleSource, classesSource] = SOURCES[source ?? ''] ?? ['', '']
   const [fond, encre] = LOGOS[rang % LOGOS.length]
   return (
     <div className="flex min-h-[34px] items-center gap-2.5 border-b border-km-line-soft px-3 py-1">
-      <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] text-[11px] font-extrabold" style={{ background: fond, color: encre }} aria-hidden="true">
-        {nom.trim().charAt(0).toUpperCase()}
-      </span>
+      {/* LE LOGO QUAND LE FOURNISSEUR EN A UN (William, 05/10/2026) — celui de sa fiche, sinon celui
+          que Kimatch connaît ; à défaut, la pastille d'initiale. */}
+      {logo ? (
+        <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center overflow-hidden rounded-[7px] border border-km-line-soft bg-white" aria-hidden="true">
+          <img src={logo} alt="" className="h-[18px] w-[18px] object-contain" />
+        </span>
+      ) : (
+        <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] text-[11px] font-extrabold" style={{ background: fond, color: encre }} aria-hidden="true">
+          {nom.trim().charAt(0).toUpperCase()}
+        </span>
+      )}
       <span className="min-w-0 truncate text-[13px] font-extrabold text-km-text">{nom}</span>
       {libelleSource && <span className={cn('shrink-0 rounded-full border px-1.5 text-[9px] font-extrabold leading-[15px] tracking-[.03em]', classesSource)}>{libelleSource}</span>}
       {detail && <span className="shrink-0 text-[11px] text-km-faint">{detail}</span>}
@@ -1127,7 +1135,7 @@ function Etoile() {
   )
 }
 
-function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActuel, ttc, g, enregistrer, changerStatut, changerClauses, changerValidite }: PropsLigne & {
+function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActuel, ttc, g, enregistrer, changerStatut, changerClauses }: PropsLigne & {
   offre: OffreChiffrage
   chiffrage: Chiffrage
   premiere: boolean
@@ -1135,14 +1143,26 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
   enregistrer: (s: SaisieLigne) => Promise<unknown>
   changerStatut: (s: 'EN_ATTENTE' | 'DISPONIBLE' | 'INDISPONIBLE') => Promise<unknown>
   changerClauses: (c: OffreChiffrage['clauses']) => Promise<unknown>
-  changerValidite: (v: string | null) => Promise<unknown>
 }) {
   const brouillon = useBrouillon(offre.saisies[compteur.vcId], g.postes)
   const saisie = brouillon.saisie
   const indexe = estIndexe(offre.type)
   const indispo = offre.statut === 'INDISPONIBLE'
-  const complete = chiffrage.compteurs.every((c) => saisieComplete(c, c.vcId === compteur.vcId ? saisie : offre.saisies[c.vcId]))
   const quitter = () => { if (brouillon.estModifie()) void enregistrer(brouillon.lu()) }
+  /* ══ LA LIGNE SE VALIDE TOUTE SEULE — William, 05/10/2026 ══
+     « Supprime les états "À chiffrer", "Prêt" ou "Confirmer"… Quand les prix sont renseignés, la
+     ligne est validée. Simple et rapide. » Dès que ce qui est ENREGISTRÉ est complet sur tous les
+     compteurs, l'offre passe disponible ; une case vidée la remet en attente. « Le fournisseur ne la
+     propose pas » reste un choix du menu. */
+  const completeEnBase = chiffrage.compteurs.every((c) => saisieComplete(c, offre.saisies[c.vcId]))
+  const enCours = useRef(false)
+  useEffect(() => {
+    if (indispo || enCours.current) return
+    const cible = completeEnBase ? 'DISPONIBLE' : 'EN_ATTENTE'
+    if (offre.statut === cible) return
+    enCours.current = true
+    void changerStatut(cible).finally(() => { enCours.current = false })
+  }, [completeEnBase, indispo, offre.statut, changerStatut])
   const fin = g.gabarit.split(' ').length
   return (
     <div className={cn('grid h-[38px] transition-colors', !premiere && 'border-t border-km-line-soft', meilleure ? 'bg-km-green-tint' : 'hover:bg-km-bg')} style={{ gridTemplateColumns: g.gabarit }}>
@@ -1160,37 +1180,72 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
         </>
       )}
       <span className="flex items-center justify-end gap-1 border-l border-km-line-soft px-2">
-        <Etat statut={offre.statut} complete={complete} onConfirmer={() => { quitter(); void changerStatut('DISPONIBLE') }} onRouvrir={() => void changerStatut('EN_ATTENTE')} />
-        <MenuLigne clauses={offre.clauses} validite={offre.validite} indispo={indispo} onClauses={changerClauses} onValidite={changerValidite} onIndispo={() => void changerStatut(indispo ? 'EN_ATTENTE' : 'INDISPONIBLE')} />
+        {indispo && <Indispo onRouvrir={() => void changerStatut('EN_ATTENTE')} />}
+        <MenuLigne clauses={offre.clauses} indispo={indispo} onClauses={changerClauses} onIndispo={() => void changerStatut(indispo ? 'EN_ATTENTE' : 'INDISPONIBLE')} />
       </span>
     </div>
   )
 }
 
-/** L'état d'une offre, en un seul élément : ce qu'il reste à faire, ou ce qui est acquis. */
-function Etat({ statut, complete, onConfirmer, onRouvrir }: { statut: string; complete: boolean; onConfirmer: () => void; onRouvrir: () => void }) {
-  if (statut === 'DISPONIBLE') {
+/**
+ * ══ AJOUTER UNE OFFRE — William, 05/10/2026 ══
+ * « Propose un bouton "Ajouter une offre" en dessous de la dernière offre affichée. Au clic, demande
+ * Fournisseur + Durée puis crée la ligne dans le tableau. » La durée rejoint la commande du
+ * fournisseur — voir `ajouterOffre` dans `chiffrage.ts` ; la ligne se chiffre ensuite comme les autres.
+ */
+const DUREES_PROPOSEES = [12, 24, 36, 48, 60]
+function AjouterOffre({ chiffrage, versionId, onToast }: { chiffrage: Chiffrage; versionId: string; onToast: (m: string) => void }) {
+  const m = useChiffrageMutations(versionId)
+  const { data: tous } = useFournisseursChoix()
+  const [ouvert, setOuvert] = useState(false)
+  const [fournisseurId, setFournisseurId] = useState('')
+  const [duree, setDuree] = useState('')
+  /* Les fournisseurs déjà consultés d'abord : c'est le plus souvent chez eux qu'on ajoute une durée. */
+  const consultes = new Set(chiffrage.commande.map((f) => f.fournisseurId))
+  const liste = [...(tous ?? [])].sort((a, b) => Number(consultes.has(b.id)) - Number(consultes.has(a.id)) || a.nom.localeCompare(b.nom))
+  const deja = chiffrage.commande.find((f) => f.fournisseurId === fournisseurId)?.durees ?? []
+  const fermer = () => { setOuvert(false); setFournisseurId(''); setDuree('') }
+  const ajouter = () => {
+    if (!fournisseurId || !duree || !chiffrage.optimisationId) return
+    const nom = liste.find((f) => f.id === fournisseurId)?.nom ?? ''
+    void m.ajouterOffre.mutateAsync({ optimisationId: chiffrage.optimisationId, fournisseurId, duree: Number(duree) })
+      .then(() => { onToast(`✓ Offre ajoutée : ${nom} · ${duree} mois`); fermer() })
+      .catch((e: Error) => onToast(`Erreur : ${e.message}`))
+  }
+  if (!ouvert) {
     return (
-      <button type="button" onClick={onRouvrir} title="Prête · cliquer pour la repasser à confirmer" className="inline-flex h-[22px] items-center gap-1 rounded-full border border-km-green-line bg-km-green-soft px-2 text-[10.5px] font-bold text-km-green hover:bg-km-green-soft/70">
-        <Check className="h-3 w-3" strokeWidth={3} /> Prête
+      <button type="button" onClick={() => setOuvert(true)} className="flex h-[36px] items-center justify-center gap-1.5 rounded-[12px] border border-dashed border-km-line bg-white/60 text-[12.5px] font-semibold text-km-muted transition-colors hover:border-km-green hover:bg-white hover:text-km-green">
+        <Plus className="h-3.5 w-3.5" /> Ajouter une offre
       </button>
     )
   }
-  if (statut === 'INDISPONIBLE') {
-    return (
-      <button type="button" onClick={onRouvrir} title="Cliquer pour la remettre à chiffrer" className="inline-flex h-[22px] items-center gap-1 rounded-full border border-km-red-line bg-km-red-soft px-2 text-[10.5px] font-bold text-km-red">
-        <Ban className="h-3 w-3" /> Indispo.
+  const champ = 'h-[30px] rounded-[8px] border border-km-line bg-white px-2 text-[12.5px] font-semibold text-km-text outline-none focus:border-km-green'
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-km-green-line bg-white px-3 py-2">
+      <span className="text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Nouvelle offre</span>
+      <select autoFocus value={fournisseurId} onChange={(e) => setFournisseurId(e.target.value)} aria-label="Fournisseur" className={cn(champ, 'max-w-[240px]')}>
+        <option value="">Fournisseur…</option>
+        {liste.map((f) => <option key={f.id} value={f.id}>{f.nom}{consultes.has(f.id) ? ' · consulté' : ''}</option>)}
+      </select>
+      <select value={duree} onChange={(e) => setDuree(e.target.value)} aria-label="Durée" className={champ}>
+        <option value="">Durée…</option>
+        {DUREES_PROPOSEES.map((d) => <option key={d} value={d} disabled={deja.includes(d)}>{d} mois{deja.includes(d) ? ' · déjà là' : ''}</option>)}
+      </select>
+      <button type="button" onClick={ajouter} disabled={!fournisseurId || !duree || m.ajouterOffre.isPending} className="inline-flex h-[30px] items-center gap-1.5 rounded-[8px] bg-km-green px-3 text-[12.5px] font-bold text-white hover:bg-[#0a6650] disabled:opacity-45">
+        {m.ajouterOffre.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Ajouter
       </button>
-    )
-  }
-  if (complete) {
-    return (
-      <button type="button" onClick={onConfirmer} title="Confirmer cette offre" className="inline-flex h-[22px] items-center gap-1 rounded-full bg-km-green px-2 text-[10.5px] font-bold text-white hover:bg-[#0a6650]">
-        <Check className="h-3 w-3" strokeWidth={3} /> Confirmer
-      </button>
-    )
-  }
-  return <span className="whitespace-nowrap pr-0.5 text-[10.5px] font-semibold text-km-faint">À chiffrer</span>
+      <button type="button" onClick={fermer} className="h-[30px] rounded-[8px] px-2 text-[12px] font-semibold text-km-muted hover:bg-km-soft">Annuler</button>
+    </div>
+  )
+}
+
+/** « Le fournisseur ne la propose pas » : seul état qui se lit encore sur la ligne (05/10/2026). */
+function Indispo({ onRouvrir }: { onRouvrir: () => void }) {
+  return (
+    <button type="button" onClick={onRouvrir} title="Cliquer pour la remettre à chiffrer" className="inline-flex h-[22px] items-center gap-1 rounded-full border border-km-red-line bg-km-red-soft px-2 text-[10.5px] font-bold text-km-red">
+      <Ban className="h-3 w-3" /> Indispo.
+    </button>
+  )
 }
 
 /**
@@ -1302,15 +1357,18 @@ function SansReference({ versionId, publiee, onToast }: { versionId: string; pub
  * contractuelles » du commercial (score de A à E), et « le fournisseur ne la propose pas ». Le
  * contrat sécurisé n'y est pas : il se déduit du prix fixe.
  */
+/* SANS LE SWAP — William, 05/10/2026 : « dans les clauses contractuelles, ne propose pas l'option
+   SWAP, supprime-la ». Aucune offre ne l'avait cochée. */
 const LIBELLES_CLAUSES: [keyof OffreChiffrage['clauses'], string][] = [
-  ['depot', 'Dépôt de garantie'], ['engagement', 'Engagement de consommation'], ['renegociation', 'Renégociation anticipée'], ['swap', 'SWAP'], ['tacite', 'Tacite reconduction'],
+  ['depot', 'Dépôt de garantie'], ['engagement', 'Engagement de consommation'], ['renegociation', 'Renégociation anticipée'], ['tacite', 'Tacite reconduction'],
 ]
-function MenuLigne({ clauses, validite, indispo, onClauses, onValidite, onIndispo }: {
+/* ══ PLUS DE VALIDITÉ PAR OFFRE — William, 05/10/2026 ══
+   « Ce n'est pas une offre qui est valide ou non, c'est la proposition complète. » La validité se
+   saisit une fois, à la génération de l'offre (« Générer l'offre », étape 2). */
+function MenuLigne({ clauses, indispo, onClauses, onIndispo }: {
   clauses: OffreChiffrage['clauses']
-  validite: string | null
   indispo: boolean
   onClauses: (c: OffreChiffrage['clauses']) => Promise<unknown>
-  onValidite: (v: string | null) => Promise<unknown>
   onIndispo: () => void
 }) {
   /* POSÉ PAR-DESSUS LE TABLEAU : le tableau défile et rogne ce qui dépasse ; le menu se place donc
@@ -1348,8 +1406,8 @@ function MenuLigne({ clauses, validite, indispo, onClauses, onValidite, onIndisp
         ref={bouton}
         type="button"
         onClick={basculer}
-        title="Validité, clauses et disponibilité"
-        aria-label="Validité, clauses et disponibilité de l'offre"
+        title="Clauses et disponibilité"
+        aria-label="Clauses et disponibilité de l'offre"
         aria-expanded={ouvert}
         className={cn('flex h-[22px] w-[22px] items-center justify-center rounded-full text-km-faint transition-colors hover:bg-km-soft hover:text-km-text', ouvert && 'bg-km-soft text-km-text')}
       >
@@ -1357,18 +1415,6 @@ function MenuLigne({ clauses, validite, indispo, onClauses, onValidite, onIndisp
       </button>
       {pos && (
         <span style={{ top: pos.top, bottom: pos.bottom, right: pos.right }} className="fixed z-50 flex w-[250px] flex-col rounded-km-md border border-km-line bg-white p-1.5 shadow-km-pop">
-          {/* LA VALIDITÉ, SAISIE PAR LE PRICING — William, 02/10/2026 : jamais lue dans l'offre. */}
-          <span className="px-2 pb-1 pt-1 text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Validité de l’offre</span>
-          <span className="px-2 pb-1.5">
-            <input
-              type="datetime-local"
-              aria-label="Validité de l’offre"
-              defaultValue={versSaisieLocale(validite)}
-              onBlur={(e) => { const v = depuisSaisieLocale(e.target.value); if (v !== (validite ? new Date(validite).toISOString() : null)) void onValidite(v) }}
-              className="h-7 w-full rounded-[8px] border border-km-line bg-km-soft px-2 font-mono text-[12px] font-semibold text-km-text outline-none focus:border-km-green focus:bg-white"
-            />
-          </span>
-          <span className="my-1 h-px bg-km-line-soft" />
           <span className="px-2 pb-1 pt-1 text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Clauses de l’offre</span>
           {LIBELLES_CLAUSES.map(([cle, nom]) => (
             <label key={cle} className="flex cursor-pointer items-center gap-2 rounded-km-sm px-2 py-1.5 text-[12px] hover:bg-km-soft">

@@ -9,7 +9,7 @@ import type { ClausesOffre } from '@/types/domain'
  * affiche en page 2 et en tire une note. Ce module dit, pour chacune, ce qu'elle est, son défaut, et
  * de quel côté elle pèse.
  *
- * « Le score valorise les protections du contrat (contrat sécurisé, renégociation anticipée, SWAP)
+ * « Le score valorise les protections du contrat (contrat sécurisé, renégociation anticipée, SWAP — retiré le 05/10/2026)
  * et pénalise les contraintes (dépôt de garantie, engagement de consommation, tacite
  * reconduction) » — texte du modèle, page 2.
  *
@@ -29,7 +29,6 @@ export interface DefinitionClause {
 
 export const CLAUSES: DefinitionClause[] = [
   { cle: 'renegociation_anticipee', libelle: 'Renégociation anticipée', aide: 'Le client peut renégocier avant la fin du contrat.', protection: true, defaut: false },
-  { cle: 'swap', libelle: 'SWAP', aide: 'Le client peut passer du fixe à l’indexé (ou l’inverse) en cours de contrat.', protection: true, defaut: false },
   { cle: 'depot_garantie', libelle: 'Dépôt de garantie', aide: 'Le fournisseur exige un dépôt avant de fournir.', protection: false, defaut: false },
   { cle: 'engagement_consommation', libelle: 'Engagement de consommation', aide: 'Le client s’engage sur un volume (Picoty, sur certains dossiers).', protection: false, defaut: false },
   { cle: 'tacite_reconduction', libelle: 'Tacite reconduction', aide: 'Cochée par défaut : décochez si le fournisseur ne la prévoit pas.', protection: false, defaut: true },
@@ -41,9 +40,9 @@ export function contratSecurise(typePrix: string | null | undefined): boolean {
 }
 
 export function pointsDesClauses(clauses: ClausesOffre, typePrix: string | null | undefined) {
-  const protections = [contratSecurise(typePrix), clauses.renegociation_anticipee, clauses.swap].filter(Boolean).length
+  const protections = [contratSecurise(typePrix), clauses.renegociation_anticipee].filter(Boolean).length
   const contraintes = [clauses.depot_garantie, clauses.engagement_consommation, clauses.tacite_reconduction].filter(Boolean).length
-  return { protections, contraintes, protectionsPossibles: 3, contraintesPossibles: 3 }
+  return { protections, contraintes, protectionsPossibles: 2, contraintesPossibles: 3 }
 }
 
 /**
@@ -55,7 +54,6 @@ export function pointsDesClauses(clauses: ClausesOffre, typePrix: string | null 
  *                              Gaz (base 65)      Électricité (base 70)
  *   Contrat sécurisé          +15 / −15 absent    +25 / −15 absent
  *   Renégociation anticipée   +10 / −10 absente   —
- *   SWAP                      +10 / −10 absent    —
  *   Dépôt de garantie         −15 si présent      −20 si présent
  *   Engagement de conso.      −10 si présent      —
  *   Tacite reconduction        −5 si présente     −10 si présente
@@ -72,7 +70,9 @@ export function scoreDesClauses(
   const securise = contratSecurise(typePrix)
   let score: number
   if (energie === 'gaz') {
-    score = 65 + (securise ? 15 : -15) + (clauses.renegociation_anticipee ? 10 : -10) + (clauses.swap ? 10 : -10)
+    /* Sans le SWAP depuis le 05/10/2026 (William : « supprime-la ») : le critère sort, ni bonus ni
+       malus — la base reste 65, et le meilleur contrat vaut 90 (toujours A). */
+    score = 65 + (securise ? 15 : -15) + (clauses.renegociation_anticipee ? 10 : -10)
       - (clauses.depot_garantie ? 15 : 0) - (clauses.engagement_consommation ? 10 : 0) - (clauses.tacite_reconduction ? 5 : 0)
   } else {
     score = 70 + (securise ? 25 : -15) - (clauses.depot_garantie ? 20 : 0) - (clauses.tacite_reconduction ? 10 : 0)

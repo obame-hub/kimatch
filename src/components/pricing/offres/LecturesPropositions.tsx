@@ -5,7 +5,7 @@ import { lireNombre } from '@/lib/pricing/budget'
 import { saisieComplete, useChiffrageMutations, type Chiffrage } from '@/lib/data/chiffrage'
 import type { Lectures } from '@/lib/data/lectureOffre'
 import {
-  dejaChiffree, depuisSaisieLocale, rapprocher, saisieDepuisLecture, versSaisieLocale,
+  dejaChiffree, rapprocher, saisieDepuisLecture,
   type OffreLue, type PropositionLue,
 } from '@/lib/pricing/lectureOffre'
 
@@ -23,9 +23,9 @@ import {
  * dit pas, William, 02/10/2026 :
  *   · LA MARGE INCLUSE dans le prix imprimé — « ça peut changer selon les dossiers, donc demander au
  *     pricing sur chaque offre quelle est la marge incluse » ;
- *   · LA VALIDITÉ — « doit être éditée par le pricing, je ne veux pas que tu la lises depuis l'offre ».
- * Un clic sur « Inclure » remplit la ligne, range la validité, et, la ligne étant complète, la passe
- * « Prête » : la relecture vaut confirmation.
+ * La validité ne se saisit plus ici (William, 05/10/2026 : « ce n'est pas une offre qui est valide
+ * ou non, c'est la proposition complète ») : elle se donne à la génération de l'offre.
+ * Un clic sur « Inclure » remplit la ligne ; complète, elle est validée d'elle-même.
  */
 
 const fr = (v: number | null | undefined, max = 2) => (v == null ? '—' : v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: max }))
@@ -107,12 +107,11 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
   const existante = offre && compteur ? offre.saisies[compteur.vcId] : undefined
   /* Vide : le pricing la donne à chaque offre — sauf quand la source la dit (Tradeo). */
   const [margeTexte, setMargeTexte] = useState(() => p.marge_incluse_proposee == null ? '' : String(p.marge_incluse_proposee).replace('.', ','))
-  const [validite, setValidite] = useState(() => versSaisieLocale(trouve.offre?.validite))
   const [incluse, setIncluse] = useState(false)
   const marge = lireNombre(margeTexte)
   const gaz = (compteur?.energie ?? p.type_energie) !== 'electricite'
   const saisie = compteur && marge != null ? saisieDepuisLecture(compteur, lue, marge, existante) : null
-  const enCours = m.enregistrerLigne.isPending || m.changerStatut.isPending || m.majValidite.isPending
+  const enCours = m.enregistrerLigne.isPending || m.changerStatut.isPending
 
   /* Ce qui ne colle pas avec le compteur : dit, jamais bloquant. */
   const alertes: string[] = []
@@ -122,18 +121,17 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
   if (gaz && compteur?.profil && lue.profil && compteur.profil !== lue.profil) alertes.push(`Profil lu ${lue.profil}, profil du compteur ${compteur.profil}.`)
   if (existante && dejaChiffree(existante) && !incluse) alertes.push('La ligne porte déjà des prix : ils seront remplacés.')
   const manque = gaz ? lue.p0_mwh == null : Object.keys(lue.prix_postes_mwh).length === 0
-  const aSaisir = marge == null ? 'Saisissez la marge incluse' : !validite ? 'Saisissez la validité' : null
+  const aSaisir = marge == null ? 'Saisissez la marge incluse' : null
 
   const inclure = async () => {
     if (!offre || !compteur || !saisie) return
     try {
       await m.enregistrerLigne.mutateAsync({ offre, compteur, saisie })
-      await m.majValidite.mutateAsync({ offreId: offre.id, validite: depuisSaisieLocale(validite) })
       const complete = chiffrage.compteurs.every((c) => saisieComplete(c, c.vcId === compteur.vcId ? saisie : offre.saisies[c.vcId]))
       if (complete && offre.statut === 'EN_ATTENTE') await m.changerStatut.mutateAsync({ offreId: offre.id, statut: 'DISPONIBLE' })
       setIncluse(true)
       choisirCompteur(compteur.vcId)
-      onToast(`✓ ${offre.fournisseurNom} ${offre.duree ?? '?'} mois incluse${complete ? ' · ligne prête' : ''}`)
+      onToast(`✓ ${offre.fournisseurNom} ${offre.duree ?? '?'} mois incluse${complete ? ' · ligne validée' : ''}`)
     } catch (e) {
       onToast(`Erreur : ${(e as Error).message}`)
     }
@@ -150,7 +148,7 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
 
       <label className="flex flex-col gap-1">
         <span className="text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Ligne à remplir</span>
-        <select value={offreId} onChange={(e) => { setOffreId(e.target.value); setValidite(versSaisieLocale(chiffrage.offres.find((o) => o.id === e.target.value)?.validite)) }} disabled={incluse} className={choix}>
+        <select value={offreId} onChange={(e) => setOffreId(e.target.value)} disabled={incluse} className={choix}>
           <option value="">— Choisir une ligne —</option>
           {chiffrage.offres.map((o) => <option key={o.id} value={o.id}>{o.fournisseurNom} · {o.duree ?? '?'} mois · {o.type ?? '?'}</option>)}
         </select>
@@ -198,11 +196,6 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
         </Ligne>
       </div>
       <span className="text-[10.5px] leading-[14px] text-km-faint">TQD, CTA, accise et CPB ne sont pas repris : ils viennent de la base, à la bonne date.</span>
-
-      <label className="flex flex-col gap-1">
-        <span className="text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Validité de l’offre</span>
-        <input type="datetime-local" value={validite} onChange={(e) => setValidite(e.target.value)} disabled={incluse} aria-label="Validité de l’offre" className={cn(choix, 'font-mono', !validite && 'border-km-amber-line bg-km-amber-soft/50')} />
-      </label>
 
       {alertes.map((a) => (
         <span key={a} className="flex items-start gap-1.5 rounded-[8px] border border-km-amber-line bg-km-amber-soft px-2 py-1.5 text-[11px] leading-[15px] text-[#8a4b2a]">

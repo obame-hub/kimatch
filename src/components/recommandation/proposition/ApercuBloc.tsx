@@ -1,23 +1,32 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { LARGEUR_BLOC } from '@/lib/offrePdf/blocs'
 
 /**
- * Un tableau de la proposition, à la largeur de son conteneur. Le tableau garde ses proportions
- * d'A4 et s'agrandit d'un seul tenant : à l'écran, les petits corps du PDF (8,5 px) se lisent sans
- * loupe, et la mise en page reste celle que recevra le client.
+ * Un tableau de la proposition, dans la fiche — le tableau même du PDF (`offrePdf/blocs.ts`).
  *
- * IL NE RÉTRÉCIT PAS SOUS UNE TAILLE LISIBLE — William, 04/10/2026 : « si jamais tu ne peux pas rentrer
- * toutes les informations car l'écran est trop petit, ajoute un système de scroll horizontal. En
- * revanche si la place est suffisante, oublie le scroll. » En dessous de 1,15 fois la taille du PDF,
- * le tableau garde cette taille et le conteneur défile à l'horizontale ; au-dessus, il remplit la
- * largeur, sans barre.
+ * ══ À LA TAILLE DE LA PAGE, PAS À CELLE DU CADRE — William, 05/10/2026 ══
+ * « Les tableaux sont trop gros, j'aimerais que la police utilisée dans le tableau soit cohérente et
+ * harmonieuse avec le reste de la page. » Le tableau s'agrandissait jusqu'à remplir le bloc : sur un
+ * grand écran, ses lignes passaient à 17 px. Il est désormais rendu à 1,2 fois la taille du PDF — ses
+ * lignes à 12,5 px, comme le texte de la fiche — et ce sont ses COLONNES qui s'étirent sur la largeur
+ * disponible. Plus étroit que cela, le cadre défile à l'horizontale (William, 04/10/2026 : « si la
+ * place est suffisante, oublie le scroll »).
+ *
+ * ══ SANS FLASH ══
+ * « Le passage de HTVA à TTC applique un bug visuel, un flash que je ne veux pas. » Le cadre se
+ * rechargeait à chaque changement — page blanche le temps de relire les polices. Il ne se charge plus
+ * qu'une fois : ensuite, seul son contenu est remplacé, sur place, polices déjà prêtes.
  */
-const ECHELLE_MINIMALE = 1.15
+const ECHELLE = 1.2
+
 export function ApercuBloc({ html, titre }: { html: string; titre: string }) {
   const boite = useRef<HTMLDivElement>(null)
   const cadre = useRef<HTMLIFrameElement>(null)
-  const [largeur, setLargeur] = useState(LARGEUR_BLOC)
+  const [largeur, setLargeur] = useState(0)
   const [hauteur, setHauteur] = useState(0)
+  /* Le premier document seulement : les suivants s'injectent sans recharger le cadre. */
+  const [premier] = useState(html)
+  const charge = useRef(false)
 
   useEffect(() => {
     const el = boite.current
@@ -27,29 +36,49 @@ export function ApercuBloc({ html, titre }: { html: string; titre: string }) {
     return () => ro.disconnect()
   }, [])
 
-  const mesurer = () => {
+  const mesurer = useCallback(() => {
     const doc = cadre.current?.contentDocument
-    if (!doc) return
-    const lire = () => setHauteur(doc.documentElement.scrollHeight)
-    lire()
-    void doc.fonts?.ready.then(lire)
+    if (doc?.body) setHauteur(doc.body.scrollHeight)
+  }, [])
+
+  const injecter = useCallback((h: string) => {
+    const doc = cadre.current?.contentDocument
+    if (!doc?.body) return
+    doc.body.innerHTML = new DOMParser().parseFromString(h, 'text/html').body.innerHTML
+    mesurer()
+  }, [mesurer])
+
+  useEffect(() => {
+    if (charge.current) injecter(html)
+  }, [html, injecter])
+
+  const interieure = Math.max(LARGEUR_BLOC + 2, largeur / ECHELLE)
+  useEffect(() => {
+    const t = requestAnimationFrame(mesurer)
+    return () => cancelAnimationFrame(t)
+  }, [interieure, mesurer])
+
+  const surCharge = () => {
+    charge.current = true
+    if (html !== premier) injecter(html)
+    mesurer()
+    void cadre.current?.contentDocument?.fonts?.ready.then(mesurer)
   }
 
-  const echelle = Math.max(ECHELLE_MINIMALE, largeur / (LARGEUR_BLOC + 2))
-  const defile = largeur < (LARGEUR_BLOC + 2) * ECHELLE_MINIMALE
+  const defile = largeur > 0 && largeur < (LARGEUR_BLOC + 2) * ECHELLE
   return (
     <div ref={boite} className={defile ? 'w-full overflow-x-auto overflow-y-hidden' : 'w-full overflow-hidden'}>
-    <div style={{ width: (LARGEUR_BLOC + 2) * echelle, height: hauteur * echelle || undefined, minHeight: hauteur ? undefined : 120 }}>
-      <iframe
-        ref={cadre}
-        title={titre}
-        srcDoc={html}
-        sandbox="allow-same-origin"
-        scrolling="no"
-        onLoad={mesurer}
-        style={{ width: LARGEUR_BLOC + 2, height: hauteur || 120, border: 0, transform: `scale(${echelle})`, transformOrigin: '0 0', display: 'block' }}
-      />
-    </div>
+      <div style={{ width: interieure * ECHELLE, height: hauteur ? hauteur * ECHELLE : 140 }}>
+        <iframe
+          ref={cadre}
+          title={titre}
+          srcDoc={premier}
+          sandbox="allow-same-origin"
+          scrolling="no"
+          onLoad={surCharge}
+          style={{ width: interieure, height: hauteur || 140, border: 0, transform: `scale(${ECHELLE})`, transformOrigin: '0 0', display: 'block', background: 'transparent' }}
+        />
+      </div>
     </div>
   )
 }

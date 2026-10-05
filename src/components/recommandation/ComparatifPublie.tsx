@@ -108,7 +108,7 @@ export function ComparatifPublie({ versionId, peutGenerer, onGenerer }: {
             {contexte.error ? (
               <p className="text-km-body text-km-red">{(contexte.error as Error).message}</p>
             ) : bloc ? (
-              <ApercuBloc key={`${onglet}-${ttc}`} html={bloc} titre={ONGLETS.find(([id]) => id === onglet)?.[1] ?? ''} />
+              <ApercuBloc html={bloc} titre={ONGLETS.find(([id]) => id === onglet)?.[1] ?? ''} />
             ) : (
               <p className="flex items-center gap-2 py-6 text-km-body text-km-faint"><Loader2 className="h-4 w-4 animate-spin" /> Préparation des tableaux…</p>
             )}

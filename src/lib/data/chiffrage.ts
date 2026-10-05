@@ -76,6 +76,8 @@ export interface OffreChiffrage {
   optimisationFournisseurId: string | null
   fournisseurId: string
   fournisseurNom: string
+  /** Le logo déposé sur la fiche du fournisseur, quand il y en a un (05/10/2026). */
+  fournisseurLogo?: string | null
   duree: number | null
   type: string | null
   statut: string
@@ -103,6 +105,8 @@ export interface VersionChiffrage {
   recommandationId: string
   recommandationNom: string
   compteNom: string | null
+  /** « Syndic professionnel », « Entreprise »… — décide de HTVA ou TTC par défaut (05/10/2026). */
+  compteSegment?: string | null
   energie: EnergieChiffrage
 }
 
@@ -147,7 +151,7 @@ function lireSaisie(detail: any, energie: EnergieChiffrage): SaisieLigne {
 async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
   const { data: v, error: eV } = await supabase
     .from('versions_recommandation')
-    .select('id, numero_version, nom, reference_appel_offres, date_souhaitee, date_publication_comparatif, modele_offre, statut:statuts_versions_recommandation(code), reco:recommandations(id, nom, compte:comptes!recommandations_compte_id_fkey(nom), type_energie:types_energies(code))')
+    .select('id, numero_version, nom, reference_appel_offres, date_souhaitee, date_publication_comparatif, modele_offre, statut:statuts_versions_recommandation(code), reco:recommandations(id, nom, compte:comptes!recommandations_compte_id_fkey(nom, segment), type_energie:types_energies(code))')
     .eq('id', versionId)
     .single()
   if (eV) throw new Error(eV.message)
@@ -202,7 +206,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
       supabase.from('optimisations_fournisseurs').select('id, fournisseur_compte_id, durees_mois, types_prix, date_creation, fournisseur:comptes(nom)').eq('optimisation_id', optimisationId).order('date_creation'),
       supabase
         .from('offres_fournisseurs')
-        .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, date_validite, fiche:comptes_fournisseurs(compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, p0_inclut, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, cout_total_annuel_estime_ttc, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
+        .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, date_validite, fiche:comptes_fournisseurs(logo_url, compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, p0_inclut, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, cout_total_annuel_estime_ttc, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
         .eq('optimisation_id', optimisationId)
         .eq('actif', true),
     ])
@@ -228,7 +232,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
       }
       return {
         id: o.id, optimisationFournisseurId: o.optimisation_fournisseur_id, fournisseurId: o.compte_fournisseur_id,
-        fournisseurNom: premier(premier(o.fiche)?.compte)?.nom ?? 'Fournisseur', duree: o.duree_mois, type: o.type_prix,
+        fournisseurNom: premier(premier(o.fiche)?.compte)?.nom ?? 'Fournisseur', fournisseurLogo: premier(o.fiche)?.logo_url ?? null, duree: o.duree_mois, type: o.type_prix,
         statut: o.statut, nature: o.nature_offre, validite: o.date_validite ?? null, saisies, totalParCompteur, ttcParCompteur,
         clauses: { tacite: !!o.clause_tacite_reconduction, depot: !!o.clause_depot_garantie, engagement: !!o.clause_engagement_consommation, renegociation: !!o.clause_renegociation_anticipee, swap: !!o.clause_swap },
       }
@@ -246,7 +250,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
     version: {
       id: (v as any).id, numero: (v as any).numero_version, nom: (v as any).nom, reference: (v as any).reference_appel_offres ?? null,
       dateSouhaitee: (v as any).date_souhaitee, statut: premier((v as any).statut)?.code ?? null, publieeLe: (v as any).date_publication_comparatif ?? null, sansComparatif: (v as any).modele_offre === 'SANS_COMPARATIF',
-      recommandationId: reco?.id, recommandationNom: reco?.nom ?? '', compteNom: premier(reco?.compte)?.nom ?? null, energie: energieVersion,
+      recommandationId: reco?.id, recommandationNom: reco?.nom ?? '', compteNom: premier(reco?.compte)?.nom ?? null, compteSegment: premier(reco?.compte)?.segment ?? null, energie: energieVersion,
     },
     optimisationId, compteurs, commande, offres, actuelle,
   }
@@ -397,6 +401,42 @@ export function useChiffrageMutations(versionId: string | null) {
     onSuccess: rafraichir,
   })
 
+  /**
+   * ══ AJOUTER UNE OFFRE — William, 05/10/2026 ══
+   * « Propose un bouton "Ajouter une offre" en dessous de la dernière offre affichée. Au clic, demande
+   * Fournisseur + Durée puis crée la ligne dans le tableau. »
+   *
+   * LES OFFRES SUIVENT LA COMMANDE (`fn_offres_suivent_la_commande`) : chaque fournisseur consulté
+   * porte ses durées et ses types de prix, et la base en tient les offres — une offre posée à côté
+   * serait retirée à la prochaine retouche de la commande. On ajoute donc la DURÉE à la commande du
+   * fournisseur (ou on la crée, avec les types de prix de la version) ; la base crée la ligne.
+   */
+  const ajouterOffre = useMutation({
+    mutationFn: async (x: { optimisationId: string; fournisseurId: string; duree: number }) => {
+      const { data: lignes, error } = await supabase
+        .from('optimisations_fournisseurs')
+        .select('id, fournisseur_compte_id, durees_mois, types_prix')
+        .eq('optimisation_id', x.optimisationId)
+      if (error) throw new Error(error.message)
+      const toutes = (lignes ?? []) as { id: string; fournisseur_compte_id: string; durees_mois: number[] | null; types_prix: string[] | null }[]
+      const typesVersion = [...new Set(toutes.flatMap((l) => l.types_prix ?? []))]
+      const types = (lignes: string[] | null | undefined) => (lignes?.length ? lignes : typesVersion.length ? typesVersion : ['Fixe'])
+      const existante = toutes.find((l) => l.fournisseur_compte_id === x.fournisseurId)
+      if (existante) {
+        if ((existante.durees_mois ?? []).includes(x.duree)) throw new Error(`Cette durée est déjà commandée à ce fournisseur.`)
+        const durees = [...new Set([...(existante.durees_mois ?? []), x.duree])].sort((a, b) => a - b)
+        const { error: e } = await supabase.from('optimisations_fournisseurs').update({ durees_mois: durees, types_prix: types(existante.types_prix) }).eq('id', existante.id)
+        if (e) throw new Error(e.message)
+      } else {
+        const { error: e } = await supabase.from('optimisations_fournisseurs').insert({
+          optimisation_id: x.optimisationId, fournisseur_compte_id: x.fournisseurId, durees_mois: [x.duree], types_prix: types(null),
+        })
+        if (e) throw new Error(e.message)
+      }
+    },
+    onSuccess: rafraichir,
+  })
+
   /** L'offre actuelle : trouvée ou créée en base (`fn_offre_actuelle`), puis chiffrée comme une autre. */
   const enregistrerActuelle = useMutation({
     mutationFn: async (x: { fournisseurId: string; duree: number | null; compteur: CompteurChiffrage; saisie: SaisieLigne }) => {
@@ -424,5 +464,5 @@ export function useChiffrageMutations(versionId: string | null) {
     onSuccess: rafraichir,
   })
 
-  return { enregistrerLigne, changerStatut, majClauses, majValidite, majCommande, enregistrerActuelle, definirComparatif, publier }
+  return { ajouterOffre, enregistrerLigne, changerStatut, majClauses, majValidite, majCommande, enregistrerActuelle, definirComparatif, publier }
 }

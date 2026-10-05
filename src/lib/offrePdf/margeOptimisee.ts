@@ -60,3 +60,29 @@ export function margesOptimisees(
   })
   return resultat
 }
+
+/**
+ * ══ LE SECOND MODE : PLUS INTÉRESSANTE QUE L'OFFRE DE RÉFÉRENCE — William, 05/10/2026 ══
+ * « Soit je veux que l'offre soit la plus intéressante parmi celles que je propose, soit je veux
+ * qu'elle soit optimisée d'une telle manière qu'elle devienne plus intéressante que l'offre de
+ * référence. »
+ *
+ * La marge la plus haute qui laisse au client l'économie visée sur son contrat actuel (1 % par
+ * défaut) : si l'offre est déjà bien en dessous, la marge monte ; si elle est au-dessus, elle descend,
+ * jamais sous zéro. Arrondie au centime vers le bas : l'économie est toujours au moins celle visée.
+ */
+export function margeSousReference(
+  offre: OffreAOptimiser,
+  budget: (id: string, marge: number) => number,
+  reference: number,
+  /** L'économie visée, en part du budget de référence (0,01 = 1 %). */
+  economie: number,
+): { marge: number; atteinte: boolean } {
+  const b = budget(offre.id, offre.marge)
+  const pente = budget(offre.id, offre.marge + 1) - b
+  if (!(pente > 0) || !(reference > 0)) return { marge: offre.marge, atteinte: b < reference }
+  const cible = reference * (1 - economie)
+  const brute = offre.marge + (cible - b) / pente
+  const marge = Math.max(0, Math.floor(brute * 100 + 1e-9) / 100)
+  return { marge, atteinte: budget(offre.id, marge) <= cible + 0.005 }
+}

@@ -92,7 +92,7 @@ describe('clauses', () => {
     expect(contratSecurise('Indexé PEG')).toBe(false)
   })
   it('compte protections et contraintes, sans inventer la note', () => {
-    expect(pointsDesClauses({ ...CLAUSES, swap: true, depot_garantie: true }, 'Fixe')).toMatchObject({ protections: 2, contraintes: 2 })
+    expect(pointsDesClauses({ ...CLAUSES, swap: true, depot_garantie: true }, 'Fixe')).toMatchObject({ protections: 1, contraintes: 2 })
   })
 })
 
