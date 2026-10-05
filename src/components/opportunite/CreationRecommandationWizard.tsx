@@ -56,6 +56,7 @@ import { EllisphereScoreCard } from '@/components/opportunite/EllisphereScoreCar
 import { useRecommandationsListe, useCreateRecommandation, recommandationsRetenantCompteurs } from '@/lib/data/recommandations'
 import { useMandats } from '@/lib/data/mandats'
 import { useCompteurs } from '@/lib/data/compteurs'
+import { echeanceLisible, useEcheancesRetenues } from '@/lib/data/echeancesRetenues'
 import { useContacts } from '@/lib/data/contacts'
 import { useContrats } from '@/lib/data/contrats'
 import { useComptes } from '@/lib/data/comptes'
@@ -358,6 +359,9 @@ export function CreateRecommandationDialog({
         .some((v) => String(v).toLowerCase().includes(q)),
     )
   }, [compteursEligibles, rechercheP, codePostalDe])
+
+  /* L'échéance affichée est l'échéance retenue — contrats prospects compris (05/10/2026). */
+  const { data: echeancesRetenues } = useEcheancesRetenues(compteursEligibles.map((c) => c.id))
 
   const compteursChoisis = useMemo(
     () => compteursEligibles.filter((c) => compteurIds.includes(c.id)),
@@ -766,7 +770,7 @@ export function CreateRecommandationDialog({
                             <div className="mt-0.5 flex items-center gap-2 text-xs text-km-faint">
                               <span className="font-mono">{c.numero_pdl}</span>
                               {cp && <><span>·</span><span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{cp}</span></>}
-                              {c.date_echeance && <><span>·</span><span>Échéance {new Date(c.date_echeance).toLocaleDateString('fr-FR')}</span></>}
+                              {(c.date_echeance || echeancesRetenues?.get(c.id)) && <><span>·</span><span>Échéance {echeanceLisible(echeancesRetenues?.get(c.id), c.date_echeance)}</span></>}
                             </div>
                           </div>
                         </button>

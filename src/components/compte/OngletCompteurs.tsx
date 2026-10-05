@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ChevronDown, Flame, RotateCcw, Search, SlidersHoriz
 import type { Compteur } from '@/types/domain'
 import { cn } from '@/lib/utils'
 import { useCouvertureConseilSyndical } from '@/lib/data/relaisConseilSyndical'
+import { useEcheancesRetenues } from '@/lib/data/echeancesRetenues'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -188,12 +189,18 @@ export function OngletCompteurs({ compteId, compteurs }: { compteId: string; com
     [parc],
   )
 
+  /* L'ÉCHÉANCE RETENUE, et non la date déclarée (05/10/2026) : contrats prospects compris, et
+     « Indéterminée » quand le dernier contrat connu n'a pas de fin. */
+  const { data: echeances } = useEcheancesRetenues(compteurs.map((c) => c.id))
   const lignes = useMemo(
     () =>
       compteurs.map((c) => {
-        const jours = joursAvant(c.date_echeance)
+        const retenue = echeances?.get(c.id)
+        const echeance = retenue ? retenue.date : c.date_echeance ?? null
+        const jours = joursAvant(echeance)
         return {
-          compteur: c,
+          compteur: { ...c, date_echeance: echeance },
+          indeterminee: !!retenue?.indeterminee,
           client: sousContratParId.get(c.id) ?? false,
           jours,
           // Ce qu'on fouille : tout ce qui est affiché, plus l'adresse, qu'on tape souvent de tête.
@@ -204,7 +211,7 @@ export function OngletCompteurs({ compteId, compteurs }: { compteId: string; com
           ),
         }
       }),
-    [compteurs, sousContratParId],
+    [compteurs, sousContratParId, echeances],
   )
 
   const responsables = useMemo(() => {
@@ -525,7 +532,7 @@ export function OngletCompteurs({ compteId, compteurs }: { compteId: string; com
           </p>
         ) : (
           <div className="max-h-[560px] overflow-y-auto overscroll-contain">
-            {triees.map(({ compteur: c, client, jours }) => {
+            {triees.map(({ compteur: c, client, jours, indeterminee }) => {
               const gaz = c.type_energie === 'gaz'
               const Icone = gaz ? Flame : Zap
               const urgent = jours !== null && jours <= 92
@@ -578,6 +585,8 @@ export function OngletCompteurs({ compteId, compteurs }: { compteId: string; com
                           </span>
                         )}
                       </>
+                    ) : indeterminee ? (
+                      <span className="text-km-muted" title="Le dernier contrat connu n’a pas de date de fin">Indéterminée</span>
                     ) : (
                       <span className="text-km-faint">—</span>
                     )}

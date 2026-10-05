@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Chiffrage } from '@/lib/data/chiffrage'
 import { authHeaderJson } from '@/lib/data/authHeader'
+import { lireEcheancesRetenues } from '@/lib/data/echeancesRetenues'
 import type { ContexteOffre } from '@/lib/offrePdf/construction'
 import type { RessourcesOffre } from '@/lib/offrePdf/document'
 import { logoFournisseurNet } from '@/lib/logosFournisseurs'
@@ -82,7 +83,7 @@ export async function chargerContexteOffre(versionId: string, fournisseurIds: st
   const contactId = reco?.contact_signataire_id ?? reco?.contact_principal_id ?? (v as any).contact_id ?? null
   const consultantId = reco?.proprietaire_id ?? reco?.responsable_profil_id ?? null
 
-  const [compte, contact, consultant, fiches, compteur] = await Promise.all([
+  const [compte, contact, consultant, fiches, compteur, echeances] = await Promise.all([
     reco?.compte_id ? supabase.from('comptes').select('nom, segment, rue, code_postal, ville').eq('id', reco.compte_id).single() : Promise.resolve({ data: null }),
     contactId ? supabase.from('contacts').select('prenom, nom, email, telephone, telephone_mobile').eq('id', contactId).single() : Promise.resolve({ data: null }),
     consultantId ? supabase.from('profils').select('prenom, nom, email, telephone').eq('id', consultantId).single() : Promise.resolve({ data: null }),
@@ -90,6 +91,7 @@ export async function chargerContexteOffre(versionId: string, fournisseurIds: st
       ? supabase.from('comptes_fournisseurs').select('compte_id, qualification, pays_origine, annee_creation, presentation, siege, clientele, tags, logo_url, compte:comptes(nom)').in('compte_id', fournisseurIds)
       : Promise.resolve({ data: [] }),
     supabase.from('compteurs').select('libelle, libelle_site, date_echeance, compteurs_electricite(puissance_pointe_kva, puissance_hph_kva, puissance_hch_kva, puissance_hpe_kva, puissance_hce_kva)').eq('id', compteurId).single(),
+    lireEcheancesRetenues([compteurId]),
   ])
 
   const c = (compte as any).data
@@ -120,6 +122,7 @@ export async function chargerContexteOffre(versionId: string, fournisseurIds: st
     compteur: {
       libelle: k?.libelle_site || k?.libelle || null,
       echeanceDeclaree: k?.date_echeance ?? null,
+      echeanceRetenue: echeances.get(compteurId) ?? null,
       puissances: { POINTE: ke?.puissance_pointe_kva ?? null, HPH: ke?.puissance_hph_kva ?? null, HCH: ke?.puissance_hch_kva ?? null, HPE: ke?.puissance_hpe_kva ?? null, HCE: ke?.puissance_hce_kva ?? null },
     },
     fournisseurs,

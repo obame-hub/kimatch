@@ -254,6 +254,8 @@ export interface LigneCompteur {
   /** La fin du contrat en cours, quand il en existe un. */
   datePreuve: string | null
   nature: 'PROUVEE' | 'ESTIMEE' | 'ABSENTE'
+  /** Le dernier contrat connu est un contrat prospect sans fin : « Indéterminée » (05/10/2026). */
+  indeterminee: boolean
   /** Un contrat en cours contredit la date déclarée de plus d'un mois. */
   contredit: boolean
   consommation_annuelle_mwh: number | null
@@ -339,7 +341,7 @@ export function useCompteursListe(options: {
       let q: any = supabase
         .from('v_compteurs_liste')
         .select(
-          'id, numero_point, site_id, date_echeance, date_declaree, date_preuve, nature_echeance, contredit, consommation_annuelle_mwh, localisation_site, type_energie_code, site_nom',
+          'id, numero_point, site_id, date_echeance, date_declaree, date_preuve, nature_echeance, echeance_indeterminee, contredit, consommation_annuelle_mwh, localisation_site, type_energie_code, site_nom',
           { count: 'exact' },
         )
         .eq('actif', true)
@@ -417,6 +419,7 @@ export function useCompteursListe(options: {
         date_declaree: string | null
         date_preuve: string | null
         nature_echeance: 'PROUVEE' | 'ESTIMEE' | 'ABSENTE'
+        echeance_indeterminee?: boolean | null
         contredit: boolean | null
         consommation_annuelle_mwh: number | null
         localisation_site: string | null
@@ -435,6 +438,7 @@ export function useCompteursListe(options: {
         dateDeclaree: c.date_declaree ?? null,
         datePreuve: c.date_preuve ?? null,
         nature: c.nature_echeance,
+        indeterminee: !!c.echeance_indeterminee,
         contredit: !!c.contredit,
         consommation_annuelle_mwh: c.consommation_annuelle_mwh,
         total: count ?? 0,

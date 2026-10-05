@@ -29,7 +29,13 @@ export interface ContexteOffre {
   clientAdresse: string | null
   consultant: { nom: string; email: string | null; telephone: string | null }
   contact: { nom: string; email: string | null; telephone: string | null } | null
-  compteur: { libelle: string | null; echeanceDeclaree: string | null; puissances: Record<string, number | null> }
+  compteur: {
+    libelle: string | null
+    echeanceDeclaree: string | null
+    /** L'échéance retenue (`v_echeance_compteur`, 05/10/2026) : contrats prospects compris. */
+    echeanceRetenue?: { date: string | null; indeterminee: boolean } | null
+    puissances: Record<string, number | null>
+  }
   /** Par compte fournisseur : l'identité de la page 3, et son logo prêt à poser. */
   fournisseurs: Record<string, Omit<CarteFournisseurPdf, 'id'>>
   /** Les logos, par nom de fournisseur, quand la fiche n'en a pas (repli Kimatch). */
@@ -161,7 +167,10 @@ export function construireOffrePdf(c: Chiffrage, ctx: ContexteOffre, options: Op
     compteur: {
       libelle: ctx.compteur.libelle || k.libelle || k.site || '—',
       numero: k.numero, tarif: k.tarif, profil: k.profil, car: k.car, segment: k.segment, fta: k.energie === 'electricite' ? k.tarif : null,
-      echeance: k.reglementaire?.echeance ?? ctx.compteur.echeanceDeclaree,
+      /* L'échéance retenue, et « Indéterminée » quand le dernier contrat connu n'a pas de fin — elle
+         ne retombe plus sur la date déclarée (William, 05/10/2026). */
+      echeance: ctx.compteur.echeanceRetenue?.indeterminee ? null : ctx.compteur.echeanceRetenue?.date ?? k.reglementaire?.echeance ?? ctx.compteur.echeanceDeclaree,
+      echeanceIndeterminee: !!ctx.compteur.echeanceRetenue?.indeterminee,
       conso, puissances: ctx.compteur.puissances,
     },
     actuelle,

@@ -95,6 +95,9 @@ export function useEnregistrerContratProspect() {
     onSuccess: (_id, v) => {
       void queryClient.invalidateQueries({ queryKey: ['contrats_prospects', v.compteur_id] })
       void queryClient.invalidateQueries({ queryKey: ['compteurs'] })
+      /* L'échéance retenue partout ailleurs (listes, fiche compte, cockpit) en dépend aussi. */
+      void queryClient.invalidateQueries({ queryKey: ['echeances-retenues'] })
+      void queryClient.invalidateQueries({ queryKey: ['couverture-cs'] })
     },
   })
 }
@@ -110,6 +113,9 @@ export function useSupprimerContratProspect() {
     onSuccess: (_r, v) => {
       void queryClient.invalidateQueries({ queryKey: ['contrats_prospects', v.compteur_id] })
       void queryClient.invalidateQueries({ queryKey: ['compteurs'] })
+      /* L'échéance retenue partout ailleurs (listes, fiche compte, cockpit) en dépend aussi. */
+      void queryClient.invalidateQueries({ queryKey: ['echeances-retenues'] })
+      void queryClient.invalidateQueries({ queryKey: ['couverture-cs'] })
     },
   })
 }

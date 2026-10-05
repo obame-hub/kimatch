@@ -83,6 +83,8 @@ export interface DonneesOffrePdf {
     segment: string | null
     fta: string | null
     echeance: string | null
+    /** Le dernier contrat connu n'a pas de fin : le PDF écrit « Indéterminée » (05/10/2026). */
+    echeanceIndeterminee?: boolean
     conso: Record<string, number>
     puissances: Record<string, number | null>
   }

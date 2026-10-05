@@ -37,6 +37,8 @@ interface LigneEcheance {
   id: string
   nature_echeance: 'PROUVEE' | 'ESTIMEE' | 'ABSENTE'
   date_echeance: string | null
+  /** Le dernier contrat connu est un contrat prospect sans fin (05/10/2026). */
+  echeance_indeterminee?: boolean | null
 }
 
 function useEcheancesDuPerimetre(compteurIds: string[]) {
@@ -48,7 +50,7 @@ function useEcheancesDuPerimetre(compteurIds: string[]) {
     queryFn: async (): Promise<Map<string, LigneEcheance>> => {
       const { data, error } = await supabase
         .from('v_compteurs_liste')
-        .select('id, nature_echeance, date_echeance')
+        .select('id, nature_echeance, date_echeance, echeance_indeterminee')
         .in('id', compteurIds)
       if (error) throw new Error(error.message)
       return new Map((data ?? []).map((l) => [l.id as string, l as LigneEcheance]))
@@ -124,7 +126,11 @@ export function OngletPerimetre({ compteurs }: { compteurs: Compteur[] }) {
                   </td>
                   <td className="px-[17px] py-2 font-mono text-km-body text-km-muted">{c.numero_pdl}</td>
                   <td className="px-[17px] py-2">
-                    {e?.nature_echeance === 'PROUVEE' && e.date_echeance ? (
+                    {e?.echeance_indeterminee ? (
+                      <span title="Le dernier contrat connu n’a pas de date de fin" className="rounded-km-pill border border-dashed border-km-line px-2 py-[2px] text-km-label text-km-muted">
+                        Indéterminée
+                      </span>
+                    ) : e?.nature_echeance === 'PROUVEE' && e.date_echeance ? (
                       <span className="rounded-km-pill border border-km-amber/40 bg-km-amber-soft px-2 py-[2px] font-mono text-km-label font-semibold text-km-amber">
                         {new Date(e.date_echeance).toLocaleDateString('fr-FR')}
                       </span>

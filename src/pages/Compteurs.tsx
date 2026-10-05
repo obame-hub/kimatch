@@ -50,11 +50,10 @@ import {
   type TriCompteurs,
   type LigneCompteur,
 } from '@/lib/data/compteurs'
-import { useContrats } from '@/lib/data/contrats'
 import { useOuvrirCreation } from '@/lib/ouvrirCreation'
 import { useCreerUnCompteur } from '@/lib/creationCompteur'
 import { useFrappePosee } from '@/lib/useFrappePosee'
-import { contratCompte, natureEcheance, type EcheanceCompteur } from '@/lib/echeance'
+import { type EcheanceCompteur } from '@/lib/echeance'
 import { cn } from '@/lib/utils'
 import { Tableau, TableauTete, TableauCorps } from '@/components/ui/tableau'
 
@@ -123,18 +122,9 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
   })
   const { data: nombres } = useComptesEcheances()
 
-  // LES CONTRATS SERVENT LA COLONNE « NATURE », PAS LE FILTRE. 1 600 lignes chargées une fois et
-  // partagées avec les autres écrans par le cache — sans commune mesure avec les 7 899 compteurs et
-  // leurs huit jointures qui avaient gelé l'onglet.
-  const { data: contrats } = useContrats()
-  const contratsParCompteur = useMemo(() => {
-    const m = new Map<string, { date_fin: string | null }[]>()
-    /* Seuls les contrats signés ET validés font l'échéance (`contratCompte`, 02/10/2026). */
-    for (const ct of (contrats ?? []).filter(contratCompte)) {
-      for (const k of ct.compteurs) m.set(k.id, [...(m.get(k.id) ?? []), { date_fin: ct.date_fin }])
-    }
-    return m
-  }, [contrats])
+  /* L'ÉCHÉANCE ET SA NATURE VIENNENT DE LA BASE (`v_echeance_compteur`, 05/10/2026) : la règle de
+     la fiche, contrats prospects compris. Elles se recalculaient ici sur les seuls contrats clients,
+     et un contrat prospect plus récent y était ignoré. */
 
   const jour = useMemo(() => {
     const d = new Date()
@@ -264,8 +254,8 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
                 <LigneTableau
                   key={c.id}
                   compteur={c}
-                  echeance={natureEcheance(c.date_echeance, contratsParCompteur.get(c.id) ?? [])}
-                  natureConnue={contrats !== undefined}
+                  echeance={{ nature: c.nature, date: c.date_echeance, dateDeclaree: c.dateDeclaree, datePreuve: c.datePreuve, contredit: c.contredit }}
+                  natureConnue
                   jour={jour}
                   onOuvrir={() => navigate(`/compteurs/${c.id}`)}
                 />
@@ -325,6 +315,8 @@ function LigneTableau({
             {new Date(echeance.date + 'T12:00:00').toLocaleDateString('fr-FR')}
             {depassee && <span className="ml-1.5 text-km-xs font-bold uppercase">dépassée</span>}
           </span>
+        ) : compteur.indeterminee ? (
+          <span className="text-km-muted" title="Le dernier contrat connu n’a pas de date de fin">Indéterminée</span>
         ) : (
           <span className="text-km-faint">—</span>
         )}

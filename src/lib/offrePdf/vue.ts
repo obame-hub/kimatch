@@ -104,9 +104,9 @@ export function vueOffre(d: DonneesOffrePdf, logoKiwee: string): Record<string, 
     pce: {
       lib: ou(d.compteur.libelle), numC: d.compteur.numero.replace(/\s+/g, ''), tarif: ou(d.compteur.tarif), profil: ou(d.compteur.profil),
       car: d.compteur.car != null ? `${vol(d.compteur.car)}${NB}MWh/an` : '—',
-      ech: dateC(d.compteur.echeance),
+      ech: d.compteur.echeanceIndeterminee ? 'Indéterminée' : dateC(d.compteur.echeance),
     },
-    pdl: { lib: ou(d.compteur.libelle), numC: d.compteur.numero.replace(/\s+/g, ''), segment: ou(d.compteur.segment), fta: ou(d.compteur.fta), ech: dateC(d.compteur.echeance) },
+    pdl: { lib: ou(d.compteur.libelle), numC: d.compteur.numero.replace(/\s+/g, ''), segment: ou(d.compteur.segment), fta: ou(d.compteur.fta), ech: d.compteur.echeanceIndeterminee ? 'Indéterminée' : dateC(d.compteur.echeance) },
     postes: ['POINTE', 'HPH', 'HCH', 'HPE', 'HCE'].map((p) => ({
       k: p === 'POINTE' ? 'Pointe' : p,
       c: vol(d.compteur.conso[p] ?? 0),

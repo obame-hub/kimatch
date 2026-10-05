@@ -133,9 +133,11 @@ export const SENS_NATURE_ECHEANCE: Record<NatureEcheance, string> = {
  * commercial n'en a pas saisi un. La date déclarée (`compteurs.date_echeance`) n'est ni effacée ni
  * réécrite — William : « je ne veux aucune perte de data ».
  *
- * ⚠️ Cette règle vaut pour la FICHE. Le cockpit, les échéances à traiter et la qualité du
- * portefeuille lisent encore `compteurs.date_echeance` en base (`v_compteurs_liste` et suivantes) :
- * ils basculeront quand William aura validé le parcours.
+ * LA MÊME RÈGLE VIT EN BASE depuis le 05/10/2026 (`v_echeance_compteur`) — William : « tous les
+ * endroits doivent lire l'échéance ». Les listes, le cockpit, les échéances à traiter, la qualité,
+ * le score des contacts et la proposition PDF la lisent là. Toute retouche se fait aux DEUX
+ * endroits (tests : `contratsProspects.test.ts`). Une nuance, voulue : en base, `nature` reste
+ * PROUVÉE tant qu'un contrat client couvre le compteur — c'est elle qui dit « client » partout.
  */
 export interface EcheanceDuCompteur extends EcheanceCompteur {
   source: 'CONTRAT_PROSPECT' | 'REGLE_CLIENT'
