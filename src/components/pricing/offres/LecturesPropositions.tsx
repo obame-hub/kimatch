@@ -5,7 +5,7 @@ import { lireNombre } from '@/lib/pricing/budget'
 import { saisieComplete, useChiffrageMutations, type Chiffrage } from '@/lib/data/chiffrage'
 import type { Lectures } from '@/lib/data/lectureOffre'
 import {
-  dejaChiffree, rapprocher, saisieDepuisLecture,
+  dejaChiffree, lignesProposables, rapprocher, saisieDepuisLecture,
   type OffreLue, type PropositionLue,
 } from '@/lib/pricing/lectureOffre'
 
@@ -150,7 +150,7 @@ function OffreLueCarte({ p, lue, chiffrage, versionId, choisirCompteur, onToast 
         <span className="text-[9.5px] font-extrabold uppercase tracking-[.08em] text-km-faint">Ligne à remplir</span>
         <select value={offreId} onChange={(e) => setOffreId(e.target.value)} disabled={incluse} className={choix}>
           <option value="">— Choisir une ligne —</option>
-          {chiffrage.offres.map((o) => <option key={o.id} value={o.id}>{o.fournisseurNom} · {o.duree ?? '?'} mois · {o.type ?? '?'}</option>)}
+          {lignesProposables(chiffrage, p).map((o) => <option key={o.id} value={o.id}>{o.fournisseurNom} · {o.duree ?? '?'} mois · {o.type ?? '?'}</option>)}
         </select>
       </label>
       {chiffrage.compteurs.length > 1 && (

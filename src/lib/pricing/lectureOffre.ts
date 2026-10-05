@@ -107,6 +107,18 @@ export function rapprocher(chiffrage: Chiffrage, p: PropositionLue, lue: OffreLu
   return { compteur, offre, alerteCompteur, alerteOffre }
 }
 
+/**
+ * Les lignes où une proposition peut s'écrire. Un document lu par l'IA peut se tromper de
+ * fournisseur : toutes les lignes restent proposées. Une réponse Tradeo, non — elle vient d'UN
+ * fournisseur, certain : ses prix ne vont que sur ses lignes (Naoëlle, 05/10/2026 : en choisissant
+ * GEDIA, les prix de Primeo allaient sur la ligne de Gedia).
+ */
+export function lignesProposables(chiffrage: Chiffrage, p: PropositionLue): OffreChiffrage[] {
+  if (p.source !== 'TRADEO') return chiffrage.offres
+  const cle = cleFournisseur(p.fournisseur_nom)
+  return chiffrage.offres.filter((o) => cleFournisseur(o.fournisseurNom) === cle)
+}
+
 /** Ce que la ligne portera une fois l'offre incluse — le reste de la saisie (CPB…) ne bouge pas. */
 export function saisieDepuisLecture(compteur: CompteurChiffrage, lue: OffreLue, margeIncluse: number, existante?: SaisieLigne): SaisieLigne {
   const s: SaisieLigne = { ...SAISIE_VIDE, ...existante, p0Postes: { ...(existante?.p0Postes ?? {}) } }

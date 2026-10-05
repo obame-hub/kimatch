@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { etapeTradeo, etatsDepuisDemandes, fournisseursTradeo, offreLueDepuisTradeo } from '@/lib/tradeo/pricer'
 import { lireOffresTradeo, rapprocherFournisseur } from '@/lib/tradeo/prixUnitaires'
-import { saisieDepuisLecture } from '@/lib/pricing/lectureOffre'
+import { lignesProposables, saisieDepuisLecture } from '@/lib/pricing/lectureOffre'
 import type { CommandeFournisseur, CompteurChiffrage } from '@/lib/data/chiffrage'
 
 /* ── Les règles de la réunion du 05/10/2026 ─────────────────────────────────────────────────── */
@@ -97,5 +97,16 @@ describe('offreLueDepuisTradeo', () => {
 
   it('« Primeo » chez Tradeo est « PRIMEO ENERGIE » dans Kimatch', () => {
     expect(rapprocherFournisseur('Primeo', [{ nom: 'PRIMEO ENERGIE' }])).not.toBeNull()
+  })
+})
+
+describe('les lignes où une proposition peut s’écrire', () => {
+  const ligne = (id: string, fournisseurNom: string) => ({ id, fournisseurNom } as never)
+  const chiffrage = { offres: [ligne('e36', 'ENERGEM'), ligne('p36', 'PRIMEO ENERGIE'), ligne('p48', 'PRIMEO ENERGIE'), ligne('g36', 'GEDIA')] } as never
+  it('Tradeo : seulement les lignes de son fournisseur', () => {
+    expect(lignesProposables(chiffrage, { fournisseur_nom: 'PRIMEO ENERGIE', source: 'TRADEO' } as never).map((o) => o.id)).toEqual(['p36', 'p48'])
+  })
+  it('un document lu par l’IA : toutes, il peut s’être trompé de fournisseur', () => {
+    expect(lignesProposables(chiffrage, { fournisseur_nom: 'PRIMEO ENERGIE' } as never)).toHaveLength(4)
   })
 })
