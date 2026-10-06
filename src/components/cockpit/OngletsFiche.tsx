@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   Building2, ChevronDown, ExternalLink, FileText, Gauge, Mail, MailCheck, MailOpen, MailQuestion,
-  MailX, NotebookPen, Phone, PhoneOff, Play,
+  MailX, NotebookPen, Phone, PhoneOff, Play, Plus, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { dureeLisible, LIBELLE_ISSUE, LIBELLE_QUALIFICATION } from '@/lib/data/appelEnCours'
@@ -10,6 +10,7 @@ import {
   SEGMENTS_COMPTE,
   useEcrireNote,
   useFilActivite,
+  useMajCoproprietesPiste,
   useMajSocieteSprint,
   usePoserValence,
   type ChampSocieteSprint,
@@ -621,6 +622,77 @@ const LIBELLE_ETIQUETTE: Record<string, string> = {
  * cassées alors qu'elles sont simplement au début : « le but étant de recevoir une facture, créer
  * un périmètre et lancer une opportunité » (William). L'écran le dit dans ces termes-là.
  */
+/**
+ * ══ LES COPROPRIÉTÉS ANNONCÉES, MODIFIABLES ══
+ *
+ * William, 06/10/2026 : « rends le champ éditable afin que les utilisateurs, s'ils ont une info,
+ * puissent l'ajouter à la main ». Chaque copropriété se corrige d'un clic (le même champ que le
+ * reste du sprint) ou se retire d'une croix ; la dernière ligne en ajoute une, Entrée pour valider.
+ * Chaque geste écrit la liste entière : c'est une seule colonne en base.
+ */
+function CoprosAnnoncees({ pisteId, copros }: { pisteId: string; copros: string[] }) {
+  const maj = useMajCoproprietesPiste()
+  const [nouvelle, setNouvelle] = useState('')
+  const ecrire = (liste: string[]) => maj.mutateAsync({ pisteId, coproprietes: liste })
+
+  function ajouter() {
+    const c = nouvelle.trim()
+    if (!c) return
+    setNouvelle('')
+    void ecrire([...copros, c])
+  }
+
+  return (
+    <div>
+      <span className="mb-2 block font-mono text-km-label font-semibold uppercase tracking-[0.16em] text-km-side-faint">
+        Les copropriétés annoncées
+      </span>
+      <ol className="grid gap-1">
+        {copros.map((c, i) => (
+          <li key={`${c}-${i}`} className="group/copro flex items-start gap-1 rounded-km border border-km-side-line px-3 py-1.5 text-km-body text-km-side-text">
+            <span className="min-w-0 flex-1">
+              <ChampSprint
+                valeur={c}
+                aLaLigne
+                ariaLabel="la copropriété"
+                onCommit={(v) => ecrire(v ? copros.map((x, j) => (j === i ? v : x)) : copros.filter((_, j) => j !== i))}
+              />
+            </span>
+            <button
+              type="button"
+              aria-label={`Retirer ${c}`}
+              title="Retirer cette copropriété"
+              onClick={() => void ecrire(copros.filter((_, j) => j !== i))}
+              className="mt-[3px] shrink-0 rounded-km-sm p-0.5 text-km-side-faint opacity-0 transition-opacity hover:text-km-side-text focus:opacity-100 group-hover/copro:opacity-100"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </li>
+        ))}
+        <li className="flex items-center gap-2 rounded-km border border-dashed border-km-side-line px-3 py-1.5">
+          <Plus className="h-3 w-3 shrink-0 text-km-side-faint" />
+          <input
+            value={nouvelle}
+            onChange={(e) => setNouvelle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); ajouter() }
+              /* Échap vide le champ sans fermer le sprint — même règle que `ChampSprint`. */
+              if (e.key === 'Escape' && nouvelle) { e.stopPropagation(); setNouvelle('') }
+            }}
+            onBlur={ajouter}
+            placeholder="Ajouter une copropriété…"
+            aria-label="Ajouter une copropriété"
+            className="min-w-0 flex-1 bg-transparent text-km-body text-km-side-text outline-none placeholder:text-km-side-faint"
+          />
+        </li>
+      </ol>
+      {maj.isError ? (
+        <p className="mt-1.5 text-km-micro text-[#F0A08F]">Enregistrement impossible : {(maj.error as Error).message}</p>
+      ) : null}
+    </div>
+  )
+}
+
 function Perimetre({ ligne, fiche }: { ligne: LignePipe; fiche: FicheDetaillee | undefined }) {
   const copros = fiche?.nombre_coproprietes ?? null
   const lots = fiche?.nombre_de_lots ?? null
@@ -644,28 +716,15 @@ function Perimetre({ ligne, fiche }: { ligne: LignePipe; fiche: FicheDetaillee |
             texte="C’est précisément l’objet de l’appel : obtenir une facture pour savoir ce qu’il y a à couvrir, et pouvoir convertir."
           />
         ) : (
-          <>
-            <div className="grid grid-cols-3 gap-2">
-              <Chiffre valeur={copros} libelle={copros === 1 ? 'copropriété' : 'copropriétés'} />
-              <Chiffre valeur={lots} libelle={lots === 1 ? 'lot' : 'lots'} />
-              <Chiffre valeur={ratio} libelle="lots / copro" />
-            </div>
-            {listeCopros.length > 0 ? (
-              <div>
-                <span className="mb-2 block font-mono text-km-label font-semibold uppercase tracking-[0.16em] text-km-side-faint">
-                  Les copropriétés annoncées
-                </span>
-                <ol className="grid gap-1">
-                  {listeCopros.map((c, i) => (
-                    <li key={`${c}-${i}`} className="rounded-km border border-km-side-line px-3 py-1.5 text-km-body text-km-side-text">
-                      {c}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ) : null}
-          </>
+          <div className="grid grid-cols-3 gap-2">
+            <Chiffre valeur={copros} libelle={copros === 1 ? 'copropriété' : 'copropriétés'} />
+            <Chiffre valeur={lots} libelle={lots === 1 ? 'lot' : 'lots'} />
+            <Chiffre valeur={ratio} libelle="lots / copro" />
+          </div>
         )}
+        {/* LA LISTE S'AFFICHE MÊME VIDE : c'est là qu'on écrit ce que l'interlocuteur vient de
+            dire. Un parc inconnu est justement celui qu'on commence à remplir. */}
+        <CoprosAnnoncees pisteId={ligne.cible_id} copros={listeCopros} />
       </div>
     )
   }

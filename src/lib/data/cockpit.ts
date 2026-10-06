@@ -1556,6 +1556,35 @@ export const SEGMENTS_COMPTE = [
   'Courtier',
 ] as const
 
+/**
+ * ══ LES COPROPRIÉTÉS ANNONCÉES D'UNE PISTE, CORRIGÉES PENDANT L'APPEL ══
+ *
+ * William, 06/10/2026 : « rends le champ "Les copropriétés annoncées" éditable afin que les
+ * utilisateurs, s'ils ont une info, puissent l'ajouter à la main ».
+ *
+ * La colonne est un texte libre (`pistes.liste_coproprietes`), découpé à la lecture sur les retours
+ * à la ligne et les points-virgules. On la réécrit une copropriété par ligne : c'est ce que la fiche
+ * piste affiche dans sa zone de texte, et ce que la lecture découpe sans ambiguïté. Une liste vidée
+ * redevient `null`, pas une chaîne vide.
+ */
+export function useMajCoproprietesPiste() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ pisteId, coproprietes }: { pisteId: string; coproprietes: string[] }) => {
+      const propres = coproprietes.map((c) => c.trim()).filter(Boolean)
+      const { error } = await supabase
+        .from('pistes')
+        .update({ liste_coproprietes: propres.length ? propres.join('\n') : null })
+        .eq('id', pisteId)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['cockpit'] })
+      void qc.invalidateQueries({ queryKey: ['pistes'] })
+    },
+  })
+}
+
 export function useMajSocieteSprint() {
   const qc = useQueryClient()
   return useMutation({
