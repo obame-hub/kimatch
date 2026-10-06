@@ -29,7 +29,11 @@ type Etat =
  * (`svcOnlineOrder`) ; sur le chemin de repli « liste de surveillance » on n'a que la note. Comme
  * dans Tools, ces deux lignes sont conditionnelles.
  */
-export function EllisphereScoreCard({ compteId, siren }: { compteId: string; siren: string | null | undefined }) {
+/**
+ * La lecture de la note — partagée par la carte de la fiche et la ligne du parcours de création
+ * d'une recommandation (06/10/2026). Relue à l'ouverture, notée sur le compte quand elle répond.
+ */
+export function useNoteEllipro(compteId: string, siren: string | null | undefined) {
   const { mutateAsync: fetchScore } = useEllisphereScore()
   const updateCompteScore = useUpdateCompteScore()
   const [etat, setEtat] = useState<Etat>({ phase: 'idle' })
@@ -67,9 +71,63 @@ export function EllisphereScoreCard({ compteId, siren }: { compteId: string; sir
 
   // Récupération automatique au montage
   useEffect(() => {
-    run()
+    void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compteId, siren])
+
+  return { etat, run }
+}
+
+/**
+ * ══ LA NOTE SUR UNE LIGNE — création d'une recommandation, William, 06/10/2026 ══
+ * Direction A retenue : la note actualisée tient sur une ligne en tête de l'étape 1, aux couleurs
+ * du barème (`palierScoreEllipro`), avec de quoi la relancer.
+ */
+export function NoteElliproLigne({ compteId, siren }: { compteId: string; siren: string | null | undefined }) {
+  const { etat, run } = useNoteEllipro(compteId, siren)
+  const relancer = (
+    <button
+      type="button"
+      onClick={() => void run()}
+      aria-label="Actualiser la note Ellipro"
+      title="Actualiser la note Ellipro"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-km-line bg-white text-km-muted hover:text-km-green"
+    >
+      <RefreshCw className={cn('h-3.5 w-3.5', etat.phase === 'loading' && 'animate-spin')} />
+    </button>
+  )
+  if (etat.phase !== 'done' || etat.score === null) {
+    return (
+      <div className="flex min-h-[50px] items-center gap-3 rounded-[12px] border border-km-line bg-km-bg px-[14px] py-[9px] text-[12.5px] text-km-muted">
+        {etat.phase === 'error'
+          ? <><AlertTriangle className="h-4 w-4 shrink-0 text-km-amber" /><span className="flex-1">Note Ellipro indisponible : {etat.message}</span>{relancer}</>
+          : etat.phase === 'done'
+            ? <><Shield className="h-4 w-4 shrink-0" /><span className="flex-1">Aucune note Ellipro pour ce compte.</span>{relancer}</>
+            : <><Loader2 className="h-4 w-4 shrink-0 animate-spin text-km-green" /><span className="flex-1">Actualisation de la note Ellipro…</span></>}
+      </div>
+    )
+  }
+  const p = palierScoreEllipro(etat.score)
+  const fond = p.bande === 'vert' ? 'bg-km-green' : p.bande === 'jaune' ? 'bg-km-amber' : 'bg-km-red'
+  const details = [etat.creditOpinion, etat.paymentIncidents].filter(Boolean).join(' · ')
+  return (
+    <div className={cn('flex min-h-[50px] items-center gap-3 rounded-[12px] border px-[14px] py-[9px]', p.bordureToken, p.fondToken)}>
+      {/* Entier, jamais de décimale (William, 04/08) : Ellisphere note de 0 à 10. */}
+      <span className={cn('flex shrink-0 items-baseline rounded-[8px] px-[9px] py-[3px] font-mono font-semibold text-white', fond)}>
+        <span className="text-[16px]">{Math.round(etat.score)}</span><span className="text-[11px] opacity-75">/10</span>
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-px">
+        <span className="text-[12.5px] font-semibold text-km-text">Note Ellipro · {p.libelle.toLowerCase()}</span>
+        {details && <span className="truncate text-[11px] text-km-muted" title={details}>{details}</span>}
+      </span>
+      <span className={cn('shrink-0 text-[11px] font-semibold', p.texteToken)}>Actualisée à l’instant</span>
+      {relancer}
+    </div>
+  )
+}
+
+export function EllisphereScoreCard({ compteId, siren }: { compteId: string; siren: string | null | undefined }) {
+  const { etat, run } = useNoteEllipro(compteId, siren)
 
   if (etat.phase === 'idle' || etat.phase === 'loading') {
     return (

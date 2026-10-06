@@ -1,58 +1,27 @@
 /**
- * Création d'une recommandation — transposition de l'`OpportuniteWizard` de Tools
- * (`src/components/opportunite/OpportuniteWizard.tsx`), lu dans le code source le 15/08/2026.
+ * Création d'une recommandation.
  *
- * POURQUOI CETTE RÉÉCRITURE. Les règles métier étaient déjà justes dans l'ancien dialogue, mais
- * la forme ne l'était pas : Tools déroule un parcours en quatre étapes avec un fil d'avancement,
- * là où Kimatch empilait tous les champs dans un seul formulaire. Demande de Naoëlle du
- * 15/08/2026 : « refaire la création de recommandation à l'identique de Tools ».
+ * Depuis le 06/10/2026, un parcours en deux étapes dans la coquille commune des parcours — voir
+ * « LE PARCOURS EN DEUX ÉTAPES » plus bas. Ce fichier garde aussi les règles partagées avec la
+ * conversion d'une opportunité (`DialogConversionOpportunite`) : ce qu'est un compteur sous contrat,
+ * le titre généré, la date de clôture conseillée.
  *
- * LES QUATRE ÉTAPES, dans l'ordre exact de Tools (constante STEPS) :
- *   1. Énergie — deux cartes, et l'on passe seul à l'étape suivante une fois le choix fait
- *   2. Points de livraison — recherche, sélection multiple, type d'opportunité déduit
- *   3. Contact décisionnaire — pré-rempli quand un seul PDL porte un responsable
- *   4. Date prévisionnelle de signature — avec l'aperçu du nom généré
- *
- * CE QUI DIFFÈRE DE TOOLS, ET POURQUOI.
- *
- * • Le point de départ. Dans Tools le wizard est une page ouverte depuis un compte, et les PDL
- *   éligibles sont ceux dont `Statut_du_mandat__c` vaut « Actif ». Kimatch ouvre un dialogue qui
- *   peut venir de la liste des recommandations, sans compte connu : on ajoute alors une étape
- *   « Compte » en tête. Elle disparaît quand on arrive d'une fiche compte, où le compte est su.
- *
- * • Le mandat n'est plus choisi à la main. L'ancien dialogue demandait de sélectionner un mandat
- *   avant tout, ce que Tools ne fait pas : c'est au PDL de porter l'information. On retient
- *   désormais, comme Tools, tous les PDL du compte couverts par un mandat ACTIF, et le mandat
- *   rattaché à la recommandation est déduit de ceux-là. L'utilisateur n'a plus à deviner quel
- *   mandat couvre le point de livraison qu'il vise.
- *
- * • La date se saisit dans un champ `date` natif plutôt que dans le calendrier de Tools : le
- *   projet n'embarque pas de composant calendrier, et en ajouter un pour ce seul écran coûterait
- *   plus qu'il ne rapporte. Le garde-fou de préavis, lui, est repris tel quel — en mieux, voir
- *   plus bas.
- *
- * • Le seuil de préavis est calculé sur le préavis réel du contrat en cours quand Kimatch le
- *   connaît (`contrats.preavis_resiliation_jours`), là où Tools retranche deux mois en dur faute
- *   d'avoir le champ. Comportement déjà en place avant cette réécriture, conservé.
- *
- * • Origine, priorité, description et commentaire interne n'existent pas dans Tools mais existent
- *   dans Kimatch. Les supprimer serait une perte : ils sont regroupés en fin de parcours, repliés.
+ * Historique : transposition de l'`OpportuniteWizard` de Tools le 15/08/2026 (quatre étapes :
+ * énergie, points de livraison, contact, date), à la demande de Naoëlle. Ce qui en reste : le
+ * mandat n'est jamais choisi à la main (il se déduit du premier compteur), le préavis réel du
+ * contrat en cours sert au calcul de la date, et les compteurs déjà engagés sont écartés.
  */
-import { useEffect, useMemo, useState } from 'react'
-import { useOuvrirEmail } from '@/lib/voletEmail'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  AlertTriangle, Briefcase, Check, ChevronLeft, ChevronRight, Flame, Info,
-  Loader2, Lock, Mail, MapPin, Phone, Search, Zap,
-} from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { AlertTriangle, ArrowRight, Briefcase, Check, Flame, Info, Loader2, Lock, Search, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Dialog } from '@/components/ui/dialog'
-import { FormField, Input, Select, Textarea } from '@/components/ui/form'
-import { WizardConnectionGate } from '@/components/ui/connection-gate'
+import {
+  EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours, useSortieParcours,
+  type EtapeParcours, type ResumeEtape,
+} from '@/components/parcours/Parcours'
 import { ContactPicker } from '@/components/contact/ContactPicker'
-import { EllisphereScoreCard } from '@/components/opportunite/EllisphereScoreCard'
+import { NoteElliproLigne } from '@/components/opportunite/EllisphereScoreCard'
+import { dateFr, dateValide, lireMontant } from '@/components/recommandation/cloture/commun'
 import { useRecommandationsListe, useCreateRecommandation, recommandationsRetenantCompteurs } from '@/lib/data/recommandations'
 import { useMandats } from '@/lib/data/mandats'
 import { useCompteurs } from '@/lib/data/compteurs'
@@ -60,20 +29,13 @@ import { echeanceLisible, useEcheancesRetenues } from '@/lib/data/echeancesReten
 import { useContacts } from '@/lib/data/contacts'
 import { useContrats } from '@/lib/data/contrats'
 import { useComptes } from '@/lib/data/comptes'
-import { useSitesParCompte } from '@/lib/data/sites'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_TYPES_ORIGINES, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
+import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { trouverParCode } from '@/lib/codeReferentiel'
 import { cn } from '@/lib/utils'
 import type { Compteur } from '@/types/domain'
-import { appelerNumero } from '@/lib/telephonie'
 import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
-
-const PRIORITE_OPTIONS = [
-  { value: 1, label: 'Haute' },
-  { value: 2, label: 'Normale' },
-  { value: 3, label: 'Basse' },
-]
+import { estJourOuvreFR } from '@/lib/joursFeries'
 
 /**
  * UN PDL COMPTE POUR « CLIENT » DÈS QU'UN CONTRAT EN COURS LE COUVRE.
@@ -159,6 +121,11 @@ export function buildTitre(
  * contrat en cours — et non d'un préavis forfaitaire, qui ferait rater la fenêtre de résiliation
  * sur les fournisseurs qui exigent plus que les 30 jours habituels.
  *
+ * ══ JAMAIS UN WEEK-END NI UN JOUR FÉRIÉ — William, 06/10/2026 ══
+ * « Fais en sorte que ça ne tombe pas sur un weekend notamment. » La date recule au jour ouvré
+ * précédent (`estJourOuvreFR`, fériés compris) : plus tôt, le préavis reste tenu ; plus tard, il
+ * serait dépassé.
+ *
  * Sortie de son composant le 11/09/2026 : la conversion d'une opportunité crée plusieurs
  * recommandations d'un coup, chacune sur son propre lot de compteurs, donc chacune avec sa propre
  * date. La règle ne pouvait plus vivre dans l'état d'un seul formulaire.
@@ -180,23 +147,49 @@ export function dateClotureSuggereePour(
         (ct) => contratEnCours(ct) && ct.compteurs.some((cpt) => cpt.id === c.id),
       )
       const preavis = contratActuel?.preavis_resiliation_jours ?? PREAVIS_DEFAUT_JOURS
-      const d = new Date(c.date_echeance)
+      /* À midi, à l'heure locale : ni le fuseau ni le passage à l'heure d'été ne décalent le jour. */
+      const [a, m, j] = c.date_echeance.slice(0, 10).split('-').map(Number)
+      const d = new Date(a, m - 1, j, 12)
       d.setDate(d.getDate() - preavis)
       return d
     })
     .filter((d): d is Date => d != null)
   if (dates.length === 0) return ''
-  return dates.reduce((a, b) => (a < b ? a : b)).toISOString().slice(0, 10)
+  const d = dates.reduce((x, y) => (x < y ? x : y))
+  while (!estJourOuvreFR(d)) d.setDate(d.getDate() - 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function CreateRecommandationDialog({
-  open,
-  onClose,
-  onCreated,
-  initialCompteId,
-  opportuniteId,
-  initialCompteurIds,
-}: {
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+ * LE PARCOURS EN DEUX ÉTAPES — William, 06/10/2026
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * « Retravaille le process de création de la recommandation sur les nouveaux modèles : étape 1, la
+ * note Ellipro actualisée + choix de l'énergie + choix du ou des compteurs ; étape 2, choix du
+ * contact décisionnaire (par défaut le responsable des compteurs choisis) + date de clôture +
+ * montant. Très rapide, sans fioriture. » Directions retenues sur les maquettes
+ * (https://claude.ai/artifact/9zaDWkHCNoaUyC8SuAz6Vb) : A pour l'étape 1, A pour le contact et B
+ * pour la date et le montant.
+ *
+ *   · LA COQUILLE DES PARCOURS (`Parcours.tsx`) : fenêtre, rail anthracite, sortie confirmée.
+ *   · UNE SEULE ÉNERGIE : « impossible de créer une recommandation avec à la fois des compteurs gaz
+ *     et électricité ». Le sélecteur filtre la liste ; changer d'énergie vide la sélection.
+ *   · LE COMPTE, quand on ne vient pas d'une fiche, se choisit en tête de l'étape 1.
+ *   · LE CONTACT PAR DÉFAUT est le responsable qui couvre le plus de compteurs choisis.
+ *   · ORIGINE, PRIORITÉ, DESCRIPTION, COMMENTAIRE quittent le parcours : 1 recommandation sur 1 855
+ *     avait une origine, aucune des 153 du dernier mois une description. La priorité reste
+ *     « Normale » et se change sur la fiche.
+ * Les règles d'avant restent : compteurs sous mandat KiWee actif, écartés montrés avec leur raison,
+ * mélange client / prospect bloquant, titre généré, montant obligatoire, mandat déduit.
+ */
+
+type EnergieReco = 'electricite' | 'gaz'
+
+const initialesDe = (prenom?: string | null, nom?: string | null) => `${(prenom || '?')[0]}${(nom || '?')[0]}`.toUpperCase()
+const TEINTES_AVATAR = ['bg-km-green-soft text-km-green', 'bg-km-blue-soft text-km-blue', 'bg-[#F1ECF8] text-km-violet', 'bg-km-amber-soft text-km-amber']
+
+export function CreateRecommandationDialog(props: {
   open: boolean
   onClose: () => void
   onCreated: (recoId: string) => void
@@ -204,14 +197,25 @@ export function CreateRecommandationDialog({
   /**
    * L'opportunité qu'on convertit, quand on arrive de sa fiche. Diapositive 10 : « une opportunité
    * convertie peut créer plusieurs recommandations selon les périmètres à traiter » — donc ce
-   * dialogue s'ouvre autant de fois qu'il y a de périmètres, et chaque recommandation garde le lien.
+   * parcours s'ouvre autant de fois qu'il y a de périmètres, et chaque recommandation garde le lien.
    */
   opportuniteId?: string
   /** Périmètre proposé au départ — celui de l'opportunité. Reste modifiable : c'est justement le
    *  geste de découper en plusieurs recommandations. */
   initialCompteurIds?: string[]
 }) {
-  const ouvrirEmail = useOuvrirEmail()
+  /* Monté à l'ouverture, démonté à la fermeture : chaque parcours repart d'une page blanche. */
+  if (!props.open) return null
+  return <ParcoursCreationRecommandation {...props} />
+}
+
+function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, opportuniteId, initialCompteurIds }: {
+  onClose: () => void
+  onCreated: (recoId: string) => void
+  initialCompteId?: string
+  opportuniteId?: string
+  initialCompteurIds?: string[]
+}) {
   const { data: mandats } = useMandats()
   const { data: compteurs } = useCompteurs()
   const { data: contacts } = useContacts()
@@ -220,813 +224,496 @@ export function CreateRecommandationDialog({
   const { data: comptes } = useComptes()
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
-  const { data: originesRef } = useReferenceTable('types_origines')
-  const origines = originesRef && originesRef.length > 0 ? originesRef : FALLBACK_TYPES_ORIGINES
   const { data: energiesRef } = useReferenceTable('types_energies')
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
   const createRecommandation = useCreateRecommandation()
 
-  // L'étape « Compte » n'existe que lorsqu'on n'arrive pas d'une fiche compte.
-  const compteImpose = !!initialCompteId
-  const ETAPES = useMemo(
-    () => (compteImpose ? [] : ['Compte']).concat(['Énergie', 'Points de livraison', 'Contact décisionnaire', 'Date prévisionnelle de signature']),
-    [compteImpose],
-  )
-
-  const [etape, setEtape] = useState(1)
+  const [etape, setEtape] = useState<'perimetre' | 'decision'>('perimetre')
   const [compteId, setCompteId] = useState(initialCompteId ?? '')
-  const [typeEnergieId, setTypeEnergieId] = useState('')
+  const [energieChoisie, setEnergieChoisie] = useState<EnergieReco | null>(null)
   const [compteurIds, setCompteurIds] = useState<string[]>(initialCompteurIds ?? [])
-  const [contactId, setContactId] = useState('')
-  const [dateClotureManuelle, setDateClotureManuelle] = useState('')
-  const [montant, setMontant] = useState('')
-  const [rechercheP, setRechercheP] = useState('')
-  const [rechercheC, setRechercheC] = useState('')
-  const [origineId, setOrigineId] = useState('')
-  const [priorite, setPriorite] = useState(2)
-  const [description, setDescription] = useState('')
-  const [commentaireInterne, setCommentaireInterne] = useState('')
-  const [complementsOuverts, setComplementsOuverts] = useState(false)
-  const [feedback, setFeedback] = useState<string | null>(null)
-  const [termine, setTermine] = useState(false)
+  const [recherche, setRecherche] = useState('')
+  const [rechercheCompte, setRechercheCompte] = useState('')
+  const [contactChoisi, setContactChoisi] = useState('')
+  const [autreContact, setAutreContact] = useState(false)
+  const [dateAutre, setDateAutre] = useState<string | null>(null)
+  const [montantTxt, setMontantTxt] = useState('')
+  const [entame, setEntame] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
 
-  // Index des étapes, décalé d'un cran quand « Compte » est présent.
-  const iEnergie = compteImpose ? 1 : 2
-  const iPdl = iEnergie + 1
-  const iContact = iEnergie + 2
-  const iDate = iEnergie + 3
-
-  const typeEnergie = (energies.find((e) => e.id === typeEnergieId)?.code?.toLowerCase() === 'gaz' ? 'gaz' : 'electricite') as 'electricite' | 'gaz'
   const compteCible = comptes?.find((c) => c.id === compteId)
-  const { data: sitesDuCompte } = useSitesParCompte(compteId || undefined)
   const retenus = useMemo(() => recommandationsRetenantCompteurs(recommandations ?? []), [recommandations])
 
-  /**
-   * PDL éligibles — la règle de Tools, transposée.
-   *
-   * Tools lit `Statut_du_mandat__c = 'Actif'` porté par le PDL lui-même ; Kimatch n'a pas ce
-   * champ, l'information vit dans le mandat. On retient donc les compteurs couverts par au moins
-   * un mandat ACTIF du compte. S'y ajoutent les deux mêmes filtres que Tools : l'énergie choisie,
-   * et l'exclusion des PDL déjà engagés sur une opportunité en cours (`busyPdlIds` là-bas,
-   * `compteursDejaEngages` ici).
-   */
+  /* ══ LES COMPTEURS ÉLIGIBLES ══ Ceux du compte couverts par un mandat ACTIF ; on n'écarte que
+     ceux déjà engagés sur une recommandation en cours — et on dit lesquels, avec le lien. */
   const mandatsActifsDuCompte = useMemo(
     () => (mandats ?? []).filter((m) => m.compte_id === compteId && m.statut === 'ACTIF'),
     [mandats, compteId],
   )
-  const compteursSousMandat = useMemo(() => {
+  const sousMandat = useMemo(() => {
     const ids = new Set<string>()
     for (const m of mandatsActifsDuCompte) for (const c of m.compteur_ids) ids.add(c)
+    return (compteurs ?? []).filter((c) => ids.has(c.id))
+  }, [mandatsActifsDuCompte, compteurs])
+  const eligiblesPar = (e: EnergieReco) => sousMandat.filter((c) => c.type_energie === e && !retenus.has(c.id))
+  const nbElec = eligiblesPar('electricite').length
+  const nbGaz = eligiblesPar('gaz').length
+
+  /* L'ÉNERGIE PAR DÉFAUT : celle du périmètre proposé, sinon celle qui a des compteurs (l'électricité
+     d'abord). Un clic de moins dans le cas le plus courant. */
+  const energieDuPerimetre = (compteurs ?? []).find((c) => initialCompteurIds?.includes(c.id))?.type_energie ?? null
+  const energie: EnergieReco = energieChoisie ?? energieDuPerimetre ?? (nbElec === 0 && nbGaz > 0 ? 'gaz' : 'electricite')
+  const typeEnergieId = trouverParCode(energies, energie === 'gaz' ? 'GAZ' : 'ELECTRICITE')?.id ?? ''
+
+  const eligibles = useMemo(() => eligiblesPar(energie), [sousMandat, retenus, energie]) // eslint-disable-line react-hooks/exhaustive-deps
+  const ecartes = useMemo(
+    () => sousMandat.filter((c) => c.type_energie === energie && retenus.has(c.id)).map((c) => ({ compteur: c, reco: retenus.get(c.id)! })),
+    [sousMandat, retenus, energie],
+  )
+  const affiches = useMemo(() => {
+    const q = recherche.trim().toLowerCase()
+    if (!q) return eligibles
+    return eligibles.filter((c) => [c.numero_pdl, c.utilisation, c.site_nom].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)))
+  }, [eligibles, recherche])
+  const { data: echeancesRetenues } = useEcheancesRetenues(eligibles.map((c) => c.id))
+  /* Une sélection ne garde que des compteurs de l'énergie affichée : la règle d'une seule énergie. */
+  const choisis = useMemo(() => eligibles.filter((c) => compteurIds.includes(c.id)), [eligibles, compteurIds])
+
+  const enCours = useMemo(() => {
+    const ids = new Set<string>()
+    for (const c of contrats ?? []) if (contratEnCours(c)) for (const cpt of c.compteurs) ids.add(cpt.id)
     return ids
-  }, [mandatsActifsDuCompte])
-
-  /* Les deux premiers filtres décident ce que l'utilisateur POUVAIT espérer voir : son compteur
-     porte un mandat actif, et il est de la bonne énergie. Le troisième seul l'écarte — et c'est
-     celui-là qu'il faut savoir expliquer. */
-  const compteursDuPerimetre = useMemo(() => {
-    if (!compteId || !typeEnergieId) return []
-    return (compteurs ?? []).filter(
-      (c) => compteursSousMandat.has(c.id) && c.type_energie === typeEnergie,
-    )
-  }, [compteId, typeEnergieId, typeEnergie, compteurs, compteursSousMandat])
-
-  const compteursEligibles = useMemo(
-    () => compteursDuPerimetre.filter((c) => !retenus.has(c.id)),
-    [compteursDuPerimetre, retenus],
-  )
-
-  /* ══ CE QUI EST ÉCARTÉ SE MONTRE, AVEC SA RAISON ══
-     Un compteur qui disparaît sans un mot envoie chercher le défaut du côté du mandat — c'est ce
-     qui est arrivé à William le 09/09/2026 sur MATERA by LE GOFF. Voir
-     `recommandationsRetenantCompteurs`. */
-  const compteursEcartes = useMemo(
-    () => compteursDuPerimetre
-      .filter((c) => retenus.has(c.id))
-      .map((c) => ({ compteur: c, reco: retenus.get(c.id)! })),
-    [compteursDuPerimetre, retenus],
-  )
-
-  // LES COMPTES OUVRANT DROIT À UNE RECOMMANDATION : ceux qui portent au moins un mandat actif.
-  // Même règle qu'avant, seule la présentation change.
-  //
-  // On les enrichit depuis la liste des comptes pour pouvoir chercher sur le SIREN et la ville, et
-  // pas seulement sur le nom : deux syndics homonymes ne se distinguent que par là.
-  const comptesEligibles = useMemo(() => {
-    const parId = new Map((comptes ?? []).map((c) => [c.id, c]))
-    const parCompte = new Map<
-      string,
-      { id: string; nom: string; siren: string | null; ville: string; mandats: number }
-    >()
-    for (const m of mandats ?? []) {
-      if (m.statut !== 'ACTIF') continue
-      const deja = parCompte.get(m.compte_id)
-      if (deja) {
-        deja.mandats += 1
-        continue
-      }
-      const compte = parId.get(m.compte_id)
-      parCompte.set(m.compte_id, {
-        id: m.compte_id,
-        nom: compte?.nom || m.compte_nom || 'Compte',
-        siren: compte?.siren ?? null,
-        ville: compte?.ville || '',
-        mandats: 1,
-      })
-    }
-    return [...parCompte.values()].sort((a, b) => a.nom.localeCompare(b.nom))
-  }, [mandats, comptes])
-
-  const comptesAffiches = useMemo(() => {
-    const q = rechercheC.trim().toLowerCase()
-    if (!q) return comptesEligibles
-    return comptesEligibles.filter((c) =>
-      [c.nom, c.siren, c.ville].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
-    )
-  }, [comptesEligibles, rechercheC])
-
-  const codePostalDe = useMemo(() => {
-    const parSite = new Map((sitesDuCompte ?? []).map((s) => [s.id, s.code_postal]))
-    return (c: Compteur) => parSite.get(c.site_id) || ''
-  }, [sitesDuCompte])
-
-  // Recherche sur le PDL, le libellé de site et le code postal — les trois champs de Tools.
-  const compteursAffiches = useMemo(() => {
-    const q = rechercheP.trim().toLowerCase()
-    if (!q) return compteursEligibles
-    return compteursEligibles.filter((c) =>
-      [c.numero_pdl, c.utilisation, c.site_nom, codePostalDe(c)]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q)),
-    )
-  }, [compteursEligibles, rechercheP, codePostalDe])
-
-  /* L'échéance affichée est l'échéance retenue — contrats prospects compris (05/10/2026). */
-  const { data: echeancesRetenues } = useEcheancesRetenues(compteursEligibles.map((c) => c.id))
-
-  const compteursChoisis = useMemo(
-    () => compteursEligibles.filter((c) => compteurIds.includes(c.id)),
-    [compteursEligibles, compteurIds],
-  )
-
-  // Tous les contacts du compte, rattachements indirects compris (William, 07/09/2026).
-  const contactsDuCompte = contactsRattaches(contacts, compteId)
-
-  // Mix client/prospect : blocage dur, exactement comme `mixError` dans Tools.
-  const contratsParCompteurId = useMemo(() => {
-    const map = new Map<string, boolean>()
-    for (const c of contrats ?? []) {
-      if (!contratEnCours(c)) continue
-      for (const cpt of c.compteurs) map.set(cpt.id, true)
-    }
-    return map
   }, [contrats])
-  const estClient = (c: Compteur) => !!contratsParCompteurId.get(c.id)
-  const mixStatuts = new Set(compteursChoisis.map((c) => (estClient(c) ? 'client' : 'prospect')))
-  const mixInvalide = mixStatuts.size > 1
-  // « Renouvellement » seulement si TOUS les PDL sont clients — règle d'`opportunityType`.
-  const typeOpportunite = compteursChoisis.length > 0 && compteursChoisis.every(estClient) ? 'Renouvellement' : 'Captation'
+  const estClient = (c: Compteur) => enCours.has(c.id)
+  const mixInvalide = new Set(choisis.map((c) => (estClient(c) ? 'client' : 'prospect'))).size > 1
+  const typeOpportunite = choisis.length > 0 && choisis.every(estClient) ? 'Renouvellement' : 'Captation'
+  const consoTotale = choisis.reduce((t, c) => t + (c.consommation_annuelle_mwh ?? 0), 0)
+  const mandatRetenu = choisis.length ? mandatsActifsDuCompte.find((m) => m.compteur_ids.includes(choisis[0].id)) ?? null : null
 
-  // Contact décisionnaire : suggéré quand un seul PDL est retenu et qu'il porte un responsable.
-  const responsableSuggere = compteursChoisis.length === 1 ? compteursChoisis[0].responsable_contact_id : null
-  const contactEffectifId = contactId || responsableSuggere || ''
-  const responsablesDesPdl = new Set(compteursChoisis.map((c) => c.responsable_contact_id).filter(Boolean))
-  const contactHorsResponsables = !!contactEffectifId && responsablesDesPdl.size > 0 && !responsablesDesPdl.has(contactEffectifId)
-
-  const dateClotureSuggeree = useMemo(
-    () => dateClotureSuggereePour(compteursChoisis, contrats ?? []),
-    [compteursChoisis, contrats],
+  /* ══ LES CONTACTS ══ Ceux du compte, les responsables des compteurs choisis en tête (le plus de
+     compteurs d'abord) ; le premier d'entre eux est proposé. */
+  const contactsDuCompte = contactsRattaches(contacts, compteId)
+  const responsabilites = useMemo(() => {
+    const m = new Map<string, Compteur[]>()
+    for (const c of choisis) if (c.responsable_contact_id) m.set(c.responsable_contact_id, [...(m.get(c.responsable_contact_id) ?? []), c])
+    return m
+  }, [choisis])
+  const contactsTries = useMemo(
+    () => [...contactsDuCompte].sort((x, y) => (responsabilites.get(y.id)?.length ?? 0) - (responsabilites.get(x.id)?.length ?? 0)
+      || `${x.nom} ${x.prenom}`.localeCompare(`${y.nom} ${y.prenom}`)),
+    [contactsDuCompte, responsabilites],
   )
-  const dateCloture = dateClotureManuelle || dateClotureSuggeree
+  const responsableParDefaut = [...responsabilites.entries()].sort((x, y) => y[1].length - x[1].length)[0]?.[0] ?? ''
+  const contactId = contactChoisi || responsableParDefaut
+  const contactRetenu = (contacts ?? []).find((c) => c.id === contactId)
+  const contactHorsResponsables = !!contactId && responsabilites.size > 0 && !responsabilites.has(contactId)
 
-  const titre = compteCible && compteursChoisis.length > 0
-    ? buildTitre(compteCible.nom, compteursChoisis[0].site_nom, compteursChoisis.length, dateCloture)
-    : ''
+  /* ══ LA DATE ET LE MONTANT ══ */
+  const dateConseillee = useMemo(() => dateClotureSuggereePour(choisis, contrats ?? []), [choisis, contrats])
+  const dateCloture = dateAutre ?? dateConseillee
+  const montant = lireMontant(montantTxt)
+  const titre = compteCible && choisis.length > 0 ? buildTitre(compteCible.nom, choisis[0].site_nom, choisis.length, dateCloture) : ''
 
-  // Le mandat porté par la recommandation : celui qui couvre le premier PDL retenu. Il n'est plus
-  // demandé à l'utilisateur, Tools ne le lui demande pas non plus.
-  const mandatRetenu = useMemo(() => {
-    if (compteursChoisis.length === 0) return null
-    const premier = compteursChoisis[0].id
-    return mandatsActifsDuCompte.find((m) => m.compteur_ids.includes(premier)) ?? null
-  }, [compteursChoisis, mandatsActifsDuCompte])
+  const perimetrePret = !!compteCible && choisis.length > 0 && !mixInvalide
+  const decisionPrete = perimetrePret && !!contactId && dateValide(dateCloture) && montant != null && montant !== 'invalide' && !!mandatRetenu
 
-  function reset() {
-    setEtape(1)
-    setCompteId(initialCompteId ?? '')
-    setTypeEnergieId('')
+  const sortie = useSortieParcours({
+    entame: entame && !createRecommandation.isPending,
+    bloque: createRecommandation.isPending,
+    onFermer: onClose,
+    titre: 'Fermer sans créer la recommandation ?',
+    lignes: [{ perdu: true, texte: 'Le périmètre et les informations saisies seront perdus.' }],
+    libelleFermer: 'Fermer sans créer',
+  })
+
+  function choisirEnergie(e: EnergieReco) {
+    if (e === energie) return
+    setEnergieChoisie(e)
     setCompteurIds([])
-    setContactId('')
-    setDateClotureManuelle('')
-    setRechercheP('')
-    setOrigineId('')
-    setPriorite(2)
-    setDescription('')
-    setCommentaireInterne('')
-    setComplementsOuverts(false)
-    setFeedback(null)
-    setTermine(false)
+    setContactChoisi('')
+    setDateAutre(null)
   }
-
-  function fermer() {
-    reset()
-    onClose()
+  function basculer(id: string) {
+    setEntame(true)
+    setCompteurIds((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]))
   }
-
-  // Choix de l'énergie : on avance seul, comme `selectEnergie` dans Tools (250 ms).
-  function choisirEnergie(id: string) {
-    setTypeEnergieId(id)
-    setCompteurIds([])
-    setTimeout(() => setEtape(iPdl), 250)
+  const toutChoisi = affiches.length > 0 && affiches.every((c) => compteurIds.includes(c.id))
+  function basculerTout() {
+    setEntame(true)
+    const ids = affiches.map((c) => c.id)
+    setCompteurIds((l) => (toutChoisi ? l.filter((x) => !ids.includes(x)) : [...new Set([...l, ...ids])]))
   }
-
-  // Un seul PDL porteur d'un responsable : on remplit et on avance (300 ms dans Tools).
-  useEffect(() => {
-    if (etape !== iContact || contactId || compteursChoisis.length !== 1) return
-    if (!compteursChoisis[0].responsable_contact_id) return
-    const t = setTimeout(() => setEtape(iDate), 300)
-    return () => clearTimeout(t)
-  }, [etape, iContact, iDate, contactId, compteursChoisis])
-
-  function basculerCompteur(id: string) {
-    setCompteurIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  }
-
-  const peutAvancer = (() => {
-    if (!compteImpose && etape === 1) return !!compteId
-    if (etape === iEnergie) return !!typeEnergieId
-    if (etape === iPdl) return compteurIds.length >= 1 && !mixInvalide
-    if (etape === iContact) return !!contactEffectifId
-    // Sans mandat retenu, `recommandations_mandats` recevrait un identifiant vide : l'insertion
-    // échouerait sans que rien ne le signale, et la recommandation naîtrait détachée de son mandat.
-    if (etape === iDate) return !!dateCloture && !!mandatRetenu && montant.trim() !== ''
-    return false
-  })()
 
   async function creer() {
-    if (createRecommandation.isPending || termine) return
-    if (!compteCible || compteursChoisis.length === 0 || mixInvalide || !mandatRetenu) return
-    const origine = origines.find((o) => o.id === origineId)
-    const etapeInitiale = trouverParCode(etapes, 'BROUILLON', 'CONSULTATION')
-
-    const result = await createRecommandation.mutateAsync({
-      titre,
-      // L'assistant travaille sous un mandat unique, choisi plus haut : une liste d'un seul élément.
-      mandat_ids: [mandatRetenu.id],
-      compte_id: compteCible.id,
-      compte_nom: compteCible.nom,
-      type_energie_id: typeEnergieId || null,
-      type_energie: typeEnergie,
-      compteurs: compteursChoisis.map((c) => ({ id: c.id, site_id: c.site_id, site_nom: c.site_nom })),
-      contact_signataire_id: contactEffectifId || null,
-      date_cloture: dateCloture || null,
-      type_opportunite: typeOpportunite,
-      opportunite_id: opportuniteId ?? null,
-      etape_id: etapeInitiale?.id ?? null,
-      origine_id: origineId || null,
-      origine_libelle: origine?.libelle,
-      priorite,
-      description,
-      commentaire_interne: commentaireInterne,
-      /* LE MONTANT NE S'ARRONDIT PAS. La virgule décimale française est acceptée à la frappe et
-         convertie ici : `Number('1 362,50')` rend `NaN`, ce qui aurait effacé la saisie en silence. */
-      montant: montant.trim() === '' ? null : Number(montant.replace(/\s/g, '').replace(',', '.')),
-    })
-
-    setFeedback(result.persisted ? 'Recommandation créée.' : 'Recommandation ajoutée localement (non synchronisée avec Supabase).')
-    if (result.persisted) {
-      setTermine(true)
-      // Tools enchaîne sur la cotation ; l'équivalent ici est la fiche, d'où part la version.
-      setTimeout(() => {
-        onCreated(result.recommandation.id)
-        reset()
-      }, 700)
+    setErreur(null)
+    if (!decisionPrete || !compteCible || !mandatRetenu || typeof montant !== 'number' || createRecommandation.isPending) return
+    try {
+      const result = await createRecommandation.mutateAsync({
+        titre,
+        mandat_ids: [mandatRetenu.id],
+        compte_id: compteCible.id,
+        compte_nom: compteCible.nom,
+        type_energie_id: typeEnergieId || null,
+        type_energie: energie,
+        compteurs: choisis.map((c) => ({ id: c.id, site_id: c.site_id, site_nom: c.site_nom })),
+        contact_signataire_id: contactId || null,
+        date_cloture: dateCloture || null,
+        type_opportunite: typeOpportunite,
+        opportunite_id: opportuniteId ?? null,
+        etape_id: trouverParCode(etapes, 'BROUILLON', 'CONSULTATION')?.id ?? null,
+        origine_id: null,
+        priorite: 2,
+        description: '',
+        commentaire_interne: '',
+        /* LE MONTANT NE S'ARRONDIT PAS : au centime, virgule comprise (`lireMontant`). */
+        montant,
+      })
+      if (!result.persisted) throw new Error('la recommandation n’a pas pu être enregistrée')
+      onCreated(result.recommandation.id)
+    } catch (e) {
+      /* L'erreur reste dans la fenêtre : rien de saisi n'est perdu, on peut réessayer. */
+      setErreur(e instanceof Error ? e.message : String(e))
     }
   }
-
-  const etapeCourante = ETAPES[etape - 1]
+  const ETAPES: EtapeParcours[] = [
+    { cle: 'perimetre', libelle: 'Périmètre' },
+    { cle: 'decision', libelle: 'Décision' },
+  ]
+  const resumes: Record<string, ResumeEtape | undefined> = {
+    perimetre: etape === 'decision' ? {
+      lignes: [
+        `${energie === 'gaz' ? 'Gaz' : 'Électricité'} · ${choisis.length} compteur${choisis.length > 1 ? 's' : ''}`,
+        `${consoTotale ? `${consoTotale.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh · ` : ''}${typeOpportunite}`,
+      ],
+    } : undefined,
+  }
 
   return (
-    <Dialog
-      open={open}
-      onClose={fermer}
-      title="Nouvelle recommandation"
-      description="Créer une opportunité sur un ou plusieurs points de livraison d'un compte."
-      className="max-w-3xl"
-    >
-      <WizardConnectionGate required={['crm']} feature="création d'opportunité">
-        <div className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
-          {/* Fil d'avancement — même principe que le stepper de Tools. */}
-          <div className="flex items-center gap-2">
-            {ETAPES.map((label, i) => {
-              const idx = i + 1
-              const active = idx === etape
-              const passee = idx < etape
-              return (
-                <div key={label} className="flex flex-1 items-center gap-2">
-                  <div
-                    className={cn(
-                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
-                      passee && 'bg-km-green text-white',
-                      active && 'bg-km-green-soft text-km-green ring-2 ring-kiwi-300',
-                      !active && !passee && 'bg-km-soft text-km-faint',
-                    )}
-                  >
-                    {passee ? <Check className="h-3.5 w-3.5" /> : idx}
+    <FenetreParcours sortie={sortie}>
+      <RailParcours
+        titre="Nouvelle recommandation"
+        reference={compteCible?.nom ?? null}
+        etapes={ETAPES}
+        courante={etape}
+        sousTitre={etape === 'perimetre' ? 'Énergie et compteurs' : 'Contact, date, montant'}
+        resumes={resumes}
+        note={titre
+          ? { titre: 'Nom de la recommandation', texte: titre }
+          : { titre: 'Deux étapes, rien d’enregistré avant la fin', texte: 'Seuls les compteurs sous mandat KiWee actif, et pas déjà engagés ailleurs, sont proposés.' }}
+        onFermer={sortie.demander}
+      />
+      <PanneauParcours>
+        {etape === 'perimetre' ? (
+          <>
+            <EnTeteEtape numero={1} total={2} titre={compteCible ? 'Quels compteurs étudier ?' : 'Pour quel compte ?'} />
+            {!compteCible ? (
+              <ChoixCompte
+                mandats={mandats}
+                comptes={comptes}
+                recherche={rechercheCompte}
+                onRecherche={setRechercheCompte}
+                onChoisir={(id) => { setCompteId(id); setCompteurIds([]); setContactChoisi(''); setEntame(true) }}
+              />
+            ) : (
+              <>
+                <div className="mb-4 flex flex-col gap-2">
+                  {!initialCompteId && (
+                    <div className="flex items-center gap-2 text-[12px] text-km-muted">
+                      <Briefcase className="h-3.5 w-3.5" />
+                      <span className="font-semibold text-km-text">{compteCible.nom}</span>
+                      <button type="button" onClick={() => { setCompteId(''); setCompteurIds([]); setContactChoisi('') }} className="font-semibold text-km-green hover:underline">Changer</button>
+                    </div>
+                  )}
+                  <NoteElliproLigne key={compteCible.id} compteId={compteCible.id} siren={compteCible.siren} />
+                </div>
+
+                <div className="mb-3 flex items-center gap-3">
+                  <div role="group" aria-label="Énergie" className="flex gap-0.5 rounded-[11px] bg-km-soft p-[3px]">
+                    {([['electricite', 'Électricité', nbElec, Zap, 'text-km-elec'], ['gaz', 'Gaz', nbGaz, Flame, 'text-km-gaz']] as const).map(([cle, nom, n, Icone, teinte]) => (
+                      <button
+                        key={cle}
+                        type="button"
+                        aria-pressed={energie === cle}
+                        onClick={() => choisirEnergie(cle)}
+                        className={cn('flex h-8 items-center gap-[7px] rounded-[9px] px-[14px] text-[12.5px] transition-colors',
+                          energie === cle ? 'bg-white font-semibold text-km-text shadow-[0_1px_3px_rgba(25,40,33,.12)]' : 'font-medium text-km-muted hover:text-km-text')}
+                      >
+                        <Icone className={cn('h-3.5 w-3.5', teinte)} strokeWidth={2.2} />
+                        {nom} <span className="font-mono text-[11px] text-km-muted">{n}</span>
+                      </button>
+                    ))}
                   </div>
-                  <span className={cn('hidden truncate text-xs font-medium sm:inline', active ? 'text-km-text' : 'text-km-faint')}>
-                    {label}
-                  </span>
-                  {idx < ETAPES.length && <div className="h-px flex-1 bg-km-soft" />}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Note Ellipro — même emplacement qu'en tête du wizard de Tools. */}
-          {compteCible && <EllisphereScoreCard key={compteCible.id} compteId={compteCible.id} siren={compteCible.siren} />}
-
-          <Card className="min-h-[340px] p-5">
-            {/* ÉTAPE « Compte » — propre à Kimatch, absente quand on vient d'une fiche compte. */}
-            {/* ÉTAPE « Compte » — propre à Kimatch, absente quand on vient d'une fiche compte.
-
-                UNE RECHERCHE, PLUS UN DÉROULANT. Michel, 21/08/2026 : « il va me demander de
-                chercher un compte, mais en fait là c'est une liste carrément. C'est-à-dire que si
-                ton truc c'est Z, il faut aller jusqu'à Z à chaque fois. Je ne peux pas faire une
-                recherche directement comme dans les autres. » Six cent seize comptes portent un
-                mandat actif : un `<select>` natif y est inutilisable.
-
-                L'étape suivante de ce même wizard — les points de livraison — cherchait déjà de
-                cette façon. On reprend son montage à l'identique : champ de recherche, compteur de
-                résultats, lignes cliquables dans un cadre qui défile. Une seule manière de choisir
-                à apprendre dans le parcours, au lieu de deux. */}
-            {!compteImpose && etape === 1 && (
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <h4 className="text-base font-semibold text-km-text">Sur quel compte ?</h4>
-                  <p className="text-sm text-km-muted">
-                    {comptesEligibles.length} compte{comptesEligibles.length > 1 ? 's' : ''} avec un
-                    mandat actif — seuls ceux-là ont des PDL éligibles.
-                  </p>
+                  <span className="flex-1" />
+                  <label className="flex h-8 w-[220px] items-center gap-[7px] rounded-[9px] border border-km-line px-[11px] text-km-faint focus-within:border-km-green">
+                    <Search className="h-3.5 w-3.5 shrink-0" />
+                    <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="PDL, site…" aria-label="Rechercher un compteur" className="min-w-0 flex-1 border-0 bg-transparent text-[12.5px] text-km-text outline-none" />
+                  </label>
                 </div>
 
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-km-faint" />
-                  <Input
-                    value={rechercheC}
-                    onChange={(e) => setRechercheC(e.target.value)}
-                    placeholder="Rechercher (nom, SIREN, ville)…"
-                    className="pl-9"
-                    autoFocus
-                  />
-                </div>
+                <TableCompteurs
+                  affiches={affiches}
+                  ecartes={ecartes}
+                  choisis={compteurIds}
+                  toutChoisi={toutChoisi}
+                  onBasculer={basculer}
+                  onBasculerTout={basculerTout}
+                  estClient={estClient}
+                  echeance={(c) => echeanceLisible(echeancesRetenues?.get(c.id), c.date_echeance)}
+                  vide={eligibles.length === 0 ? `Aucun compteur ${energie === 'gaz' ? 'de gaz' : 'd’électricité'} sous mandat KiWee actif sur ce compte.` : 'Aucun compteur ne correspond à la recherche.'}
+                />
 
-                {/* Le compte retenu est rappelé sous le champ : sa ligne peut avoir défilé hors du
-                    cadre, et on doit pouvoir vérifier son choix sans remonter. */}
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate">
-                    {compteCible ? (
-                      <>
-                        <span className="text-km-faint">Choisi : </span>
-                        <strong className="text-km-text">{compteCible.nom}</strong>
-                      </>
-                    ) : (
-                      <span className="text-km-faint">Aucun compte choisi</span>
-                    )}
-                  </span>
-                  {rechercheC.trim() !== '' && (
-                    <span className="shrink-0 text-km-faint">
-                      {comptesAffiches.length} résultat{comptesAffiches.length > 1 ? 's' : ''}
+                <div className="mt-4 flex items-center gap-3 border-t border-km-line-soft pt-4">
+                  {mixInvalide ? (
+                    <span className="flex items-center gap-1.5 text-[12px] font-semibold text-km-red"><AlertTriangle className="h-3.5 w-3.5" /> Impossible de mélanger clients et prospects</span>
+                  ) : choisis.length > 0 ? (
+                    <span className="text-[12.5px]">
+                      <b>{choisis.length} compteur{choisis.length > 1 ? 's' : ''}</b>
+                      <span className="text-km-muted">{consoTotale ? ` · ${consoTotale.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh` : ''} · {typeOpportunite}</span>
                     </span>
-                  )}
-                </div>
-
-                <div className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
-                  {comptesAffiches.length === 0 ? (
-                    <p className="py-10 text-center text-sm text-km-faint">
-                      Aucun compte ne correspond. Un compte sans mandat actif n'apparaît pas ici.
-                    </p>
                   ) : (
-                    comptesAffiches.map((c) => {
-                      const choisi = compteId === c.id
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => { setCompteId(c.id); setCompteurIds([]); setContactId('') }}
-                          className={cn(
-                            'flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-all',
-                            choisi
-                              ? 'border-km-green bg-kiwi-50 ring-1 ring-kiwi-200'
-                              : 'border-km-line hover:border-kiwi-300 hover:bg-km-bg',
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              'flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
-                              choisi ? 'bg-km-green text-white' : 'border border-km-line',
-                            )}
-                          >
-                            {choisi && <Check className="h-3.5 w-3.5" />}
-                          </div>
-                          <Briefcase className="h-4 w-4 shrink-0 text-km-faint" />
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-km-text">{c.nom}</span>
-                            <span className="mt-0.5 block truncate text-xs text-km-faint">
-                              {[c.ville, c.siren ? `SIREN ${c.siren}` : null].filter(Boolean).join(' · ') || '—'}
-                            </span>
-                          </div>
-                          <Badge tone="neutral">
-                            {c.mandats} mandat{c.mandats > 1 ? 's' : ''}
-                          </Badge>
-                        </button>
-                      )
-                    })
+                    <span className="text-[11.5px] text-km-faint">Choisissez au moins un compteur.</span>
                   )}
+                  <span className="flex-1" />
+                  <Button variant="ghost" onClick={sortie.demander}>Annuler</Button>
+                  <Button variant="primary" disabled={!perimetrePret} onClick={() => setEtape('decision')}>
+                    Continuer <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-              </div>
+              </>
             )}
-
-            {/* ÉTAPE 1 — Énergie */}
-            {etape === iEnergie && (
-              <div className="space-y-5">
-                <div className="space-y-1 text-center">
-                  <h4 className="text-base font-semibold text-km-text">Quelle énergie ?</h4>
-                  <p className="text-sm text-km-muted">Choisis l'énergie principale de l'opportunité</p>
-                </div>
-                <div className="mx-auto grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
-                  {energies.map((en) => {
-                    const gaz = en.code?.toLowerCase() === 'gaz'
-                    const actif = typeEnergieId === en.id
-                    const Icone = gaz ? Flame : Zap
+          </>
+        ) : (
+          <>
+            <EnTeteEtape numero={2} total={2} titre="Qui décide, et pour quand ?" />
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Contact décisionnaire <span className="text-km-muted">*</span></span>
+                <span className="text-[11px] text-km-faint">{contactsDuCompte.length} contact{contactsDuCompte.length > 1 ? 's' : ''} sur le compte</span>
+              </div>
+              {contactsTries.length > 0 && (
+                <div role="radiogroup" aria-label="Contact décisionnaire" className="mb-2 max-h-[236px] overflow-y-auto rounded-[12px] border border-km-line">
+                  {contactsTries.map((ct, i) => {
+                    const actif = ct.id === contactId
+                    const resp = responsabilites.get(ct.id)
                     return (
                       <button
-                        key={en.id}
+                        key={ct.id}
                         type="button"
-                        onClick={() => choisirEnergie(en.id)}
-                        className={cn(
-                          'group rounded-xl border-2 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md',
-                          actif
-                            ? gaz ? 'border-violet-400 bg-violet-50 ring-2 ring-violet-200' : 'border-amber-400 bg-amber-50 ring-2 ring-amber-200'
-                            : 'border-km-line bg-white hover:border-km-line',
-                        )}
+                        role="radio"
+                        aria-checked={actif}
+                        onClick={() => { setContactChoisi(ct.id); setEntame(true) }}
+                        className={cn('flex h-[52px] w-full items-center gap-3 px-[14px] text-left text-[12.5px] transition-colors', i > 0 && 'border-t border-km-line-soft', actif ? 'bg-km-green-tint' : 'hover:bg-km-bg')}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className={cn(
-                            'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-transform group-hover:scale-110',
-                            actif ? (gaz ? 'bg-violet-500' : 'bg-amber-500') : (gaz ? 'bg-violet-100' : 'bg-km-amber-soft'),
-                          )}>
-                            <Icone className={cn('h-6 w-6', actif ? 'text-white' : gaz ? 'text-violet-500' : 'text-amber-500')} />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-km-text">{en.libelle}</p>
-                              {actif && <Check className={cn('h-4 w-4', gaz ? 'text-violet-600' : 'text-amber-600')} />}
-                            </div>
-                            <p className="mt-1 text-xs text-km-muted">
-                              {gaz ? 'Sites raccordés au réseau gaz naturel' : 'Sites raccordés au réseau électrique'}
-                            </p>
-                          </div>
-                        </div>
+                        <span className={cn('h-4 w-4 shrink-0 rounded-full', actif ? 'border-[5px] border-km-green' : 'border-[1.5px] border-[#C3CBC5]')} />
+                        <span className={cn('flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold', TEINTES_AVATAR[i % TEINTES_AVATAR.length])}>{initialesDe(ct.prenom, ct.nom)}</span>
+                        <span className="flex min-w-0 flex-1 flex-col gap-px">
+                          <span className="truncate font-semibold text-km-text">{ct.prenom} {ct.nom}</span>
+                          {ct.fonction && <span className="truncate text-[11px] text-km-muted">{ct.fonction}</span>}
+                        </span>
+                        {resp && (
+                          <span className={cn('shrink-0 rounded-full px-[9px] text-[10.5px] font-bold leading-[22px]', actif ? 'bg-km-green text-white' : 'bg-km-green-soft text-km-green')}>
+                            {resp.length === choisis.length && choisis.length > 1
+                              ? `Responsable des ${resp.length} compteurs`
+                              : resp.length > 1 ? `Responsable de ${resp.length} compteurs` : `Responsable de ${resp[0].utilisation || resp[0].site_nom || resp[0].numero_pdl}`}
+                          </span>
+                        )}
                       </button>
                     )
                   })}
                 </div>
-              </div>
-            )}
-
-            {/* ÉTAPE 2 — Points de livraison */}
-            {etape === iPdl && (
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <h4 className="text-base font-semibold text-km-text">Points de livraison éligibles</h4>
-                  <p className="text-sm text-km-muted">
-                    {compteursEligibles.length} PDL avec un mandat actif pour {typeEnergie === 'gaz' ? 'le gaz' : "l'électricité"}
-                    {compteursEcartes.length > 0 && (
-                      <> · <span className="text-km-faint">
-                        {compteursEcartes.length} écarté{compteursEcartes.length > 1 ? 's' : ''}, déjà sur une recommandation en cours
-                      </span></>
-                    )}
-                  </p>
-                </div>
-
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-km-faint" />
-                  <Input
-                    value={rechercheP}
-                    onChange={(e) => setRechercheP(e.target.value)}
-                    placeholder="Rechercher (PDL, libellé, code postal)…"
-                    className="pl-9"
+              )}
+              {/* UN CONTACT HORS DU COMPTE, OU À CRÉER : le sélecteur complet, à la demande. */}
+              {autreContact || contactsTries.length === 0 ? (
+                <div className="mb-2">
+                  <ContactPicker
+                    value={contactRetenu && !contactsDuCompte.some((c) => c.id === contactRetenu.id) ? contactRetenu.id : ''}
+                    onChange={(id) => { setContactChoisi(id); setEntame(true) }}
+                    accountContacts={contactsDuCompte}
+                    allContacts={contacts ?? []}
+                    accountId={compteId}
+                    accountNom={compteCible?.nom}
                   />
                 </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <span>
-                    <strong className="text-km-text">{compteurIds.length}</strong>{' '}
-                    <span className="text-km-faint">/ {compteursEligibles.length} sélectionné{compteurIds.length > 1 ? 's' : ''}</span>
-                  </span>
-                  {compteursChoisis.length > 0 && !mixInvalide && (
-                    <Badge tone={typeOpportunite === 'Renouvellement' ? 'kiwi' : 'neutral'}>Type : {typeOpportunite}</Badge>
-                  )}
-                </div>
-
-                {mixInvalide && (
-                  <p className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-km-red-soft px-3 py-2 text-xs text-red-700">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Impossible de mélanger clients et prospects
-                  </p>
-                )}
-
-                <div className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
-                  {compteursAffiches.length === 0 ? (
-                    <p className="py-10 text-center text-sm text-km-faint">Aucun point de livraison éligible</p>
-                  ) : (
-                    compteursAffiches.map((c) => {
-                      const choisi = compteurIds.includes(c.id)
-                      const cp = codePostalDe(c)
-                      const client = estClient(c)
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => basculerCompteur(c.id)}
-                          className={cn(
-                            'flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-all',
-                            choisi ? 'border-km-green bg-kiwi-50 ring-1 ring-kiwi-200' : 'border-km-line hover:border-kiwi-300 hover:bg-km-bg',
-                          )}
-                        >
-                          <div className={cn(
-                            'flex h-5 w-5 shrink-0 items-center justify-center rounded',
-                            choisi ? 'bg-km-green text-white' : 'border border-km-line',
-                          )}>
-                            {choisi && <Check className="h-3.5 w-3.5" />}
-                          </div>
-                          {c.type_energie === 'gaz'
-                            ? <Flame className="h-4 w-4 shrink-0 text-violet-500" />
-                            : <Zap className="h-4 w-4 shrink-0 text-amber-500" />}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-medium text-km-text">{c.utilisation || c.site_nom}</span>
-                              <Badge tone={client ? 'kiwi' : 'neutral'}>{client ? 'Client' : 'Prospect'}</Badge>
-                            </div>
-                            <div className="mt-0.5 flex items-center gap-2 text-xs text-km-faint">
-                              <span className="font-mono">{c.numero_pdl}</span>
-                              {cp && <><span>·</span><span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{cp}</span></>}
-                              {(c.date_echeance || echeancesRetenues?.get(c.id)) && <><span>·</span><span>Échéance {echeanceLisible(echeancesRetenues?.get(c.id), c.date_echeance)}</span></>}
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })
-                  )}
-                </div>
-
-                {/* ══ LES ÉCARTÉS ══
-                    Ils ne sont pas cliquables : la règle de Tools est une règle, pas une
-                    suggestion. Mais ils sont LISIBLES, et chacun porte le lien vers la
-                    recommandation qui le retient — ouvert dans un onglet, pour ne pas perdre la
-                    saisie en cours. Sans cette liste, un compteur sous mandat actif s'évapore et
-                    on va chercher le défaut dans le mandat. */}
-                {compteursEcartes.length > 0 && (
-                  <details className="rounded-lg border border-km-line bg-km-bg/50">
-                    <summary className="cursor-pointer select-none px-3 py-2 text-xs text-km-muted">
-                      {compteursEcartes.length} PDL sous mandat actif {compteursEcartes.length > 1 ? 'sont écartés' : 'est écarté'} : déjà engagé{compteursEcartes.length > 1 ? 's' : ''} sur une recommandation en cours
-                    </summary>
-                    <div className="max-h-[180px] space-y-1 overflow-y-auto border-t border-km-line px-3 py-2">
-                      {compteursEcartes.map(({ compteur: c, reco }) => (
-                        <div key={c.id} className="flex items-center gap-2.5 py-1 text-xs">
-                          <Lock className="h-3.5 w-3.5 shrink-0 text-km-faint" />
-                          <span className="min-w-0 flex-1 truncate text-km-muted">
-                            <span className="font-mono">{c.numero_pdl}</span>
-                            {(c.utilisation || c.site_nom) && <> · {c.utilisation || c.site_nom}</>}
-                          </span>
-                          <Link
-                            to={`/recommandations/${reco.id}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="shrink-0 truncate text-km-green hover:underline"
-                            title={`Ouvrir « ${reco.nom} » dans un nouvel onglet`}
-                          >
-                            {reco.nom}
-                          </Link>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-              </div>
-            )}
-
-            {/* ÉTAPE 3 — Contact décisionnaire */}
-            {etape === iContact && (
-              <div className="mx-auto max-w-xl space-y-3">
-                <div className="space-y-1 text-center">
-                  <h4 className="text-base font-semibold text-km-text">Contact décisionnaire</h4>
-                </div>
-
-                <ContactPicker
-                  value={contactEffectifId}
-                  onChange={setContactId}
-                  accountContacts={contactsDuCompte}
-                  allContacts={contacts ?? []}
-                  accountId={compteId}
-                  accountNom={compteCible?.nom}
-                />
-
-                {/* Récapitulatif du contact retenu — la carte de rappel de Tools. */}
-                {(() => {
-                  const ct = contacts?.find((x) => x.id === contactEffectifId)
-                  if (!ct) return null
-                  return (
-                    <Card className="border-dashed bg-km-bg p-3.5">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-km-green font-semibold text-white">
-                          {`${(ct.prenom || '?')[0]}${(ct.nom || '?')[0]}`.toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <p className="font-semibold text-km-text">{ct.prenom} {ct.nom}</p>
-                          {ct.fonction && (
-                            <p className="flex items-center gap-1.5 text-xs text-km-muted"><Briefcase className="h-3 w-3" />{ct.fonction}</p>
-                          )}
-                          {ct.email && (
-                            <p className="flex items-center gap-1.5 text-xs text-km-muted">
-                              <Mail className="h-3 w-3" />
-                              <button
-                                type="button"
-                                onClick={() => ouvrirEmail?.({ a: ct.email!, nom: `${ct.prenom} ${ct.nom}`, contactId: ct.id })}
-                                className="truncate hover:text-km-text"
-                              >
-                                {ct.email}
-                              </button>
-                            </p>
-                          )}
-                          {ct.telephone && (
-                            <p className="flex items-center gap-1.5 text-xs text-km-muted">
-                              <Phone className="h-3 w-3" />
-                              <button
-                                type="button"
-                                onClick={() => void appelerNumero(ct.telephone)}
-                                className="hover:text-km-text hover:underline"
-                              >
-                                {ct.telephone}
-                              </button>
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  )
-                })()}
-
-                {contactHorsResponsables && (
-                  <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
-                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Ton contact n'est pas renseigné comme étant le responsable du PDL en question, si tu veux continuer, penses à modifier le responsable du PDL 😊
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* ÉTAPE 4 — Date prévisionnelle de signature */}
-            {etape === iDate && (
-              <div className="mx-auto max-w-md space-y-4">
-                <div className="space-y-1 text-center">
-                  <h4 className="text-base font-semibold text-km-text">Date prévisionnelle de signature</h4>
-                </div>
-
-                <FormField label="Date de clôture *">
-                  <Input type="date" value={dateCloture} onChange={(e) => setDateClotureManuelle(e.target.value)} />
-                  {dateClotureSuggeree && (
-                    <p className="mt-1 text-xs text-km-faint">
-                      Passé le <strong className="text-km-text">{new Date(dateClotureSuggeree).toLocaleDateString('fr-FR')}</strong>, le préavis de résiliation risque d'être dépassé et la signature compromise.
-                    </p>
-                  )}
-                </FormField>
-
-                {/* ══ LE MONTANT, ANNONCÉ À LA CRÉATION ══
-                    William, 18/09/2026 : « j'aimerais que le montant soit indiqué par le commercial
-                    lors de la création de la recommandation ».
-
-                    LA MESURE QUI L'A DÉCIDÉ : 1 574 dossiers sur 1 782 portent un montant, et les
-                    1 574 viennent de Salesforce. Aucun dossier né dans Kimatch n'en a jamais porté.
-                    Le chiffre le plus visible du CRM était un héritage qui s'éteignait tout seul.
-
-                    IL EST OBLIGATOIRE, pour la même raison que la date souhaitée d'une version : un
-                    champ facultatif sur lequel on compte finit vide, et il n'existait aucun moyen de
-                    le poser après coup. C'est une ESTIMATION, le mot est dans l'aide — elle se
-                    corrige ensuite sur la fiche, elle n'engage rien. */}
-                <FormField label="Montant estimé de l'affaire *">
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={montant}
-                      onChange={(e) => setMontant(e.target.value)}
-                      placeholder="1 362"
-                      className="pr-7 font-mono"
-                    />
-                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-km-faint">€</span>
-                  </div>
-                  <p className="mt-1 text-xs text-km-faint">
-                    Ce que l'affaire rapporte à KiWee, au mieux de ce qu'on en sait aujourd'hui. Il se corrige
-                    ensuite depuis la fiche, et sera recalculé le jour où les prix des offres seront saisis.
-                  </p>
-                </FormField>
-
-                {dateClotureSuggeree && dateCloture > dateClotureSuggeree && (
-                  <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Préavis peut-être dépassé — confirme avec le client.
-                  </p>
-                )}
-
-                {titre && (
-                  <div className="rounded-lg border-2 border-dashed border-km-line p-3 text-center">
-                    <p className="mb-1 text-xs text-km-faint">Nom de la recommandation</p>
-                    <p className="text-sm font-medium text-km-text">{titre}</p>
-                  </div>
-                )}
-
-                {compteursChoisis.length > 0 && !mandatRetenu && (
-                  <p className="flex items-start gap-1.5 rounded-md border border-red-200 bg-km-red-soft p-2 text-xs text-red-700">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Aucun mandat actif ne couvre le premier PDL retenu — la recommandation ne peut pas être rattachée.
-                  </p>
-                )}
-
-                {/* Champs propres à Kimatch, repliés pour ne pas alourdir le parcours de Tools. */}
-                <div className="rounded-lg border border-km-line">
-                  <button
-                    type="button"
-                    onClick={() => setComplementsOuverts((v) => !v)}
-                    className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-km-muted hover:bg-km-bg"
-                  >
-                    Informations complémentaires
-                    <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', complementsOuverts && 'rotate-90')} />
-                  </button>
-                  {complementsOuverts && (
-                    <div className="space-y-2.5 border-t border-km-line p-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <FormField label="Origine">
-                          <Select value={origineId} onChange={(e) => setOrigineId(e.target.value)}>
-                            <option value="">Sélectionner…</option>
-                            {origines.map((o) => <option key={o.id} value={o.id}>{o.libelle}</option>)}
-                          </Select>
-                        </FormField>
-                        <FormField label="Priorité">
-                          <Select value={priorite} onChange={(e) => setPriorite(Number(e.target.value))}>
-                            {PRIORITE_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-                          </Select>
-                        </FormField>
-                      </div>
-                      <FormField label="Description">
-                        <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
-                      </FormField>
-                      <FormField label="Commentaire interne">
-                        <Textarea rows={2} value={commentaireInterne} onChange={(e) => setCommentaireInterne(e.target.value)} placeholder="Visible en interne uniquement" />
-                      </FormField>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {feedback && <p className="text-xs text-km-muted">{feedback}</p>}
-
-          {/* Pied de navigation — « Retour » à gauche, action à droite, comme Tools. L'étape
-              Énergie n'a pas de bouton « Continuer » : le choix fait avancer tout seul. */}
-          <div className="flex items-center justify-between border-t border-km-line pt-3">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => (etape === 1 ? fermer() : setEtape((s) => Math.max(1, s - 1)))}
-              disabled={createRecommandation.isPending}
-            >
-              {etape === 1 ? 'Annuler' : <><ChevronLeft className="h-4 w-4" /> Retour</>}
-            </Button>
-
-            {etape < ETAPES.length ? (
-              etape === iEnergie ? (
-                <span />
               ) : (
-                <Button type="button" onClick={() => setEtape((s) => Math.min(ETAPES.length, s + 1))} disabled={!peutAvancer}>
-                  Continuer <ChevronRight className="h-4 w-4" />
-                </Button>
-              )
-            ) : (
-              <Button type="button" onClick={creer} disabled={!peutAvancer || createRecommandation.isPending || termine}>
-                {createRecommandation.isPending ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Création…</>
-                ) : termine ? (
-                  <><Check className="h-4 w-4" /> Créée — ouverture…</>
-                ) : (
-                  <>Créer et ouvrir la recommandation</>
-                )}
-              </Button>
-            )}
-          </div>
+                <button type="button" onClick={() => setAutreContact(true)} className="mb-2 text-[12px] font-semibold text-km-green hover:underline">Un autre contact, ou un nouveau…</button>
+              )}
+              {contactHorsResponsables && (
+                <p className="mb-2 flex items-start gap-1.5 text-[11.5px] text-km-muted">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Ce contact n’est responsable d’aucun des compteurs choisis : pensez à mettre à jour le responsable du compteur.
+                </p>
+              )}
 
-          {/* Repère discret : sans cette mention, on ne sait plus où l'on est une fois le fil
-              d'avancement sorti du champ de vision sur un petit écran. */}
-          <p className="text-center text-km-label text-km-faint">Étape {etape} sur {ETAPES.length} — {etapeCourante}</p>
-        </div>
-      </WizardConnectionGate>
-    </Dialog>
+              <div className="mt-4 grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-[18px]">
+                <div className="flex flex-col gap-[9px]">
+                  <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Date de clôture <span className="text-km-muted">*</span></span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {dateConseillee && (
+                      <button
+                        type="button"
+                        aria-pressed={dateAutre == null}
+                        onClick={() => setDateAutre(null)}
+                        className={cn('flex flex-col gap-[3px] rounded-[12px] border px-[13px] py-[11px] text-left', dateAutre == null ? 'border-[1.5px] border-km-green bg-km-green-tint' : 'border-km-line bg-white hover:border-km-green')}
+                      >
+                        <span className="font-mono text-[15px] font-semibold text-km-text">{dateFr(dateConseillee)}</span>
+                        <span className="text-[10.5px] font-semibold text-km-green">Conseillée</span>
+                        <span className="text-[10.5px] leading-[1.35] text-km-muted">Échéance − préavis, un jour ouvré</span>
+                      </button>
+                    )}
+                    <label className={cn('flex flex-col gap-[5px] rounded-[12px] border px-[13px] py-[11px]', dateAutre != null || !dateConseillee ? 'border-[1.5px] border-km-green bg-km-green-tint' : 'border-km-line bg-white', !dateConseillee && 'col-span-2')}>
+                      <span className="text-[13px] font-semibold text-km-text">{dateConseillee ? 'Autre date' : 'Date'}</span>
+                      <input
+                        type="date"
+                        value={dateAutre ?? ''}
+                        onChange={(e) => { setDateAutre(e.target.value || null); setEntame(true) }}
+                        aria-label="Autre date de clôture"
+                        className="w-full border-0 bg-transparent p-0 font-mono text-[12px] text-km-text outline-none"
+                      />
+                    </label>
+                  </div>
+                  {dateAutre && dateConseillee && dateAutre > dateConseillee && (
+                    <span className="flex items-start gap-1.5 text-[11px] text-km-amber"><AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" /> Après la date conseillée : le préavis risque d’être dépassé.</span>
+                  )}
+                  {!dateConseillee && <span className="text-[10.5px] text-km-muted">Aucune échéance connue sur ces compteurs : la date se saisit.</span>}
+                </div>
+                <label className="flex flex-col gap-[9px]">
+                  <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Montant estimé de l’affaire <span className="text-km-muted">*</span></span>
+                  <span className={cn('flex items-baseline gap-1.5 rounded-[12px] border-[1.5px] px-[14px] py-[10px] focus-within:shadow-[0_0_0_3px_rgba(13,122,95,.1)]', montant === 'invalide' ? 'border-km-red' : 'border-km-line focus-within:border-km-green')}>
+                    <input
+                      inputMode="decimal"
+                      value={montantTxt}
+                      onChange={(e) => { setMontantTxt(e.target.value); setEntame(true) }}
+                      placeholder="0"
+                      className="min-w-0 flex-1 border-0 bg-transparent font-mono text-[26px] font-semibold text-km-text outline-none"
+                    />
+                    <span className="text-[15px] font-semibold text-km-faint">€</span>
+                  </span>
+                  <span className={cn('text-[10.5px]', montant === 'invalide' ? 'font-semibold text-km-red' : 'text-km-muted')}>
+                    {montant === 'invalide' ? 'Un montant en euros, au centime près : 1234,56.' : 'Ce que l’affaire rapporte à KiWee. Il se corrige ensuite sur la fiche.'}
+                  </span>
+                </label>
+              </div>
+              {choisis.length > 0 && !mandatRetenu && (
+                <p className="mt-3 flex items-start gap-1.5 text-[11.5px] font-semibold text-km-red">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Aucun mandat actif ne couvre le premier compteur : la recommandation ne peut pas être rattachée.
+                </p>
+              )}
+            </div>
+            <div className="mt-auto flex items-center gap-3 border-t border-km-line-soft pt-4">
+              <Button variant="ghost" onClick={() => setEtape('perimetre')} disabled={createRecommandation.isPending}>Précédent</Button>
+              {erreur && <span className="min-w-0 truncate text-[11.5px] font-semibold text-km-red" title={erreur}>Erreur : {erreur}</span>}
+              <span className="flex-1" />
+              <Button variant="ghost" onClick={sortie.demander}>Annuler</Button>
+              <Button variant="primary" disabled={!decisionPrete || createRecommandation.isPending} onClick={() => void creer()}>
+                {createRecommandation.isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Création…</> : <>Créer la recommandation <Check className="h-3.5 w-3.5" /></>}
+              </Button>
+            </div>
+          </>
+        )}
+      </PanneauParcours>
+    </FenetreParcours>
+  )
+}
+
+/** Le compte, quand on ne part pas d'une fiche : ceux qui portent au moins un mandat actif. */
+function ChoixCompte({ mandats, comptes, recherche, onRecherche, onChoisir }: {
+  mandats: ReturnType<typeof useMandats>['data']
+  comptes: ReturnType<typeof useComptes>['data']
+  recherche: string
+  onRecherche: (v: string) => void
+  onChoisir: (id: string) => void
+}) {
+  /* On cherche sur le nom, le SIREN et la ville : deux syndics homonymes ne se distinguent que par là. */
+  const eligibles = useMemo(() => {
+    const parId = new Map((comptes ?? []).map((c) => [c.id, c]))
+    const parCompte = new Map<string, { id: string; nom: string; siren: string | null; ville: string; mandats: number }>()
+    for (const m of mandats ?? []) {
+      if (m.statut !== 'ACTIF') continue
+      const deja = parCompte.get(m.compte_id)
+      if (deja) { deja.mandats += 1; continue }
+      const c = parId.get(m.compte_id)
+      parCompte.set(m.compte_id, { id: m.compte_id, nom: c?.nom || m.compte_nom || 'Compte', siren: c?.siren ?? null, ville: c?.ville || '', mandats: 1 })
+    }
+    return [...parCompte.values()].sort((a, b) => a.nom.localeCompare(b.nom))
+  }, [mandats, comptes])
+  const q = recherche.trim().toLowerCase()
+  const affiches = q ? eligibles.filter((c) => [c.nom, c.siren, c.ville].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))) : eligibles
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <label className="flex h-10 items-center gap-2 rounded-[10px] border border-km-line px-3 text-km-faint focus-within:border-km-green">
+        <Search className="h-4 w-4 shrink-0" />
+        <input autoFocus value={recherche} onChange={(e) => onRecherche(e.target.value)} placeholder="Nom, SIREN, ville…" aria-label="Rechercher un compte" className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-km-text outline-none" />
+        <span className="shrink-0 text-[11px]">{affiches.length} compte{affiches.length > 1 ? 's' : ''} sous mandat actif</span>
+      </label>
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] border border-km-line">
+        {affiches.length === 0 ? (
+          <p className="px-4 py-10 text-center text-[12.5px] text-km-faint">Aucun compte ne correspond. Un compte sans mandat actif n’apparaît pas ici.</p>
+        ) : affiches.slice(0, 200).map((c, i) => (
+          <button key={c.id} type="button" onClick={() => onChoisir(c.id)} className={cn('flex h-[46px] w-full items-center gap-3 px-[14px] text-left hover:bg-km-bg', i > 0 && 'border-t border-km-line-soft')}>
+            <Briefcase className="h-4 w-4 shrink-0 text-km-faint" />
+            <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-km-text">{c.nom}</span>
+            <span className="shrink-0 truncate text-[11px] text-km-faint">{[c.ville, c.siren ? `SIREN ${c.siren}` : null].filter(Boolean).join(' · ')}</span>
+            <span className="shrink-0 rounded-full bg-km-soft px-2 text-[10.5px] font-semibold leading-[18px] text-km-muted">{c.mandats} mandat{c.mandats > 1 ? 's' : ''}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Le tableau des compteurs de l'étape 1 — direction A : une ligne par compteur, à cocher. */
+function TableCompteurs({ affiches, ecartes, choisis, toutChoisi, onBasculer, onBasculerTout, estClient, echeance, vide }: {
+  affiches: Compteur[]
+  ecartes: { compteur: Compteur; reco: { id: string; nom: string } }[]
+  choisis: string[]
+  toutChoisi: boolean
+  onBasculer: (id: string) => void
+  onBasculerTout: () => void
+  estClient: (c: Compteur) => boolean
+  echeance: (c: Compteur) => string
+  vide: string
+}) {
+  const grille = 'grid grid-cols-[22px_minmax(0,1fr)_128px_36px_74px_80px_62px] items-center gap-[8px] px-[14px]'
+  const coche = (on: boolean) => (
+    <span className={cn('flex h-4 w-4 items-center justify-center rounded-[5px] border-[1.5px]', on ? 'border-km-green bg-km-green' : 'border-[#C3CBC5] bg-white')}>
+      {on && <Check className="h-2.5 w-2.5 stroke-[3.6] text-white" />}
+    </span>
+  )
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-km-line">
+      <div className={cn(grille, 'h-[34px] shrink-0 bg-km-soft text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint')}>
+        <button type="button" onClick={onBasculerTout} aria-label={toutChoisi ? 'Tout décocher' : 'Tout cocher'} disabled={affiches.length === 0}>{coche(toutChoisi)}</button>
+        <span>Site</span><span>PDL / PCE</span><span>Seg.</span><span className="text-right">Conso</span><span>Échéance</span><span>Statut</span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {affiches.length === 0 && <p className="px-4 py-10 text-center text-[12.5px] text-km-faint">{vide}</p>}
+        {affiches.map((c) => {
+          const on = choisis.includes(c.id)
+          const client = estClient(c)
+          return (
+            <button key={c.id} type="button" onClick={() => onBasculer(c.id)} aria-pressed={on} className={cn(grille, 'h-[46px] w-full border-t border-km-line-soft text-left text-[12.5px] first:border-t-0', on ? 'bg-km-green-tint' : 'hover:bg-km-bg')}>
+              {coche(on)}
+              <span className="truncate font-semibold text-km-text">{c.utilisation || c.site_nom || '—'}</span>
+              <span className="truncate font-mono text-[11.5px] text-km-muted">{c.numero_pdl}</span>
+              <span className="text-km-text">{c.segment ?? c.tarif_distribution ?? '—'}</span>
+              <span className="text-right font-mono text-km-text">{c.consommation_annuelle_mwh != null ? `${c.consommation_annuelle_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh` : '—'}</span>
+              <span className="font-mono text-km-text">{echeance(c) || '—'}</span>
+              <span><span className={cn('inline-flex h-5 items-center rounded-full px-2 text-[10.5px] font-bold', client ? 'bg-km-green-soft text-km-green' : 'bg-km-soft text-km-muted')}>{client ? 'Client' : 'Prospect'}</span></span>
+            </button>
+          )
+        })}
+        {/* LES ÉCARTÉS SE MONTRENT, AVEC LA RECOMMANDATION QUI LES RETIENT (09/09/2026) — ouverte
+            dans un onglet, pour ne pas perdre la saisie. */}
+        {ecartes.map(({ compteur: c, reco }) => (
+          <div key={c.id} className={cn(grille, 'h-[46px] border-t border-km-line-soft bg-km-bg text-[12.5px] text-km-faint')}>
+            <Lock className="h-3.5 w-3.5" />
+            <span className="truncate">{c.utilisation || c.site_nom || '—'}</span>
+            <span className="truncate font-mono text-[11.5px]">{c.numero_pdl}</span>
+            <span>{c.segment ?? c.tarif_distribution ?? '—'}</span>
+            <span className="text-right font-mono">{c.consommation_annuelle_mwh != null ? `${c.consommation_annuelle_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh` : '—'}</span>
+            <span className="col-span-2 truncate text-[11px]">Déjà dans <Link to={`/recommandations/${reco.id}`} target="_blank" rel="noreferrer" className="text-km-green hover:underline" title={`Ouvrir « ${reco.nom} » dans un nouvel onglet`}>{reco.nom}</Link></span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
