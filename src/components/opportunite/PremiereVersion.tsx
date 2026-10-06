@@ -19,6 +19,7 @@ import { trouverParCode } from '@/lib/codeReferentiel'
 import { euros } from '@/lib/euros'
 import { cn } from '@/lib/utils'
 import type { EcheanceRetenue } from '@/lib/data/echeancesRetenues'
+import type { HistoriqueConsultations } from '@/lib/data/recommandations'
 import type { Compte, Compteur, Mandat } from '@/types/domain'
 
 /**
@@ -67,31 +68,40 @@ function prochainsJoursOuvres(n = 10): Date[] {
 }
 
 /**
- * LE DÉBUT DE FOURNITURE D'UN COMPTEUR : le lendemain de son échéance retenue ; à défaut (inconnue
- * ou indéterminée), le 1er du mois prochain — la même règle que le calcul des taxes.
+ * LE DÉBUT DE FOURNITURE D'UN COMPTEUR : le lendemain de son échéance retenue. Sans échéance connue
+ * (ou indéterminée), aucun : William, 06/10/2026 — « sans échéance, impossible de demander des offres ».
  */
-function debutDeFourniture(e: EcheanceRetenue | undefined, declaree: string | null | undefined): Date {
-  const date = e?.date ?? (e ? null : declaree ?? null)
-  if (date) { const d = midi(date); d.setDate(d.getDate() + 1); return d }
-  const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1, 12)
+function debutDeFourniture(e: EcheanceRetenue | undefined, declaree: string | null | undefined): Date | null {
+  const date = e ? e.date : declaree ?? null
+  if (!date) return null
+  const d = midi(date); d.setDate(d.getDate() + 1); return d
 }
 
-export function usePremiereVersion({ compte, compteurs, mandats, echeances }: {
+/** Durées par fournisseur, puis par compteur. */
+export type DureesFournisseurs = Record<string, Record<string, number[]>>
+
+export function usePremiereVersion({ compte, compteurs, mandats, echeances, historique, dupliquer = false }: {
   compte: Compte | null | undefined
   compteurs: Compteur[]
   mandats: Mandat[] | undefined
   echeances: Map<string, EcheanceRetenue> | undefined
+  /** Ce que les versions précédentes disent des fournisseurs (absent : première version). */
+  historique?: HistoriqueConsultations | null
+  /** Reprendre la dernière version : ses fournisseurs, ses durées, une date que tous tiennent. */
+  dupliquer?: boolean
 }) {
   const { data: fournisseurs } = useFournisseursConsultables()
   const { data: rules } = useEligibilityRules()
   const { data: mapping } = useMappingRules()
   const [date, setDate] = useState<string | null>(null)
   const [choisis, setChoisis] = useState<string[]>([])
-  const [durees, setDurees] = useState<Record<string, number[]>>({})
+  const [durees, setDurees] = useState<DureesFournisseurs>({})
   const [typesPrix, setTypesPrix] = useState<string[]>(['Fixe'])
   const [retires, setRetires] = useState<string[]>([])
 
-  const debuts = useMemo(() => Object.fromEntries(compteurs.map((c) => [c.id, debutDeFourniture(echeances?.get(c.id), c.date_echeance)])), [compteurs, echeances])
+  const debutsOuNul = useMemo(() => Object.fromEntries(compteurs.map((c) => [c.id, debutDeFourniture(echeances?.get(c.id), c.date_echeance)])), [compteurs, echeances])
+  const sansEcheance = compteurs.filter((c) => !debutsOuNul[c.id])
+  const debuts = useMemo(() => Object.fromEntries(Object.entries(debutsOuNul).filter(([, d]) => d)) as Record<string, Date>, [debutsOuNul])
   const couverture = useMemo(() => ({
     kiwee: compteurs.length > 0 && compteurs.every((c) => mandatCouvre(mandats, c.id, 'KIWI')),
     energix: compteurs.length > 0 && compteurs.every((c) => mandatCouvre(mandats, c.id, 'ENERGIX')),
@@ -104,11 +114,13 @@ export function usePremiereVersion({ compte, compteurs, mandats, echeances }: {
       /* Un mois suffit à l'étape 3 : la fin de fourniture n'écarte que qui ne peut rien livrer. */
       durations: [1],
       desiredDate: jour ? midi(jour) : undefined,
-      requestType: 'premiere_demande',
+      /* Déjà consulté sur ce dossier : son délai d'actualisation ; sinon, son délai de réponse. */
+      requestType: historique?.consultes.has(f.id) ? 'actualisation' : 'premiere_demande',
       mandats: couverture,
       debutsFourniture: debuts,
+      refuses: historique?.refuses,
     }, rules ?? [], mapping ?? []))
-  }, [compte, enZone, compteurs, couverture, debuts, rules, mapping])
+  }, [compte, enZone, compteurs, couverture, debuts, rules, mapping, historique])
 
   const resultats = useMemo(() => evaluer(date), [evaluer, date])
   const eligibles = resultats.filter((r) => r.eligible)
@@ -119,23 +131,51 @@ export function usePremiereVersion({ compte, compteurs, mandats, echeances }: {
   useEffect(() => {
     const ok = new Set(cleEligibles.split(','))
     const sortis = choisis.filter((id) => !ok.has(id))
-    if (sortis.length === 0) return
+    if (sortis.length === 0 || !date) return
     setChoisis(choisis.filter((id) => ok.has(id)))
     setRetires(sortis)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleEligibles])
 
-  const maxParFournisseur = useMemo(() => {
-    const d = Object.values(debuts)
-    return Object.fromEntries(enZone.map((f) => [f.id, dureeMaxPerimetre(d, f.max_dff)]))
-  }, [enZone, debuts])
+  /* LA DURÉE MAX, fournisseur par fournisseur et compteur par compteur. */
+  const maxParFournisseur = useMemo(() => Object.fromEntries(enZone.map((f) => [
+    f.id, Object.fromEntries(compteurs.map((c) => [c.id, debuts[c.id] ? dureeMaxPerimetre([debuts[c.id]], f.max_dff) : 0])),
+  ])) as Record<string, Record<string, number>>, [enZone, compteurs, debuts])
+
+  /* ══ LA DUPLICATION — William, 06/10/2026 ══ « Cloner la version précédente à une nouvelle date de
+     livraison, en proposant une date permettant d'assurer la réponse de tous les fournisseurs
+     sollicités dans la version précédente. » Une fois, quand tout est lu : ses fournisseurs (moins
+     ceux qui ont refusé ou ne sont plus éligibles), leurs durées dans la limite de chacun, ses types
+     de prix, et le premier jour ouvré où chacun a le temps de répondre. */
+  const repris = useRef(false)
+  useEffect(() => {
+    if (!dupliquer || repris.current || !historique?.derniere || !compte || !fournisseurs || !rules) return
+    repris.current = true
+    const d = historique.derniere
+    const loin = evaluer(iso(prochainsJoursOuvres(40)[39]))
+    const gardes = d.fournisseurIds.filter((id) => loin.find((r) => r.fournisseur.id === id)?.eligible)
+    const dates = prochainsJoursOuvres(40)
+    const premier = dates.find((j) => { const r = evaluer(iso(j)); return gardes.every((id) => r.find((x) => x.fournisseur.id === id)?.eligible) })
+    if (premier) setDate(iso(premier))
+    setChoisis(gardes)
+    setTypesPrix(d.typesPrix.length ? d.typesPrix : ['Fixe'])
+    setDurees(Object.fromEntries(gardes.map((id) => {
+      const avant = d.durees[id]
+      return [id, Object.fromEntries(compteurs.map((c) => {
+        const liste = Array.isArray(avant) ? avant : avant?.[c.id] ?? []
+        const max = maxParFournisseur[id]?.[c.id] ?? DUREE_PLAFOND
+        return [c.id, liste.filter((m) => m <= max).slice(0, DUREES_MAX_PAR_FOURNISSEUR)]
+      }))]
+    })))
+  }, [dupliquer, historique, compte, fournisseurs, rules, evaluer, compteurs, maxParFournisseur])
 
   return {
     fournisseurs: enZone, resultats, eligibles, jours, date, setDate,
     choisis, basculer: (id: string) => setChoisis((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id])),
     toutChoisir: () => setChoisis(eligibles.map((r) => r.fournisseur.id)),
     retires, oublierRetires: () => setRetires([]),
-    durees, setDurees, typesPrix, setTypesPrix, maxParFournisseur, debuts, couverture,
+    durees, setDurees, typesPrix, setTypesPrix, maxParFournisseur, debuts, couverture, sansEcheance,
+    actualisation: !!historique && historique.consultes.size > 0,
     chargement: !fournisseurs || !compte,
   }
 }
@@ -173,7 +213,7 @@ function InfoBulle({ cible }: { cible: { r: EligibilityResult; rect: DOMRect } |
   )
 }
 
-export function EtapeFournisseurs({ pv, onSuivant, onPlusTard }: { pv: PremiereVersion; onSuivant: () => void; onPlusTard: () => void }) {
+export function EtapeFournisseurs({ pv, numero, total: totalEtapes, onSuivant, onPlusTard, libellePlusTard = 'Plus tard' }: { pv: PremiereVersion; numero: number; total: number; onSuivant: () => void; onPlusTard: () => void; libellePlusTard?: string }) {
   const [survol, setSurvol] = useState<{ r: EligibilityResult; rect: DOMRect } | null>(null)
   const calendrier = useRef<HTMLInputElement>(null)
   const total = pv.resultats.length
@@ -185,7 +225,7 @@ export function EtapeFournisseurs({ pv, onSuivant, onPlusTard }: { pv: PremiereV
   return (
     <>
       <div className="mb-[14px] flex items-end gap-3">
-        <div className="flex-1"><EnTeteEtape numero={3} total={4} titre="Pour quand, et à qui ?" /></div>
+        <div className="flex-1"><EnTeteEtape numero={numero} total={totalEtapes} titre="Pour quand, et à qui ?" /></div>
         <span className="mb-[22px] flex items-baseline gap-1.5">
           <span className="font-mono text-[30px] font-semibold leading-none text-km-green">{pv.chargement ? '…' : pv.eligibles.length}</span>
           <span className="text-[12px] text-km-muted">éligible{pv.eligibles.length > 1 ? 's' : ''} sur {total}</span>
@@ -228,7 +268,16 @@ export function EtapeFournisseurs({ pv, onSuivant, onPlusTard }: { pv: PremiereV
 
       {/* LES CARTES (A) */}
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        {pv.chargement ? (
+        {/* SANS ÉCHÉANCE, PAS D'OFFRE — William, 06/10/2026. */}
+        {pv.sansEcheance.length > 0 ? (
+          <div className="flex flex-col gap-2 rounded-[13px] border border-km-amber-line bg-km-amber-soft px-4 py-3.5 text-[12.5px] text-km-text">
+            <b className="font-semibold">Impossible de demander des offres sans échéance connue.</b>
+            <span className="text-km-muted">
+              {pv.sansEcheance.length > 1 ? 'Ces compteurs n’ont' : 'Ce compteur n’a'} pas d’échéance : {pv.sansEcheance.map((c) => c.utilisation || c.site_nom || c.numero_pdl).join(', ')}.
+              Renseignez-la sur {pv.sansEcheance.length > 1 ? 'leur fiche' : 'sa fiche'} (contrat en cours ou date déclarée), puis demandez la version depuis la recommandation.
+            </span>
+          </div>
+        ) : pv.chargement ? (
           <p className="flex items-center justify-center gap-2 py-10 text-[12.5px] text-km-faint"><Loader2 className="h-4 w-4 animate-spin text-km-green" /> Lecture des fournisseurs…</p>
         ) : ZONES.map((z) => {
           const liste = pv.resultats.filter((r) => zoneDe(r.fournisseur) === z.cle)
@@ -283,8 +332,8 @@ export function EtapeFournisseurs({ pv, onSuivant, onPlusTard }: { pv: PremiereV
         )}
         <span className="flex-1" />
         {!pv.date && <span className="whitespace-nowrap text-[11.5px] text-km-faint">Choisissez la date.</span>}
-        <Button variant="ghost" onClick={onPlusTard}>Plus tard</Button>
-        <Button variant="primary" disabled={!pv.date || pv.choisis.length === 0} onClick={onSuivant}>
+        <Button variant="ghost" onClick={onPlusTard}>{libellePlusTard}</Button>
+        <Button variant="primary" disabled={!pv.date || pv.choisis.length === 0 || pv.sansEcheance.length > 0} onClick={onSuivant}>
           Choisir les durées <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -296,14 +345,16 @@ export function EtapeFournisseurs({ pv, onSuivant, onPlusTard }: { pv: PremiereV
  * ÉTAPE 4 — QUELLES DURÉES DEMANDER ?
  * ══════════════════════════════════════════════════════════════════════════════════════════════ */
 
-export function EtapeDurees({ pv, recoId, recoTitre, compteNom, compteurs, onPrecedent, onLance, onErreur }: {
+export function EtapeDurees({ pv, numero, total, recoId, recoTitre, compteNom, compteurs, onPrecedent, onLance, onErreur }: {
   pv: PremiereVersion
+  numero: number
+  total: number
   recoId: string
   recoTitre: string
   compteNom: string
   compteurs: Compteur[]
   onPrecedent: () => void
-  onLance: () => void
+  onLance: (versionId: string | null) => void
   onErreur: (m: string) => void
 }) {
   const createVersion = useCreateVersion()
@@ -312,54 +363,60 @@ export function EtapeDurees({ pv, recoId, recoTitre, compteNom, compteurs, onPre
   const { data: typesOptimRef } = useReferenceTable('types_optimisations')
   const [autres, setAutres] = useState<Record<string, string>>({})
   const choisis = pv.choisis.map((id) => pv.fournisseurs.find((f) => f.id === id)).filter((f): f is Compte => !!f)
-  const d = (id: string) => pv.durees[id] ?? []
+  /* MONOSITE : le compteur ne s'affiche pas (William, 06/10/2026), la grille reste celle de A. */
+  const multisite = compteurs.length > 1
+  const d = (fid: string, cid: string) => pv.durees[fid]?.[cid] ?? []
+  const max = (fid: string, cid: string) => pv.maxParFournisseur[fid]?.[cid] ?? DUREE_PLAFOND
+  const union = (fid: string) => [...new Set(compteurs.flatMap((c) => d(fid, c.id)))].sort((x, y) => x - y)
 
-  const basculer = (id: string, mois: number) => pv.setDurees((x) => {
-    const l = x[id] ?? []
-    if (l.includes(mois)) return { ...x, [id]: l.filter((m) => m !== mois) }
-    if (l.length >= DUREES_MAX_PAR_FOURNISSEUR) return x
-    return { ...x, [id]: [...l, mois].sort((a, b) => a - b) }
-  })
-  const ajouterAutre = (id: string) => {
-    const n = parseInt(autres[id] ?? '', 10)
-    const max = pv.maxParFournisseur[id] ?? DUREE_PLAFOND
-    if (!n || n < 1 || n > max || d(id).includes(n)) return
-    basculer(id, n)
-    setAutres((a) => ({ ...a, [id]: '' }))
+  const poser = (fid: string, cid: string, liste: number[]) => pv.setDurees((x) => ({ ...x, [fid]: { ...(x[fid] ?? {}), [cid]: [...new Set(liste)].sort((a, b) => a - b) } }))
+  const basculer = (fid: string, cid: string, mois: number) => {
+    const l = d(fid, cid)
+    if (l.includes(mois)) poser(fid, cid, l.filter((m) => m !== mois))
+    else if (l.length < DUREES_MAX_PAR_FOURNISSEUR) poser(fid, cid, [...l, mois])
   }
-  /* LES RACCOURCIS : les durées types que TOUS les fournisseurs choisis peuvent proposer. */
-  const communes = DUREES_TYPES.filter((m) => choisis.length > 0 && choisis.every((f) => m <= (pv.maxParFournisseur[f.id] ?? DUREE_PLAFOND)))
+  const cle = (fid: string, cid: string) => `${fid}:${cid}`
+  const ajouterAutre = (fid: string, cid: string) => {
+    const n = parseInt(autres[cle(fid, cid)] ?? '', 10)
+    if (!n || n < 1 || n > max(fid, cid) || d(fid, cid).includes(n)) return
+    basculer(fid, cid, n)
+    setAutres((a) => ({ ...a, [cle(fid, cid)]: '' }))
+  }
+  /* LES RACCOURCIS : les durées types possibles partout (chaque fournisseur, chaque compteur). */
+  const paires = choisis.flatMap((f) => compteurs.map((c) => [f.id, c.id] as const))
+  const communes = DUREES_TYPES.filter((m) => paires.length > 0 && paires.every(([f, c]) => m <= max(f, c)))
   const raccourci = (m: number) => {
-    const tous = choisis.every((f) => d(f.id).includes(m))
+    const tous = paires.every(([f, c]) => d(f, c).includes(m))
     pv.setDurees((x) => {
-      const n = { ...x }
-      for (const f of choisis) {
-        const l = n[f.id] ?? []
-        if (tous) n[f.id] = l.filter((v) => v !== m)
-        else if (!l.includes(m) && l.length < DUREES_MAX_PAR_FOURNISSEUR) n[f.id] = [...l, m].sort((a, b) => a - b)
+      const n: DureesFournisseurs = { ...x }
+      for (const [f, c] of paires) {
+        const l = n[f]?.[c] ?? []
+        const suivante = tous ? l.filter((v) => v !== m) : !l.includes(m) && l.length < DUREES_MAX_PAR_FOURNISSEUR ? [...l, m].sort((a, b) => a - b) : l
+        n[f] = { ...(n[f] ?? {}), [c]: suivante }
       }
       return n
     })
   }
-  const offres = (id: string) => d(id).length * Math.max(1, pv.typesPrix.length)
+  /* LES OFFRES : une par durée (tous compteurs confondus) et par type de prix. */
+  const offres = (fid: string) => union(fid).length * Math.max(1, pv.typesPrix.length)
   const totalOffres = choisis.reduce((t, f) => t + offres(f.id), 0)
-  const pret = choisis.length > 0 && choisis.every((f) => d(f.id).length > 0) && pv.typesPrix.length > 0
-  const debuts = [...new Set(Object.values(pv.debuts).map((x) => x.toLocaleDateString('fr-FR')))]
+  const pret = paires.length > 0 && paires.every(([f, c]) => d(f, c).length > 0) && pv.typesPrix.length > 0
 
   async function lancer() {
     if (!pret || createVersion.isPending) return
-    const toutes = [...new Set(choisis.flatMap((f) => d(f.id)))].sort((a, b) => a - b)
+    const parCompteur = Object.fromEntries(compteurs.map((c) => [c.id, [...new Set(choisis.flatMap((f) => d(f.id, c.id)))].sort((a, b) => a - b)]))
+    const toutes = [...new Set(Object.values(parCompteur).flat())].sort((a, b) => a - b)
     try {
       const rapport = await createVersion.mutateAsync({
         recommandation_id: recoId,
         compteur_ids: compteurs.map((c) => c.id),
-        motif_id: ((motifsRef ?? []).find((m) => m.code === 'CREATION_INITIALE') ?? (motifsRef ?? [])[0])?.id ?? null,
+        motif_id: ((motifsRef ?? []).find((m) => m.code === (pv.actualisation ? 'ACTUALISATION_MARCHE' : 'CREATION_INITIALE')) ?? (motifsRef ?? [])[0])?.id ?? null,
         statut_brouillon_id: trouverParCode(statutsRef, 'EN_CONSTRUCTION', 'BROUILLON')?.id ?? null,
-        type_optimisation_mise_en_concurrence_id: (typesOptimRef ?? []).find((t) => t.code === 'MISE_EN_CONCURRENCE')?.id ?? null,
+        type_optimisation_mise_en_concurrence_id: (typesOptimRef ?? []).find((x) => x.code === 'MISE_EN_CONCURRENCE')?.id ?? null,
         fournisseur_ids: choisis.map((f) => f.id),
-        /* Chaque compteur porte toutes les durées de la version ; chaque fournisseur, les siennes. */
-        durees_par_compteur: Object.fromEntries(compteurs.map((c) => [c.id, toutes])),
-        durees_par_fournisseur: Object.fromEntries(choisis.map((f) => [f.id, d(f.id)])),
+        durees_par_compteur: parCompteur,
+        durees_par_fournisseur: Object.fromEntries(choisis.map((f) => [f.id, union(f.id)])),
+        ...(multisite ? { durees_fournisseur_compteur: Object.fromEntries(choisis.map((f) => [f.id, Object.fromEntries(compteurs.map((c) => [c.id, d(f.id, c.id)]))])) } : {}),
         types_prix: pv.typesPrix,
         date_souhaitee: pv.date,
         resume: `Durée${toutes.length > 1 ? 's' : ''} ${toutes.join('/')} mois — ${pv.typesPrix.join(', ')} — ${choisis.length} fournisseur${choisis.length > 1 ? 's' : ''} consulté${choisis.length > 1 ? 's' : ''} — commission estimée ${euros(computeEstimatedCommission(compteurs, toutes))}`,
@@ -374,7 +431,7 @@ export function EtapeDurees({ pv, recoId, recoTitre, compteNom, compteurs, onPre
           ``,
           `Compte        : ${compteNom || '—'}`,
           `Opportunité   : ${recoTitre}`,
-          ...choisis.map((f) => `${f.nom.padEnd(14)}: ${d(f.id).join(' / ')} mois`),
+          ...choisis.map((f) => `${f.nom} : ${union(f.id).join(' / ')} mois`),
           `Type de prix  : ${pv.typesPrix.join(', ')}`,
           `Date souhaitée : ${pv.date ? midi(pv.date).toLocaleDateString('fr-FR') : '—'}`,
           `Points de livraison : ${compteurs.length}`,
@@ -383,20 +440,66 @@ export function EtapeDurees({ pv, recoId, recoTitre, compteNom, compteurs, onPre
         ].join('\n'),
       )
       if (rapport.offresEchouees > 0) onErreur(`${rapport.offresEchouees} offre(s) attendue(s) n'ont pas pu être créées : le suivi sera à saisir à la main.`)
-      onLance()
+      onLance(rapport.versionId ?? null)
     } catch (e) {
       onErreur(`La version n'a pas pu être créée : ${e instanceof Error ? e.message : String(e)}`)
     }
   }
 
   const grille = 'grid grid-cols-[minmax(0,1fr)_repeat(5,46px)_58px_62px_54px] items-center gap-[6px] px-3'
+  /** Une ligne de durées : celle d'un fournisseur (monosite) ou d'un de ses compteurs (multisite). */
+  /* Une fonction et non un composant : redéfini à chaque rendu, un composant ferait perdre la saisie. */
+  const ligneDurees = ({ f, c, entete, offresLigne }: { f: Compte; c: Compteur; entete: React.ReactNode; offresLigne: React.ReactNode }) => {
+    const m = max(f.id, c.id)
+    const l = d(f.id, c.id)
+    const plein = l.length >= DUREES_MAX_PAR_FOURNISSEUR
+    const maxPropose = m >= 1 && m < DUREE_PLAFOND && !(DUREES_TYPES as readonly number[]).includes(m)
+    return (
+      <div key={`${f.id}:${c.id}`} className={cn(grille, 'min-h-[52px] border-t border-km-line-soft py-1.5')}>
+        {entete}
+        {DUREES_TYPES.map((mois) => (mois <= m ? (
+          <button key={mois} type="button" onClick={() => basculer(f.id, c.id, mois)} aria-pressed={l.includes(mois)} disabled={!l.includes(mois) && plein}
+            className={cn('h-8 rounded-[9px] border font-mono text-[12px] font-semibold', l.includes(mois) ? 'border-km-green bg-km-green text-white' : 'border-km-line bg-white text-km-text hover:border-km-green disabled:opacity-40')}>
+            {mois}
+          </button>
+        ) : (
+          <span key={mois} title={`${mois} mois finiraient après le ${f.max_dff ? midi(f.max_dff).toLocaleDateString('fr-FR') : ''}`}
+            className="flex h-8 items-center justify-center rounded-[9px] border border-dashed border-km-line bg-[repeating-linear-gradient(135deg,#F6F7F6_0_5px,#fff_5px_10px)] font-mono text-[12px] text-[#C3CBC5]">{mois}</span>
+        )))}
+        {maxPropose ? (
+          <button type="button" onClick={() => basculer(f.id, c.id, m)} aria-pressed={l.includes(m)} disabled={!l.includes(m) && plein} title={`La durée la plus longue possible : ${m} mois`}
+            className={cn('h-8 rounded-[9px] border font-mono text-[11.5px] font-semibold', l.includes(m) ? 'border-km-amber bg-km-amber text-white' : 'border-km-amber-line bg-km-amber-soft text-km-amber disabled:opacity-40')}>
+            {m} m
+          </button>
+        ) : <span className="text-center text-[11px] text-km-faint">{m < 1 ? 'aucune' : '—'}</span>}
+        <span className="flex h-8 items-center rounded-[9px] border border-km-line px-1.5 focus-within:border-km-green">
+          <input
+            inputMode="numeric"
+            value={autres[cle(f.id, c.id)] ?? ''}
+            onChange={(e) => setAutres((a) => ({ ...a, [cle(f.id, c.id)]: e.target.value.replace(/\D/g, '').slice(0, 2) }))}
+            onKeyDown={(e) => { if (e.key === 'Enter') ajouterAutre(f.id, c.id) }}
+            onBlur={() => ajouterAutre(f.id, c.id)}
+            disabled={plein || m < 1}
+            placeholder={`≤ ${m}`}
+            aria-label={`Durée personnalisée pour ${f.nom}${multisite ? `, ${c.utilisation || c.site_nom}` : ''}, ${m} mois au plus`}
+            className="w-full min-w-0 border-0 bg-transparent font-mono text-[12px] outline-none disabled:opacity-40"
+          />
+        </span>
+        {offresLigne}
+      </div>
+    )
+  }
+  const persos = (f: Compte, c: Compteur) => d(f.id, c.id).filter((m) => !(DUREES_TYPES as readonly number[]).includes(m) && m !== max(f.id, c.id))
+  const finTexte = (f: Compte) => (f.max_dff ? `fin au plus tard ${midi(f.max_dff).toLocaleDateString('fr-FR')}` : 'pas de limite de fin')
+  const nbOffres = (f: Compte) => <span className={cn('text-right font-mono text-[12.5px] font-semibold', offres(f.id) ? 'text-km-text' : 'text-km-amber')}>{offres(f.id)}</span>
+
   return (
     <>
-      <EnTeteEtape numero={4} total={4} titre="Quelles durées demander ?" />
+      <EnTeteEtape numero={numero} total={total} titre="Quelles durées demander ?" />
       <div className="-mt-2 mb-3 flex flex-wrap items-center gap-2">
-        {communes.length > 0 && <span className="text-[12px] text-km-muted">Possibles chez {choisis.length > 1 ? `les ${choisis.length}` : 'lui'} :</span>}
+        {communes.length > 0 && <span className="text-[12px] text-km-muted">Possibles partout :</span>}
         {communes.map((m) => {
-          const tous = choisis.every((f) => d(f.id).includes(m))
+          const tous = paires.every(([f, c]) => d(f, c).includes(m))
           return (
             <button key={m} type="button" onClick={() => raccourci(m)} aria-pressed={tous}
               className={cn('flex h-[30px] items-center gap-1.5 rounded-full border-[1.5px] px-3 text-[12px] font-semibold', tous ? 'border-km-green bg-km-green text-white' : 'border-km-green bg-km-green-tint text-km-green')}>
@@ -406,12 +509,12 @@ export function EtapeDurees({ pv, recoId, recoTitre, compteNom, compteurs, onPre
         })}
         <span className="flex-1" />
         <div role="group" aria-label="Type de prix" className="flex gap-0.5 rounded-[9px] bg-km-soft p-[3px]">
-          {['Fixe', 'Indexé'].map((t) => {
-            const on = pv.typesPrix.includes(t)
+          {['Fixe', 'Indexé'].map((x) => {
+            const on = pv.typesPrix.includes(x)
             return (
-              <button key={t} type="button" aria-pressed={on} onClick={() => pv.setTypesPrix((l) => (on ? l.filter((x) => x !== t) : [...l, t]))}
+              <button key={x} type="button" aria-pressed={on} onClick={() => pv.setTypesPrix((l) => (on ? l.filter((y) => y !== x) : [...l, x]))}
                 className={cn('h-7 rounded-[7px] px-3 text-[12px]', on ? 'bg-white font-semibold text-km-text shadow-[0_1px_3px_rgba(25,40,33,.12)]' : 'font-medium text-km-muted')}>
-                Prix {t.toLowerCase()}
+                Prix {x.toLowerCase()}
               </button>
             )
           })}
@@ -421,73 +524,49 @@ export function EtapeDurees({ pv, recoId, recoTitre, compteNom, compteurs, onPre
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="overflow-hidden rounded-[13px] border border-km-line">
           <div className={cn(grille, 'h-[34px] bg-km-soft text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint')}>
-            <span>Fournisseur</span>
+            <span>{multisite ? 'Fournisseur · compteur' : 'Fournisseur'}</span>
             {DUREES_TYPES.map((m) => <span key={m} className="text-center">{m}</span>)}
             <span className="text-center">Max</span><span className="text-center">Autre</span><span className="text-right">Offres</span>
           </div>
-          {choisis.map((f) => {
-            const max = pv.maxParFournisseur[f.id] ?? DUREE_PLAFOND
-            const l = d(f.id)
-            const plein = l.length >= DUREES_MAX_PAR_FOURNISSEUR
-            const maxPropose = max >= 1 && max < DUREE_PLAFOND && !(DUREES_TYPES as readonly number[]).includes(max)
-            const persos = l.filter((m) => !(DUREES_TYPES as readonly number[]).includes(m) && m !== max)
-            return (
-              <div key={f.id} className={cn(grille, 'min-h-[58px] border-t border-km-line-soft py-2')}>
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <Logo f={f} />
-                  <span className="flex min-w-0 flex-col gap-px">
-                    <b className="truncate text-[12.5px] font-semibold">{f.nom}</b>
-                    <span className="truncate text-[10.5px] text-km-faint">{f.max_dff ? `fin au plus tard ${midi(f.max_dff).toLocaleDateString('fr-FR')}` : 'pas de limite de fin'}{persos.length ? ` · ${persos.map((m) => `${m} m`).join(', ')}` : ''}</span>
-                  </span>
-                </span>
-                {DUREES_TYPES.map((m) => {
-                  const possible = m <= max
-                  const on = l.includes(m)
-                  return possible ? (
-                    <button key={m} type="button" onClick={() => basculer(f.id, m)} aria-pressed={on} disabled={!on && plein}
-                      className={cn('h-8 rounded-[9px] border font-mono text-[12px] font-semibold', on ? 'border-km-green bg-km-green text-white' : 'border-km-line bg-white text-km-text hover:border-km-green disabled:opacity-40')}>
-                      {m}
-                    </button>
-                  ) : (
-                    <span key={m} title={`${m} mois finiraient après le ${f.max_dff ? midi(f.max_dff).toLocaleDateString('fr-FR') : ''}`}
-                      className="flex h-8 items-center justify-center rounded-[9px] border border-dashed border-km-line bg-[repeating-linear-gradient(135deg,#F6F7F6_0_5px,#fff_5px_10px)] font-mono text-[12px] text-[#C3CBC5]">{m}</span>
-                  )
-                })}
-                {maxPropose ? (
-                  <button type="button" onClick={() => basculer(f.id, max)} aria-pressed={l.includes(max)} disabled={!l.includes(max) && plein}
-                    title={`La durée la plus longue possible : ${max} mois`}
-                    className={cn('h-8 rounded-[9px] border font-mono text-[11.5px] font-semibold', l.includes(max) ? 'border-km-amber bg-km-amber text-white' : 'border-km-amber-line bg-km-amber-soft text-km-amber disabled:opacity-40')}>
-                    {max} m
-                  </button>
-                ) : <span className="text-center text-[11px] text-km-faint">{max < 1 ? 'aucune' : '—'}</span>}
-                <span className="flex h-8 items-center rounded-[9px] border border-km-line px-1.5 focus-within:border-km-green">
-                  <input
-                    inputMode="numeric"
-                    value={autres[f.id] ?? ''}
-                    onChange={(e) => setAutres((a) => ({ ...a, [f.id]: e.target.value.replace(/\D/g, '').slice(0, 2) }))}
-                    onKeyDown={(e) => { if (e.key === 'Enter') ajouterAutre(f.id) }}
-                    onBlur={() => ajouterAutre(f.id)}
-                    disabled={plein}
-                    placeholder={`≤ ${max}`}
-                    aria-label={`Durée personnalisée pour ${f.nom}, ${max} mois au plus`}
-                    className="w-full min-w-0 border-0 bg-transparent font-mono text-[12px] outline-none disabled:opacity-40"
-                  />
-                </span>
-                <span className={cn('text-right font-mono text-[12.5px] font-semibold', offres(f.id) ? 'text-km-text' : 'text-km-amber')}>{offres(f.id)}</span>
+          {choisis.map((f) => multisite ? (
+            <div key={f.id}>
+              <div className={cn(grille, 'h-[44px] border-t border-km-line bg-km-bg/60')}>
+                <span className="flex min-w-0 items-center gap-2.5"><Logo f={f} taille={26} /><span className="flex min-w-0 flex-col gap-px"><b className="truncate text-[12.5px] font-semibold">{f.nom}</b><span className="truncate text-[10.5px] text-km-faint">{finTexte(f)}</span></span></span>
+                <span className="col-span-7" />
+                {nbOffres(f)}
               </div>
-            )
-          })}
+              {compteurs.map((c) => (
+                ligneDurees({ f, c, offresLigne: <span />, entete: (
+                  <span className="flex min-w-0 flex-col gap-px pl-9">
+                    <span className="truncate text-[12px] font-semibold text-km-text">{c.utilisation || c.site_nom || c.numero_pdl}</span>
+                    <span className="truncate text-[10.5px] text-km-faint">début {pv.debuts[c.id]?.toLocaleDateString('fr-FR') ?? '—'}{persos(f, c).length ? ` · ${persos(f, c).map((m) => `${m} m`).join(', ')}` : ''}</span>
+                  </span>
+                ) })
+              ))}
+            </div>
+          ) : (
+            ligneDurees({ f, c: compteurs[0], offresLigne: nbOffres(f), entete: (
+              <span className="flex min-w-0 items-center gap-2.5">
+                <Logo f={f} />
+                <span className="flex min-w-0 flex-col gap-px">
+                  <b className="truncate text-[12.5px] font-semibold">{f.nom}</b>
+                  <span className="truncate text-[10.5px] text-km-faint">{finTexte(f)}{persos(f, compteurs[0]).length ? ` · ${persos(f, compteurs[0]).map((m) => `${m} m`).join(', ')}` : ''}</span>
+                </span>
+              </span>
+            ) })
+          ))}
         </div>
         <p className="mt-2 text-[11px] text-km-faint">
-          Début de fourniture {debuts.length === 1 ? `le ${debuts[0]}` : `entre le ${debuts[0]} et le ${debuts[debuts.length - 1]}`}. Une case hachurée finirait après la limite du fournisseur ; « Max » demande la durée la plus longue possible. Trois durées au plus par fournisseur.
+          {!multisite && pv.debuts[compteurs[0]?.id] ? `Début de fourniture le ${pv.debuts[compteurs[0].id].toLocaleDateString('fr-FR')}, lendemain de l’échéance. ` : 'Chaque compteur part du lendemain de son échéance. '}
+          Une case hachurée finirait après la limite du fournisseur ; « Max » demande la durée la plus longue possible. Trois durées au plus{multisite ? ' par compteur' : ''}.
         </p>
       </div>
 
       <div className="mt-auto flex items-center gap-3 border-t border-km-line-soft pt-4">
         <Button variant="ghost" onClick={onPrecedent} disabled={createVersion.isPending}>Précédent</Button>
-        <span className="text-[12.5px]"><b>{totalOffres} offre{totalOffres > 1 ? 's' : ''}</b> <span className="text-km-muted">demandée{totalOffres > 1 ? 's' : ''}</span></span>
+        <span className="whitespace-nowrap text-[12.5px]"><b>{totalOffres} offre{totalOffres > 1 ? 's' : ''}</b> <span className="text-km-muted">demandée{totalOffres > 1 ? 's' : ''}</span></span>
         <span className="flex-1" />
-        {!pret && <span className="text-[11.5px] text-km-faint">Au moins une durée par fournisseur.</span>}
+        {!pret && <span className="whitespace-nowrap text-[11.5px] text-km-faint">Au moins une durée {multisite ? 'par compteur' : 'par fournisseur'}.</span>}
         <Button variant="primary" disabled={!pret || createVersion.isPending} onClick={() => void lancer()}>
           {createVersion.isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Lancement…</> : <>Lancer la consultation <Send className="h-3.5 w-3.5" /></>}
         </Button>

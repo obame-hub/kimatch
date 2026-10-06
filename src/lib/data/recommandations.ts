@@ -941,6 +941,57 @@ export function recommandationsRetenantCompteurs(
 }
 
 /**
+ * ══ CE QUE LES VERSIONS PRÉCÉDENTES DISENT DES FOURNISSEURS — William, 06/10/2026 ══
+ *   · « Délai d'actualisation si le fournisseur a été demandé en V1 et qu'on est désormais en V2 » :
+ *     `consultes`, les fournisseurs déjà consultés sur ce dossier ;
+ *   · « Si en V1 PICOTY refuse de répondre, il ne doit plus être éligible dans les versions suivantes
+ *     (motif : le fournisseur n'a pas souhaité répondre préalablement) » : `refuses`, ceux dont le
+ *     dernier statut de consultation posé (par Erwan) est REFUSEE ;
+ *   · la duplication reprend la dernière version : ses fournisseurs, leurs durées, ses types de prix.
+ */
+export interface HistoriqueConsultations {
+  consultes: Set<string>
+  refuses: Set<string>
+  derniere: { fournisseurIds: string[]; durees: Record<string, Record<string, number[]> | number[]>; typesPrix: string[] } | null
+}
+export function useHistoriqueConsultations(recoId: string | undefined) {
+  return useQuery({
+    queryKey: ['recommandations', 'historique-consultations', recoId],
+    enabled: !!recoId,
+    queryFn: async (): Promise<HistoriqueConsultations> => {
+      const { data, error } = await supabase
+        .from('versions_recommandation')
+        .select('id, numero_version, version_actuelle, types_prix, optimisations(optimisations_fournisseurs(fournisseur_compte_id, durees_mois, durees_par_compteur, suivis_consultations_fournisseurs(date_evenement, statut:statuts_consultations_fournisseurs(code))))')
+        .eq('recommandation_id', recoId as string)
+      if (error) throw new Error(error.message)
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const versions = (data ?? []) as any[]
+      const consultes = new Set<string>()
+      const refuses = new Set<string>()
+      for (const v of versions) for (const o of v.optimisations ?? []) for (const f of o.optimisations_fournisseurs ?? []) {
+        consultes.add(f.fournisseur_compte_id)
+        const suivis = [...(f.suivis_consultations_fournisseurs ?? [])].sort((a: any, b: any) => String(a.date_evenement).localeCompare(String(b.date_evenement)))
+        const dernier = suivis[suivis.length - 1]
+        const code = Array.isArray(dernier?.statut) ? dernier.statut[0]?.code : dernier?.statut?.code
+        if (code === 'REFUSEE') refuses.add(f.fournisseur_compte_id)
+      }
+      const triees = [...versions].sort((a, b) => Number(b.version_actuelle) - Number(a.version_actuelle) || (b.numero_version ?? 0) - (a.numero_version ?? 0))
+      const v = triees[0]
+      const fournisseurs = v ? (v.optimisations ?? []).flatMap((o: any) => o.optimisations_fournisseurs ?? []) : []
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+      return {
+        consultes, refuses,
+        derniere: v ? {
+          fournisseurIds: fournisseurs.map((f: { fournisseur_compte_id: string }) => f.fournisseur_compte_id),
+          durees: Object.fromEntries(fournisseurs.map((f: { fournisseur_compte_id: string; durees_par_compteur: Record<string, number[]> | null; durees_mois: number[] | null }) => [f.fournisseur_compte_id, f.durees_par_compteur ?? f.durees_mois ?? []])),
+          typesPrix: v.types_prix ?? ['Fixe'],
+        } : null,
+      }
+    },
+  })
+}
+
+/**
  * La même question — quelle recommandation retient chaque compteur ? — posée sur une poignée de
  * compteurs seulement (création d'une recommandation, 06/10/2026), au lieu de lire les 1 855
  * recommandations. Même règle : une recommandation close ne retient rien.
@@ -1146,6 +1197,8 @@ export interface CreateVersionInput {
   /** Durées demandées PAR FOURNISSEUR (création de recommandation, étape 4, 06/10/2026) : chacun
    *  a les siennes, selon sa fin de fourniture au plus tard. Absent : celles de la version pour tous. */
   durees_par_fournisseur?: Record<string, number[]>
+  /** Le détail compteur par compteur (multisite) : `optimisations_fournisseurs.durees_par_compteur`. */
+  durees_fournisseur_compteur?: Record<string, Record<string, number[]>>
   /** « Fixe » et/ou « Indexé » -- sélection multiple, pas exclusive. */
   types_prix: string[]
   date_souhaitee: string | null
@@ -1312,6 +1365,7 @@ export function useCreateVersion() {
               optimisation_id: optimisationId,
               fournisseur_compte_id,
               durees_mois: input.durees_par_fournisseur?.[fournisseur_compte_id] ?? dureesDemandees,
+              ...(input.durees_fournisseur_compteur?.[fournisseur_compte_id] ? { durees_par_compteur: input.durees_fournisseur_compteur[fournisseur_compte_id] } : {}),
               types_prix: typesDemandes,
             })))
           if (eConsultes) {

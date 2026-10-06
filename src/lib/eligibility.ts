@@ -30,6 +30,8 @@ export interface CotationCharacteristics {
   mandats?: { kiwee: boolean; energix: boolean }
   /** Le début de fourniture de chaque compteur (lendemain de l'échéance retenue, à défaut une date posée). */
   debutsFourniture?: Record<string, Date>
+  /** Les fournisseurs qui ont refusé de répondre sur une version précédente du dossier. */
+  refuses?: Set<string>
 }
 
 function normText(s: string): string {
@@ -89,9 +91,14 @@ export function checkEligibility(
   if (characteristics.mandats && shouldRun('mandat', compteContext)) {
     const energix = normText(fournisseur.intermediary ?? '') === 'energix'
     const kiwee = normText(fournisseur.partnership ?? '') === 'kiwee'
-    if (energix && !characteristics.mandats.energix) reasons.push('Aucun mandat Energix actif ne couvre ces compteurs : les fournisseurs Energix ne sont pas accessibles')
-    if (kiwee && !characteristics.mandats.kiwee) reasons.push('Aucun mandat KiWee actif ne couvre ces compteurs')
+    /* William, 06/10/2026 : « grisés avec la raison "Pas de mandat Energix" ». */
+    if (energix && !characteristics.mandats.energix) reasons.push('Pas de mandat Energix')
+    if (kiwee && !characteristics.mandats.kiwee) reasons.push('Pas de mandat KiWee')
   }
+
+  /* William, 06/10/2026 : un fournisseur qui a refusé de répondre sur une version précédente n'est
+     plus éligible dans les suivantes. */
+  if (characteristics.refuses?.has(fournisseur.id)) reasons.push('Le fournisseur n’a pas souhaité répondre préalablement')
 
   if (shouldRun('target', compteContext)) {
     const targets = fournisseur.targets ?? []
@@ -186,16 +193,15 @@ export function checkEligibility(
 
   if (shouldRun('response_delay', charCtx) && characteristics.desiredDate) {
     const jours = businessDaysBetween(new Date(), characteristics.desiredDate)
-    if (fournisseur.response_delay_days == null) reasons.push('Délai de réponse non renseigné sur la fiche du fournisseur')
-    else if (fournisseur.response_delay_days > jours) {
+    /* Non renseigné : 0 jour (William, 06/10/2026). */
+    if ((fournisseur.response_delay_days ?? 0) > jours && fournisseur.response_delay_days != null) {
       reasons.push(`Pas assez de temps : il lui faut ${fournisseur.response_delay_days} jour${fournisseur.response_delay_days > 1 ? 's' : ''} ouvré${fournisseur.response_delay_days > 1 ? 's' : ''} pour répondre, la date demandée en laisse ${jours}`)
     }
   }
 
   if (shouldRun('update_delay', charCtx) && characteristics.desiredDate) {
     const jours = businessDaysBetween(new Date(), characteristics.desiredDate)
-    if (fournisseur.update_delay_days == null) reasons.push('Délai d’actualisation non renseigné sur la fiche du fournisseur')
-    else if (fournisseur.update_delay_days > jours) {
+    if ((fournisseur.update_delay_days ?? 0) > jours && fournisseur.update_delay_days != null) {
       reasons.push(`Pas assez de temps : il lui faut ${fournisseur.update_delay_days} jour${fournisseur.update_delay_days > 1 ? 's' : ''} ouvré${fournisseur.update_delay_days > 1 ? 's' : ''} pour actualiser son offre, la date demandée en laisse ${jours}`)
     }
   }

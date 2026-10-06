@@ -568,12 +568,14 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
       />
       <PanneauParcours>
         {recoCree && etape === 'fournisseurs' ? (
-          <EtapeFournisseurs pv={pv} onSuivant={() => setEtape('durees')} onPlusTard={() => vers(recoCree.id)} />
+          <EtapeFournisseurs pv={pv} numero={3} total={4} onSuivant={() => setEtape('durees')} onPlusTard={() => vers(recoCree.id)} />
         ) : recoCree && etape === 'durees' ? (
           <>
             {erreur && <p className="mb-2 rounded-[10px] border border-km-red-line bg-km-red-soft px-3 py-2 text-[12px] font-semibold text-km-red">{erreur}</p>}
             <EtapeDurees
               pv={pv}
+              numero={4}
+              total={4}
               recoId={recoCree.id}
               recoTitre={recoCree.titre}
               compteNom={compteCible?.nom ?? ''}

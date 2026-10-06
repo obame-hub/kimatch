@@ -31,8 +31,8 @@ import { ComparatifVersions, coutPrestationEstime } from '@/components/recommand
 import { OngletCommandeClient } from '@/components/recommandation/OngletCommandeClient'
 import { DetailVersion } from '@/components/recommandation/DetailVersion'
 import { BlocAffaire } from '@/components/recommandation/BlocAffaire'
+import { ParcoursNouvelleVersion } from '@/components/recommandation/ParcoursNouvelleVersion'
 import {
-  CotationWizard,
   EnvoyerEmailDialog,
   AjouterFournisseurConsulteDialog,
   type PrefillCotation,
@@ -1375,12 +1375,13 @@ export default function RecommandationDetail() {
       {/* Montés seulement à l'ouverture : le `Dialog` masque son contenu mais ne démonte pas le
           composant qui l'entoure, dont tous les hooks (calcul d'éligibilité sur l'ensemble des
           fournisseurs, effets) tourneraient en permanence sur la fiche. */}
+      {/* LES ÉTAPES 3 ET 4 DE LA CRÉATION, SEULES (William, 06/10/2026) : nouvelle version ou
+          duplication de la précédente à une nouvelle date. */}
       {wizardCotation && (
-        <CotationWizard
-          open
-          onClose={() => setWizardCotation(null)}
+        <ParcoursNouvelleVersion
           reco={reco}
-          prefill={wizardCotation.prefill}
+          dupliquer={!!wizardCotation.prefill}
+          onClose={() => setWizardCotation(null)}
           onCree={(versionId) => {
             // On la designe explicitement plutot que de compter sur le repli « version active » :
             // c'est celle qu'on vient de creer qu'on veut voir, et sur l'onglet qui la montre.

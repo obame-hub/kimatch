@@ -18,7 +18,7 @@ describe('l’éligibilité de la première version (06/10/2026)', () => {
   })
   it('un fournisseur Energix demande un mandat Energix', () => {
     const r = checkEligibility(f({ partnership: 'intermediaire', intermediary: 'Energix' }), compte, [compteur], carac, regles, [])
-    expect(r.reasons.join()).toContain('Aucun mandat Energix actif')
+    expect(r.reasons).toContain('Pas de mandat Energix')
   })
   it('un fournisseur KiWee éligible quand tout concorde', () => {
     expect(checkEligibility(f(), compte, [compteur], carac, regles, []).eligible).toBe(true)
@@ -29,5 +29,13 @@ describe('l’éligibilité de la première version (06/10/2026)', () => {
   })
   it('les jours ouvrés excluent les fériés : du jeudi 24/12/2026 au lundi 28/12, un seul (le 28)', () => {
     expect(businessDaysBetween(new Date(2026, 11, 24, 12), new Date(2026, 11, 28, 12))).toBe(1)
+  })
+  it('un refus sur une version précédente rend inéligible', () => {
+    const r = checkEligibility(f(), compte, [compteur], { ...carac, refuses: new Set(['f']) }, regles, [])
+    expect(r.reasons).toContain('Le fournisseur n’a pas souhaité répondre préalablement')
+  })
+  it('un délai non renseigné compte pour zéro', () => {
+    const r = checkEligibility(f({ response_delay_days: null }), compte, [compteur], { ...carac, desiredDate: new Date(Date.now() + 86400000) }, regles, [])
+    expect(r.eligible).toBe(true)
   })
 })
