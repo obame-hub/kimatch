@@ -82,12 +82,13 @@ describe('le détail du calcul d’une ligne', () => {
     const c = { ...compteur, car: 343.778, tarif: 'T3', reglementaire } as unknown as CompteurChiffrage
     const s = saisieDepuisLecture(c, lue, 6)
     const d = detailBudget(c, s, 36)!
-    expect(d.sections.map((x) => x.sousTotal)).toEqual([27369.82, 2602.4, 7346.47])
+    // Le CPB compte dans la fourniture (06/10/2026) : 27 369,82 + 343,778 × 3,3733 ; le total ne bouge pas.
+    expect(d.sections.map((x) => x.sousTotal)).toEqual([28529.5, 2602.4, 6186.79])
     expect(d.totalHt).toBe(37318.69)
     expect(d.totalTtc).toBe(44782.43)
     expect(d.tva).toHaveLength(1)
     expect(Math.round((d.totalHt + d.tva[0].montant) * 100) / 100).toBe(44782.43)
-    expect(d.sections[2].lignes.find((l) => l.libelle === 'CPB')?.source).toContain('2027 à 2029')
+    expect(d.sections[0].lignes.find((l) => l.libelle === 'Énergie')?.source).toContain('2027 à 2029')
   })
 })
 
@@ -117,7 +118,7 @@ describe('ce que le P0 inclut ne se compte pas deux fois', () => {
     // 1 200 + 100 × 80 + 100 × 16,66 + 459,45 : ni TQD, ni CEE, ni CPB en plus.
     expect(d.totalHt).toBe(Math.round((1200 + 8000 + 1666 + 459.45) * 100) / 100)
     expect(d.sections[1].sousTotal).toBe(0)
-    expect(d.sections[2].lignes.find((l) => l.libelle === 'CPB')?.formule).toBe('comprise dans le P0')
+    expect(d.sections[0].lignes.find((l) => l.libelle === 'Énergie')?.formule).toContain('CEE et CPB dans le P0')
     expect(d.complet).toBe(true)
     expect(saisieComplete(c, s)).toBe(true)
   })

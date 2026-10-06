@@ -8,12 +8,12 @@ describe('budget gaz (AO-2026-0418, CAR 285 MWh)', () => {
 
   it('GME fixe 24 mois : 22 174 € HTVA', () => {
     // Molécule présentée 39,45 = P0 37,45 + marge 2,00.
-    // Le CPB (1,85) vient désormais des communs et se range avec les taxes ; le total ne bouge pas.
+    // Le CPB (1,85) vient des communs et compte dans l'énergie (06/10/2026) ; le total ne bouge pas.
     const b = budgetGaz({ ...communs, cpb: 1.85 }, { abonnementMois: 28, p0: 37.45, marge: 2, cee: 7.2, cpb: null })!
     expect(Math.round(b.abonnement)).toBe(336)
-    expect(Math.round(b.energie)).toBe(13295)
+    expect(Math.round(b.energie)).toBe(13823)
     expect(Math.round(b.acheminement)).toBe(3027)
-    expect(Math.round(b.taxes)).toBe(5516)
+    expect(Math.round(b.taxes)).toBe(4989)
     expect(Math.round(b.total)).toBe(22174)
     expect(b.totalMwh).toBeCloseTo(48.5, 6)
   })

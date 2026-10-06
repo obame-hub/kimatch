@@ -10,8 +10,9 @@
  *   GAZ    molécule présentée = P0 + marge
  *          total €/MWh        = molécule présentée + CEE + CPB
  *          abonnement         = abonnement €/mois × 12
- *          énergie            = CAR × total €/MWh
- *          taxes              = CAR × (TQD + accise AG) + CTA
+ *          énergie            = CAR × total €/MWh (CPB compris, 06/10/2026)
+ *          acheminement       = CAR × TQD
+ *          taxes              = CAR × accise AG + CTA
  *          budget             = abonnement + énergie + taxes
  *
  *   ÉLEC   prix présenté d'un poste = P0 du poste + marge
@@ -103,8 +104,12 @@ export const ttcDuBudget = (b: Pick<BudgetOffre, 'total'>) => enTTC(b.total)
 /**
  * GAZ — William, 01/10/2026 : « les CPB doivent disparaître car ils seront gérés comme TURPE, CTA,
  * TQD ». Le CPB ne se saisit plus : il vient des communs (la base le moyenne sur les années de la
- * fourniture) et se range avec les taxes, comme dans la base (`fn_reglementaire_version_compteur`).
- * Le total €/MWh, lui, le garde : c'est le prix complet de l'énergie présenté au client.
+ * fourniture).
+ *
+ * ══ LE CPB EST DANS L'ÉNERGIE — William, 06/10/2026 ══
+ * « Dans le calcul des prix gaz, il faut inclure les CPB dans le budget énergie et non pas le budget
+ * taxes. » Il était rangé avec les taxes ; il passe dans l'énergie, comme dans le total €/MWh et dans
+ * la base (`fn_reglementaire_version_compteur`). Le budget total ne bouge pas.
  */
 export function budgetGaz(c: CommunsGaz, s: SaisieGaz): BudgetOffre | null {
   /* Une composante incluse dans le P0 ne se compte pas une seconde fois, et sa case n'est plus due. */
@@ -117,9 +122,9 @@ export function budgetGaz(c: CommunsGaz, s: SaisieGaz): BudgetOffre | null {
   const accise = inclus('ACCISE') ? 0 : z(c.accise)
   const totalMwh = z(s.p0) + z(s.marge) + z(cee) + cpb
   const abonnement = z(s.abonnementMois) * 12
-  const energie = c.car * (z(s.p0) + z(s.marge) + z(cee))
+  const energie = c.car * (z(s.p0) + z(s.marge) + z(cee) + cpb)
   const acheminement = c.car * tqd
-  const taxes = c.car * (accise + cpb) + z(c.cta)
+  const taxes = c.car * accise + z(c.cta)
   return {
     abonnement: auCentime(abonnement), energie: auCentime(energie), turpe: 0, acheminement: auCentime(acheminement), taxes: auCentime(taxes),
     total: auCentime(abonnement + energie + acheminement + taxes), totalMwh: auCentime(totalMwh), complet: prix.every(connu),

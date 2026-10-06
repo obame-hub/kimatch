@@ -15,7 +15,7 @@ import type { CarteFournisseurPdf, DonneesOffrePdf, LigneOffrePdf, PrixCellule }
  * Seule la VENTILATION suit le modèle de Claude Design :
  *   Gaz    Énergie = CAR × (P0 + marge + CEE + CPB)       Taxes = CAR × (TQD + AG) + CTA
  *   Élec   Énergie = postes + capacité + CEE              TURPE · Taxes = AE + CTA
- * (le Pricer range le CPB avec les taxes : on le reporte dans l'énergie, le total ne bouge pas).
+ * (le Pricer range le CPB dans l'énergie depuis le 06/10/2026, comme le modèle).
  *
  * Les offres présentées : proposées, disponibles, à prix fixe (les indexées restent « hors
  * comparatif », William, 04/10/2026), au budget complet ; les cinq moins chères (hauteur de page).
@@ -71,14 +71,12 @@ function ligne(k: CompteurChiffrage, o: OffreChiffrage, ctx: ContexteOffre, actu
   const cellule = (x: string, v: number | null | undefined): PrixCellule => (inclus(x) ? 'inclus' : v ?? null)
   const marge = s.marge ?? 0
   const gaz = k.energie === 'gaz'
-  let energie = b.energie
+  const energie = b.energie
   let taxes = b.taxes
   let unitaires: LigneOffrePdf['unitaires']
   if (gaz) {
     const cpb = inclus('CPB') ? 0 : r?.cpb[String(o.duree ?? 12)] ?? 0
-    const montantCpb = (k.car ?? 0) * cpb
-    energie = b.energie + montantCpb
-    taxes = b.acheminement + b.taxes - montantCpb
+    taxes = b.acheminement + b.taxes
     const molecule = s.p0 == null ? null : s.p0 + marge
     const ceeV = inclus('CEE') ? 0 : s.cee ?? 0
     unitaires = {

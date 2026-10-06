@@ -74,7 +74,10 @@ export function detailBudget(compteur: CompteurChiffrage, s: SaisieLigne, dureeM
     const duree = dureeMois ?? 12
     const cpb = r?.cpb[String(duree)] ?? null
     const annees = anneesFourniture(r?.dateReference, duree)
-    const prixMwh = z(s.p0) + z(s.marge) + (inclus('CEE') ? 0 : z(s.cee))
+    /* LE CPB EST DANS L'ÉNERGIE (06/10/2026) : la ligne « Énergie » le compte, avec sa moyenne. */
+    const prixMwh = z(s.p0) + z(s.marge) + (inclus('CEE') ? 0 : z(s.cee)) + (inclus('CPB') ? 0 : z(cpb))
+    const termes = [`P0 ${f(s.p0, 4)}`, `marge ${f(s.marge, 4)}`, ...(inclus('CEE') ? [] : [`CEE ${f(s.cee, 4)}`]), ...(inclus('CPB') ? [] : [`CPB ${f(cpb, 4)}`])]
+    const compris = [inclus('CEE') && 'CEE', inclus('CPB') && 'CPB'].filter(Boolean).join(' et ')
     if (r?.tqd == null && !inclus('TQD')) manques.push('TQD inconnu')
     if (cpb == null && !inclus('CPB')) manques.push('CPB inconnu pour cette durée')
     return {
@@ -84,9 +87,8 @@ export function detailBudget(compteur: CompteurChiffrage, s: SaisieLigne, dureeM
             abonnement,
             {
               libelle: 'Énergie', montant: b.energie,
-              formule: inclus('CEE')
-                ? `CAR ${mwh(car)} MWh × (P0 ${f(s.p0, 4)} + marge ${f(s.marge, 4)} = ${f(prixMwh, 4)} €/MWh, CEE compris)`
-                : `CAR ${mwh(car)} MWh × (P0 ${f(s.p0, 4)} + marge ${f(s.marge, 4)} + CEE ${f(s.cee, 4)} = ${f(prixMwh, 4)} €/MWh)`,
+              formule: `CAR ${mwh(car)} MWh × (${termes.join(' + ')} = ${f(prixMwh, 4)} €/MWh${compris ? `, ${compris} dans le P0` : ''})`,
+              source: !inclus('CPB') && annees ? `CPB : moyenne ${annees[0] === annees[1] ? annees[0] : `${annees[0]} à ${annees[1]}`}, fourniture du ${jour(r?.dateReference)} sur ${duree} mois` : undefined,
             },
           ],
         },
@@ -98,10 +100,6 @@ export function detailBudget(compteur: CompteurChiffrage, s: SaisieLigne, dureeM
         {
           titre: 'Taxes et contributions', sousTotal: b.taxes, lignes: [
             ou('ACCISE', { libelle: 'Accise gaz (AG)', formule: `CAR ${mwh(car)} MWh × ${f(r?.accise, 4)} €/MWh`, montant: auCentime(car * z(r?.accise)), source: aLEnvoi }),
-            ou('CPB', {
-              libelle: 'CPB', formule: `CAR ${mwh(car)} MWh × ${f(cpb, 4)} €/MWh`, montant: auCentime(car * z(cpb)),
-              source: annees ? `moyenne ${annees[0] === annees[1] ? annees[0] : `${annees[0]} à ${annees[1]}`}, fourniture du ${jour(r?.dateReference)} sur ${duree} mois` : undefined,
-            }),
             { libelle: `CTA ${[compteur.tarif, compteur.profil].filter(Boolean).join(' ')}`.trim(), formule: 'forfait annuel', montant: auCentime(z(r?.cta)), source: aLEnvoi },
           ],
         },
