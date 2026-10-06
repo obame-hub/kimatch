@@ -1,4 +1,4 @@
-import { lireNombre } from '@/lib/pricing/budget'
+import { CAPACITE_DEFAUT_MWH, lireNombre } from '@/lib/pricing/budget'
 import type { SaisieLigne } from '@/lib/data/chiffrage'
 
 /**
@@ -28,7 +28,7 @@ const net = (x: number) => Math.round(x * 1e6) / 1e6
 
 export function versBrouillon(s: SaisieLigne | undefined, postes: string[]): Brouillon {
   const x: SaisieLigne = s ?? { abonnementMois: null, marge: null, p0: null, cee: null, cpb: null, p0Postes: {}, capacite: null, inclus: [] }
-  const b: Brouillon = { abonnementMois: fr2(x.abonnementMois), marge: fr2(x.marge), p0: fr2(margeIncluse(x.p0, x.marge)), cee: fr2(x.cee), cpb: fr2(x.cpb), capacite: fr2(x.capacite) }
+  const b: Brouillon = { abonnementMois: fr2(x.abonnementMois), marge: fr2(x.marge), p0: fr2(margeIncluse(x.p0, x.marge)), cee: fr2(x.cee), cpb: fr2(x.cpb), capacite: fr2(x.capacite ?? CAPACITE_DEFAUT_MWH) }
   for (const p of postes) b[`p0_${p}`] = fr2(margeIncluse(x.p0Postes[p], x.marge))
   /* Ce que le P0 inclut, rangé dans le brouillon comme le reste : « TQD,CEE ». */
   b.inclus = (x.inclus ?? []).join(',')
@@ -59,7 +59,7 @@ export function depuisBrouillon(b: Brouillon, postes: string[], origine?: Saisie
   for (const p of postes) p0Postes[p] = horsMarge(`p0_${p}`, origine?.p0Postes[p])
   return {
     abonnementMois: lire('abonnementMois', origine?.abonnementMois), marge, p0: horsMarge('p0', origine?.p0),
-    cee: lire('cee', origine?.cee), cpb: lire('cpb', origine?.cpb), capacite: lire('capacite', origine?.capacite), p0Postes,
+    cee: lire('cee', origine?.cee), cpb: lire('cpb', origine?.cpb), capacite: lire('capacite', origine?.capacite) ?? CAPACITE_DEFAUT_MWH, p0Postes,
     inclus: b.inclus ? b.inclus.split(',').filter(Boolean) : [],
   }
 }

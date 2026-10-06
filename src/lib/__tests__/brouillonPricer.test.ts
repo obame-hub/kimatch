@@ -64,3 +64,15 @@ describe('la colonne Pointe se retire (William, 06/10/2026)', async () => {
     expect(saisieComplete(compteur(false, {}), saisie)).toBe(false)
   })
 })
+
+describe('la capacité à 2 €/MWh par défaut (William, 06/10/2026)', () => {
+  it('une case de capacité vide vaut 2', () => {
+    const initial = versBrouillon(vide, [])
+    expect(initial.capacite).toBe('2,00')
+    expect(depuisBrouillon({ ...initial, abonnementMois: '30' }, [], vide, initial).capacite).toBe(2)
+  })
+  it('une capacité saisie reste la sienne', () => {
+    const initial = versBrouillon(vide, [])
+    expect(depuisBrouillon({ ...initial, capacite: '3,5' }, [], vide, initial).capacite).toBe(3.5)
+  })
+})

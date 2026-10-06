@@ -1,5 +1,6 @@
 import type { Chiffrage, CompteurChiffrage, OffreChiffrage, SaisieLigne } from '@/lib/data/chiffrage'
 import { SAISIE_VIDE } from '@/lib/data/chiffrage'
+import { CAPACITE_DEFAUT_MWH } from '@/lib/pricing/budget'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -129,7 +130,8 @@ export function saisieDepuisLecture(compteur: CompteurChiffrage, lue: OffreLue, 
     if (lue.p0_mwh != null) s.p0 = auDixMillieme(lue.p0_mwh - margeIncluse)
   } else {
     for (const [poste, prix] of Object.entries(lue.prix_postes_mwh)) s.p0Postes[poste] = auDixMillieme(prix - margeIncluse)
-    if (lue.capacite_mwh != null) s.capacite = lue.capacite_mwh
+    /* LA CAPACITÉ LUE N'EST PAS REPRISE (06/10/2026) : 2 €/MWh pour tout le monde (`CAPACITE_DEFAUT_MWH`). */
+    s.capacite = CAPACITE_DEFAUT_MWH
   }
   return s
 }

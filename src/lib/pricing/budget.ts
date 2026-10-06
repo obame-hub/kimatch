@@ -38,6 +38,14 @@
 
 export const POSTES_ELEC = ['POINTE', 'HPH', 'HCH', 'HPE', 'HCE', 'HP', 'HC', 'BASE'] as const
 
+/**
+ * ══ LA CAPACITÉ, 2 €/MWh POUR TOUT LE MONDE — William, 06/10/2026 ══
+ * « Les CAPA c'est un peu spécial et les prix par API ne retranscrivent pas exactement la réalité.
+ * Pour l'instant, les CAPA sont fixées à 2 €/MWh par défaut, pour tout le monde. » Une case vide
+ * vaut 2 ; la lecture d'une proposition (IA ou API Tradéo) ne reprend plus la capacité lue.
+ */
+export const CAPACITE_DEFAUT_MWH = 2
+
 /** Les communs du gaz : TQD, AG (accise), CTA et CPB — tous fixés par la réglementation, lus en base. */
 export interface CommunsGaz { car: number | null; tqd: number | null; accise: number | null; cta: number | null; cpb?: number | null }
 /**

@@ -72,7 +72,8 @@ describe('offreLueDepuisTradeo', () => {
     expect(offreLueDepuisTradeo(lire('Coef'), false, 24)!.capacite_mwh).toBeNull()
     const s = saisieDepuisLecture(compteurElec, enValeur, 2)
     expect(s.p0Postes).toEqual({ HPH: 118, HCH: 88 })
-    expect(s.capacite).toBe(5.1)
+    // William, 06/10/2026 : la capacité lue n'est plus reprise, 2 €/MWh pour tout le monde.
+    expect(s.capacite).toBe(2)
   })
 
   it('un indexé reste indexé, pour aller sur la bonne ligne', () => {
