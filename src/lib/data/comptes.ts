@@ -261,6 +261,41 @@ export function useComptesLegers(ids: string[] | undefined) {
   })
 }
 
+/**
+ * ══ LES FOURNISSEURS QU'ON PEUT CONSULTER, ET CE QUI DÉCIDE DE LEUR ÉLIGIBILITÉ ══
+ * La création de recommandation (étape 3, 06/10/2026) n'a besoin que des fournisseurs et de leur
+ * fiche : une lecture de 52 lignes au lieu des 2 799 comptes. Mis en forme comme `fetchComptes`
+ * le fait, pour que `checkEligibility` les lise sans différence.
+ */
+export function useFournisseursConsultables() {
+  return useQuery({
+    queryKey: ['comptes', 'fournisseurs-consultables'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<Compte[]> => {
+      const { data, error } = await supabase
+        .from('comptes')
+        .select('*, comptes_fournisseurs!inner(*)')
+        .eq('type_compte', 'fournisseur')
+        .order('nom')
+      if (error) throw new Error(error.message)
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      return ((data ?? []) as any[]).map((c) => {
+        const { comptes_fournisseurs, ...base } = c
+        const f = Array.isArray(comptes_fournisseurs) ? comptes_fournisseurs[0] : comptes_fournisseurs
+        return {
+          ...base,
+          partnership: f?.partnership ?? null, intermediary: f?.intermediary ?? null,
+          targets: f?.targets ?? [], energy_types: f?.energy_types ?? [], segments: f?.segments ?? [], tariffs: f?.tariffs ?? [], profiles: f?.profiles ?? [],
+          min_consumption: f?.min_consumption ?? null, max_consumption: f?.max_consumption ?? null, min_ellipro_score: f?.min_ellipro_score ?? null,
+          max_ddf: f?.max_ddf ?? null, max_dff: f?.max_dff ?? null, response_delay_days: f?.response_delay_days ?? null, update_delay_days: f?.update_delay_days ?? null,
+          fournisseur_actif: f?.is_active ?? true, statut_partenariat: f?.statut_partenariat ?? null, logo_url: f?.logo_url ?? null,
+        } as Compte
+      })
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    },
+  })
+}
+
 export function useCompte(compteId: string | undefined) {
   return useQuery({
     queryKey: ['comptes', 'un', compteId],

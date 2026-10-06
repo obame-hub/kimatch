@@ -1143,6 +1143,9 @@ export interface CreateVersionInput {
   fournisseur_ids: string[]
   /** Durées demandées PAR PDL, clé = compteur_id, 3 max par compteur (Tools: pdlDurations). */
   durees_par_compteur: Record<string, number[]>
+  /** Durées demandées PAR FOURNISSEUR (création de recommandation, étape 4, 06/10/2026) : chacun
+   *  a les siennes, selon sa fin de fourniture au plus tard. Absent : celles de la version pour tous. */
+  durees_par_fournisseur?: Record<string, number[]>
   /** « Fixe » et/ou « Indexé » -- sélection multiple, pas exclusive. */
   types_prix: string[]
   date_souhaitee: string | null
@@ -1308,7 +1311,7 @@ export function useCreateVersion() {
             .insert(input.fournisseur_ids.map((fournisseur_compte_id) => ({
               optimisation_id: optimisationId,
               fournisseur_compte_id,
-              durees_mois: dureesDemandees,
+              durees_mois: input.durees_par_fournisseur?.[fournisseur_compte_id] ?? dureesDemandees,
               types_prix: typesDemandes,
             })))
           if (eConsultes) {

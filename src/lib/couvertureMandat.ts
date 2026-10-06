@@ -13,11 +13,19 @@ import type { Mandat } from '@/types/domain'
  * pas encore passée.
  */
 export function mandatKiweeCouvre(mandats: Mandat[] | undefined, compteurId: string, aujourdhui = jourParis()): boolean {
+  return mandatCouvre(mandats, compteurId, 'KIWI', aujourdhui)
+}
+
+/**
+ * La même règle pour un courtier donné — `KIWI` ou `ENERGIX` (06/10/2026 : un mandat Energix ouvre
+ * les fournisseurs Energix à la consultation).
+ */
+export function mandatCouvre(mandats: Mandat[] | undefined, compteurId: string, courtier: 'KIWI' | 'ENERGIX', aujourdhui = jourParis()): boolean {
   return (mandats ?? []).some((m) =>
     m.compteur_ids.includes(compteurId)
     && !m.compteur_ids_caducs.includes(compteurId)
     && m.statut === 'ACTIF'
-    && m.courtier_codes.includes('KIWI')
+    && m.courtier_codes.includes(courtier)
     && (!m.date_fin_validite || m.date_fin_validite.slice(0, 10) >= aujourdhui),
   )
 }

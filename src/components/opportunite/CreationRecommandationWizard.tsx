@@ -21,6 +21,7 @@ import {
 } from '@/components/parcours/Parcours'
 import { ContactPicker } from '@/components/contact/ContactPicker'
 import { NoteElliproLigne } from '@/components/opportunite/EllisphereScoreCard'
+import { EtapeDurees, EtapeFournisseurs, usePremiereVersion } from '@/components/opportunite/PremiereVersion'
 import { dateFr, dateValide, ecrireMontant, lireMontant } from '@/components/recommandation/cloture/commun'
 import { useSynchroCompteur } from '@/lib/data/synchroCompteur'
 import { mandatKiweeCouvre } from '@/lib/couvertureMandat'
@@ -281,7 +282,9 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
   const createRecommandation = useCreateRecommandation()
 
-  const [etape, setEtape] = useState<'perimetre' | 'decision'>('perimetre')
+  const [etape, setEtape] = useState<'perimetre' | 'decision' | 'fournisseurs' | 'durees'>('perimetre')
+  /* La recommandation, une fois créée : les étapes 3 et 4 (sa première version) s'enchaînent. */
+  const [recoCree, setRecoCree] = useState<{ id: string; titre: string } | null>(null)
   const [energieChoisie, setEnergieChoisie] = useState<EnergieReco | null>(null)
   const [compteurIds, setCompteurIds] = useState<string[]>(initialCompteurIds ?? [])
   const [recherche, setRecherche] = useState('')
@@ -400,7 +403,22 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
   const perimetrePret = !!compteCible && choisis.length > 0 && !mixInvalide
   const decisionPrete = perimetrePret && !!contactId && dateValide(dateCloture) && montant != null && montant !== 'invalide' && !!mandatRetenu
 
-  const sortie = useSortieParcours({
+  /* ══ LA PREMIÈRE VERSION (étapes 3 et 4, `PremiereVersion.tsx`) ══ Ses fournisseurs se lisent dès
+     l'ouverture : quand on y arrive, l'éligibilité est déjà là. */
+  const pv = usePremiereVersion({ compte: compteCible, compteurs: choisis, mandats, echeances: echeancesRetenues })
+  const vers = (id: string) => onCreated(id)
+
+  const sortie = useSortieParcours(recoCree ? {
+    /* La recommandation existe : fermer mène à sa fiche, sans version tant qu'on ne l'a pas lancée. */
+    entame: pv.choisis.length > 0,
+    onFermer: () => vers(recoCree.id),
+    titre: 'Fermer sans demander la version ?',
+    lignes: [
+      { texte: 'La recommandation est créée et reste enregistrée.' },
+      { perdu: true, texte: 'Les fournisseurs et les durées choisis ici seront perdus : la version se demandera depuis la fiche.' },
+    ],
+    libelleFermer: 'Fermer sans version',
+  } : {
     entame: entame && !createRecommandation.isPending,
     bloque: createRecommandation.isPending,
     onFermer: onClose,
@@ -492,7 +510,12 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
       })
       const [, result] = await Promise.all([responsables, creation])
       if (!result.persisted) throw new Error('la recommandation n’a pas pu être enregistrée')
-      onCreated(result.recommandation.id)
+      /* LA SUITE DANS LA MÊME FENÊTRE — William, 06/10/2026 : la première version s'enchaîne. La note
+         Ellipro relue à l'étape 1 est déjà notée sur le compte : on la relit pour l'éligibilité. */
+      setRecoCree({ id: result.recommandation.id, titre })
+      setEntame(false)
+      void qc.invalidateQueries({ queryKey: ['comptes', 'un', compteCible.id] })
+      setEtape('fournisseurs')
     } catch (e) {
       /* L'erreur reste dans la fenêtre : rien de saisi n'est perdu, on peut réessayer. */
       setErreur(e instanceof Error ? e.message : String(e))
@@ -501,9 +524,15 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
   const ETAPES: EtapeParcours[] = [
     { cle: 'perimetre', libelle: 'Périmètre' },
     { cle: 'decision', libelle: 'Décision' },
+    { cle: 'fournisseurs', libelle: 'Fournisseurs' },
+    { cle: 'durees', libelle: 'Durées' },
   ]
   const resumes: Record<string, ResumeEtape | undefined> = {
-    perimetre: etape === 'decision' ? {
+    decision: recoCree ? { lignes: ['Recommandation créée'] } : undefined,
+    fournisseurs: etape === 'durees' && pv.date ? {
+      lignes: [`Offre souhaitée le ${dateFr(pv.date)}`, `${pv.choisis.length} fournisseur${pv.choisis.length > 1 ? 's' : ''} consulté${pv.choisis.length > 1 ? 's' : ''}`],
+    } : undefined,
+    perimetre: etape !== 'perimetre' ? {
       elements: choisis.map((c): ElementRail => {
         const a = actualisation[c.id]
         return {
@@ -528,15 +557,33 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
         reference={compteCible?.nom ?? null}
         etapes={ETAPES}
         courante={etape}
-        sousTitre={etape === 'perimetre' ? 'Énergie et compteurs' : 'Contact, date, montant'}
+        sousTitre={{ perimetre: 'Énergie et compteurs', decision: 'Contact, date, montant', fournisseurs: 'Date souhaitée et consultation', durees: 'Par fournisseur' }[etape]}
         resumes={resumes}
-        note={titre
+        note={recoCree
+          ? { titre: 'La recommandation est enregistrée', texte: 'Fermer ici la laisse sans version : elle se demandera plus tard depuis sa fiche.' }
+          : titre
           ? { titre: 'Nom de la recommandation', texte: titre }
           : { titre: 'Deux étapes, rien d’enregistré avant la fin', texte: 'Seuls les compteurs sous mandat KiWee actif, et pas déjà engagés ailleurs, sont proposés.' }}
         onFermer={sortie.demander}
       />
       <PanneauParcours>
-        {etape === 'perimetre' ? (
+        {recoCree && etape === 'fournisseurs' ? (
+          <EtapeFournisseurs pv={pv} onSuivant={() => setEtape('durees')} onPlusTard={() => vers(recoCree.id)} />
+        ) : recoCree && etape === 'durees' ? (
+          <>
+            {erreur && <p className="mb-2 rounded-[10px] border border-km-red-line bg-km-red-soft px-3 py-2 text-[12px] font-semibold text-km-red">{erreur}</p>}
+            <EtapeDurees
+              pv={pv}
+              recoId={recoCree.id}
+              recoTitre={recoCree.titre}
+              compteNom={compteCible?.nom ?? ''}
+              compteurs={choisis}
+              onPrecedent={() => setEtape('fournisseurs')}
+              onLance={() => vers(recoCree.id)}
+              onErreur={setErreur}
+            />
+          </>
+        ) : etape === 'perimetre' ? (
           <>
             <EnTeteEtape numero={1} total={2} titre={compteCible ? 'Quels compteurs étudier ?' : 'Pour quel compte ?'} />
             {!compteCible ? (
