@@ -59,10 +59,13 @@ export function OngletRecommandations({ recommandations }: { recommandations: Re
   const [filtre, setFiltre] = useState<'tous' | CleFinalite>('tous')
 
   const { actives, historique } = useMemo(() => {
-    // Les trois issues terminales de Michel, plus la finalité pour les dossiers d'avant.
-    const closes = recommandations.filter(
-      (r) => ['ACCEPTEE', 'REFUSEE', 'ABANDONNEE'].includes(r.etape) || r.finalite_cloture,
-    )
+    /* ══ CLOS, C'EST L'ÉTAPE QUI LE DIT, PAS LA FINALITÉ ══
+       William, 06/10/2026 : « RENOU - SDC 9 RUE DU COLONEL FABIEN » s'affichait « Refusée » ici
+       alors que sa V6 est disponible et que la fiche la montre en cours. Sa finalité est celle
+       d'une clôture héritée de Salesforce ; le dossier a revécu depuis. Une finalité dit comment
+       un dossier s'est terminé UNE FOIS — seule l'étape dit s'il est terminé MAINTENANT. C'est
+       déjà la règle de la fiche compteur et du kanban (01/09/2026). */
+    const closes = recommandations.filter((r) => r.etape === 'CLOTUREE')
     return {
       actives: recommandations.filter((r) => !closes.includes(r)),
       historique: closes,
