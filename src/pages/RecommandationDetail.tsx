@@ -8,8 +8,6 @@ import {
   FileText,
   Zap,
   Flame,
-  Copy,
-  FilePlus2,
   Clock,
   ArrowLeftRight,
   CheckCheck,
@@ -35,7 +33,6 @@ import { ParcoursNouvelleVersion } from '@/components/recommandation/ParcoursNou
 import {
   EnvoyerEmailDialog,
   AjouterFournisseurConsulteDialog,
-  type PrefillCotation,
 } from '@/components/recommandation/DialoguesReco'
 import { ContratWizard } from '@/components/contrat/ContratWizard'
 import { useContratsDeRecommandation } from '@/lib/data/contrats'
@@ -198,8 +195,10 @@ export default function RecommandationDetail() {
      fiche — finalité, motif, date, « voulez-vous suivre le client ? » — est remplacé par eux. */
   const [choixClotureOuvert, setChoixClotureOuvert] = useState(false)
   const [parcoursCloture, setParcoursCloture] = useState<CleFinalite | null>(null)
-  const [nouvelleVersionOuverte, setNouvelleVersionOuverte] = useState(false)
-  const [wizardCotation, setWizardCotation] = useState<{ prefill: PrefillCotation | null } | null>(null)
+  /* ══ LA NOUVELLE VERSION, DANS LA FENÊTRE DES PARCOURS — William, 06/10/2026 ══ « Quand je clique
+     sur nouvelle version, je suis sous l'ancien modèle de process. » Le choix « Dupliquer / Créer
+     vierge » sous le bouton (18/09/2026) devient la première étape du parcours : `choisir`. */
+  const [wizardCotation, setWizardCotation] = useState<{ mode: 'choisir' | 'vierge' | 'dupliquer' } | null>(null)
   const [showContratWizard, setShowContratWizard] = useState(false)
   const [emailDialogVersion, setEmailDialogVersion] = useState<VersionRecommandation | null>(null)
   const [ajouterFournisseurFor, setAjouterFournisseurFor] = useState<Optimisation | null>(null)
@@ -595,35 +594,7 @@ export default function RecommandationDetail() {
    * puisqu'il n'y a rien à dupliquer.
    */
   function ouvrirNouvelleVersion() {
-    if (!reco || reco.versions.length === 0) {
-      setWizardCotation({ prefill: null })
-      return
-    }
-    setNouvelleVersionOuverte((v) => !v)
-  }
-
-  /**
-   * Dupliquer la version active : on reprend les paramètres de la demande, pas son échéance.
-   *
-   * LA DATE N'EST PAS REPRISE (William, 18/09/2026) : « la duplication ne doit pas reprendre la date
-   * de la version de base, puisque par définition, ce que je souhaite dupliquer, c'est les
-   * paramètres de la demande, mais forcément, si je duplique une version, c'est pour la demander à
-   * une nouvelle date. » Le formulaire la réclame, elle est obligatoire depuis le même jour.
-   */
-  function dupliquerVersionActive() {
-    if (!versionActive) return
-    setWizardCotation({
-      prefill: {
-        dureesParCompteur: versionActive.durees_par_compteur ?? {},
-        typesPrix: versionActive.types_prix ?? [],
-        // Les fournisseurs déjà consultés sur la version reprise : la duplication sert justement à
-        // relancer les mêmes.
-        fournisseurIds: versionActive.optimisations.flatMap((o) =>
-          o.fournisseurs_consultes.map((f) => f.fournisseur_compte_id),
-        ),
-      },
-    })
-    setNouvelleVersionOuverte(false)
+    setWizardCotation({ mode: reco && reco.versions.length > 0 ? 'choisir' : 'vierge' })
   }
 
   const coutSuggere = coutPrestationEstime(versionAffichee?.gains_estimes)
@@ -777,75 +748,11 @@ export default function RecommandationDetail() {
         </div>
 
         <div className="hidden items-center gap-1.5 lg:flex">
-            {/* ══ LE CHOIX SE FAIT SOUS LE BOUTON, PAS DANS LA FICHE ══
-
-                William, 18/09/2026 : « lors du clic, 2 options (duplication ou vierge) mais pas un
-                bloc qui s'affiche dans la fiche ».
-
-                Le panneau d'avant se dépliait au milieu du contenu et poussait la version vers le
-                bas pour poser une question à deux réponses — un choix de deux secondes traité comme
-                une étape de travail. Ici la fiche ne bouge pas : le choix s'ouvre où le geste a
-                commencé, et se referme au clic dehors ou à Échap.
-
-                SANS AUCUNE VERSION, IL N'Y A PAS DE CHOIX : `ouvrirNouvelleVersion` va droit au
-                formulaire, puisqu'il n'y a rien à dupliquer. */}
           {canManage && (
-            <div className="relative">
-              <Button size="sm" onClick={ouvrirNouvelleVersion}>
-                <Plus className="h-3.5 w-3.5" />
-                Nouvelle version
-              </Button>
-              {nouvelleVersionOuverte && versionActive && (
-                <>
-                  {/* Le voile invisible ferme au clic dehors sans qu'on ait à écouter le document :
-                      un seul menu à la fois sur cette fiche, il ne coûte rien. */}
-                  <button
-                    type="button"
-                    aria-label="Fermer"
-                    onClick={() => setNouvelleVersionOuverte(false)}
-                    className="fixed inset-0 z-40 cursor-default"
-                  />
-                  <div className="absolute right-0 top-full z-50 mt-1.5 w-[290px] animate-km-hub-pop overflow-hidden rounded-km-md border border-km-line bg-white p-1 shadow-km-pop">
-                    <button
-                      type="button"
-                      onClick={dupliquerVersionActive}
-                      className="flex w-full items-start gap-2.5 rounded-km-sm px-2.5 py-2 text-left hover:bg-km-amber-soft"
-                    >
-                      <Copy className="mt-[3px] h-3.5 w-3.5 shrink-0 text-[#8a4b2a]" />
-                      <span className="min-w-0">
-                        <span className="block text-km-body font-bold text-km-text">
-                          Dupliquer {versionActive.nom || `V${versionActive.numero_version ?? ''}`}
-                        </span>
-                        <span className="block text-km-label text-km-faint">
-                          Mêmes durées, mêmes types de prix, mêmes fournisseurs — nouvelle date.
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setWizardCotation({ prefill: null }); setNouvelleVersionOuverte(false) }}
-                      className="flex w-full items-start gap-2.5 rounded-km-sm px-2.5 py-2 text-left hover:bg-km-bg"
-                    >
-                      <FilePlus2 className="mt-[3px] h-3.5 w-3.5 shrink-0 text-km-muted" />
-                      <span className="min-w-0">
-                        <span className="block text-km-body font-bold text-km-text">Créer vierge</span>
-                        <span className="block text-km-label text-km-faint">
-                          Tout est à choisir : durées, types de prix, fournisseurs.
-                        </span>
-                      </span>
-                    </button>
-                    {/* CE QUE LA CRÉATION VA FAIRE À LA VERSION EN COURS, dit avant le clic et non
-                        après : elle passe en Clôturée, résultat Expirée. C'est la phrase que portait
-                        l'ancien panneau, et la seule qu'il fallait garder. */}
-                    <p className="border-t border-km-line-soft px-2.5 pb-1 pt-2 text-km-label text-km-faint">
-                      Dans les deux cas,{' '}
-                      <b className="text-km-muted">{versionActive.nom || `V${versionActive.numero_version ?? ''}`}</b>{' '}
-                      passe en <b className="text-km-muted">Clôturée · Expirée</b>.
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
+            <Button size="sm" onClick={ouvrirNouvelleVersion}>
+              <Plus className="h-3.5 w-3.5" />
+              Nouvelle version
+            </Button>
           )}
           {/* ══ LA CLÔTURE A SON PROPRE BOUTON ══
 
@@ -1380,7 +1287,7 @@ export default function RecommandationDetail() {
       {wizardCotation && (
         <ParcoursNouvelleVersion
           reco={reco}
-          dupliquer={!!wizardCotation.prefill}
+          mode={wizardCotation.mode}
           onClose={() => setWizardCotation(null)}
           onCree={(versionId) => {
             // On la designe explicitement plutot que de compter sur le repli « version active » :

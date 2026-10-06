@@ -148,6 +148,9 @@ export function usePremiereVersion({ compte, compteurs, mandats, echeances, hist
      ceux qui ont refusé ou ne sont plus éligibles), leurs durées dans la limite de chacun, ses types
      de prix, et le premier jour ouvré où chacun a le temps de répondre. */
   const repris = useRef(false)
+  /* Revenir au point de départ (« D'où repartir ? ») : tout repart de zéro, la reprise comprise. */
+  const [tour, setTour] = useState(0)
+  const reinitialiser = () => { repris.current = false; setChoisis([]); setDurees({}); setDate(null); setTypesPrix(['Fixe']); setRetires([]); setTour((x) => x + 1) }
   useEffect(() => {
     if (!dupliquer || repris.current || !historique?.derniere || !compte || !fournisseurs || !rules) return
     repris.current = true
@@ -167,14 +170,14 @@ export function usePremiereVersion({ compte, compteurs, mandats, echeances, hist
         return [c.id, liste.filter((m) => m <= max).slice(0, DUREES_MAX_PAR_FOURNISSEUR)]
       }))]
     })))
-  }, [dupliquer, historique, compte, fournisseurs, rules, evaluer, compteurs, maxParFournisseur])
+  }, [dupliquer, tour, historique, compte, fournisseurs, rules, evaluer, compteurs, maxParFournisseur])
 
   return {
     fournisseurs: enZone, resultats, eligibles, jours, date, setDate,
     choisis, basculer: (id: string) => setChoisis((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id])),
     toutChoisir: () => setChoisis(eligibles.map((r) => r.fournisseur.id)),
     retires, oublierRetires: () => setRetires([]),
-    durees, setDurees, typesPrix, setTypesPrix, maxParFournisseur, debuts, couverture, sansEcheance,
+    durees, setDurees, typesPrix, setTypesPrix, maxParFournisseur, debuts, couverture, sansEcheance, reinitialiser,
     actualisation: !!historique && historique.consultes.size > 0,
     chargement: !fournisseurs || !compte,
   }
