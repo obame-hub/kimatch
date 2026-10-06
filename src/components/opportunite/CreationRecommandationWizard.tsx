@@ -11,17 +11,22 @@
  * mandat n'est jamais choisi à la main (il se déduit du premier compteur), le préavis réel du
  * contrat en cours sert au calcul de la date, et les compteurs déjà engagés sont écartés.
  */
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, Briefcase, Check, Flame, Info, Loader2, Lock, Search, Zap } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Briefcase, Check, Flame, Loader2, Lock, Search, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours, useSortieParcours,
-  type EtapeParcours, type ResumeEtape,
+  type ElementRail, type EtapeParcours, type ResumeEtape,
 } from '@/components/parcours/Parcours'
 import { ContactPicker } from '@/components/contact/ContactPicker'
 import { NoteElliproLigne } from '@/components/opportunite/EllisphereScoreCard'
-import { dateFr, dateValide, lireMontant } from '@/components/recommandation/cloture/commun'
+import { dateFr, dateValide, ecrireMontant, lireMontant } from '@/components/recommandation/cloture/commun'
+import { useSynchroCompteur } from '@/lib/data/synchroCompteur'
+import { mandatKiweeCouvre } from '@/lib/couvertureMandat'
+import { useSitesParCompte } from '@/lib/data/sites'
+import { supabase } from '@/lib/supabase'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRecommandationsListe, useCreateRecommandation, recommandationsRetenantCompteurs } from '@/lib/data/recommandations'
 import { useMandats } from '@/lib/data/mandats'
 import { useCompteurs } from '@/lib/data/compteurs'
@@ -238,6 +243,14 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
   const [autreContact, setAutreContact] = useState(false)
   const [dateAutre, setDateAutre] = useState<string | null>(null)
   const [montantTxt, setMontantTxt] = useState('')
+  const [montantTouche, setMontantTouche] = useState(false)
+  /* Faire du contact choisi le responsable des compteurs qui en ont un autre (06/10/2026). */
+  const [majResponsables, setMajResponsables] = useState(true)
+  const [actualisation, setActualisation] = useState<Record<string, { etat: 'lecture' | 'complet' | 'erreur' | 'hors'; detail: string }>>({})
+  const qc = useQueryClient()
+  const messageSynchro = useRef('')
+  const synchro = useSynchroCompteur((m) => { messageSynchro.current = m })
+  const { data: sitesDuCompte } = useSitesParCompte(compteId || undefined)
   const [entame, setEntame] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -303,15 +316,36 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
       || `${x.nom} ${x.prenom}`.localeCompare(`${y.nom} ${y.prenom}`)),
     [contactsDuCompte, responsabilites],
   )
-  const responsableParDefaut = [...responsabilites.entries()].sort((x, y) => y[1].length - x[1].length)[0]?.[0] ?? ''
+  /* Le premier de la liste qui est responsable : celui qui couvre le plus de compteurs, puis l'ordre alphabétique. */
+  const responsableParDefaut = contactsTries.find((c) => responsabilites.has(c.id))?.id
+    ?? [...responsabilites.keys()][0] ?? ''
   const contactId = contactChoisi || responsableParDefaut
   const contactRetenu = (contacts ?? []).find((c) => c.id === contactId)
-  const contactHorsResponsables = !!contactId && responsabilites.size > 0 && !responsabilites.has(contactId)
+  /* ══ UN SEUL INTERLOCUTEUR — William, 06/10/2026 ══ « Si le contact décisionnaire est différent du
+     ou des responsables des compteurs, proposer de changer les responsables par le choix du
+     commercial : ça évite les incohérences entre le contact de la recommandation et celui du
+     compteur. » Proposé coché ; décoché, les compteurs gardent leur responsable. */
+  const aReattribuer = contactId ? choisis.filter((c) => c.responsable_contact_id !== contactId) : []
+  const nomContact = (id: string | null | undefined) => {
+    const ct = (contacts ?? []).find((x) => x.id === id)
+    return ct ? `${ct.prenom} ${ct.nom}`.trim() : null
+  }
+  const responsablesActuels = (() => {
+    const n = new Map<string, number>()
+    for (const c of aReattribuer) { const k = nomContact(c.responsable_contact_id) ?? 'aucun responsable'; n.set(k, (n.get(k) ?? 0) + 1) }
+    return [...n.entries()].map(([k, v]) => (aReattribuer.length > 1 ? `${k} (${v})` : k)).join(', ')
+  })()
 
   /* ══ LA DATE ET LE MONTANT ══ */
   const dateConseillee = useMemo(() => dateClotureSuggereePour(choisis, contrats ?? []), [choisis, contrats])
   const dateCloture = dateAutre ?? dateConseillee
-  const montant = lireMontant(montantTxt)
+  /* ══ LE MONTANT PROPOSÉ — William, 06/10/2026 ══ « Gaz : consommation × 3 × 3 ; électricité :
+     consommation × 3 × 5. Évidemment ce montant doit être éditable. » Il suit le périmètre (et les
+     consommations actualisées) tant qu'on ne l'a pas retouché ; au centime. */
+  const facteur = energie === 'gaz' ? 3 : 5
+  const montantPropose = consoTotale > 0 ? Math.round(consoTotale * 3 * facteur * 100) / 100 : null
+  const montantAffiche = montantTouche ? montantTxt : ecrireMontant(montantPropose)
+  const montant = lireMontant(montantAffiche)
   const titre = compteCible && choisis.length > 0 ? buildTitre(compteCible.nom, choisis[0].site_nom, choisis.length, dateCloture) : ''
 
   const perimetrePret = !!compteCible && choisis.length > 0 && !mixInvalide
@@ -344,10 +378,43 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
     setCompteurIds((l) => (toutChoisi ? l.filter((x) => !ids.includes(x)) : [...new Set([...l, ...ids])]))
   }
 
+  /* ══ LES CONSOMMATIONS, ACTUALISÉES — William, 06/10/2026 ══ « Tu fais une actu Ellipro mais ce
+     serait bien également de faire une actu des données de consommation des compteurs choisis,
+     après s'être assuré que ces compteurs soient bien couverts par un mandat KiWee. » Au passage à
+     l'étape 2, chaque compteur choisi couvert par un mandat KiWee actif (`mandatKiweeCouvre`, la
+     règle du serveur) est relu chez Enedis ou GRDF, l'un après l'autre ; le rail suit l'avancement.
+     Les autres sont signalés, pas appelés. On n'attend pas : l'étape 2 se remplit pendant ce temps,
+     et le montant proposé suit les consommations relues. */
+  async function actualiser(lot: Compteur[]) {
+    const aFaire = lot.filter((c) => !actualisation[c.id])
+    if (!aFaire.length) return
+    const cpSite = new Map((sitesDuCompte ?? []).map((s) => [s.id, s.code_postal]))
+    setActualisation((a) => ({
+      ...a,
+      ...Object.fromEntries(aFaire.map((c) => [c.id, mandatKiweeCouvre(mandats, c.id)
+        ? { etat: 'lecture' as const, detail: `Lecture ${c.type_energie === 'gaz' ? 'GRDF' : 'Enedis'}…` }
+        : { etat: 'hors' as const, detail: 'Sans mandat KiWee : non actualisé' }])),
+    }))
+    for (const c of aFaire) {
+      if (!mandatKiweeCouvre(mandats, c.id)) continue
+      messageSynchro.current = ''
+      const ok = await synchro.synchroniser({ id: c.id, numero: c.numero_pdl, energie: c.type_energie, codePostal: c.code_postal ?? cpSite.get(c.site_id) }, true)
+      setActualisation((a) => ({ ...a, [c.id]: ok
+        ? { etat: 'complet', detail: `${c.type_energie === 'gaz' ? 'GRDF' : 'Enedis'} : actualisé` }
+        : { etat: 'erreur', detail: messageSynchro.current || 'Actualisation impossible' } }))
+    }
+    void qc.invalidateQueries({ queryKey: ['echeances-retenues'] })
+  }
+
   async function creer() {
     setErreur(null)
     if (!decisionPrete || !compteCible || !mandatRetenu || typeof montant !== 'number' || createRecommandation.isPending) return
     try {
+      if (majResponsables && aReattribuer.length > 0) {
+        const { error } = await supabase.from('compteurs').update({ responsable_contact_id: contactId }).in('id', aReattribuer.map((c) => c.id))
+        if (error) throw new Error(`responsable des compteurs non mis à jour : ${error.message}`)
+        void qc.invalidateQueries({ queryKey: ['compteurs'] })
+      }
       const result = await createRecommandation.mutateAsync({
         titre,
         mandat_ids: [mandatRetenu.id],
@@ -381,6 +448,16 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
   ]
   const resumes: Record<string, ResumeEtape | undefined> = {
     perimetre: etape === 'decision' ? {
+      elements: choisis.map((c): ElementRail => {
+        const a = actualisation[c.id]
+        return {
+          cle: c.id,
+          libelle: c.utilisation || c.site_nom || c.numero_pdl,
+          detail: a?.detail ?? null,
+          etat: !a ? 'complet' : a.etat === 'hors' ? 'incomplet' : a.etat,
+          onChoisir: () => setEtape('perimetre'),
+        }
+      }),
       lignes: [
         `${energie === 'gaz' ? 'Gaz' : 'Électricité'} · ${choisis.length} compteur${choisis.length > 1 ? 's' : ''}`,
         `${consoTotale ? `${consoTotale.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh · ` : ''}${typeOpportunite}`,
@@ -475,7 +552,7 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
                   )}
                   <span className="flex-1" />
                   <Button variant="ghost" onClick={sortie.demander}>Annuler</Button>
-                  <Button variant="primary" disabled={!perimetrePret} onClick={() => setEtape('decision')}>
+                  <Button variant="primary" disabled={!perimetrePret} onClick={() => { setEtape('decision'); void actualiser(choisis) }}>
                     Continuer <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -537,10 +614,16 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
               ) : (
                 <button type="button" onClick={() => setAutreContact(true)} className="mb-2 text-[12px] font-semibold text-km-green hover:underline">Un autre contact, ou un nouveau…</button>
               )}
-              {contactHorsResponsables && (
-                <p className="mb-2 flex items-start gap-1.5 text-[11.5px] text-km-muted">
-                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Ce contact n’est responsable d’aucun des compteurs choisis : pensez à mettre à jour le responsable du compteur.
-                </p>
+              {aReattribuer.length > 0 && (
+                <label className={cn('mb-2 flex cursor-pointer items-start gap-2.5 rounded-[11px] border px-3 py-2.5', majResponsables ? 'border-km-green-line bg-km-green-tint' : 'border-km-line bg-white')}>
+                  <input type="checkbox" checked={majResponsables} onChange={(e) => setMajResponsables(e.target.checked)} className="mt-0.5 h-3.5 w-3.5 accent-km-green" />
+                  <span className="flex flex-col gap-px">
+                    <span className="text-[12.5px] font-semibold text-km-text">
+                      Faire de {nomContact(contactId) ?? 'ce contact'} le responsable {aReattribuer.length === choisis.length && choisis.length > 1 ? `des ${choisis.length} compteurs` : aReattribuer.length > 1 ? `de ${aReattribuer.length} compteurs` : `de ${aReattribuer[0].utilisation || aReattribuer[0].site_nom || aReattribuer[0].numero_pdl}`}
+                    </span>
+                    <span className="text-[11px] text-km-muted">Aujourd’hui : {responsablesActuels}. Le contact de la recommandation et celui du compteur restent les mêmes.</span>
+                  </span>
+                </label>
               )}
 
               <div className="mt-4 grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-[18px]">
@@ -580,16 +663,25 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
                   <span className={cn('flex items-baseline gap-1.5 rounded-[12px] border-[1.5px] px-[14px] py-[10px] focus-within:shadow-[0_0_0_3px_rgba(13,122,95,.1)]', montant === 'invalide' ? 'border-km-red' : 'border-km-line focus-within:border-km-green')}>
                     <input
                       inputMode="decimal"
-                      value={montantTxt}
-                      onChange={(e) => { setMontantTxt(e.target.value); setEntame(true) }}
+                      value={montantAffiche}
+                      onChange={(e) => { setMontantTxt(e.target.value); setMontantTouche(true); setEntame(true) }}
                       placeholder="0"
                       className="min-w-0 flex-1 border-0 bg-transparent font-mono text-[26px] font-semibold text-km-text outline-none"
                     />
                     <span className="text-[15px] font-semibold text-km-faint">€</span>
                   </span>
                   <span className={cn('text-[10.5px]', montant === 'invalide' ? 'font-semibold text-km-red' : 'text-km-muted')}>
-                    {montant === 'invalide' ? 'Un montant en euros, au centime près : 1234,56.' : 'Ce que l’affaire rapporte à KiWee. Il se corrige ensuite sur la fiche.'}
+                    {montant === 'invalide'
+                      ? 'Un montant en euros, au centime près : 1234,56.'
+                      : montantPropose != null
+                        ? `Proposé : ${consoTotale.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh × 3 × ${facteur}${Object.values(actualisation).some((a) => a.etat === 'lecture') ? ', consommations en cours d’actualisation' : ''}. Modifiable.`
+                        : 'Ce que l’affaire rapporte à KiWee. Il se corrige ensuite sur la fiche.'}
                   </span>
+                  {montantTouche && montantPropose != null && montant !== montantPropose && (
+                    <button type="button" onClick={() => setMontantTouche(false)} className="self-start text-[11px] font-semibold text-km-green hover:underline">
+                      Reprendre le montant proposé : {montantPropose.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </button>
+                  )}
                 </label>
               </div>
               {choisis.length > 0 && !mandatRetenu && (
@@ -672,7 +764,7 @@ function TableCompteurs({ affiches, ecartes, choisis, toutChoisi, onBasculer, on
   echeance: (c: Compteur) => string
   vide: string
 }) {
-  const grille = 'grid grid-cols-[22px_minmax(0,1fr)_128px_36px_74px_80px_62px] items-center gap-[8px] px-[14px]'
+  const grille = 'grid grid-cols-[22px_minmax(0,1fr)_34px_92px_80px_62px] items-center gap-[10px] px-[14px] whitespace-nowrap'
   const coche = (on: boolean) => (
     <span className={cn('flex h-4 w-4 items-center justify-center rounded-[5px] border-[1.5px]', on ? 'border-km-green bg-km-green' : 'border-[#C3CBC5] bg-white')}>
       {on && <Check className="h-2.5 w-2.5 stroke-[3.6] text-white" />}
@@ -682,7 +774,7 @@ function TableCompteurs({ affiches, ecartes, choisis, toutChoisi, onBasculer, on
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-km-line">
       <div className={cn(grille, 'h-[34px] shrink-0 bg-km-soft text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint')}>
         <button type="button" onClick={onBasculerTout} aria-label={toutChoisi ? 'Tout décocher' : 'Tout cocher'} disabled={affiches.length === 0}>{coche(toutChoisi)}</button>
-        <span>Site</span><span>PDL / PCE</span><span>Seg.</span><span className="text-right">Conso</span><span>Échéance</span><span>Statut</span>
+        <span>Site · {affiches[0]?.type_energie === 'gaz' ? 'PCE' : 'PDL'}</span><span>Seg.</span><span className="text-right">Conso</span><span>Échéance</span><span>Statut</span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {affiches.length === 0 && <p className="px-4 py-10 text-center text-[12.5px] text-km-faint">{vide}</p>}
@@ -690,10 +782,13 @@ function TableCompteurs({ affiches, ecartes, choisis, toutChoisi, onBasculer, on
           const on = choisis.includes(c.id)
           const client = estClient(c)
           return (
-            <button key={c.id} type="button" onClick={() => onBasculer(c.id)} aria-pressed={on} className={cn(grille, 'h-[46px] w-full border-t border-km-line-soft text-left text-[12.5px] first:border-t-0', on ? 'bg-km-green-tint' : 'hover:bg-km-bg')}>
+            <button key={c.id} type="button" onClick={() => onBasculer(c.id)} aria-pressed={on} className={cn(grille, 'h-[50px] w-full border-t border-km-line-soft text-left text-[12.5px] first:border-t-0', on ? 'bg-km-green-tint' : 'hover:bg-km-bg')}>
               {coche(on)}
-              <span className="truncate font-semibold text-km-text">{c.utilisation || c.site_nom || '—'}</span>
-              <span className="truncate font-mono text-[11.5px] text-km-muted">{c.numero_pdl}</span>
+              {/* LE SITE ET SON NUMÉRO SUR DEUX LIGNES : les noms de syndic sont longs (06/10/2026). */}
+              <span className="flex min-w-0 flex-col gap-px">
+                <span className="truncate font-semibold text-km-text" title={c.utilisation || c.site_nom || undefined}>{c.utilisation || c.site_nom || '—'}</span>
+                <span className="truncate font-mono text-[11px] text-km-muted">{c.numero_pdl}</span>
+              </span>
               <span className="text-km-text">{c.segment ?? c.tarif_distribution ?? '—'}</span>
               <span className="text-right font-mono text-km-text">{c.consommation_annuelle_mwh != null ? `${c.consommation_annuelle_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh` : '—'}</span>
               <span className="font-mono text-km-text">{echeance(c) || '—'}</span>
@@ -704,10 +799,12 @@ function TableCompteurs({ affiches, ecartes, choisis, toutChoisi, onBasculer, on
         {/* LES ÉCARTÉS SE MONTRENT, AVEC LA RECOMMANDATION QUI LES RETIENT (09/09/2026) — ouverte
             dans un onglet, pour ne pas perdre la saisie. */}
         {ecartes.map(({ compteur: c, reco }) => (
-          <div key={c.id} className={cn(grille, 'h-[46px] border-t border-km-line-soft bg-km-bg text-[12.5px] text-km-faint')}>
+          <div key={c.id} className={cn(grille, 'h-[50px] border-t border-km-line-soft bg-km-bg text-[12.5px] text-km-faint')}>
             <Lock className="h-3.5 w-3.5" />
-            <span className="truncate">{c.utilisation || c.site_nom || '—'}</span>
-            <span className="truncate font-mono text-[11.5px]">{c.numero_pdl}</span>
+            <span className="flex min-w-0 flex-col gap-px">
+              <span className="truncate">{c.utilisation || c.site_nom || '—'}</span>
+              <span className="truncate font-mono text-[11px]">{c.numero_pdl}</span>
+            </span>
             <span>{c.segment ?? c.tarif_distribution ?? '—'}</span>
             <span className="text-right font-mono">{c.consommation_annuelle_mwh != null ? `${c.consommation_annuelle_mwh.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} MWh` : '—'}</span>
             <span className="col-span-2 truncate text-[11px]">Déjà dans <Link to={`/recommandations/${reco.id}`} target="_blank" rel="noreferrer" className="text-km-green hover:underline" title={`Ouvrir « ${reco.nom} » dans un nouvel onglet`}>{reco.nom}</Link></span>
