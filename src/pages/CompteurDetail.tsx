@@ -15,12 +15,11 @@ import {
   OngletContrats, OngletFichiers, OngletMandats, OngletRecommandations, useRecommandationsDuCompteur,
 } from '@/components/compteur/fiche/Onglets'
 import {
-  PDL_FORMAT_RE, useCompteur, useDeleteCompteur, useMajTechniqueCompteur, useSyncCompteurElec, useSyncCompteurGaz, useUpdateCompteurField,
+  PDL_FORMAT_RE, useCompteur, useDeleteCompteur, useMajTechniqueCompteur, useUpdateCompteurField,
 } from '@/lib/data/compteurs'
 import { nettoyerSaisie, cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
-import { useEnedisFetch } from '@/lib/data/enedis'
-import { useGrdFetch } from '@/lib/data/grd'
+import { useSynchroCompteur } from '@/lib/data/synchroCompteur'
 import { useConsommationsDuCompteur } from '@/lib/data/consommations'
 import { useSite } from '@/lib/data/sites'
 import { useCompte } from '@/lib/data/comptes'
@@ -192,12 +191,9 @@ export default function CompteurDetail() {
 
   const deleteCompteur = useDeleteCompteur()
   const goBack = useGoBack(compteur ? `/sites/${compteur.site_id}` : '/compteurs')
-  const enedisFetch = useEnedisFetch()
-  const syncCompteurElec = useSyncCompteurElec()
-  const grdFetch = useGrdFetch()
-  const syncCompteurGaz = useSyncCompteurGaz()
+  const synchro = useSynchroCompteur(showToast)
   const suppression = useSuppression()
-  const synchroEnCours = enedisFetch.isPending || syncCompteurElec.isPending || grdFetch.isPending || syncCompteurGaz.isPending
+  const synchroEnCours = synchro.enCours
   /* ══ AUCUN APPEL AU GESTIONNAIRE DE RÉSEAU SANS MANDAT KIWEE ACTIF (30/09/2026) ══
      Tant que les mandats ne sont pas chargés, la réponse est « non » : on grise d'abord. */
   const synchroAutorisee = Boolean(compteur && mandats && mandatKiweeCouvre(mandats, compteur.id))
@@ -211,29 +207,11 @@ export default function CompteurDetail() {
   }
 
   async function synchroniser() {
-    if (!compteur || synchroEnCours) return
-    const estElec = compteur.type_energie === 'electricite'
-    if (!synchroAutorisee) {
-      showToast('Aucun mandat KiWee actif ne couvre ce compteur : synchronisation impossible.')
-      return
-    }
-    try {
-      if (estElec) {
-        const result = await enedisFetch.mutateAsync(compteur.numero_pdl)
-        if (!result.success) { showToast(result.error ?? 'Échec de la synchronisation Enedis.'); return }
-        await syncCompteurElec.mutateAsync({ compteurId: compteur.id, result })
-        showToast('✓ Synchronisation Enedis réussie')
-      } else {
-        const codePostal = compteur.code_postal ?? siteDuCompteur?.code_postal
-        if (!codePostal) { showToast('Impossible de synchroniser : aucun code postal sur ce compteur.'); return }
-        const result = await grdFetch.mutateAsync({ pce: compteur.numero_pdl, codePostal })
-        if (!result.success) { showToast(result.error ?? 'Échec de la synchronisation GRDF.'); return }
-        await syncCompteurGaz.mutateAsync({ compteurId: compteur.id, result })
-        showToast('✓ Synchronisation GRDF réussie')
-      }
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : `Échec de la synchronisation ${estElec ? 'Enedis' : 'GRDF'}.`)
-    }
+    if (!compteur) return
+    await synchro.synchroniser(
+      { id: compteur.id, numero: compteur.numero_pdl, energie: compteur.type_energie === 'electricite' ? 'electricite' : 'gaz', codePostal: compteur.code_postal ?? siteDuCompteur?.code_postal },
+      synchroAutorisee,
+    )
   }
 
   if (!compteur && id) {

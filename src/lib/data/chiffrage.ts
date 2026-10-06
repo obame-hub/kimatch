@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { enregistrerPrixCompteur, type PrixParCompteur } from '@/lib/data/recommandations'
 import { auCentime, budgetElec, budgetGaz, postesAPricer, postesDuCompteur, type BudgetOffre } from '@/lib/pricing/budget'
@@ -16,6 +16,8 @@ import { calculerReglementaire, type Reglementaire } from '@/lib/data/reglementa
  *
  * ══ CE QUI SE SAISIT, CE QUI SE CALCULE ══
  * Le pricing saisit le prix du FOURNISSEUR (P0, abonnement, CEE, CPB / postes, capacité) et la marge.
+ * Depuis le 06/10/2026, les cases P0 se saisissent MARGE INCLUSE ; ce qui s'écrit reste le P0 hors
+ * marge, la marge à côté (`pricing/brouillon.ts`).
  * Les communs (TQD, accise, CTA, TURPE) ne se saisissent plus — William, 01/10/2026 : « supprime
  * complètement le concept du bloc communs » ; un calcul sans saisie viendra. Tout le reste — prix
  * présentés, budgets, total de l'offre — se calcule (`pricing/budget.ts`) et s'écrit avec, dans les
@@ -40,6 +42,10 @@ export interface CompteurChiffrage {
   fournisseurActuelNom: string | null
   /** Le nom du site, pour reconnaître le compteur d'un coup d'œil. */
   site: string | null
+  /** Le code postal du compteur (à défaut celui du site) — GRDF le demande pour synchroniser. */
+  codePostal: string | null
+  /** Le compteur n'a pas de poste Pointe (`compteurs_electricite.sans_pointe`, 06/10/2026). */
+  sansPointe: boolean
   /** Tout ce qui est réglementé pour ce compteur et cette version — TURPE et AE en électricité ;
    *  TQD, AG, CTA et CPB au gaz — calculé et noté par la base, le même pour toutes les offres. */
   reglementaire: Reglementaire | null
@@ -163,7 +169,7 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
   const [{ data: vcs, error: eVc }, { data: opts }] = await Promise.all([
     supabase
       .from('versions_recommandation_compteurs')
-      .select('id, compteur_id, actif, compteur:compteurs(id, numero_point, libelle, libelle_site, fournisseur_actuel_compte_id, fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom), type_energie:types_energies(code), compteurs_gaz(*), compteurs_electricite(*))')
+      .select('id, compteur_id, actif, compteur:compteurs(id, numero_point, libelle, libelle_site, code_postal, site:sites!compteurs_site_id_fkey(code_postal), fournisseur_actuel_compte_id, fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom), type_energie:types_energies(code), compteurs_gaz(*), compteurs_electricite(*))')
       .eq('version_recommandation_id', versionId)
       .eq('actif', true),
     supabase.from('optimisations').select('id').eq('version_recommandation_id', versionId).order('ordre').limit(1),
@@ -181,6 +187,8 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
       car: num(g?.car_mwh), profil: g?.profil_consommation ?? null, tarif: (g?.tarif_distribution ?? e?.tarif_distribution) ?? null, segment: e?.segment ?? null, conso,
       fournisseurActuelId: c?.fournisseur_actuel_compte_id ?? null, fournisseurActuelNom: premier(c?.fournisseur_actuel)?.nom ?? null,
       site: c?.libelle_site ?? null,
+      codePostal: c?.code_postal ?? premier(c?.site)?.code_postal ?? null,
+      sansPointe: !!e?.sans_pointe,
       reglementaire: null,
     }
   })
@@ -280,6 +288,18 @@ export function budgetLigne(compteur: CompteurChiffrage, s: SaisieLigne, dureeMo
     { abonnementMois: s.abonnementMois, p0: s.p0Postes, marge: s.marge, capacite: s.capacite, cee: s.cee, inclus: s.inclus })
 }
 
+/**
+ * ══ LES POSTES QUE LE PRICER MONTRE — William, 06/10/2026 ══
+ * « La colonne Pointe n'est pas obligatoire, certains compteurs n'en ont pas. Dans ce cas, ajouter
+ * la possibilité de supprimer la colonne. » Un compteur marqué sans pointe perd la colonne — sauf
+ * s'il consomme en pointe : là, elle compte dans le budget et revient d'elle-même.
+ */
+export const pointeRetirable = (compteur: CompteurChiffrage) => compteur.energie !== 'gaz' && !((compteur.conso.POINTE ?? 0) > 0)
+export function postesAffiches(compteur: CompteurChiffrage): string[] {
+  const postes = postesDuCompteur(compteur.conso)
+  return compteur.sansPointe && pointeRetirable(compteur) ? postes.filter((p) => p !== 'POINTE') : postes
+}
+
 /** Une saisie est complète quand chaque champ propre à l'offre est rempli. */
 export function saisieComplete(compteur: CompteurChiffrage, s: SaisieLigne | undefined): boolean {
   if (!s) return false
@@ -287,7 +307,7 @@ export function saisieComplete(compteur: CompteurChiffrage, s: SaisieLigne | und
   /* Une case incluse dans le P0 n'est plus due. */
   const due = (k: string, x: number | null | undefined) => (s.inclus ?? []).includes(k) || ok(x)
   if (compteur.energie === 'gaz') return [s.abonnementMois, s.marge, s.p0].every(ok) && due('CEE', s.cee)
-  return [s.abonnementMois, s.marge].every(ok) && due('CAPACITE', s.capacite) && due('CEE', s.cee) && postesAPricer(compteur.conso).every((p) => ok(s.p0Postes[p]))
+  return [s.abonnementMois, s.marge].every(ok) && due('CAPACITE', s.capacite) && due('CEE', s.cee) && postesAPricer(compteur.conso).filter((p) => postesAffiches(compteur).includes(p)).every((p) => ok(s.p0Postes[p]))
 }
 
 /**
@@ -348,6 +368,14 @@ function versPrix(compteur: CompteurChiffrage, s: SaisieLigne, typePrix: string 
   }
 }
 
+/** Les prix d'une offre au moment où on l'a barrée, pour les lui rendre si on la rouvre. */
+const prixBarres = new Map<string, Record<string, SaisieLigne>>()
+
+/** Vrai tant que la bascule « non proposée » de cette offre part en base. */
+export function useBasculeEnCours(offreId: string): boolean {
+  return useIsMutating({ mutationKey: ['non-proposee'], predicate: (mu) => (mu.state.variables as { offre?: { id: string } } | undefined)?.offre?.id === offreId }) > 0
+}
+
 export function useChiffrageMutations(versionId: string | null) {
   const qc = useQueryClient()
   const rafraichir = () => {
@@ -372,6 +400,64 @@ export function useChiffrageMutations(versionId: string | null) {
       if (error) throw new Error(error.message)
     },
     onSuccess: rafraichir,
+  })
+
+  /**
+   * ══ « LE FOURNISSEUR NE LA PROPOSE PAS », SANS ATTENDRE — William, 06/10/2026 ══
+   * « Le fait de barrer et supprimer les prix doit être immédiat. Et si j'ai fait une erreur et que je
+   * veux rouvrir en pricing, ça doit être immédiat également. » Le tableau change avant la réponse de
+   * la base (rétabli si elle refuse) ; la base retire les prix (`fn_offre_non_proposee`). Rouverte,
+   * l'offre retrouve les prix qu'elle avait au moment d'être barrée, tant que la page est ouverte.
+   */
+  const nonProposeeEnBase = useMutation({
+    mutationKey: ['non-proposee'],
+    /* Deux clics rapprochés partent en base l'un après l'autre, dans l'ordre. */
+    scope: { id: `non-proposee-${versionId}` },
+    mutationFn: async (x: { offre: OffreChiffrage; nonProposee: boolean; compteurs: CompteurChiffrage[]; prix?: Record<string, SaisieLigne> }) => {
+      const { error } = await supabase.rpc('fn_offre_non_proposee', { p_offre: x.offre.id, p_non_proposee: x.nonProposee })
+      if (error) throw new Error(error.message)
+      if (x.nonProposee || !x.prix) return
+      for (const c of x.compteurs) {
+        const s = x.prix[c.vcId]
+        if (s) await enregistrerPrixCompteur({ offreId: x.offre.id, versionCompteurId: c.vcId, energie: c.energie, prix: versPrix(c, s, x.offre.type, x.offre.duree) })
+      }
+    },
+    /* Refusée, la base dit ce qui est vrai : le tableau se relit. */
+    onSettled: rafraichir,
+  })
+  const nonProposee = {
+    isPending: nonProposeeEnBase.isPending,
+    basculer: (offre: OffreChiffrage, non: boolean, compteurs: CompteurChiffrage[], onErreur: (e: Error) => void) => {
+      void qc.cancelQueries({ queryKey: ['chiffrage', versionId] })
+      const prix = non ? undefined : prixBarres.get(offre.id)
+      if (non) prixBarres.set(offre.id, offre.saisies)
+      else prixBarres.delete(offre.id)
+      qc.setQueryData<Chiffrage>(['chiffrage', versionId], (ch) => ch && {
+        ...ch,
+        offres: ch.offres.map((o) => (o.id !== offre.id ? o : non
+          ? { ...o, statut: 'INDISPONIBLE', saisies: {}, totalParCompteur: {}, ttcParCompteur: {} }
+          : { ...o, statut: 'EN_ATTENTE', saisies: prix ?? {} })),
+      })
+      nonProposeeEnBase.mutate({ offre, nonProposee: non, compteurs, prix }, { onError: onErreur })
+    },
+  }
+
+  /** Retirer ou rendre la colonne Pointe d'un compteur — immédiat à l'écran, noté sur le compteur. */
+  const majSansPointe = useMutation({
+    mutationFn: async (x: { compteurId: string; sansPointe: boolean }) => {
+      const { error } = await supabase.from('compteurs_electricite').upsert({ compteur_id: x.compteurId, sans_pointe: x.sansPointe }, { onConflict: 'compteur_id' })
+      if (error) throw new Error(error.message)
+    },
+    onMutate: async (x) => {
+      await qc.cancelQueries({ queryKey: ['chiffrage', versionId] })
+      const precedent = qc.getQueryData<Chiffrage>(['chiffrage', versionId])
+      qc.setQueryData<Chiffrage>(['chiffrage', versionId], (ch) => ch && {
+        ...ch, compteurs: ch.compteurs.map((c) => (c.compteurId === x.compteurId ? { ...c, sansPointe: x.sansPointe } : c)),
+      })
+      return { precedent }
+    },
+    onError: (_e, _x, ctx) => { if (ctx?.precedent) qc.setQueryData(['chiffrage', versionId], ctx.precedent) },
+    onSettled: () => { rafraichir(); void qc.invalidateQueries({ queryKey: ['compteurs'] }) },
   })
 
   /** La validité d'une offre — William, 02/10/2026 : « doit être éditée par le pricing ». */
@@ -467,5 +553,5 @@ export function useChiffrageMutations(versionId: string | null) {
     onSuccess: rafraichir,
   })
 
-  return { ajouterOffre, enregistrerLigne, changerStatut, majClauses, majValidite, majCommande, enregistrerActuelle, definirComparatif, publier }
+  return { ajouterOffre, enregistrerLigne, changerStatut, nonProposee, majSansPointe, majClauses, majValidite, majCommande, enregistrerActuelle, definirComparatif, publier }
 }

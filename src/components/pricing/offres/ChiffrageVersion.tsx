@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Ban, Check, ChevronDown, ChevronsUpDown, FileText, Loader2, MoreHorizontal, Paperclip, Plus, RotateCcw, Send, Sparkles, Trash2, Upload } from 'lucide-react'
+import { ArrowUpRight, Ban, Check, ChevronDown, ChevronsUpDown, FileText, Loader2, MoreHorizontal, Paperclip, Plus, RefreshCw, RotateCcw, Send, Sparkles, Trash2, Upload, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { INCLUSIONS_ELEC, INCLUSIONS_GAZ, LIBELLE_INCLUSION, lireNombre, postesDuCompteur, ttcDuBudget, type ComposanteIncluse } from '@/lib/pricing/budget'
+import { INCLUSIONS_ELEC, INCLUSIONS_GAZ, LIBELLE_INCLUSION, lireNombre, ttcDuBudget, type ComposanteIncluse } from '@/lib/pricing/budget'
 import { useFournisseursChoix } from '@/lib/data/contratsProspects'
 import { useDocumentsParEntites, useFichiersDuCompteur, useTeleverserDocuments } from '@/lib/data/documents'
 import { FenetreApercu } from '@/components/document/FenetreApercu'
@@ -14,8 +14,13 @@ import { BoutonTradeo } from '@/components/pricing/offres/BoutonTradeo'
 import { BudgetCliquable } from '@/components/pricing/offres/DetailCalcul'
 import { ttcParDefaut } from '@/lib/offrePdf/construction'
 import { logoFournisseurNet } from '@/lib/logosFournisseurs'
+import { depuisBrouillon, versBrouillon, type Brouillon } from '@/lib/pricing/brouillon'
+import { useQueryClient } from '@tanstack/react-query'
+import { useMandats } from '@/lib/data/mandats'
+import { mandatKiweeCouvre } from '@/lib/couvertureMandat'
+import { useSynchroCompteur } from '@/lib/data/synchroCompteur'
 import {
-  SAISIE_VIDE, budgetLigne, saisieComplete, useChiffrage, useChiffrageMutations,
+  budgetLigne, pointeRetirable, postesAffiches, saisieComplete, useBasculeEnCours, useChiffrage, useChiffrageMutations,
   type Chiffrage, type CompteurChiffrage, type OffreChiffrage, type SaisieLigne,
 } from '@/lib/data/chiffrage'
 
@@ -74,34 +79,6 @@ const estIndexe = (type: string | null) => /^index/i.test(type ?? '')
 const ENTITE_PROPOSITIONS = 'version_recommandation'
 /** « Offre fournisseur » depuis le 02/10/2026 (elles étaient rangées en « Annexe », catégorie retirée). */
 const CATEGORIE_PROPOSITIONS = 'OFFRE_FOURNISSEUR'
-
-type Brouillon = Record<string, string>
-
-function versBrouillon(s: SaisieLigne | undefined, postes: string[]): Brouillon {
-  const x = s ?? SAISIE_VIDE
-  const b: Brouillon = { abonnementMois: fr2(x.abonnementMois), marge: fr2(x.marge), p0: fr2(x.p0), cee: fr2(x.cee), cpb: fr2(x.cpb), capacite: fr2(x.capacite) }
-  for (const p of postes) b[`p0_${p}`] = fr2(x.p0Postes[p])
-  /* Ce que le P0 inclut, rangé dans le brouillon comme le reste : « TQD,CEE ». */
-  b.inclus = (x.inclus ?? []).join(',')
-  return b
-}
-
-/**
- * ══ UNE CASE QU'ON N'A PAS TOUCHÉE GARDE SON NOMBRE ══
- * 02/10/2026 : un abonnement de 4 487,96 €/an s'affiche 374,00 €/mois ; relu depuis la case, il
- * devenait 4 488,00 €/an dès qu'on modifiait une AUTRE case de la ligne. Une case dont le texte n'a
- * pas bougé rend donc le nombre d'origine, au centime de l'annuel près.
- */
-function depuisBrouillon(b: Brouillon, postes: string[], origine?: SaisieLigne, initial?: Brouillon): SaisieLigne {
-  const lire = (cle: string, avant: number | null | undefined) => (origine && initial && b[cle] === initial[cle] ? avant ?? null : lireNombre(b[cle]))
-  const p0Postes: Record<string, number | null> = {}
-  for (const p of postes) p0Postes[p] = lire(`p0_${p}`, origine?.p0Postes[p])
-  return {
-    abonnementMois: lire('abonnementMois', origine?.abonnementMois), marge: lire('marge', origine?.marge), p0: lire('p0', origine?.p0),
-    cee: lire('cee', origine?.cee), cpb: lire('cpb', origine?.cpb), capacite: lire('capacite', origine?.capacite), p0Postes,
-    inclus: b.inclus ? b.inclus.split(',').filter(Boolean) : [],
-  }
-}
 
 const SOURCES: Record<string, [string, string]> = {
   TRADEO: ['TRADÉO', 'border-km-violet/30 bg-km-violet/10 text-km-violet'],
@@ -296,7 +273,7 @@ const Separateur = () => <span aria-hidden="true" className="h-4 w-px shrink-0 b
 /** Les renseignements d'un compteur, sur une ligne — dans le bandeau comme dans le sélecteur. */
 function LigneCompteur({ compteur }: { compteur: CompteurChiffrage }) {
   const gaz = compteur.energie === 'gaz'
-  const postes = gaz ? [] : postesDuCompteur(compteur.conso)
+  const postes = gaz ? [] : postesAffiches(compteur)
   const total = Object.values(compteur.conso).reduce((t, x) => t + x, 0)
   const libelle = compteur.libelle || compteur.site
   return (
@@ -430,7 +407,7 @@ function AvancementGlobal({ chiffrage }: { chiffrage: Chiffrage }) {
  * puis « transforme-la en sélecteur dans le cas d'un multisite, avec une flèche indiquant que c'est
  * sélectionnable et défilable ». En monosite, elle ne fait que se lire.
  */
-function BandeauCompteur({ chiffrage, compteur, onChoisir }: { chiffrage: Chiffrage; compteur: CompteurChiffrage; onChoisir: (vcId: string) => void }) {
+function BandeauCompteur({ chiffrage, compteur, onChoisir, onToast }: { chiffrage: Chiffrage; compteur: CompteurChiffrage; onChoisir: (vcId: string) => void; onToast: (m: string) => void }) {
   const multisite = chiffrage.compteurs.length > 1
   const [ouvert, setOuvert] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -476,6 +453,7 @@ function BandeauCompteur({ chiffrage, compteur, onChoisir }: { chiffrage: Chiffr
         )}
         <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-km-line" />
         <BoutonFichiersCompteur compteur={compteur} ouvert={fichiers} onBasculer={() => setFichiers((f) => !f)} />
+        <BoutonSynchro compteur={compteur} onToast={onToast} />
         {/* VERS LE COMPTEUR, dans un nouvel onglet : le Pricer reste ouvert là où on en était. */}
         <Link
           to={`/compteurs/${compteur.compteurId}`}
@@ -512,6 +490,38 @@ function BandeauCompteur({ chiffrage, compteur, onChoisir }: { chiffrage: Chiffr
         </ul>
       )}
     </div>
+  )
+}
+
+/**
+ * ACTUALISER ENEDIS OU GRDF DEPUIS LA LIGNE DU COMPTEUR — William, 06/10/2026 : « ajouter le bouton
+ * pour actualiser GRDF ou ENEDIS si les critères sont respectés ». Les critères de la fiche compteur
+ * (`useSynchroCompteur`) : un mandat KiWee actif qui couvre le compteur — grisé sinon, la raison au
+ * survol. Synchronisé, le tableau se relit : consommations, segment, FTA, tarif, profil, CAR.
+ */
+function BoutonSynchro({ compteur, onToast }: { compteur: CompteurChiffrage; onToast: (m: string) => void }) {
+  const qc = useQueryClient()
+  const { data: mandats } = useMandats()
+  const synchro = useSynchroCompteur(onToast)
+  const autorisee = !!mandats && mandatKiweeCouvre(mandats, compteur.compteurId)
+  const nom = compteur.energie === 'gaz' ? 'GRDF' : 'Enedis'
+  const manque = !mandats ? 'Vérification du mandat…' : !autorisee ? 'Aucun mandat KiWee actif ne couvre ce compteur : synchronisation impossible.' : compteur.energie === 'gaz' && !compteur.codePostal ? 'Aucun code postal sur ce compteur : GRDF le demande.' : null
+  const lancer = () => {
+    void synchro.synchroniser({ id: compteur.compteurId, numero: compteur.numero, energie: compteur.energie, codePostal: compteur.codePostal }, autorisee)
+      .then((ok) => { if (ok) void qc.invalidateQueries({ queryKey: ['chiffrage'] }) })
+  }
+  return (
+    <button
+      type="button"
+      onClick={lancer}
+      disabled={!!manque || synchro.enCours}
+      aria-busy={synchro.enCours}
+      title={manque ?? `Actualiser le compteur depuis ${nom}`}
+      className={cn('inline-flex h-7 shrink-0 items-center gap-1.5 rounded-km-sm px-2 text-[11.5px] font-semibold transition-colors', manque ? 'cursor-not-allowed text-km-faint' : 'text-km-green hover:bg-white')}
+    >
+      <RefreshCw className={cn('h-3.5 w-3.5', synchro.enCours && 'animate-spin')} />
+      {synchro.enCours ? 'Synchronisation…' : nom}
+    </button>
   )
 }
 
@@ -659,7 +669,7 @@ interface Grille {
 
 function grilleDuCompteur(compteur: CompteurChiffrage): Grille {
   const gaz = compteur.energie === 'gaz'
-  const postes = gaz ? [] : postesDuCompteur(compteur.conso)
+  const postes = gaz ? [] : postesAffiches(compteur)
   const zones = zonesDuCompteur(gaz, postes)
   const pistes: string[] = [LARGEUR.offre[0]]
   let min = LARGEUR.offre[1] + LARGEUR.etat[1]
@@ -720,12 +730,17 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
       {/* LA PAGE NE DÉFILE PAS : le bandeau reste en place, seul le tableau défile — dans les deux
           sens, son en-tête collé en haut. */}
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 px-3.5 pt-3">
-        <BandeauCompteur chiffrage={chiffrage} compteur={compteur} onChoisir={choisirCompteur} />
+        <BandeauCompteur chiffrage={chiffrage} compteur={compteur} onChoisir={choisirCompteur} onToast={onToast} />
 
         <div className="-mx-3.5 min-h-0 flex-1 overflow-auto border-t border-km-line-soft bg-[#F4F6F3] px-3.5 pb-3.5">
           <div className="flex flex-col gap-2" style={{ minWidth: g.min }}>
             <div className="sticky top-0 z-10 -mx-3.5 bg-[#F4F6F3] px-3.5 pt-3">
-              <EnTeteTableau g={g} ttc={ttc} setTtc={setTtc} />
+              <EnTeteTableau
+                g={g}
+                ttc={ttc}
+                setTtc={setTtc}
+                pointe={pointeRetirable(compteur) ? { retiree: compteur.sansPointe, basculer: () => m.majSansPointe.mutate({ compteurId: compteur.compteurId, sansPointe: !compteur.sansPointe }, { onError: (e) => onToast(`Erreur : ${e.message}`) }) } : undefined}
+              />
             </div>
 
             {/* LA RÉFÉRENCE, À PART — « l'offre de référence doit être un peu séparée du reste ». */}
@@ -751,7 +766,8 @@ function Offres({ chiffrage, compteur, choisirCompteur, ttc, setTtc, versionId, 
                       chiffrage={chiffrage}
                       meilleure={meilleur?.id === o.id}
                       enregistrer={(saisie) => m.enregistrerLigne.mutateAsync({ offre: o, compteur, saisie }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
-                      changerStatut={(statut) => m.changerStatut.mutateAsync({ offreId: o.id, statut }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
+                      changerStatut={(statut) => m.changerStatut.mutateAsync({ offreId: o.id, statut }).then(() => true).catch((e: Error) => { onToast(`Erreur : ${e.message}`); return false })}
+                      marquerNonProposee={(non) => m.nonProposee.basculer(o, non, chiffrage.compteurs, (e) => onToast(`Erreur : ${e.message}`))}
                       changerClauses={(clauses) => m.majClauses.mutateAsync({ offreId: o.id, clauses }).catch((e: Error) => onToast(`Erreur : ${e.message}`))}
                     />
                   ))}
@@ -815,7 +831,14 @@ function Condition({ ok, texte }: { ok: boolean; texte: string }) {
  * L'EN-TÊTE ANTHRACITE — les zones numérotées sur la première ligne ; la seconde ne nomme que les
  * colonnes des zones qui en ont plusieurs, et porte le sélecteur HTVA / TTC sous « Budget ».
  */
-function EnTeteTableau({ g, ttc, setTtc }: { g: Grille; ttc: boolean; setTtc: (v: boolean) => void }) {
+/**
+ * LA COLONNE POINTE SE RETIRE — William, 06/10/2026 : « certains compteurs n'en ont pas ». Une croix
+ * dans son en-tête la retire pour ce compteur ; « + Pointe », à côté du nom de la zone, la rend. Rien
+ * à retirer quand le compteur consomme en pointe.
+ */
+interface ChoixPointe { retiree: boolean; basculer: () => void }
+
+function EnTeteTableau({ g, ttc, setTtc, pointe }: { g: Grille; ttc: boolean; setTtc: (v: boolean) => void; pointe?: ChoixPointe }) {
   const fin = g.gabarit.split(' ').length
   return (
     <div
@@ -825,8 +848,8 @@ function EnTeteTableau({ g, ttc, setTtc }: { g: Grille; ttc: boolean; setTtc: (v
       <span className="flex items-center px-3.5 text-[12px] font-semibold text-km-side-text" style={{ gridColumn: '1', gridRow: '1 / span 2' }}>Offre</span>
       {g.zones.map((z, i) => {
         const multi = z.cols.length > 1
-        const deuxLignes = multi || z.id === 'bud'
         const marge = z.id === 'mrg'
+        const deuxLignes = multi || z.id === 'bud' || marge
         return (
           <span key={z.id} className="contents">
             <span
@@ -835,16 +858,32 @@ function EnTeteTableau({ g, ttc, setTtc }: { g: Grille; ttc: boolean; setTtc: (v
             >
               <span className="font-mono text-[10px] font-bold text-km-side-green">{String(i + 1).padStart(2, '0')}</span>
               <span className={cn('whitespace-nowrap text-[12px] font-semibold', marge ? 'text-km-side-green' : 'text-km-side-text')}>{z.nom}</span>
+              {z.id === 'nrj' && pointe?.retiree && (
+                <button type="button" onClick={pointe.basculer} title="Rendre la colonne Pointe à ce compteur" className="h-[18px] whitespace-nowrap rounded-full border border-[#4A544E] px-1.5 text-[10px] font-bold text-[#9AA69F] hover:border-km-side-green hover:text-km-side-green">
+                  + Pointe
+                </button>
+              )}
             </span>
             {multi && z.cols.map((c, k) => (
               <span
                 key={c.cle}
-                className={cn('flex items-center justify-center border-t border-[#343C37] text-[10px] font-bold uppercase tracking-[.07em] text-[#9AA69F]', k === 0 && 'border-l')}
+                className={cn('group flex items-center justify-center gap-1 border-t border-[#343C37] text-[10px] font-bold uppercase tracking-[.07em] text-[#9AA69F]', k === 0 && 'border-l')}
                 style={{ gridColumn: `${g.debut[z.id] + k}`, gridRow: '2' }}
               >
                 {c.nom}
+                {c.cle === 'p0_POINTE' && pointe && !pointe.retiree && (
+                  <button type="button" onClick={pointe.basculer} title="Ce compteur n’a pas de pointe : retirer la colonne" aria-label="Retirer la colonne Pointe" className="flex h-4 w-4 items-center justify-center rounded-full text-[#6F7A73] hover:bg-white/10 hover:text-km-side-text">
+                    <X className="h-3 w-3" strokeWidth={2.6} />
+                  </button>
+                )}
               </span>
             ))}
+            {/* LA MARGE EST DANS LES PRIX P0 SAISIS (06/10/2026) — l'en-tête le rappelle. */}
+            {marge && (
+              <span title="Les prix P0 se saisissent marge incluse : la marge en est retirée pour le prix hors marge" className="flex items-start justify-center border-l border-[#343C37] bg-[rgba(47,203,158,.07)] text-[10px] font-semibold text-km-side-green/80" style={{ gridColumn: `${g.debut[z.id]}`, gridRow: '2' }}>
+                incluse
+              </span>
+            )}
             {z.id === 'bud' && (
               <span className="flex items-start justify-center border-l border-[#343C37]" style={{ gridColumn: `${g.debut[z.id]}`, gridRow: '2' }}>
                 <span role="group" aria-label="Budget affiché" className="flex rounded-full bg-white/[0.07] p-0.5">
@@ -937,23 +976,17 @@ function useBrouillon(saisie: SaisieLigne | undefined, postes: string[]) {
  * UNE CASE À SAISIR — un champ arrondi, légèrement grisé, qui passe au blanc au survol et à la
  * saisie ; la marge garde sa teinte verte. Ce qui se calcule n'a pas de champ.
  */
-function Case({ valeur, onChange, onBlur, marge, label, presente, aide }: { valeur: string; onChange: (v: string, marquer?: boolean) => void; onBlur: () => void; marge?: boolean; label: string; presente?: string; aide?: string }) {
-  const [active, setActive] = useState(false)
-  /* Hors saisie, une case P0 montre le prix PRÉSENTÉ (P0 + marge) ; on y clique, le prix du
-     fournisseur revient pour être modifié. */
-  const montre = presente != null && !active
+function Case({ valeur, onChange, onBlur, marge, label, aide }: { valeur: string; onChange: (v: string, marquer?: boolean) => void; onBlur: () => void; marge?: boolean; label: string; aide?: string }) {
   return (
     <input
       type="text"
       inputMode="decimal"
       autoComplete="off"
       aria-label={label}
-      title={montre ? aide : undefined}
-      value={montre ? presente : valeur}
-      onFocus={() => setActive(true)}
+      title={aide}
+      value={valeur}
       onChange={(e) => onChange(nettoyerPrix(e.target.value))}
       onBlur={() => {
-        setActive(false)
         onBlur()
         /* Le prix se range à deux décimales, sans compter pour une modification. */
         const n = lireNombre(valeur)
@@ -964,7 +997,6 @@ function Case({ valeur, onChange, onBlur, marge, label, presente, aide }: { vale
         'h-7 w-full min-w-0 cursor-text rounded-[8px] border px-[7px] text-right font-mono text-[12px] font-semibold tabular-nums outline-none transition-[background-color,border-color,box-shadow]',
         'hover:bg-white focus:border-km-green focus:bg-white focus:shadow-[0_0_0_3px_rgba(13,122,95,.16)]',
         marge ? 'border-[#CFE6DB] bg-[#EAF5F0] text-km-green' : 'border-[#E3E8E4] bg-km-soft text-km-text hover:border-[#C3CBC5]',
-        montre && 'shadow-[inset_0_-2px_0_rgba(13,122,95,.45)]',
       )}
     />
   )
@@ -978,12 +1010,11 @@ const bordZone = (g: Grille, col: number) => (Object.values(g.debut).includes(co
 /**
  * Les cases de saisie d'une ligne, zone par zone.
  *
- * ══ LA MARGE S'AJOUTE AUX P0 ══
- * William, 01/10/2026 : « quand je mentionne la marge, elle doit venir s'ajouter aux P0 du gaz et aux
- * P0 Pointe, HPH, HCH, HPE et HCE. Si j'ai un prix à 50 et que je mets 10 de marge, ça doit devenir
- * 60. » Les cases P0 affichent donc P0 + marge (soulignées de vert), le reste — abonnement, capacité,
- * CEE — reste tel quel. Le budget ne compte la marge qu'une fois : consommation × (P0 + marge), jamais
- * une « marge × consommation » en plus (`pricing/budget.ts`).
+ * ══ LA MARGE EST DANS LES PRIX P0 ══
+ * Depuis le 06/10/2026, les cases P0 (gaz ; Pointe, HPH, HCH, HPE et HCE) se saisissent marge
+ * incluse — voir `versBrouillon`. Le reste — abonnement, capacité, CEE — n'a pas de marge. Le budget
+ * ne compte la marge qu'une fois : consommation × (P0 + marge), jamais une « marge × consommation »
+ * en plus (`pricing/budget.ts`).
  */
 /**
  * CE QUE LE P0 INCLUT — William, 02/10/2026 : « sur une facture ENDESA (offre actuelle), est inclus dans
@@ -1074,15 +1105,17 @@ function Saisies({ g, brouillon, label, sansMarge, onBlur, onInclus }: { g: Gril
               : (c.cle === 'cee' && inclus.includes('CEE')) || (c.cle === 'capacite' && inclus.includes('CAPACITE'))
                 ? <span title="Compris dans le P0 : ne se compte pas en plus" className="flex h-7 w-full items-center justify-center rounded-[8px] border border-dashed border-km-green-line bg-km-green-tint text-[10.5px] font-bold text-km-green">dans le P0</span>
               : (() => {
-                const p0 = estP0(c.cle) ? lireNombre(brouillon.b[c.cle]) : null
-                const avecMarge = p0 != null && laMarge != null && laMarge !== 0
+                const s = brouillon.saisie
+                const horsMarge = c.cle === 'p0' ? s.p0 : estP0(c.cle) ? s.p0Postes[c.cle.slice(3)] : null
+                const aide = horsMarge != null && laMarge != null && laMarge !== 0
+                  ? `Prix marge incluse — dont marge ${fr2(laMarge)} : prix hors marge ${horsMarge.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} €/MWh`
+                  : estP0(c.cle) && !sansMarge ? 'Prix marge incluse' : undefined
                 return (
                   <Case
                     label={`${libelleCase(c.cle)} · ${label}`}
                     valeur={brouillon.b[c.cle] ?? ''}
                     marge={marge}
-                    presente={avecMarge ? fr2(p0 + laMarge) : undefined}
-                    aide={avecMarge ? `Prix fournisseur ${fr2(p0)} + marge ${fr2(laMarge)} = ${fr2(p0 + laMarge)} €/MWh · cliquer pour modifier le prix fournisseur` : undefined}
+                    aide={aide}
                     onChange={(v, marquer) => brouillon.changer(c.cle, v, marquer)}
                     onBlur={onBlur}
                   />
@@ -1143,13 +1176,15 @@ function Etoile() {
   )
 }
 
-function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActuel, ttc, g, enregistrer, changerStatut, changerClauses }: PropsLigne & {
+function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActuel, ttc, g, enregistrer, changerStatut, marquerNonProposee, changerClauses }: PropsLigne & {
   offre: OffreChiffrage
   chiffrage: Chiffrage
   premiere: boolean
   meilleure: boolean
   enregistrer: (s: SaisieLigne) => Promise<unknown>
-  changerStatut: (s: 'EN_ATTENTE' | 'DISPONIBLE' | 'INDISPONIBLE') => Promise<unknown>
+  changerStatut: (s: 'EN_ATTENTE' | 'DISPONIBLE' | 'INDISPONIBLE') => Promise<boolean>
+  /** Barrer la ligne (ses prix partent) ou la rouvrir — immédiat à l'écran. */
+  marquerNonProposee: (non: boolean) => void
   changerClauses: (c: OffreChiffrage['clauses']) => Promise<unknown>
 }) {
   const brouillon = useBrouillon(offre.saisies[compteur.vcId], g.postes)
@@ -1164,13 +1199,19 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
      propose pas » reste un choix du menu. */
   const completeEnBase = chiffrage.compteurs.every((c) => saisieComplete(c, offre.saisies[c.vcId]))
   const enCours = useRef(false)
+  /* La bascule part en base : la validation automatique attend qu'elle soit faite. */
+  const enBascule = useBasculeEnCours(offre.id)
+  /* Un passage refusé par la base ne se retente pas à chaque rendu (il répétait l'erreur sans fin) :
+     il attend que la ligne change. */
+  const refusee = useRef<string | null>(null)
   useEffect(() => {
-    if (indispo || enCours.current) return
+    if (indispo || enBascule || enCours.current) return
     const cible = completeEnBase ? 'DISPONIBLE' : 'EN_ATTENTE'
-    if (offre.statut === cible) return
+    if (offre.statut === cible) { refusee.current = null; return }
+    if (refusee.current === cible) return
     enCours.current = true
-    void changerStatut(cible).finally(() => { enCours.current = false })
-  }, [completeEnBase, indispo, offre.statut, changerStatut])
+    void changerStatut(cible).then((ok) => { refusee.current = ok ? null : cible }).finally(() => { enCours.current = false })
+  }, [completeEnBase, indispo, enBascule, offre.statut, changerStatut])
   const fin = g.gabarit.split(' ').length
   return (
     <div className={cn('grid h-[38px] transition-colors', !premiere && 'border-t border-km-line-soft', meilleure ? 'bg-km-green-tint' : 'hover:bg-km-bg')} style={{ gridTemplateColumns: g.gabarit }}>
@@ -1188,8 +1229,8 @@ function LigneOffre({ offre, compteur, chiffrage, premiere, meilleure, totalActu
         </>
       )}
       <span className="flex items-center justify-end gap-1 border-l border-km-line-soft px-2">
-        {indispo && <Indispo onRouvrir={() => void changerStatut('EN_ATTENTE')} />}
-        <MenuLigne clauses={offre.clauses} indispo={indispo} onClauses={changerClauses} onIndispo={() => void changerStatut(indispo ? 'EN_ATTENTE' : 'INDISPONIBLE')} />
+        {indispo && <Indispo onRouvrir={() => marquerNonProposee(false)} />}
+        <MenuLigne clauses={offre.clauses} indispo={indispo} onClauses={changerClauses} onIndispo={() => marquerNonProposee(!indispo)} />
       </span>
     </div>
   )
@@ -1250,7 +1291,7 @@ function AjouterOffre({ chiffrage, versionId, onToast }: { chiffrage: Chiffrage;
 /** « Le fournisseur ne la propose pas » : seul état qui se lit encore sur la ligne (05/10/2026). */
 function Indispo({ onRouvrir }: { onRouvrir: () => void }) {
   return (
-    <button type="button" onClick={onRouvrir} title="Cliquer pour la remettre à chiffrer" className="inline-flex h-[22px] items-center gap-1 rounded-full border border-km-red-line bg-km-red-soft px-2 text-[10.5px] font-bold text-km-red">
+    <button type="button" onClick={onRouvrir} title="Cliquer pour la rouvrir : ses prix reviennent" className="inline-flex h-[22px] items-center gap-1 rounded-full border border-km-red-line bg-km-red-soft px-2 text-[10.5px] font-bold text-km-red">
       <Ban className="h-3 w-3" /> Indispo.
     </button>
   )
