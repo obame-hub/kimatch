@@ -72,6 +72,9 @@ function contratEnCours(ct: { date_fin: string | null }): boolean {
   return new Date(ct.date_fin) >= new Date(new Date().toDateString())
 }
 
+/** La date de clôture conseillée ne va jamais au-delà d'aujourd'hui + 60 jours (William, 06/10/2026). */
+const PLAFOND_CLOTURE_JOURS = 60
+
 /** Préavis retenu quand le contrat en cours ne le précise pas. */
 const PREAVIS_DEFAUT_JOURS = 60
 
@@ -131,6 +134,12 @@ export function buildTitre(
  * précédent (`estJourOuvreFR`, fériés compris) : plus tôt, le préavis reste tenu ; plus tard, il
  * serait dépassé.
  *
+ * ══ AU PLUS TARD À J+60 — William, 06/10/2026 ══
+ * « OK pour la règle en fonction du préavis, mais avec une limite à J+60 par rapport à aujourd'hui.
+ * Si c'était censé être au 31/08/2028, tu corriges pour mettre au 06/12/2026. » La date retenue est
+ * la plus proche des deux — échéance − préavis, ou aujourd'hui + 60 jours —, puis le jour ouvré.
+ * `plafondJours: null` rend la date du seul préavis (l'alerte « préavis dépassé » s'y compare).
+ *
  * Sortie de son composant le 11/09/2026 : la conversion d'une opportunité crée plusieurs
  * recommandations d'un coup, chacune sur son propre lot de compteurs, donc chacune avec sa propre
  * date. La règle ne pouvait plus vivre dans l'état d'un seul formulaire.
@@ -143,8 +152,10 @@ export function dateClotureSuggereePour(
   /* Décrit par sa forme et non par le type `Contrat` complet : cette fonction n'a besoin que de
      trois champs, et s'attacher au type entier la rendrait solidaire de ses cinquante autres. */
   contrats: { date_fin: string | null; preavis_resiliation_jours?: number | null; compteurs: { id: string }[] }[],
+  options: { plafondJours?: number | null; aujourdhui?: Date } = {},
 ): string {
   if (compteurs.length === 0) return ''
+  const plafondJours = options.plafondJours === undefined ? PLAFOND_CLOTURE_JOURS : options.plafondJours
   const dates = compteurs
     .map((c) => {
       if (!c.date_echeance) return null
@@ -161,6 +172,11 @@ export function dateClotureSuggereePour(
     .filter((d): d is Date => d != null)
   if (dates.length === 0) return ''
   const d = dates.reduce((x, y) => (x < y ? x : y))
+  if (plafondJours != null) {
+    const auj = options.aujourdhui ?? new Date()
+    const plafond = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() + plafondJours, 12)
+    if (plafond < d) d.setTime(plafond.getTime())
+  }
   while (!estJourOuvreFR(d)) d.setDate(d.getDate() - 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -369,6 +385,8 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
 
   /* ══ LA DATE ET LE MONTANT ══ */
   const dateConseillee = useMemo(() => dateClotureSuggereePour(choisis, contrats ?? []), [choisis, contrats])
+  /* La date du seul préavis : au-delà, il risque d'être dépassé. */
+  const datePreavis = useMemo(() => dateClotureSuggereePour(choisis, contrats ?? [], { plafondJours: null }), [choisis, contrats])
   const dateCloture = dateAutre ?? dateConseillee
   /* ══ LE MONTANT PROPOSÉ — William, 06/10/2026 ══ « Gaz : consommation × 3 × 3 ; électricité :
      consommation × 3 × 5. Évidemment ce montant doit être éditable. » Il suit le périmètre (et les
@@ -676,7 +694,7 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
                       >
                         <span className="font-mono text-[15px] font-semibold text-km-text">{dateFr(dateConseillee)}</span>
                         <span className="text-[10.5px] font-semibold text-km-green">Conseillée</span>
-                        <span className="text-[10.5px] leading-[1.35] text-km-muted">Échéance − préavis, un jour ouvré</span>
+                        <span className="text-[10.5px] leading-[1.35] text-km-muted">Échéance − préavis, au plus J+60, un jour ouvré</span>
                       </button>
                     )}
                     <label className={cn('flex flex-col gap-[5px] rounded-[12px] border px-[13px] py-[11px]', dateAutre != null || !dateConseillee ? 'border-[1.5px] border-km-green bg-km-green-tint' : 'border-km-line bg-white', !dateConseillee && 'col-span-2')}>
@@ -690,8 +708,8 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
                       />
                     </label>
                   </div>
-                  {dateAutre && dateConseillee && dateAutre > dateConseillee && (
-                    <span className="flex items-start gap-1.5 text-[11px] text-km-amber"><AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" /> Après la date conseillée : le préavis risque d’être dépassé.</span>
+                  {dateAutre && datePreavis && dateAutre > datePreavis && (
+                    <span className="flex items-start gap-1.5 text-[11px] text-km-amber"><AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" /> Après le {dateFr(datePreavis)} : le préavis risque d’être dépassé.</span>
                   )}
                   {!dateConseillee && <span className="text-[10.5px] text-km-muted">Aucune échéance connue sur ces compteurs : la date se saisit.</span>}
                 </div>
