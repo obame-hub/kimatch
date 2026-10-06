@@ -104,12 +104,13 @@ function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix:
  * @param compteId  Tous les compteurs d'un client, EN DIRECT — depuis la migration
  *                  20260909160000 qui a posé `compteurs.compte_id` en `not null`.
  */
-async function fetchCompteurs(siteIds?: string[], compteurId?: string, compteId?: string): Promise<Compteur[]> {
+async function fetchCompteurs(siteIds?: string[], compteurId?: string, compteId?: string, ids?: string[]): Promise<Compteur[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
+    if (ids && ids.length === 0) return []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const restreindre = (q: any) =>
-      compteurId ? q.eq('id', compteurId) : compteId ? q.eq('compte_id', compteId) : siteIds ? q.in('site_id', siteIds) : q
+      ids ? q.in('id', ids) : compteurId ? q.eq('id', compteurId) : compteId ? q.eq('compte_id', compteId) : siteIds ? q.in('site_id', siteIds) : q
     const data = await fetchAllRows<RawCompteur>(
       'compteurs',
       // `*` plutôt qu'une liste de colonnes fixe : `date_echeance` vient d'être ajoutée par
@@ -518,6 +519,24 @@ export function useCompteursParCompte(compteId: string | undefined) {
     queryKey: ['compteurs', 'compte', compteId],
     queryFn: () => fetchCompteurs(undefined, undefined, compteId as string),
     enabled: !!compteId,
+  })
+}
+
+/**
+ * Des compteurs lus par leurs identifiants, par lots de 150 (l'adresse de la requête reste courte).
+ * Né pour la création d'une recommandation (06/10/2026) : elle lisait les 7 956 compteurs pour en
+ * garder ceux que couvrent les mandats du compte.
+ */
+export function useCompteursParIds(ids: string[] | undefined) {
+  const cle = [...new Set(ids ?? [])].sort()
+  return useQuery({
+    queryKey: ['compteurs', 'ids', cle.join(',')],
+    queryFn: async () => {
+      const lots: string[][] = []
+      for (let i = 0; i < cle.length; i += 150) lots.push(cle.slice(i, i + 150))
+      return (await Promise.all(lots.map((l) => fetchCompteurs(undefined, undefined, undefined, l)))).flat()
+    },
+    enabled: !!ids,
   })
 }
 

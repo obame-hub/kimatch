@@ -239,6 +239,28 @@ export function useComptesRattachables() {
  * Renvoie `undefined` tant que la lecture court, `null` si le compte n'existe pas ou sort du
  * perimetre de visibilite -- la fiche distingue ainsi « en cours de chargement » de « introuvable ».
  */
+/**
+ * Le nom, le SIREN et la ville de quelques comptes — de quoi les chercher dans une liste, sans lire
+ * la fiche entière de chacun (création d'une recommandation, 06/10/2026). Par lots de 150.
+ */
+export function useComptesLegers(ids: string[] | undefined) {
+  const cle = [...new Set(ids ?? [])].sort()
+  return useQuery({
+    queryKey: ['comptes', 'legers', cle.join(',')],
+    enabled: !!ids,
+    queryFn: async () => {
+      const lots: string[][] = []
+      for (let i = 0; i < cle.length; i += 150) lots.push(cle.slice(i, i + 150))
+      const res = await Promise.all(lots.map(async (l) => {
+        const { data, error } = await supabase.from('comptes').select('id, nom, siren, ville').in('id', l)
+        if (error) throw new Error(error.message)
+        return (data ?? []) as { id: string; nom: string; siren: string | null; ville: string | null }[]
+      }))
+      return res.flat()
+    },
+  })
+}
+
 export function useCompte(compteId: string | undefined) {
   return useQuery({
     queryKey: ['comptes', 'un', compteId],

@@ -940,6 +940,40 @@ export function recommandationsRetenantCompteurs(
   return parCompteur
 }
 
+/**
+ * La même question — quelle recommandation retient chaque compteur ? — posée sur une poignée de
+ * compteurs seulement (création d'une recommandation, 06/10/2026), au lieu de lire les 1 855
+ * recommandations. Même règle : une recommandation close ne retient rien.
+ */
+export function useRecommandationsRetenant(compteurIds: string[] | undefined) {
+  const cle = [...new Set(compteurIds ?? [])].sort()
+  return useQuery({
+    queryKey: ['recommandations', 'retenant', cle.join(',')],
+    enabled: !!compteurIds,
+    queryFn: async () => {
+      const parCompteur = new Map<string, { id: string; nom: string }>()
+      const lots: string[][] = []
+      for (let i = 0; i < cle.length; i += 150) lots.push(cle.slice(i, i + 150))
+      const lignes = await Promise.all(lots.map(async (l) => {
+        const { data, error } = await supabase
+          .from('recommandations_compteurs')
+          .select('compteur_id, recommandation:recommandations(id, nom, date_ouverture, etape:etapes_recommandation(code))')
+          .in('compteur_id', l)
+        if (error) throw new Error(error.message)
+        return data ?? []
+      }))
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const toutes = lignes.flat().map((x: any) => ({ compteur: x.compteur_id as string, r: Array.isArray(x.recommandation) ? x.recommandation[0] : x.recommandation }))
+        .filter((x) => x.r && !ETAPES_CLOSES.has((Array.isArray(x.r.etape) ? x.r.etape[0] : x.r.etape)?.code ?? ''))
+        /* La plus récente d'abord, comme la liste des recommandations. */
+        .sort((a, b) => String(b.r.date_ouverture ?? '').localeCompare(String(a.r.date_ouverture ?? '')))
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+      for (const x of toutes) if (!parCompteur.has(x.compteur)) parCompteur.set(x.compteur, { id: x.r.id, nom: x.r.nom })
+      return parCompteur
+    },
+  })
+}
+
 /** Compteurs déjà engagés dans une recommandation non close -- à exclure de la sélection PDL
  * d'une nouvelle opportunité (Tools : "pas déjà rattaché à une opportunité non close"). */
 export function compteursDejaEngages(recommandations: Recommandation[]): Set<string> {
@@ -1062,23 +1096,19 @@ export function useCreateRecommandation() {
         const recoId = (data as { id: string }).id
         recommandation = { ...recommandation, id: recoId }
         persisted = true
-        if (input.compteurs.length > 0) {
-          await supabase
-            .from('recommandations_compteurs')
-            .insert(input.compteurs.map((c) => ({ recommandation_id: recoId, compteur_id: c.id })))
-        }
         // Le premier est le principal ; `distinct` parce qu'un même mandat couvre souvent plusieurs
         // compteurs du lot et que la clé unique refuserait le doublon.
         const mandatsDuLot = [...new Set(input.mandat_ids)].filter(Boolean)
-        if (mandatsDuLot.length > 0) {
-          await supabase
-            .from('recommandations_mandats')
-            .insert(mandatsDuLot.map((id, i) => ({
-              recommandation_id: recoId,
-              mandat_id: id,
-              principal: i === 0,
-            })))
-        }
+        /* LES DEUX RATTACHEMENTS PARTENT ENSEMBLE (06/10/2026) : indépendants l'un de l'autre, ils
+           se faisaient attendre l'un l'autre. */
+        await Promise.all([
+          input.compteurs.length > 0
+            ? supabase.from('recommandations_compteurs').insert(input.compteurs.map((c) => ({ recommandation_id: recoId, compteur_id: c.id })))
+            : null,
+          mandatsDuLot.length > 0
+            ? supabase.from('recommandations_mandats').insert(mandatsDuLot.map((id, i) => ({ recommandation_id: recoId, mandat_id: id, principal: i === 0 })))
+            : null,
+        ])
         /* ══ ON N'ÉCRIT PLUS LE PÉRIMÈTRE EN SITES ═══════════════════════════════════════════════
            Il était redondant : le site d'une recommandation est le site de ses compteurs, et la
            lecture le dérive désormais de là (voir `RawRecoCompteur` plus haut). Écrire les deux

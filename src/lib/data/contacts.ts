@@ -194,8 +194,8 @@ async function fetchContacts(compteId?: string, contactId?: string): Promise<Con
   }
 }
 
-export function useContacts() {
-  return useQuery({ queryKey: ['contacts'], queryFn: () => fetchContacts() })
+export function useContacts(enabled = true) {
+  return useQuery({ queryKey: ['contacts'], queryFn: () => fetchContacts(), enabled })
 }
 
 /** Contacts d'un seul compte -- pour les fiches de détail, qui n'ont pas besoin des 3380 autres. */

@@ -16,16 +16,21 @@ export interface CompteurASynchroniser {
   codePostal: string | null | undefined
 }
 
-export function useSynchroCompteur(onToast: (m: string) => void) {
+export function useSynchroCompteur(dire: (m: string) => void) {
   const enedisFetch = useEnedisFetch()
   const syncCompteurElec = useSyncCompteurElec()
   const grdFetch = useGrdFetch()
   const syncCompteurGaz = useSyncCompteurGaz()
   const enCours = enedisFetch.isPending || syncCompteurElec.isPending || grdFetch.isPending || syncCompteurGaz.isPending
 
-  /** Rend vrai quand la synchronisation a réussi. */
-  async function synchroniser(c: CompteurASynchroniser, autorisee: boolean): Promise<boolean> {
-    if (enCours) return false
+  /**
+   * Rend vrai quand la synchronisation a réussi. `message` reçoit, pour CET appel, ce qui serait
+   * dit à l'écran — plusieurs compteurs peuvent se synchroniser en même temps (création d'une
+   * recommandation) ; sans lui, c'est `onToast`.
+   */
+  async function synchroniser(c: CompteurASynchroniser, autorisee: boolean, message?: (m: string) => void): Promise<boolean> {
+    const onToast = message ?? dire
+    if (!message && enCours) return false
     const estElec = c.energie === 'electricite'
     if (!autorisee) {
       onToast('Aucun mandat KiWee actif ne couvre ce compteur : synchronisation impossible.')

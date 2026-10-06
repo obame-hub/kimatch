@@ -11,7 +11,7 @@
  * mandat n'est jamais choisi à la main (il se déduit du premier compteur), le préavis réel du
  * contrat en cours sert au calcul de la date, et les compteurs déjà engagés sont écartés.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, Briefcase, Check, Flame, Loader2, Lock, Search, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -27,13 +27,13 @@ import { mandatKiweeCouvre } from '@/lib/couvertureMandat'
 import { useSitesParCompte } from '@/lib/data/sites'
 import { supabase } from '@/lib/supabase'
 import { useQueryClient } from '@tanstack/react-query'
-import { useRecommandationsListe, useCreateRecommandation, recommandationsRetenantCompteurs } from '@/lib/data/recommandations'
-import { useMandats } from '@/lib/data/mandats'
-import { useCompteurs } from '@/lib/data/compteurs'
+import { useCreateRecommandation, useRecommandationsRetenant } from '@/lib/data/recommandations'
+import { useMandatsListe, useMandatsParCompte } from '@/lib/data/mandats'
+import { useCompteursParCompte, useCompteursParIds } from '@/lib/data/compteurs'
 import { echeanceLisible, useEcheancesRetenues } from '@/lib/data/echeancesRetenues'
-import { useContacts } from '@/lib/data/contacts'
-import { useContrats } from '@/lib/data/contrats'
-import { useComptes } from '@/lib/data/comptes'
+import { useContacts, useContactsParCompte } from '@/lib/data/contacts'
+import { useContratsParCompte } from '@/lib/data/contrats'
+import { useCompte, useComptesLegers } from '@/lib/data/comptes'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_ETAPES_RECOMMANDATION, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { trouverParCode } from '@/lib/codeReferentiel'
@@ -221,12 +221,44 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
   opportuniteId?: string
   initialCompteurIds?: string[]
 }) {
-  const { data: mandats } = useMandats()
-  const { data: compteurs } = useCompteurs()
-  const { data: contacts } = useContacts()
-  const { data: contrats } = useContrats()
-  const { data: recommandations } = useRecommandationsListe()
-  const { data: comptes } = useComptes()
+  /* ══ RIEN QUE LE COMPTE OUVERT — 06/10/2026 ══ « Optimise à fond les temps de chargement. » Le
+     parcours lisait toute la base à l'ouverture (7 956 compteurs, 3 455 contacts, 2 799 comptes,
+     1 855 recommandations, 1 612 contrats). Il ne lit plus que le compte choisi : ses mandats, les
+     compteurs qu'ils couvrent, ses contacts et ses contrats, et pour ces seuls compteurs, la
+     recommandation qui les retient. Les contacts de toute la base ne se lisent qu'à la demande
+     (« Un autre contact »). */
+  const [compteId, setCompteId] = useState(initialCompteId ?? '')
+  const [autreContact, setAutreContact] = useState(false)
+  const { data: mandats, isLoading: mandatsEnCours } = useMandatsParCompte(compteId || undefined)
+  const idsSousMandat = useMemo(
+    () => (mandats ? [...new Set(mandats.filter((m) => m.statut === 'ACTIF').flatMap((m) => m.compteur_ids))] : undefined),
+    [mandats],
+  )
+  /* EN MÊME TEMPS QUE LES MANDATS : les compteurs du compte. Après eux, seulement ceux qu'un mandat
+     du compte couvre sur un autre compte (39 liens en base au 06/10/2026) — le plus souvent aucun. */
+  const { data: compteursCompte, isLoading: compteursEnCours } = useCompteursParCompte(compteId || undefined)
+  const idsAilleurs = useMemo(() => {
+    if (!idsSousMandat || !compteursCompte) return undefined
+    const ici = new Set(compteursCompte.map((c) => c.id))
+    return idsSousMandat.filter((id) => !ici.has(id))
+  }, [idsSousMandat, compteursCompte])
+  const { data: compteursAilleurs } = useCompteursParIds(idsAilleurs)
+  const compteurs = useMemo(() => {
+    if (!idsSousMandat || !compteursCompte) return undefined
+    const couverts = new Set(idsSousMandat)
+    return [...compteursCompte, ...(compteursAilleurs ?? [])].filter((c) => couverts.has(c.id))
+  }, [idsSousMandat, compteursCompte, compteursAilleurs])
+  const { data: retenusParCompteur } = useRecommandationsRetenant(idsSousMandat)
+  const { data: contactsCompte } = useContactsParCompte(compteId || undefined)
+  const { data: tousContacts } = useContacts(autreContact)
+  const contacts = useMemo(() => {
+    const m = new Map((tousContacts ?? []).map((c) => [c.id, c]))
+    for (const c of contactsCompte ?? []) m.set(c.id, c)
+    return [...m.values()]
+  }, [contactsCompte, tousContacts])
+  const { data: contrats } = useContratsParCompte(compteId || undefined)
+  const { data: compteCible } = useCompte(compteId || undefined)
+  const chargementCompteurs = !!compteId && (mandatsEnCours || compteursEnCours)
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const etapes = etapesRef && etapesRef.length > 0 ? etapesRef : FALLBACK_ETAPES_RECOMMANDATION
   const { data: energiesRef } = useReferenceTable('types_energies')
@@ -234,13 +266,11 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
   const createRecommandation = useCreateRecommandation()
 
   const [etape, setEtape] = useState<'perimetre' | 'decision'>('perimetre')
-  const [compteId, setCompteId] = useState(initialCompteId ?? '')
   const [energieChoisie, setEnergieChoisie] = useState<EnergieReco | null>(null)
   const [compteurIds, setCompteurIds] = useState<string[]>(initialCompteurIds ?? [])
   const [recherche, setRecherche] = useState('')
   const [rechercheCompte, setRechercheCompte] = useState('')
   const [contactChoisi, setContactChoisi] = useState('')
-  const [autreContact, setAutreContact] = useState(false)
   const [dateAutre, setDateAutre] = useState<string | null>(null)
   const [montantTxt, setMontantTxt] = useState('')
   const [montantTouche, setMontantTouche] = useState(false)
@@ -248,14 +278,12 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
   const [majResponsables, setMajResponsables] = useState(true)
   const [actualisation, setActualisation] = useState<Record<string, { etat: 'lecture' | 'complet' | 'erreur' | 'hors'; detail: string }>>({})
   const qc = useQueryClient()
-  const messageSynchro = useRef('')
-  const synchro = useSynchroCompteur((m) => { messageSynchro.current = m })
+  const synchro = useSynchroCompteur(() => {})
   const { data: sitesDuCompte } = useSitesParCompte(compteId || undefined)
   const [entame, setEntame] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
-  const compteCible = comptes?.find((c) => c.id === compteId)
-  const retenus = useMemo(() => recommandationsRetenantCompteurs(recommandations ?? []), [recommandations])
+  const retenus = useMemo(() => retenusParCompteur ?? new Map<string, { id: string; nom: string }>(), [retenusParCompteur])
 
   /* ══ LES COMPTEURS ÉLIGIBLES ══ Ceux du compte couverts par un mandat ACTIF ; on n'écarte que
      ceux déjà engagés sur une recommandation en cours — et on dit lesquels, avec le lien. */
@@ -288,7 +316,9 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
     if (!q) return eligibles
     return eligibles.filter((c) => [c.numero_pdl, c.utilisation, c.site_nom].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)))
   }, [eligibles, recherche])
-  const { data: echeancesRetenues } = useEcheancesRetenues(eligibles.map((c) => c.id))
+  /* Les échéances de tous les compteurs sous mandat, dès que les mandats sont lus : la liste ne les
+     attend pas. */
+  const { data: echeancesRetenues } = useEcheancesRetenues(idsSousMandat ?? [])
   /* Une sélection ne garde que des compteurs de l'énergie affichée : la règle d'une seule énergie. */
   const choisis = useMemo(() => eligibles.filter((c) => compteurIds.includes(c.id)), [eligibles, compteurIds])
 
@@ -332,7 +362,8 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
   }
   const responsablesActuels = (() => {
     const n = new Map<string, number>()
-    for (const c of aReattribuer) { const k = nomContact(c.responsable_contact_id) ?? 'aucun responsable'; n.set(k, (n.get(k) ?? 0) + 1) }
+    /* Le nom porté par le compteur sert de repli : son responsable peut venir d'un autre compte. */
+    for (const c of aReattribuer) { const k = nomContact(c.responsable_contact_id) ?? c.responsable_contact_nom ?? 'aucun responsable'; n.set(k, (n.get(k) ?? 0) + 1) }
     return [...n.entries()].map(([k, v]) => (aReattribuer.length > 1 ? `${k} (${v})` : k)).join(', ')
   })()
 
@@ -382,7 +413,7 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
      serait bien également de faire une actu des données de consommation des compteurs choisis,
      après s'être assuré que ces compteurs soient bien couverts par un mandat KiWee. » Au passage à
      l'étape 2, chaque compteur choisi couvert par un mandat KiWee actif (`mandatKiweeCouvre`, la
-     règle du serveur) est relu chez Enedis ou GRDF, l'un après l'autre ; le rail suit l'avancement.
+     règle du serveur) est relu chez Enedis ou GRDF, trois à la fois ; le rail suit l'avancement.
      Les autres sont signalés, pas appelés. On n'attend pas : l'étape 2 se remplit pendant ce temps,
      et le montant proposé suit les consommations relues. */
   async function actualiser(lot: Compteur[]) {
@@ -395,14 +426,19 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
         ? { etat: 'lecture' as const, detail: `Lecture ${c.type_energie === 'gaz' ? 'GRDF' : 'Enedis'}…` }
         : { etat: 'hors' as const, detail: 'Sans mandat KiWee : non actualisé' }])),
     }))
-    for (const c of aFaire) {
-      if (!mandatKiweeCouvre(mandats, c.id)) continue
-      messageSynchro.current = ''
-      const ok = await synchro.synchroniser({ id: c.id, numero: c.numero_pdl, energie: c.type_energie, codePostal: c.code_postal ?? cpSite.get(c.site_id) }, true)
+    /* TROIS À LA FOIS : chaque lecture prend quelques secondes chez le gestionnaire de réseau ; à la
+       file, dix compteurs faisaient attendre une demi-minute. Le message de chacun est gardé à part. */
+    const file = aFaire.filter((c) => mandatKiweeCouvre(mandats, c.id))
+    const une = async (c: Compteur) => {
+      let message = ''
+      const ok = await synchro.synchroniser({ id: c.id, numero: c.numero_pdl, energie: c.type_energie, codePostal: c.code_postal ?? cpSite.get(c.site_id) }, true, (m) => { message = m })
       setActualisation((a) => ({ ...a, [c.id]: ok
         ? { etat: 'complet', detail: `${c.type_energie === 'gaz' ? 'GRDF' : 'Enedis'} : actualisé` }
-        : { etat: 'erreur', detail: messageSynchro.current || 'Actualisation impossible' } }))
+        : { etat: 'erreur', detail: message || 'Actualisation impossible' } }))
     }
+    await Promise.all(Array.from({ length: Math.min(3, file.length) }, async () => {
+      for (let c = file.shift(); c; c = file.shift()) await une(c)
+    }))
     void qc.invalidateQueries({ queryKey: ['echeances-retenues'] })
   }
 
@@ -410,12 +446,13 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
     setErreur(null)
     if (!decisionPrete || !compteCible || !mandatRetenu || typeof montant !== 'number' || createRecommandation.isPending) return
     try {
-      if (majResponsables && aReattribuer.length > 0) {
-        const { error } = await supabase.from('compteurs').update({ responsable_contact_id: contactId }).in('id', aReattribuer.map((c) => c.id))
-        if (error) throw new Error(`responsable des compteurs non mis à jour : ${error.message}`)
-        void qc.invalidateQueries({ queryKey: ['compteurs'] })
-      }
-      const result = await createRecommandation.mutateAsync({
+      /* Le responsable des compteurs et la recommandation s'écrivent EN MÊME TEMPS : deux écritures
+         indépendantes, un seul temps d'attente. */
+      const responsables = majResponsables && aReattribuer.length > 0
+        ? supabase.from('compteurs').update({ responsable_contact_id: contactId }).in('id', aReattribuer.map((c) => c.id))
+          .then(({ error }) => { if (error) throw new Error(`responsable des compteurs non mis à jour : ${error.message}`); void qc.invalidateQueries({ queryKey: ['compteurs'] }) })
+        : Promise.resolve()
+      const creation = createRecommandation.mutateAsync({
         titre,
         mandat_ids: [mandatRetenu.id],
         compte_id: compteCible.id,
@@ -435,6 +472,7 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
         /* LE MONTANT NE S'ARRONDIT PAS : au centime, virgule comprise (`lireMontant`). */
         montant,
       })
+      const [, result] = await Promise.all([responsables, creation])
       if (!result.persisted) throw new Error('la recommandation n’a pas pu être enregistrée')
       onCreated(result.recommandation.id)
     } catch (e) {
@@ -485,8 +523,6 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
             <EnTeteEtape numero={1} total={2} titre={compteCible ? 'Quels compteurs étudier ?' : 'Pour quel compte ?'} />
             {!compteCible ? (
               <ChoixCompte
-                mandats={mandats}
-                comptes={comptes}
                 recherche={rechercheCompte}
                 onRecherche={setRechercheCompte}
                 onChoisir={(id) => { setCompteId(id); setCompteurIds([]); setContactChoisi(''); setEntame(true) }}
@@ -536,6 +572,7 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
                   onBasculerTout={basculerTout}
                   estClient={estClient}
                   echeance={(c) => echeanceLisible(echeancesRetenues?.get(c.id), c.date_echeance)}
+                  chargement={chargementCompteurs}
                   vide={eligibles.length === 0 ? `Aucun compteur ${energie === 'gaz' ? 'de gaz' : 'd’électricité'} sous mandat KiWee actif sur ce compte.` : 'Aucun compteur ne correspond à la recherche.'}
                 />
 
@@ -707,14 +744,17 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
 }
 
 /** Le compte, quand on ne part pas d'une fiche : ceux qui portent au moins un mandat actif. */
-function ChoixCompte({ mandats, comptes, recherche, onRecherche, onChoisir }: {
-  mandats: ReturnType<typeof useMandats>['data']
-  comptes: ReturnType<typeof useComptes>['data']
+function ChoixCompte({ recherche, onRecherche, onChoisir }: {
   recherche: string
   onRecherche: (v: string) => void
   onChoisir: (id: string) => void
 }) {
-  /* On cherche sur le nom, le SIREN et la ville : deux syndics homonymes ne se distinguent que par là. */
+  /* La liste légère des mandats (sans leurs compteurs), puis le nom, le SIREN et la ville des seuls
+     comptes qui en portent un actif — on cherche sur les trois : deux syndics homonymes ne se
+     distinguent que par là. */
+  const { data: mandats, isLoading } = useMandatsListe()
+  const idsComptes = useMemo(() => (mandats ? [...new Set(mandats.filter((m) => m.statut === 'ACTIF').map((m) => m.compte_id))] : undefined), [mandats])
+  const { data: comptes } = useComptesLegers(idsComptes)
   const eligibles = useMemo(() => {
     const parId = new Map((comptes ?? []).map((c) => [c.id, c]))
     const parCompte = new Map<string, { id: string; nom: string; siren: string | null; ville: string; mandats: number }>()
@@ -737,7 +777,9 @@ function ChoixCompte({ mandats, comptes, recherche, onRecherche, onChoisir }: {
         <span className="shrink-0 text-[11px]">{affiches.length} compte{affiches.length > 1 ? 's' : ''} sous mandat actif</span>
       </label>
       <div className="min-h-0 flex-1 overflow-y-auto rounded-[12px] border border-km-line">
-        {affiches.length === 0 ? (
+        {isLoading ? (
+          <p className="flex items-center justify-center gap-2 px-4 py-10 text-[12.5px] text-km-faint"><Loader2 className="h-4 w-4 animate-spin text-km-green" /> Chargement des comptes…</p>
+        ) : affiches.length === 0 ? (
           <p className="px-4 py-10 text-center text-[12.5px] text-km-faint">Aucun compte ne correspond. Un compte sans mandat actif n’apparaît pas ici.</p>
         ) : affiches.slice(0, 200).map((c, i) => (
           <button key={c.id} type="button" onClick={() => onChoisir(c.id)} className={cn('flex h-[46px] w-full items-center gap-3 px-[14px] text-left hover:bg-km-bg', i > 0 && 'border-t border-km-line-soft')}>
@@ -753,7 +795,8 @@ function ChoixCompte({ mandats, comptes, recherche, onRecherche, onChoisir }: {
 }
 
 /** Le tableau des compteurs de l'étape 1 — direction A : une ligne par compteur, à cocher. */
-function TableCompteurs({ affiches, ecartes, choisis, toutChoisi, onBasculer, onBasculerTout, estClient, echeance, vide }: {
+function TableCompteurs({ affiches, ecartes, choisis, toutChoisi, onBasculer, onBasculerTout, estClient, echeance, vide, chargement }: {
+  chargement?: boolean
   affiches: Compteur[]
   ecartes: { compteur: Compteur; reco: { id: string; nom: string } }[]
   choisis: string[]
@@ -777,7 +820,9 @@ function TableCompteurs({ affiches, ecartes, choisis, toutChoisi, onBasculer, on
         <span>Site · {affiches[0]?.type_energie === 'gaz' ? 'PCE' : 'PDL'}</span><span>Seg.</span><span className="text-right">Conso</span><span>Échéance</span><span>Statut</span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {affiches.length === 0 && <p className="px-4 py-10 text-center text-[12.5px] text-km-faint">{vide}</p>}
+        {chargement
+          ? <p className="flex items-center justify-center gap-2 px-4 py-10 text-[12.5px] text-km-faint"><Loader2 className="h-4 w-4 animate-spin text-km-green" /> Chargement des compteurs…</p>
+          : affiches.length === 0 && <p className="px-4 py-10 text-center text-[12.5px] text-km-faint">{vide}</p>}
         {affiches.map((c) => {
           const on = choisis.includes(c.id)
           const client = estClient(c)
