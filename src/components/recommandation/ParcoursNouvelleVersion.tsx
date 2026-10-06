@@ -97,7 +97,7 @@ export function ParcoursNouvelleVersion({ reco, mode, onClose, onCree }: {
             <EnTeteEtape numero={1} total={ETAPES.length} titre="D'où repartir ?" />
             <div className="grid grid-cols-2 gap-3">
               {([
-                [true, Copy, `Dupliquer ${nomActive}`, 'Mêmes fournisseurs, mêmes durées, même type de prix, à une nouvelle date : celle proposée laisse à chacun le temps de répondre. Ceux qui ont refusé ne sont pas repris.'],
+                [true, Copy, `Dupliquer ${nomActive}`, 'Mêmes fournisseurs, mêmes durées, à une nouvelle date : celle proposée laisse à chacun le temps de répondre. Ceux qui ont refusé ne sont pas repris.'],
                 [false, FilePlus2, 'Créer vierge', 'Tout est à choisir : la date, les fournisseurs, les durées.'],
               ] as const).map(([d, Icone, titre, texte]) => (
                 <button

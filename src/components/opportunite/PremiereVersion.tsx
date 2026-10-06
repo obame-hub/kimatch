@@ -96,7 +96,8 @@ export function usePremiereVersion({ compte, compteurs, mandats, echeances, hist
   const [date, setDate] = useState<string | null>(null)
   const [choisis, setChoisis] = useState<string[]>([])
   const [durees, setDurees] = useState<DureesFournisseurs>({})
-  const [typesPrix, setTypesPrix] = useState<string[]>(['Fixe'])
+  /* PRIX FIXE, TOUJOURS — William, 06/10/2026 : « Fixe par défaut, donc inutile de proposer ce choix ». */
+  const typesPrix = ['Fixe']
   const [retires, setRetires] = useState<string[]>([])
 
   const debutsOuNul = useMemo(() => Object.fromEntries(compteurs.map((c) => [c.id, debutDeFourniture(echeances?.get(c.id), c.date_echeance)])), [compteurs, echeances])
@@ -150,7 +151,7 @@ export function usePremiereVersion({ compte, compteurs, mandats, echeances, hist
   const repris = useRef(false)
   /* Revenir au point de départ (« D'où repartir ? ») : tout repart de zéro, la reprise comprise. */
   const [tour, setTour] = useState(0)
-  const reinitialiser = () => { repris.current = false; setChoisis([]); setDurees({}); setDate(null); setTypesPrix(['Fixe']); setRetires([]); setTour((x) => x + 1) }
+  const reinitialiser = () => { repris.current = false; setChoisis([]); setDurees({}); setDate(null); setRetires([]); setTour((x) => x + 1) }
   useEffect(() => {
     if (!dupliquer || repris.current || !historique?.derniere || !compte || !fournisseurs || !rules) return
     repris.current = true
@@ -161,7 +162,6 @@ export function usePremiereVersion({ compte, compteurs, mandats, echeances, hist
     const premier = dates.find((j) => { const r = evaluer(iso(j)); return gardes.every((id) => r.find((x) => x.fournisseur.id === id)?.eligible) })
     if (premier) setDate(iso(premier))
     setChoisis(gardes)
-    setTypesPrix(d.typesPrix.length ? d.typesPrix : ['Fixe'])
     setDurees(Object.fromEntries(gardes.map((id) => {
       const avant = d.durees[id]
       return [id, Object.fromEntries(compteurs.map((c) => {
@@ -177,7 +177,7 @@ export function usePremiereVersion({ compte, compteurs, mandats, echeances, hist
     choisis, basculer: (id: string) => setChoisis((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id])),
     toutChoisir: () => setChoisis(eligibles.map((r) => r.fournisseur.id)),
     retires, oublierRetires: () => setRetires([]),
-    durees, setDurees, typesPrix, setTypesPrix, maxParFournisseur, debuts, couverture, sansEcheance, reinitialiser,
+    durees, setDurees, typesPrix, maxParFournisseur, debuts, couverture, sansEcheance, reinitialiser,
     actualisation: !!historique && historique.consultes.size > 0,
     chargement: !fournisseurs || !compte,
   }
@@ -510,18 +510,6 @@ export function EtapeDurees({ pv, numero, total, recoId, recoTitre, compteNom, c
             </button>
           )
         })}
-        <span className="flex-1" />
-        <div role="group" aria-label="Type de prix" className="flex gap-0.5 rounded-[9px] bg-km-soft p-[3px]">
-          {['Fixe', 'Indexé'].map((x) => {
-            const on = pv.typesPrix.includes(x)
-            return (
-              <button key={x} type="button" aria-pressed={on} onClick={() => pv.setTypesPrix((l) => (on ? l.filter((y) => y !== x) : [...l, x]))}
-                className={cn('h-7 rounded-[7px] px-3 text-[12px]', on ? 'bg-white font-semibold text-km-text shadow-[0_1px_3px_rgba(25,40,33,.12)]' : 'font-medium text-km-muted')}>
-                Prix {x.toLowerCase()}
-              </button>
-            )
-          })}
-        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
