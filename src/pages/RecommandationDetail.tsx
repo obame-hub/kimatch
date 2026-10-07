@@ -29,7 +29,7 @@ import { ComparatifVersions, coutPrestationEstime } from '@/components/recommand
 import { OngletCommandeClient } from '@/components/recommandation/OngletCommandeClient'
 import { DetailVersion } from '@/components/recommandation/DetailVersion'
 import { BlocAffaire } from '@/components/recommandation/BlocAffaire'
-import { ParcoursNouvelleVersion } from '@/components/recommandation/ParcoursNouvelleVersion'
+import { ParcoursNouvelleVersion, PrechargeNouvelleVersion } from '@/components/recommandation/ParcoursNouvelleVersion'
 import {
   EnvoyerEmailDialog,
   AjouterFournisseurConsulteDialog,
@@ -58,7 +58,7 @@ import { useObjectifsRecommandation } from '@/lib/data/objectifsClient'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useContactsParCompte } from '@/lib/data/contacts'
 import { useCompte } from '@/lib/data/comptes'
-import { useCompteurs } from '@/lib/data/compteurs'
+import { useCompteursParIds } from '@/lib/data/compteurs'
 import { useInteractionsParRecommandation } from '@/lib/data/interactions'
 import { useActionsParRecommandation } from '@/lib/data/actions'
 import { useDocumentsParEntites } from '@/lib/data/documents'
@@ -146,7 +146,24 @@ export default function RecommandationDetail() {
   const { data: statutsConsultationRef } = useReferenceTable('statuts_consultations_fournisseurs')
   const { data: contacts } = useContactsParCompte(reco?.compte_id)
   const { data: compte } = useCompte(reco?.compte_id)
-  const { data: compteurs } = useCompteurs()
+  /* ══ LES COMPTEURS DU DOSSIER, PAS CEUX DE LA BASE — William, 07/10/2026 : « fluidité maximale » ══
+     La fiche lisait les 7 899 compteurs de Kimatch, huit relations jointes chacun, pour n'en montrer
+     qu'une poignée. Elle ne lit plus que son périmètre, plus les compteurs qu'une ancienne version
+     porterait encore hors périmètre (leurs prix restent lisibles). Le périmètre se lit sous la clé
+     qu'utilise « Nouvelle version » : la fenêtre trouve ses compteurs déjà chargés. */
+  const { data: compteursPerimetre } = useCompteursParIds(reco?.compteur_ids)
+  const idsHorsPerimetre = useMemo(() => {
+    if (!reco) return undefined
+    const dedans = new Set(reco.compteur_ids ?? [])
+    const hors = [...new Set(reco.versions.flatMap((v) => v.compteurs.map((l) => l.compteur_id)))].filter((id) => !dedans.has(id))
+    return hors.length > 0 ? hors : undefined
+  }, [reco])
+  const { data: compteursHors } = useCompteursParIds(idsHorsPerimetre)
+  const compteurs = useMemo(
+    () => (compteursPerimetre ? [...compteursPerimetre, ...(compteursHors ?? [])] : undefined),
+    [compteursPerimetre, compteursHors],
+  )
+  const [prechauffe, setPrechauffe] = useState(false)
   const { data: objectifs } = useObjectifsRecommandation(reco?.id)
 
   // Fil d'activité : les deux sources filtrées côté serveur sur la recommandation elle-même. Les
@@ -749,7 +766,7 @@ export default function RecommandationDetail() {
 
         <div className="hidden items-center gap-1.5 lg:flex">
           {canManage && (
-            <Button size="sm" onClick={ouvrirNouvelleVersion}>
+            <Button size="sm" onClick={ouvrirNouvelleVersion} onPointerEnter={() => setPrechauffe(true)} onFocus={() => setPrechauffe(true)}>
               <Plus className="h-3.5 w-3.5" />
               Nouvelle version
             </Button>
@@ -1284,6 +1301,7 @@ export default function RecommandationDetail() {
           fournisseurs, effets) tourneraient en permanence sur la fiche. */}
       {/* LES ÉTAPES 3 ET 4 DE LA CRÉATION, SEULES (William, 06/10/2026) : nouvelle version ou
           duplication de la précédente à une nouvelle date. */}
+      {prechauffe && reco && !wizardCotation && <PrechargeNouvelleVersion reco={reco} />}
       {wizardCotation && (
         <ParcoursNouvelleVersion
           reco={reco}

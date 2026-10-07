@@ -27,7 +27,9 @@ async function fetchEligibilityRules(): Promise<EligibilityRule[]> {
 }
 
 export function useEligibilityRules() {
-  return useQuery({ queryKey: ['eligibility_rules'], queryFn: fetchEligibilityRules })
+  // Une table de référence qu'aucun écran ne modifie : relue toutes les dix minutes, pas à chaque
+  // ouverture d'un parcours (fluidité, William 07/10/2026).
+  return useQuery({ queryKey: ['eligibility_rules'], queryFn: fetchEligibilityRules, staleTime: 10 * 60 * 1000 })
 }
 
 function normText(s: string): string {

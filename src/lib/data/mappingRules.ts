@@ -32,7 +32,9 @@ async function fetchMappingRules(): Promise<MappingRule[]> {
 }
 
 export function useMappingRules() {
-  return useQuery({ queryKey: ['mapping_rules'], queryFn: fetchMappingRules })
+  // Une table de référence qu'aucun écran ne modifie : relue toutes les dix minutes, pas à chaque
+  // ouverture d'un parcours (fluidité, William 07/10/2026).
+  return useQuery({ queryKey: ['mapping_rules'], queryFn: fetchMappingRules, staleTime: 10 * 60 * 1000 })
 }
 
 function normText(s: string): string {

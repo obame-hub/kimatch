@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Copy, FilePlus2 } from 'lucide-react'
 import { EnTeteEtape, FenetreParcours, PanneauParcours, RailParcours, useSortieParcours, type EtapeParcours, type ResumeEtape } from '@/components/parcours/Parcours'
 import { EtapeDurees, EtapeFournisseurs, usePremiereVersion } from '@/components/opportunite/PremiereVersion'
-import { useCompte } from '@/lib/data/comptes'
+import { useCompte, useFournisseursConsultables } from '@/lib/data/comptes'
 import { useCompteursParIds } from '@/lib/data/compteurs'
 import { useMandatsParCompte } from '@/lib/data/mandats'
 import { useEcheancesRetenues } from '@/lib/data/echeancesRetenues'
 import { useHistoriqueConsultations } from '@/lib/data/recommandations'
+import { useEligibilityRules } from '@/lib/data/eligibilityRules'
+import { useMappingRules } from '@/lib/data/mappingRules'
 import { dateFr } from '@/components/recommandation/cloture/commun'
 import type { Recommandation } from '@/types/domain'
 
@@ -26,6 +28,22 @@ import type { Recommandation } from '@/types/domain'
  * L'assistant de l'Assistant prix Tradéo (`CotationWizard`) reste tel quel.
  */
 type Etape = 'depart' | 'fournisseurs' | 'durees'
+
+/**
+ * ══ PRÉCHARGER AU SURVOL — William, 07/10/2026 : « fluidité et réactivité maximales » ══
+ * Monté par la fiche dès que la souris approche « Nouvelle version » (ou que le bouton prend le
+ * focus) : les lectures du parcours partent avant le clic, sous les mêmes clés, et la fenêtre s'ouvre
+ * sur des données déjà là. Le compte et les compteurs du périmètre sont déjà lus par la fiche.
+ */
+export function PrechargeNouvelleVersion({ reco }: { reco: Recommandation }) {
+  useMandatsParCompte(reco.compte_id)
+  useEcheancesRetenues(reco.compteur_ids ?? [])
+  useHistoriqueConsultations(reco.id)
+  useFournisseursConsultables()
+  useEligibilityRules()
+  useMappingRules()
+  return null
+}
 
 /**
  * ══ LE POINT DE DÉPART, PREMIÈRE ÉTAPE — William, 06/10/2026 ══ « Quand je clique sur nouvelle version,
