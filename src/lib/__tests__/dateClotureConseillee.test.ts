@@ -18,8 +18,11 @@ describe('la date de clôture conseillée (William, 06/10/2026 : jamais un week-
     // 30/06/2027 − 60 j = vendredi 30/04/2027.
     expect(dateClotureSuggereePour([{ id: 'k1', date_echeance: '2027-06-30' }], [], loin)).toBe('2027-04-30')
   })
-  it('sans échéance, rien n’est inventé', () => {
-    expect(dateClotureSuggereePour([{ id: 'k1', date_echeance: null }], [])).toBe('')
+  it('sans échéance, J+60 au jour ouvré (William, 07/10/2026) ; pas de date de préavis', () => {
+    // 07/10/2026 + 60 j = dimanche 06/12/2026 → vendredi 04/12/2026.
+    const auj = new Date(2026, 9, 7, 12)
+    expect(dateClotureSuggereePour([{ id: 'k1', date_echeance: null }], [], { aujourdhui: auj })).toBe('2026-12-04')
+    expect(dateClotureSuggereePour([{ id: 'k1', date_echeance: null }], [], { plafondJours: null })).toBe('')
   })
   it('au plus tard à J+60 : 31/08/2028 devient le 04/12/2026 un 06/10/2026 (le 05/12 est un samedi)', () => {
     const auj = new Date(2026, 9, 6, 12)

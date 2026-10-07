@@ -145,8 +145,10 @@ export function buildTitre(
  * recommandations d'un coup, chacune sur son propre lot de compteurs, donc chacune avec sa propre
  * date. La règle ne pouvait plus vivre dans l'état d'un seul formulaire.
  *
- * Chaîne vide si aucun compteur du lot ne porte d'échéance : mieux vaut un champ à remplir qu'une
- * date inventée — voir la règle des dates bouche-trou.
+ * ══ SANS ÉCHÉANCE, J+60 — William, 07/10/2026 ══ « Quand aucun compteur n'a d'échéance, je garde
+ * J+60 par défaut ? — Oui. » La date conseillée est alors aujourd'hui + 60 jours, au jour ouvré
+ * précédent. La date du seul préavis (`plafondJours: null`) reste vide : sans échéance, il n'y a pas
+ * de préavis à tenir, donc pas d'alerte.
  */
 export function dateClotureSuggereePour(
   compteurs: { id: string; date_echeance?: string | null }[],
@@ -171,13 +173,11 @@ export function dateClotureSuggereePour(
       return d
     })
     .filter((d): d is Date => d != null)
-  if (dates.length === 0) return ''
-  const d = dates.reduce((x, y) => (x < y ? x : y))
-  if (plafondJours != null) {
-    const auj = options.aujourdhui ?? new Date()
-    const plafond = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() + plafondJours, 12)
-    if (plafond < d) d.setTime(plafond.getTime())
-  }
+  if (dates.length === 0 && plafondJours == null) return ''
+  const auj = options.aujourdhui ?? new Date()
+  const plafond = plafondJours == null ? null : new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() + plafondJours, 12)
+  const d = dates.length > 0 ? dates.reduce((x, y) => (x < y ? x : y)) : (plafond as Date)
+  if (plafond && plafond < d) d.setTime(plafond.getTime())
   while (!estJourOuvreFR(d)) d.setDate(d.getDate() - 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -743,7 +743,7 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
                       >
                         <span className="font-mono text-[15px] font-semibold text-km-text">{dateFr(dateConseillee)}</span>
                         <span className="text-[10.5px] font-semibold text-km-green">Conseillée</span>
-                        <span className="text-[10.5px] leading-[1.35] text-km-muted">Échéance − préavis, au plus J+60, un jour ouvré</span>
+                        <span className="text-[10.5px] leading-[1.35] text-km-muted">{datePreavis ? 'Échéance − préavis, au plus J+60, un jour ouvré' : 'Aucune échéance connue : J+60, un jour ouvré'}</span>
                       </button>
                     )}
                     <label className={cn('flex flex-col gap-[5px] rounded-[12px] border px-[13px] py-[11px]', dateAutre != null || !dateConseillee ? 'border-[1.5px] border-km-green bg-km-green-tint' : 'border-km-line bg-white', !dateConseillee && 'col-span-2')}>
@@ -760,7 +760,6 @@ function ParcoursCreationRecommandation({ onClose, onCreated, initialCompteId, o
                   {dateAutre && datePreavis && dateAutre > datePreavis && (
                     <span className="flex items-start gap-1.5 text-[11px] text-km-amber"><AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" /> Après le {dateFr(datePreavis)} : le préavis risque d’être dépassé.</span>
                   )}
-                  {!dateConseillee && <span className="text-[10.5px] text-km-muted">Aucune échéance connue sur ces compteurs : la date se saisit.</span>}
                 </div>
                 <label className="flex flex-col gap-[9px]">
                   <span className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-km-faint">Montant estimé de l’affaire <span className="text-km-muted">*</span></span>
