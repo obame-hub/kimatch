@@ -413,14 +413,45 @@ export function useChiffrageMutations(versionId: string | null) {
   const relireTableau = () => { void qc.invalidateQueries({ queryKey: ['chiffrage', versionId] }) }
 
   const enregistrerLigne = useMutation({
-    mutationFn: async (x: { offre: OffreChiffrage; compteur: CompteurChiffrage; saisie: SaisieLigne; effortCommercial?: boolean }) => {
+    mutationFn: async (x: { offre: OffreChiffrage; compteur: CompteurChiffrage; saisie: SaisieLigne; effortCommercial?: boolean }): Promise<{ statutChange: boolean }> => {
       /* LE PRICING FIXE LA MARGE, LE COMMERCIAL L'AJUSTE. Une saisie du pricing pose les deux ;
          l'effort du commercial ne déplace que la marge appliquée, la marge du pricing reste. */
       const saisie = x.effortCommercial ? x.saisie : { ...x.saisie, margePricing: x.saisie.marge }
+      /* ══ LA LIGNE SE VALIDE AVEC SON PRIX, DANS LE MÊME ENREGISTREMENT — William, 07/10/2026 ══
+         « Parfois on renseigne tous les prix mais ça reste à 0/1 et 0/2. » Le passage en « chiffrée »
+         attendait que le tableau se relise, puis qu'un effet de la ligne le demande à part : le
+         journal montre deux offres complètes à 16 h 06 et 16 h 07, passées disponibles à 16 h 12
+         seulement, au rechargement. Le statut se décide maintenant ici, sur la même règle
+         (`saisieComplete` sur tous les compteurs de la version), et s'écrit juste après le prix ; le
+         tableau le montre aussitôt. L'effet de la ligne reste en filet. Une offre que le fournisseur
+         ne propose pas n'est jamais touchée, ni l'effort du commercial (sa marge seule bouge). */
+      /* Une relecture partie avant cette case rapporterait l'état d'avant : elle s'arrête. */
+      await qc.cancelQueries({ queryKey: ['chiffrage', versionId] })
+      const ch = qc.getQueryData<Chiffrage>(['chiffrage', versionId])
+      const enCache = ch?.offres.find((o) => o.id === x.offre.id) ?? x.offre
+      const saisies = { ...enCache.saisies, [x.compteur.vcId]: saisie }
+      const complete = (ch?.compteurs ?? [x.compteur]).every((c) => saisieComplete(c, saisies[c.vcId]))
+      const cible = complete ? 'DISPONIBLE' : 'EN_ATTENTE'
+      const changer = !x.effortCommercial && enCache.statut !== 'INDISPONIBLE' && enCache.statut !== cible
+      qc.setQueryData<Chiffrage>(['chiffrage', versionId], (c) => c && ({
+        ...c,
+        offres: c.offres.map((o) => (o.id === x.offre.id ? { ...o, saisies: { ...o.saisies, [x.compteur.vcId]: saisie }, statut: changer ? cible : o.statut } : o)),
+      }))
       await enregistrerPrixCompteur({ offreId: x.offre.id, versionCompteurId: x.compteur.vcId, energie: x.compteur.energie, prix: versPrix(x.compteur, saisie, x.offre.type, x.offre.duree) })
+      if (changer) {
+        const { error } = await supabase.from('offres_fournisseurs')
+          .update({ statut: cible, date_modification: new Date().toISOString() })
+          .eq('id', x.offre.id)
+          .neq('statut', 'INDISPONIBLE')
+        if (error) throw new Error(error.message)
+      }
+      return { statutChange: changer }
     },
-    /* L'effort commercial (« Générer l'offre ») change ce que la recommandation affiche : tout se relit. */
-    onSuccess: (_r, x) => (x.effortCommercial ? rafraichir() : relireTableau()),
+    /* L'effort commercial (« Générer l'offre ») et un changement de statut changent ce que la
+       recommandation et les listes affichent : tout se relit. Sinon, le tableau seul. */
+    onSuccess: (r, x) => (x.effortCommercial || r.statutChange ? rafraichir() : relireTableau()),
+    /* Refusé, le tableau revient à ce que dit la base. */
+    onError: () => relireTableau(),
   })
 
   const changerStatut = useMutation({
