@@ -156,17 +156,29 @@ function lireSaisie(detail: any, energie: EnergieChiffrage): SaisieLigne {
   return { ...SAISIE_VIDE, marge, margePricing, inclus, abonnementMois: abo == null ? null : abo / 12, cee: num(e?.prix_cee_mwh), p0Postes, capacite }
 }
 
+/**
+ * ══ LE RÉGLEMENTÉ, GARDÉ EN MÉMOIRE — 07/10/2026 ══
+ * « Fluidité et réactivité maximales. » Le tableau se relit après chaque case enregistrée ; il
+ * relançait à chaque fois le calcul du réglementé de chaque compteur (un appel en base, ~50 ms côté
+ * serveur, plus l'aller-retour) alors que TURPE, accise, TQD, CTA et CPB ne bougent pas d'une case à
+ * l'autre. Le résultat se garde 10 minutes par compteur de version ; la publication l'oublie (elle
+ * fige la date d'envoi).
+ */
+const DUREE_REGLEMENTAIRE_MS = 10 * 60 * 1000
+const reglementaireEnMemoire = new Map<string, { quand: number; valeur: Reglementaire }>()
+export function oublierReglementaire(vcIds?: string[]) {
+  if (!vcIds) reglementaireEnMemoire.clear()
+  else for (const id of vcIds) reglementaireEnMemoire.delete(id)
+}
+
 async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
-  const { data: v, error: eV } = await supabase
+  /* PREMIÈRE VAGUE, EN PARALLÈLE : la version, ses compteurs, son optimisation. */
+  const [{ data: v, error: eV }, { data: vcs, error: eVc }, { data: opts }] = await Promise.all([
+    supabase
     .from('versions_recommandation')
     .select('id, numero_version, nom, reference_appel_offres, date_souhaitee, date_publication_comparatif, modele_offre, statut:statuts_versions_recommandation(code), reco:recommandations(id, nom, compte:comptes!recommandations_compte_id_fkey(nom, segment), type_energie:types_energies(code))')
     .eq('id', versionId)
-    .single()
-  if (eV) throw new Error(eV.message)
-  const reco = premier((v as any).reco)
-  const energieVersion: EnergieChiffrage = String(premier(reco?.type_energie)?.code ?? '').toUpperCase() === 'GAZ' ? 'gaz' : 'electricite'
-
-  const [{ data: vcs, error: eVc }, { data: opts }] = await Promise.all([
+    .single(),
     supabase
       .from('versions_recommandation_compteurs')
       .select('id, compteur_id, actif, compteur:compteurs(id, numero_point, libelle, libelle_site, code_postal, site:sites!compteurs_site_id_fkey(code_postal), fournisseur_actuel_compte_id, fournisseur_actuel:comptes!compteurs_fournisseur_actuel_compte_id_fkey(nom), type_energie:types_energies(code), compteurs_gaz(*), compteurs_electricite(*))')
@@ -174,7 +186,10 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
       .eq('actif', true),
     supabase.from('optimisations').select('id').eq('version_recommandation_id', versionId).order('ordre').limit(1),
   ])
+  if (eV) throw new Error(eV.message)
   if (eVc) throw new Error(eVc.message)
+  const reco = premier((v as any).reco)
+  const energieVersion: EnergieChiffrage = String(premier(reco?.type_energie)?.code ?? '').toUpperCase() === 'GAZ' ? 'gaz' : 'electricite'
   const compteurs: CompteurChiffrage[] = ((vcs ?? []) as any[]).map((r) => {
     const c = premier(r.compteur)
     const g = premier(c?.compteurs_gaz)
@@ -198,10 +213,15 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
      budgets ». La base prend TURPE, AE, AG, TQD et CTA au jour de l'envoi (publication du
      comparatif, ou aujourd'hui), le CPB sur les années de fourniture ; elle les note sur le compteur
      de la version et les reporte sur les lignes déjà chiffrées. Le Pricer les ajoute à chaque budget
-     sans en faire une colonne. */
-  await Promise.all(compteurs.map(async (c) => {
+     sans en faire une colonne. Gardé en mémoire (voir `reglementaireEnMemoire`). */
+  const maintenant = Date.now()
+  const aCalculer = compteurs.filter((c) => !(reglementaireEnMemoire.get(c.vcId) && maintenant - reglementaireEnMemoire.get(c.vcId)!.quand < DUREE_REGLEMENTAIRE_MS))
+  const reglementer = () => Promise.all(compteurs.map(async (c) => {
+    const garde = reglementaireEnMemoire.get(c.vcId)
+    if (garde && maintenant - garde.quand < DUREE_REGLEMENTAIRE_MS) { c.reglementaire = garde.valeur; return }
     try {
       c.reglementaire = await calculerReglementaire(c.vcId)
+      reglementaireEnMemoire.set(c.vcId, { quand: Date.now(), valeur: c.reglementaire })
     } catch (e) {
       c.reglementaire = { dateEnvoi: null, envoiFige: false, dateReference: null, echeance: null, sourceDate: null, accise: null, tqd: null, cta: null, ctaTaux: null, cpb: {}, turpe: null, derniereValeurConnue: [], manques: [`Calcul impossible : ${(e as Error).message}`] }
     }
@@ -211,26 +231,31 @@ async function chargerChiffrage(versionId: string): Promise<Chiffrage> {
   let commande: CommandeFournisseur[] = []
   let offres: OffreChiffrage[] = []
   let actuelle: OffreChiffrage | null = null
-  if (optimisationId) {
-    const [{ data: ofs }, { data: lignesOffres, error: eO }] = await Promise.all([
-      supabase.from('optimisations_fournisseurs').select('id, fournisseur_compte_id, durees_mois, types_prix, date_creation, fournisseur:comptes(nom)').eq('optimisation_id', optimisationId).order('date_creation'),
-      supabase
-        .from('offres_fournisseurs')
-        .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, date_validite, fiche:comptes_fournisseurs(logo_url, compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, p0_inclut, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, cout_total_annuel_estime_ttc, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
-        .eq('optimisation_id', optimisationId)
-        .eq('actif', true),
-    ])
+  /* LA COMMANDE ET LES OFFRES, en une vague (la fiche fournisseur vient avec la commande). Quand le
+     réglementé doit être recalculé, il passe d'abord : la base reporte ses montants sur les lignes
+     chiffrées, qu'on lit juste après. Sinon tout part en même temps. */
+  const lireOffres = () => optimisationId ? Promise.all([
+    supabase.from('optimisations_fournisseurs').select('id, fournisseur_compte_id, durees_mois, types_prix, date_creation, fournisseur:comptes(nom, comptes_fournisseurs(mode_reponse, tradeo_prix_automatiques))').eq('optimisation_id', optimisationId).order('date_creation'),
+    supabase
+      .from('offres_fournisseurs')
+      .select('id, optimisation_fournisseur_id, compte_fournisseur_id, duree_mois, type_prix, statut, nature_offre, actif, date_validite, fiche:comptes_fournisseurs(logo_url, compte:comptes(nom)), clause_tacite_reconduction, clause_depot_garantie, clause_engagement_consommation, clause_renegociation_anticipee, clause_swap, details:offres_fournisseurs_compteurs(id, version_recommandation_compteur_id, p0_inclut, marge_reelle_eur_mwh, marge_retenue_eur_mwh, cout_total_annuel_estime_ht, cout_total_annuel_estime_ttc, offres_compteurs_gaz(*), offres_compteurs_electricite(*))')
+      .eq('optimisation_id', optimisationId)
+      .eq('actif', true),
+  ]) : Promise.resolve(null)
+  let lues: Awaited<ReturnType<typeof lireOffres>>
+  if (aCalculer.length > 0) { await reglementer(); lues = await lireOffres() }
+  else { [, lues] = await Promise.all([reglementer(), lireOffres()]) }
+
+  if (optimisationId && lues) {
+    const [{ data: ofs }, { data: lignesOffres, error: eO }] = lues
     if (eO) throw new Error(eO.message)
-    const idsFournisseurs = ((ofs ?? []) as any[]).map((f) => f.fournisseur_compte_id)
-    const { data: fiches } = idsFournisseurs.length
-      ? await supabase.from('comptes_fournisseurs').select('compte_id, mode_reponse, tradeo_prix_automatiques').in('compte_id', idsFournisseurs)
-      : { data: [] as any[] }
-    const modes = new Map(((fiches ?? []) as any[]).map((f) => [f.compte_id, f.mode_reponse ?? null]))
-    const automatiques = new Map(((fiches ?? []) as any[]).map((f) => [f.compte_id, f.tradeo_prix_automatiques !== false]))
-    commande = ((ofs ?? []) as any[]).map((f) => ({
-      id: f.id, fournisseurId: f.fournisseur_compte_id, nom: premier(f.fournisseur)?.nom ?? 'Fournisseur', modeReponse: modes.get(f.fournisseur_compte_id) ?? null, prixAutomatiques: automatiques.get(f.fournisseur_compte_id) ?? true,
-      durees: [...(f.durees_mois ?? [])].sort((a: number, b: number) => a - b), types: f.types_prix ?? [],
-    }))
+    commande = ((ofs ?? []) as any[]).map((f) => {
+      const fiche = premier(premier(f.fournisseur)?.comptes_fournisseurs)
+      return {
+        id: f.id, fournisseurId: f.fournisseur_compte_id, nom: premier(f.fournisseur)?.nom ?? 'Fournisseur', modeReponse: fiche?.mode_reponse ?? null, prixAutomatiques: fiche?.tradeo_prix_automatiques !== false,
+        durees: [...(f.durees_mois ?? [])].sort((a: number, b: number) => a - b), types: f.types_prix ?? [],
+      }
+    })
     const lire = (o: any): OffreChiffrage => {
       const saisies: Record<string, SaisieLigne> = {}
       const totalParCompteur: Record<string, number | null> = {}
@@ -383,6 +408,9 @@ export function useChiffrageMutations(versionId: string | null) {
     void qc.invalidateQueries({ queryKey: ['pricing'] })
     void qc.invalidateQueries({ queryKey: ['recommandations'] })
   }
+  /* UNE CASE, UNE CLAUSE : seul le tableau se relit (07/10/2026) — la liste des dossiers et les
+     recommandations ne changent pas pour un prix saisi ; leur état suit les changements de statut. */
+  const relireTableau = () => { void qc.invalidateQueries({ queryKey: ['chiffrage', versionId] }) }
 
   const enregistrerLigne = useMutation({
     mutationFn: async (x: { offre: OffreChiffrage; compteur: CompteurChiffrage; saisie: SaisieLigne; effortCommercial?: boolean }) => {
@@ -391,7 +419,8 @@ export function useChiffrageMutations(versionId: string | null) {
       const saisie = x.effortCommercial ? x.saisie : { ...x.saisie, margePricing: x.saisie.marge }
       await enregistrerPrixCompteur({ offreId: x.offre.id, versionCompteurId: x.compteur.vcId, energie: x.compteur.energie, prix: versPrix(x.compteur, saisie, x.offre.type, x.offre.duree) })
     },
-    onSuccess: rafraichir,
+    /* L'effort commercial (« Générer l'offre ») change ce que la recommandation affiche : tout se relit. */
+    onSuccess: (_r, x) => (x.effortCommercial ? rafraichir() : relireTableau()),
   })
 
   const changerStatut = useMutation({
@@ -479,7 +508,7 @@ export function useChiffrageMutations(versionId: string | null) {
       }).eq('id', x.offreId)
       if (error) throw new Error(error.message)
     },
-    onSuccess: rafraichir,
+    onSuccess: relireTableau,
   })
 
   const majCommande = useMutation({
@@ -533,7 +562,7 @@ export function useChiffrageMutations(versionId: string | null) {
       if (error) throw new Error(error.message)
       await enregistrerPrixCompteur({ offreId: data as string, versionCompteurId: x.compteur.vcId, energie: x.compteur.energie, prix: versPrix(x.compteur, x.saisie, 'Fixe', x.duree) })
     },
-    onSuccess: rafraichir,
+    onSuccess: relireTableau,
   })
 
   /** Avec ou sans offre de référence : la retirer la désactive, la rétablir la réactive (`fn_definir_modele_offre`). */
@@ -550,7 +579,7 @@ export function useChiffrageMutations(versionId: string | null) {
       const { error } = await supabase.rpc('fn_publier_comparatif', { p_version: versionId })
       if (error) throw new Error(error.message)
     },
-    onSuccess: rafraichir,
+    onSuccess: () => { oublierReglementaire(); rafraichir() },
   })
 
   return { ajouterOffre, enregistrerLigne, changerStatut, nonProposee, majSansPointe, majClauses, majValidite, majCommande, enregistrerActuelle, definirComparatif, publier }

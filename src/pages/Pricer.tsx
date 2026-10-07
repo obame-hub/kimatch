@@ -74,9 +74,12 @@ export default function Pricer() {
           {multisites > 0 && <span title="Le Pricer ne chiffre pas encore les dossiers multisites."> · {multisites} multisite{multisites > 1 ? 's' : ''} hors Pricer</span>}
         </span>
         <span className="flex-1" />
+        {/* QUITTER, AU PREMIER CLIC — William, 07/10/2026. Chaque dossier ouvert s'empilait dans
+            l'historique (`?version=`), et « Quitter » ne reculait que d'un cran : autant de clics que de
+            dossiers vus. Changer de dossier remplace désormais l'adresse au lieu de l'empiler. */}
         <button
           type="button"
-          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/pricing'))}
+          onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/pricing'))}
           className="inline-flex h-8 items-center gap-1.5 rounded-km border border-km-side-line px-3 text-[12px] font-semibold text-km-side-muted transition-colors hover:bg-white/[0.055] hover:text-km-side-text"
         >
           <X className="h-3.5 w-3.5" /> Quitter
@@ -97,7 +100,7 @@ export default function Pricer() {
                 <button
                   key={v.version_id}
                   type="button"
-                  onClick={() => { setSurvol(null); setParams({ version: v.version_id }) }}
+                  onClick={() => { setSurvol(null); setParams({ version: v.version_id }, { replace: true }) }}
                   onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSurvol({ v, top: r.top, left: r.right + 10 }) }}
                   onMouseLeave={() => setSurvol(null)}
                   onFocus={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSurvol({ v, top: r.top, left: r.right + 10 }) }}
@@ -140,8 +143,8 @@ export default function Pricer() {
                 <p className="mt-1 text-km-body text-km-muted">Aucune version attendue aujourd’hui ni en retard.</p>
               </div>
             )}
-            <Groupe titre="En retard" classes="text-km-red" versions={enRetard} choisie={choisie} choisir={(id) => setParams({ version: id })} />
-            <Groupe titre="Aujourd’hui" classes="text-km-amber" versions={duJour} choisie={choisie} choisir={(id) => setParams({ version: id })} />
+            <Groupe titre="En retard" classes="text-km-red" versions={enRetard} choisie={choisie} choisir={(id) => setParams({ version: id }, { replace: true })} />
+            <Groupe titre="Aujourd’hui" classes="text-km-amber" versions={duJour} choisie={choisie} choisir={(id) => setParams({ version: id }, { replace: true })} />
           </nav>
         )}
 

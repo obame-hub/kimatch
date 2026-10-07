@@ -16,7 +16,7 @@ import { ttcParDefaut } from '@/lib/offrePdf/construction'
 import { logoFournisseurNet } from '@/lib/logosFournisseurs'
 import { depuisBrouillon, versBrouillon, type Brouillon } from '@/lib/pricing/brouillon'
 import { useQueryClient } from '@tanstack/react-query'
-import { useMandats } from '@/lib/data/mandats'
+import { useMandatsDuCompteur } from '@/lib/data/mandats'
 import { mandatKiweeCouvre } from '@/lib/couvertureMandat'
 import { useSynchroCompteur } from '@/lib/data/synchroCompteur'
 import {
@@ -501,7 +501,7 @@ function BandeauCompteur({ chiffrage, compteur, onChoisir, onToast }: { chiffrag
  */
 function BoutonSynchro({ compteur, onToast }: { compteur: CompteurChiffrage; onToast: (m: string) => void }) {
   const qc = useQueryClient()
-  const { data: mandats } = useMandats()
+  const { data: mandats } = useMandatsDuCompteur(compteur.compteurId)
   const synchro = useSynchroCompteur(onToast)
   const autorisee = !!mandats && mandatKiweeCouvre(mandats, compteur.compteurId)
   const nom = compteur.energie === 'gaz' ? 'GRDF' : 'Enedis'

@@ -1221,11 +1221,14 @@ export function useCreateVersion() {
       // « REMPLACEE » N'EXISTE PLUS (Michel, 28/08/2026). Une version qui cède la place est
       // désormais CLOTUREE avec le résultat EXPIREE : elle n'est plus valable, et c'est exactement
       // ce que ce résultat dit. Voir la migration 20260828100000.
-      const { data: statutCloturee } = await supabase.from('statuts_versions_recommandation').select('id').eq('code', 'CLOTUREE').maybeSingle()
-      const { data: versionsExistantes } = await supabase
-        .from('versions_recommandation')
-        .select('id, numero_version, version_actuelle, statut:statuts_versions_recommandation(code)')
-        .eq('recommandation_id', input.recommandation_id)
+      /* Deux lectures indépendantes, en même temps (07/10/2026). */
+      const [{ data: statutCloturee }, { data: versionsExistantes }] = await Promise.all([
+        supabase.from('statuts_versions_recommandation').select('id').eq('code', 'CLOTUREE').maybeSingle(),
+        supabase
+          .from('versions_recommandation')
+          .select('id, numero_version, version_actuelle, statut:statuts_versions_recommandation(code)')
+          .eq('recommandation_id', input.recommandation_id),
+      ])
 
       const estActualisation = (versionsExistantes ?? []).length > 0
       // Numérotation continue par recommandation : on repart du plus grand numéro existant plutôt
@@ -1313,20 +1316,15 @@ export function useCreateVersion() {
       if (error) throw new Error(error.message)
       const versionId = (version as { id: string }).id
 
-      if (input.compteur_ids.length > 0) {
-        await supabase
-          .from('versions_recommandation_compteurs')
-          .insert(input.compteur_ids.map((compteur_id) => ({ version_recommandation_id: versionId, compteur_id })))
-      }
-
+      /* ══ TROIS ÉCRITURES EN MÊME TEMPS (07/10/2026) ══ Les compteurs de la version, ses durées, et
+         son optimisation suivie de la commande des fournisseurs ne dépendent que de la version : ils
+         partaient l'un après l'autre. La base tire les offres de la commande seule
+         (`fn_offres_suivent_la_commande`), sans lire compteurs ni durées. */
       // Durées par PDL. Une ligne par (version, compteur, durée) -- la clé primaire dédoublonne,
       // les bornes 1-60 sont vérifiées côté base.
       const lignesDurees = Object.entries(input.durees_par_compteur).flatMap(([compteur_id, durees]) =>
         durees.map((duree_mois) => ({ version_recommandation_id: versionId, compteur_id, duree_mois })),
       )
-      if (lignesDurees.length > 0) {
-        await supabase.from('versions_recommandation_durees').insert(lignesDurees)
-      }
 
       // Compte rendu de la création des offres attendues, remonté au wizard : une création d'offres
       // qui échoue ne doit plus se contenter d'une ligne de console (voir plus bas).
@@ -1335,8 +1333,8 @@ export function useCreateVersion() {
       // La base crée désormais la fiche fournisseur qui manquait : plus aucun fournisseur sans offre.
       const fournisseursSansFiche = 0
 
-      let optimisationId: string | null = null
-      if (input.fournisseur_ids.length > 0) {
+      const commande = async () => {
+        if (input.fournisseur_ids.length === 0) return
         const { data: optimisation } = await supabase
           .from('optimisations')
           .insert({
@@ -1348,38 +1346,45 @@ export function useCreateVersion() {
           })
           .select('id')
           .single()
-        optimisationId = (optimisation as { id: string } | null)?.id ?? null
-        if (optimisationId) {
-          /* ══ LA COMMANDE DE CHAQUE FOURNISSEUR, ET LA BASE QUI EN TIRE LES OFFRES (01/10/2026) ══
-             William : la commande se porte par fournisseur consulté (`durees_mois`, `types_prix`),
-             et « toutes les offres doivent exister sous cette version ». C'est désormais la base qui
-             crée une offre par durée × type commandé (`fn_offres_suivent_la_commande`, déclenchée à
-             l'insertion) — y compris la fiche fournisseur qui manquait à 33 comptes sur 52 et
-             privait leurs offres d'exister. Les durées sont celles de la version, les mêmes pour
-             tous ses compteurs : « une version correspond à un appel d'offres ». */
-          const dureesDemandees = [...new Set(Object.values(input.durees_par_compteur).flat())].sort((a, b) => a - b)
-          const typesDemandes = input.types_prix.length > 0 ? input.types_prix : ['Fixe']
-          const { error: eConsultes } = await supabase
-            .from('optimisations_fournisseurs')
-            .insert(input.fournisseur_ids.map((fournisseur_compte_id) => ({
-              optimisation_id: optimisationId,
-              fournisseur_compte_id,
-              durees_mois: input.durees_par_fournisseur?.[fournisseur_compte_id] ?? dureesDemandees,
-              ...(input.durees_fournisseur_compteur?.[fournisseur_compte_id] ? { durees_par_compteur: input.durees_fournisseur_compteur[fournisseur_compte_id] } : {}),
-              types_prix: typesDemandes,
-            })))
-          if (eConsultes) {
-            console.error('Consultation des fournisseurs échouée', eConsultes)
-            offresEchouees = input.fournisseur_ids.length * Math.max(1, dureesDemandees.length) * typesDemandes.length
-          } else {
-            const { count } = await supabase
-              .from('offres_fournisseurs')
-              .select('id', { count: 'exact', head: true })
-              .eq('optimisation_id', optimisationId)
-            offresCreees = count ?? 0
-          }
+        const optimisationId = (optimisation as { id: string } | null)?.id ?? null
+        if (!optimisationId) return
+        /* ══ LA COMMANDE DE CHAQUE FOURNISSEUR, ET LA BASE QUI EN TIRE LES OFFRES (01/10/2026) ══
+           William : la commande se porte par fournisseur consulté (`durees_mois`, `types_prix`),
+           et « toutes les offres doivent exister sous cette version ». C'est désormais la base qui
+           crée une offre par durée × type commandé (`fn_offres_suivent_la_commande`, déclenchée à
+           l'insertion) — y compris la fiche fournisseur qui manquait à 33 comptes sur 52 et
+           privait leurs offres d'exister. Les durées sont celles de la version, les mêmes pour
+           tous ses compteurs : « une version correspond à un appel d'offres ». */
+        const dureesDemandees = [...new Set(Object.values(input.durees_par_compteur).flat())].sort((a, b) => a - b)
+        const typesDemandes = input.types_prix.length > 0 ? input.types_prix : ['Fixe']
+        const { error: eConsultes } = await supabase
+          .from('optimisations_fournisseurs')
+          .insert(input.fournisseur_ids.map((fournisseur_compte_id) => ({
+            optimisation_id: optimisationId,
+            fournisseur_compte_id,
+            durees_mois: input.durees_par_fournisseur?.[fournisseur_compte_id] ?? dureesDemandees,
+            ...(input.durees_fournisseur_compteur?.[fournisseur_compte_id] ? { durees_par_compteur: input.durees_fournisseur_compteur[fournisseur_compte_id] } : {}),
+            types_prix: typesDemandes,
+          })))
+        if (eConsultes) {
+          console.error('Consultation des fournisseurs échouée', eConsultes)
+          offresEchouees = input.fournisseur_ids.length * Math.max(1, dureesDemandees.length) * typesDemandes.length
+        } else {
+          const { count } = await supabase
+            .from('offres_fournisseurs')
+            .select('id', { count: 'exact', head: true })
+            .eq('optimisation_id', optimisationId)
+          offresCreees = count ?? 0
         }
       }
+
+      await Promise.all([
+        input.compteur_ids.length > 0
+          ? supabase.from('versions_recommandation_compteurs').insert(input.compteur_ids.map((compteur_id) => ({ version_recommandation_id: versionId, compteur_id })))
+          : null,
+        lignesDurees.length > 0 ? supabase.from('versions_recommandation_durees').insert(lignesDurees) : null,
+        commande(),
+      ])
 
       // L'étape de l'opportunité ne passe à "En analyse" qu'à la toute première cotation.
       if (!estActualisation && input.etape_en_analyse_id) {
@@ -1396,7 +1401,13 @@ export function useCreateVersion() {
      * retournant depuis `onSuccess`, React Query attend le rafraîchissement avant de résoudre
      * `mutateAsync` — quand le dialogue se ferme, la version est déjà là.
      */
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recommandations'] }),
+    /* ON N'ATTEND QUE LA FICHE DU DOSSIER (07/10/2026) : c'est elle qui doit montrer la nouvelle
+       version à la fermeture. Les listes (1 855 recommandations) se relisent derrière, sans retenir
+       l'écran sur « Lancement… ». */
+    onSuccess: (_r, input) => {
+      void queryClient.invalidateQueries({ queryKey: ['recommandations'], predicate: (q) => !(q.queryKey[1] === 'un' && q.queryKey[2] === input.recommandation_id) })
+      return queryClient.invalidateQueries({ queryKey: ['recommandations', 'un', input.recommandation_id] })
+    },
   })
 }
 

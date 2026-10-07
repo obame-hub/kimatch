@@ -177,6 +177,39 @@ export function useMandats() {
   return useQuery({ queryKey: ['mandats'], queryFn: () => fetchMandats() })
 }
 
+/**
+ * ══ LES MANDATS D'UN SEUL COMPTEUR — 07/10/2026 ══
+ * Juste de quoi dire s'il est couvert (`mandatKiweeCouvre`) : son lien au mandat (caduc ou non), le
+ * statut, la fin de validité et les courtiers. Le bouton Enedis / GRDF du Pricer lisait pour cela
+ * TOUS les mandats de la base, leurs compteurs et leurs courtiers.
+ */
+export function useMandatsDuCompteur(compteurId: string | undefined) {
+  return useQuery({
+    queryKey: ['mandats', 'compteur', compteurId],
+    enabled: !!compteurId,
+    queryFn: async (): Promise<Mandat[]> => {
+      const { data, error } = await supabase
+        .from('mandats_compteurs')
+        .select('caduc_depuis, mandat:mandats(id, compte_id, date_fin_validite, statut:statuts_mandats(code), courtiers:mandats_courtiers(type:types_courtiers_mandat(code)))')
+        .eq('compteur_id', compteurId as string)
+      if (error) throw new Error(error.message)
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const un = (x: any) => (Array.isArray(x) ? x[0] : x)
+      return ((data ?? []) as any[]).map((l) => {
+        const m = un(l.mandat)
+        return {
+          id: m?.id, compte_id: m?.compte_id, date_fin_validite: m?.date_fin_validite ?? null,
+          statut: un(m?.statut)?.code ?? '',
+          courtier_codes: ((m?.courtiers ?? []) as any[]).map((c) => un(c.type)?.code).filter(Boolean),
+          compteur_ids: [compteurId as string],
+          compteur_ids_caducs: l.caduc_depuis ? [compteurId as string] : [],
+        } as unknown as Mandat
+      })
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    },
+  })
+}
+
 /** Mandats d'un seul compte, filtrés côté serveur. À préférer sur toute fiche. */
 export function useMandatsParCompte(compteId: string | undefined) {
   return useQuery({

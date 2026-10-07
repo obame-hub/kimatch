@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Building2, ChevronDown, ExternalLink, FileText, Gauge, Mail, MailCheck, MailOpen, MailQuestion,
   MailX, NotebookPen, Phone, PhoneOff, Play, Plus, X,
@@ -630,10 +630,15 @@ const LIBELLE_ETIQUETTE: Record<string, string> = {
  * reste du sprint) ou se retire d'une croix ; la dernière ligne en ajoute une, Entrée pour valider.
  * Chaque geste écrit la liste entière : c'est une seule colonne en base.
  */
-function CoprosAnnoncees({ pisteId, copros }: { pisteId: string; copros: string[] }) {
+function CoprosAnnoncees({ pisteId, copros: lues }: { pisteId: string; copros: string[] }) {
   const maj = useMajCoproprietesPiste()
   const [nouvelle, setNouvelle] = useState('')
-  const ecrire = (liste: string[]) => maj.mutateAsync({ pisteId, coproprietes: liste })
+  /* AFFICHÉE TOUT DE SUITE (07/10/2026, « réactivité maximale ») : la liste change à la frappe, la
+     base suit derrière ; une relecture du cockpit la remet d'accord avec ce qui est enregistré. */
+  const [copros, setCopros] = useState(lues)
+  const cleLues = lues.join('\n')
+  useEffect(() => { setCopros(lues) }, [cleLues]) // eslint-disable-line react-hooks/exhaustive-deps
+  const ecrire = (liste: string[]) => { setCopros(liste); return maj.mutateAsync({ pisteId, coproprietes: liste }).catch(() => setCopros(lues)) }
 
   function ajouter() {
     const c = nouvelle.trim()
