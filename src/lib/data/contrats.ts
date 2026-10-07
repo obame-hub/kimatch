@@ -67,7 +67,14 @@ interface RawContrat {
 
 /** `compteId` restreint la lecture aux contrats d'un compte, jointure des compteurs comprise.
  *  Même motif que fetchMandats : une fiche compte ne doit pas payer les 1598 contrats du CRM. */
-async function fetchContrats(compteId?: string, contratId?: string, listeSeule = false): Promise<Contrat[]> {
+async function fetchContrats(
+  compteId?: string,
+  contratId?: string,
+  listeSeule = false,
+  /** Un autre filtre serveur sur `contrats` (la fiche contact : signés par lui OU sur ses sites). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  filtre?: (q: any) => any,
+): Promise<Contrat[]> {
   try {
     const contrats = await fetchAllRows<RawContrat>(
       'contrats',
@@ -77,11 +84,12 @@ async function fetchContrats(compteId?: string, contratId?: string, listeSeule =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (contratId) return q.eq('id', contratId)
+        if (filtre) return filtre(q).order('date_debut', { ascending: false })
         return (compteId ? q.eq('compte_id', compteId) : q).order('date_debut', { ascending: false })
       },
     )
     const contratIds = contrats.map((c) => c.id)
-    const cible = Boolean(compteId || contratId)
+    const cible = Boolean(compteId || contratId || filtre)
     if (cible && contratIds.length === 0) return []
     // Le tableau de bord ne lit que le statut d'un contrat : voir useContratsListe.
     const compteursRows = listeSeule ? [] : await fetchAllRows<{ id: string; contrat_id: string; compteur: { id: string; numero_point: string; libelle: string | null } | null }>(
@@ -250,6 +258,18 @@ export function useContratsDeRecommandation(recoId: string | undefined) {
         statut: (c.statut?.code ?? '') as string,
       }))
     },
+  })
+}
+
+/** Les contrats d'une fiche contact : ceux qu'il a signés, et ceux posés sur ses sites (07/10/2026). */
+export function useContratsDuContact(contactId: string | undefined, siteIds: string[]) {
+  const sites = [...siteIds].sort()
+  return useQuery({
+    queryKey: ['contrats', 'contact', contactId, sites.join(',')],
+    queryFn: () => fetchContrats(undefined, undefined, false, (q) => q.or(
+      sites.length > 0 ? `contact_signataire_id.eq.${contactId},site_id.in.(${sites.join(',')})` : `contact_signataire_id.eq.${contactId}`,
+    )),
+    enabled: !!contactId,
   })
 }
 

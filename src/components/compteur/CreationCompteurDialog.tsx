@@ -20,9 +20,9 @@ import {
 } from '@/components/compteur/PdlDraftRows'
 import { cn } from '@/lib/utils'
 import { useReferenceTable } from '@/lib/data/referenceTables'
-import { useComptes } from '@/lib/data/comptes'
-import { useContacts } from '@/lib/data/contacts'
-import { useCompteurs, useCreateCompteur } from '@/lib/data/compteurs'
+import { useComptes, useFournisseursConsultables } from '@/lib/data/comptes'
+import { useContactsParCompte } from '@/lib/data/contacts'
+import { useCompteursParNumeros, useCreateCompteur } from '@/lib/data/compteurs'
 import { useTeleverserDocuments } from '@/lib/data/documents'
 import { useExtractDocument } from '@/lib/data/ocr'
 import { enregistrerObservations, type ChampAppris } from '@/lib/data/apprentissageExtraction'
@@ -157,15 +157,20 @@ export function CreationCompteurDialog({
   const { data: energiesRef } = useReferenceTable('types_energies')
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
   const { data: utilisationsRef } = useReferenceTable('types_utilisations_compteur')
-  const { data: comptes } = useComptes()
+  /* ══ CE QUE LE FORMULAIRE TOUCHE, PAS LA BASE — William, 07/10/2026 : « fluidité maximale » ══
+     Il lisait à son ouverture tous les comptes, tous les contacts et les 7 899 compteurs de Kimatch.
+     Il ne lit plus que les fournisseurs, les contacts du compte, et — pour le contrôle de doublon —
+     les compteurs qui portent déjà les numéros saisis. La liste des comptes ne se charge que quand
+     aucun compte n'est donné, pour le sélecteur. « Autre contact » charge la base à la demande. */
+  const { data: comptes } = useComptes(!compteImpose)
+  const { data: fournisseursLus } = useFournisseursConsultables()
   // Depuis une fiche compte, le compte est connu. Depuis la liste des sites, l'utilisateur le
   // choisit ici — c'est la seule différence entre les deux points d'entrée.
   const [compteChoisiId, setCompteChoisiId] = useState(compteIdParDefaut ?? '')
   const navigate = useNavigate()
   const compte = compteImpose ?? (comptes ?? []).find((c) => c.id === compteChoisiId)
   const comptesClients = (comptes ?? []).filter((c) => c.type_compte !== 'fournisseur')
-  const { data: contacts } = useContacts()
-  const { data: compteurs } = useCompteurs()
+  const { data: contacts } = useContactsParCompte(compte?.id)
   const createSite = useCreateSite()
   // Sert à compléter l'adresse d'un site retrouvé sans adresse — voir `resoudreSitePourDraft`.
   const majSitePartiel = useUpdateSitePartiel()
@@ -176,6 +181,7 @@ export function CreationCompteurDialog({
   // Plus d'etape « adresse » ni d'ecran de desambiguisation : le site est un simple libelle saisi
   // dans le formulaire du PDL, resolu ou cree a l'enregistrement (decision William 06/08/2026).
   const [drafts, setDrafts] = useState<PdlDraft[]>([emptyPdlDraft(responsableParDefautId)])
+  const { data: compteurs } = useCompteursParNumeros(drafts.map((d) => d.numeroPdl))
   const [submitting, setSubmitting] = useState(false)
   const [createdCompteurs, setCreatedCompteurs] = useState<ChainedCompteur[] | null>(null)
   // Champs de la facture extraits à l'étape adresse : ils servent l'adresse tout de suite, puis
@@ -188,7 +194,7 @@ export function CreationCompteurDialog({
   /* Les compteurs déjà enregistrés dans cette session de saisie — voir `unParUn`. */
   const [dejaCrees, setDejaCrees] = useState<ChainedCompteur[]>([])
 
-  const fournisseurs = (comptes ?? []).filter((c) => c.type_compte === 'fournisseur')
+  const fournisseurs = fournisseursLus ?? []
   // Tous les contacts du compte, rattachements indirects compris (William, 07/09/2026).
   const contactsDuCompte = contactsRattaches(contacts, compte?.id)
 
@@ -613,7 +619,6 @@ export function CreationCompteurDialog({
             utilisationsRef={utilisationsRef}
             fournisseurs={fournisseurs}
             contacts={contactsDuCompte}
-            allContacts={contacts ?? []}
             compteId={compte!.id}
             compteNom={compte!.nom}
             existingCompteurs={compteurs ?? []}

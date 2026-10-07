@@ -6,8 +6,15 @@ import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input } from '@/components/ui/form'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import type { Compte, Compteur, Contact, Requete } from '@/types/domain'
-import type { SuiviContrat } from '@/lib/data/suivisContrats'
+import { useSuivisContratsDuContact, type SuiviContrat } from '@/lib/data/suivisContrats'
 import { useLierContactCompte, useDelierContactCompte, useChangerComptePrincipal } from '@/lib/data/contacts'
+import { useComptes, useComptesLegers } from '@/lib/data/comptes'
+import { useCompteursDuContact } from '@/lib/data/compteurs'
+import { useRequetesDuContact } from '@/lib/data/requetes'
+
+const AUCUN_COMPTEUR: Compteur[] = []
+const AUCUN_SUIVI: SuiviContrat[] = []
+const AUCUNE_REQUETE: Requete[] = []
 
 /**
  * Onglet « Rattachements » de la fiche contact — appel du 13/08/2026 : « la section rattachement
@@ -19,23 +26,24 @@ import { useLierContactCompte, useDelierContactCompte, useChangerComptePrincipal
  */
 export function RattachementsContact({
   contact,
-  comptes,
-  compteurs,
-  suivis,
-  requetes,
   peutModifier,
   onToast,
 }: {
   contact: Contact
-  comptes: Compte[]
-  /**
-   * Tous les compteurs. C'est d'eux que vient le rattachement réel du contact —
-   * `responsable_contact_id` et `contact_conseil_syndical_id` — depuis que ce bloc a cessé de
-   * passer par les sites (10/09/2026). La prop `sites` a disparu avec ce détour.
+  /*
+   * ══ L'ONGLET LIT LUI-MÊME CE QU'IL MONTRE — William, 07/10/2026 : « fluidité maximale » ══
+   * La fiche contact lui passait tous les comptes, les 7 899 compteurs, tous les suivis de contrat
+   * et toutes les requêtes de Kimatch, lus à l'ouverture de la fiche même quand l'onglet restait
+   * fermé. Il ne lit plus, à son ouverture, que ce qui touche ce contact :
+   *
+   *   · les COMPTEURS dont il est responsable ou membre CS (`useCompteursDuContact`) — c'est d'eux
+   *     que vient son rattachement réel depuis le 10/09/2026 ;
+   *   · le nom de leurs comptes, en version légère ;
+   *   · ses suivis de contrat et ses requêtes, filtrés en base ;
+   *   · la liste complète des comptes seulement quand on ouvre « Rattacher » ou « Changer ».
    */
-  compteurs: Compteur[]
-  /**
-   * ══ LES DEUX LIENS QUE PERSONNE NE VOYAIT DEPUIS UNE FICHE CONTACT ══
+  /*
+   * ══ LES DEUX LIENS QUE PERSONNE NE VOYAIT DEPUIS UNE FICHE CONTACT ══ (suivis et requêtes)
    *
    * L'audit du 10/09/2026 (`npm run rattachements`) a cherché les liens qu'un seul écran montre.
    * Sur les treize relations examinées, trois manquaient vraiment — et deux d'entre elles
@@ -52,8 +60,6 @@ export function RattachementsContact({
    * sur cette fiche — vérifié dans le code avant d'écrire ceci, après avoir affirmé le contraire
    * une première fois.
    */
-  suivis: SuiviContrat[]
-  requetes: Requete[]
   peutModifier: boolean
   onToast: (message: string) => void
 }) {
@@ -65,6 +71,17 @@ export function RattachementsContact({
   /* Corriger le compte principal — voir `useChangerComptePrincipal`. */
   const changer = useChangerComptePrincipal()
   const [changementOuvert, setChangementOuvert] = useState(false)
+
+  const { data: compteurs = AUCUN_COMPTEUR } = useCompteursDuContact(contact.id)
+  const { data: suivis = AUCUN_SUIVI } = useSuivisContratsDuContact(contact.id)
+  const { data: requetes = AUCUNE_REQUETE } = useRequetesDuContact(contact.id)
+  const idsComptesDesCompteurs = useMemo(
+    () => [...new Set(compteurs.map((c) => c.compte_id).filter((id): id is string => !!id))],
+    [compteurs],
+  )
+  const { data: nomsComptes } = useComptesLegers(idsComptesDesCompteurs)
+  const { data: tousComptes } = useComptes(ajoutOuvert || changementOuvert)
+  const comptes = useMemo<Compte[]>(() => tousComptes ?? [], [tousComptes])
 
   // Le compte principal d'abord, les autres par ordre alphabétique : c'est celui qui porte
   // l'appartenance réelle du contact, les autres sont des interventions.
@@ -123,7 +140,7 @@ export function RattachementsContact({
          contact s'affiche quand même, sous un intitulé neutre : le taire cacherait une intervention
          réelle, et c'est précisément le genre d'asymétrie qu'on vient de corriger. */
       const compteId = cp.compte_id ?? ''
-      const nom = comptes.find((c) => c.id === compteId)?.nom ?? 'Compte non rattaché à ce contact'
+      const nom = nomsComptes?.find((c) => c.id === compteId)?.nom ?? 'Compte non rattaché à ce contact'
       const groupe = groupes.get(compteId) ?? { compte: nom, lignes: [] }
       groupe.lignes.push({
         id: cp.id,
@@ -146,7 +163,7 @@ export function RattachementsContact({
         Number(b === principal) - Number(a === principal) ||
         groupes.get(a)!.compte.localeCompare(groupes.get(b)!.compte),
     )
-  }, [contact, comptes, compteurs])
+  }, [contact, nomsComptes, compteurs])
 
   const nbCompteurs = compteursParCompte.reduce((n, [, g]) => n + g.lignes.length, 0)
   const nbResponsable = compteursParCompte.reduce(

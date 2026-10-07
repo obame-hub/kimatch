@@ -43,7 +43,14 @@ interface RawMandat {
  * Les jointures sont filtrées sur les identifiants réellement retenus, et non rechargées en
  * entier : c'est ce qui fait passer le coût de « toute la table » à « ce qui est affiché ».
  */
-async function fetchMandats(compteId?: string, mandatId?: string, listeSeule = false): Promise<Mandat[]> {
+async function fetchMandats(
+  compteId?: string,
+  mandatId?: string,
+  listeSeule = false,
+  /** Un autre filtre serveur sur `mandats` (la fiche contact : signés par lui OU de son compte). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  filtre?: (q: any) => any,
+): Promise<Mandat[]> {
   try {
     const mandats = await fetchAllRows<RawMandat>(
       'mandats',
@@ -55,6 +62,8 @@ async function fetchMandats(compteId?: string, mandatId?: string, listeSeule = f
       mandatId
         ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (q: any) => q.eq('id', mandatId)
+        : filtre
+          ? filtre
         : compteId
           ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (q: any) => q.eq('compte_id', compteId)
@@ -62,9 +71,13 @@ async function fetchMandats(compteId?: string, mandatId?: string, listeSeule = f
     )
     const mandatIds = mandats.map((m) => m.id)
     // Aucun mandat : les deux jointures n'ont plus rien à chercher.
-    if (compteId && mandatIds.length === 0) return []
+    /* UN MANDAT LU SEUL NE LIT PLUS LES PDL DE TOUS LES AUTRES (07/10/2026). `useMandat` passait
+       ici sans `compteId` : la fiche mandat téléchargeait la totalité de `mandats_compteurs` et de
+       `mandats_courtiers` pour n'en garder que les lignes de son mandat. */
+    const cible = Boolean(compteId || mandatId || filtre)
+    if (cible && mandatIds.length === 0) return []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const surCesMandats = compteId ? (q: any) => q.in('mandat_id', mandatIds) : undefined
+    const surCesMandats = cible ? (q: any) => q.in('mandat_id', mandatIds) : undefined
     const [compteursRows, courtiersRows] = await Promise.all([
       // Le tableau de bord ne lit ni les PDL ni les courtiers d'un mandat : voir useMandatsListe.
       listeSeule
@@ -171,6 +184,17 @@ export function useMandat(mandatId: string | undefined) {
 /** Mandats sans leurs PDL ni leurs courtiers -- pour qui n'affiche que l'en-tete. */
 export function useMandatsListe() {
   return useQuery({ queryKey: ['mandats', 'liste'], queryFn: () => fetchMandats(undefined, undefined, true) })
+}
+
+/** Les mandats d'une fiche contact : ceux qu'il a signés, et ceux de son compte (07/10/2026). */
+export function useMandatsDuContact(contactId: string | undefined, compteId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['mandats', 'contact', contactId, compteId ?? null],
+    queryFn: () => fetchMandats(undefined, undefined, false, (q) => q.or(
+      compteId ? `contact_signataire_id.eq.${contactId},compte_id.eq.${compteId}` : `contact_signataire_id.eq.${contactId}`,
+    )),
+    enabled: !!contactId,
+  })
 }
 
 export function useMandats() {

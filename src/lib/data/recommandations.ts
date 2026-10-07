@@ -208,6 +208,9 @@ async function fetchRecommandations(
   compteId?: string,
   recoId?: string,
   listeSeule = false,
+  /** Un autre filtre serveur sur `recommandations` (la fiche contact : signées par lui OU de son compte). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  filtre?: (q: any) => any,
 ): Promise<Recommandation[]> {
 
   try {
@@ -258,11 +261,12 @@ async function fetchRecommandations(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q: any) => {
         if (recoId) return q.eq('id', recoId)
+        if (filtre) return filtre(q).order('date_ouverture', { ascending: false })
         return (compteId ? q.eq('compte_id', compteId) : q).order('date_ouverture', { ascending: false })
       },
     )
     const recoIds = recos.map((r) => r.id)
-    const cible = Boolean(compteId || recoId)
+    const cible = Boolean(compteId || recoId || filtre)
     if (cible && recoIds.length === 0) return []
     const parReco = cible ? surColonne('recommandation_id', recoIds) : undefined
 
@@ -889,6 +893,29 @@ export function useRecommandationsListe() {
 
 export function useRecommandations() {
   return useQuery({ queryKey: ['recommandations'], queryFn: () => fetchRecommandations() })
+}
+
+/**
+ * L'EN-TÊTE des recommandations d'un seul compte (titre, étape, compte), sans la cascade des
+ * versions : ce qu'il faut pour lister les dossiers liés depuis une autre fiche (William, 07/10/2026).
+ */
+export function useRecommandationsListeParCompte(compteId: string | undefined) {
+  return useQuery({
+    queryKey: ['recommandations', 'liste', 'compte', compteId],
+    queryFn: () => fetchRecommandations(compteId as string, undefined, true),
+    enabled: !!compteId,
+  })
+}
+
+/** L'en-tête des recommandations d'une fiche contact : signées par lui, et celles de son compte (07/10/2026). */
+export function useRecommandationsListeDuContact(contactId: string | undefined, compteId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['recommandations', 'liste', 'contact', contactId, compteId ?? null],
+    queryFn: () => fetchRecommandations(undefined, undefined, true, (q) => q.or(
+      compteId ? `contact_signataire_id.eq.${contactId},compte_id.eq.${compteId}` : `contact_signataire_id.eq.${contactId}`,
+    )),
+    enabled: !!contactId,
+  })
 }
 
 /** Recommandations d'un seul compte, cascade filtree cote serveur. A preferer sur toute fiche. */

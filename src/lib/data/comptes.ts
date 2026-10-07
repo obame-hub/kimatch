@@ -173,11 +173,12 @@ async function fetchComptes(compteId?: string): Promise<Compte[]> {
   }
 }
 
-export function useComptes() {
+export function useComptes(enabled = true) {
   // `() => fetchComptes()` et non `fetchComptes` : React Query passe son contexte de requete en
   // premier argument, que le parametre `compteId` capturerait -- la lecture partirait alors avec un
   // objet en guise d'identifiant et renverrait une liste vide.
-  return useQuery({ queryKey: ['comptes'], queryFn: () => fetchComptes() })
+  // `enabled` : un écran qui n'en a besoin que pour un sélecteur l'ouvre à la demande (07/10/2026).
+  return useQuery({ queryKey: ['comptes'], queryFn: () => fetchComptes(), enabled })
 }
 
 /**

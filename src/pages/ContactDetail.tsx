@@ -15,15 +15,12 @@ import { FormField, Input, Select, Textarea } from '@/components/ui/form'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { ActivityFeed } from '@/components/site/ActivityFeed'
 import { useContact, useUpdateContact, useDeleteContact, useUpdateContactField, useConvertirEnDecisionnairePotentiel } from '@/lib/data/contacts'
-import { useComptes } from '@/lib/data/comptes'
-import { useCompteurs } from '@/lib/data/compteurs'
-import { useSuivisContrats } from '@/lib/data/suivisContrats'
-import { useRequetes } from '@/lib/data/requetes'
-import { useActions } from '@/lib/data/actions'
+import { useCompte } from '@/lib/data/comptes'
+import { useActionsDuContact } from '@/lib/data/actions'
 import { useInteractionsForContact } from '@/lib/data/interactions'
-import { useContrats } from '@/lib/data/contrats'
-import { useMandats } from '@/lib/data/mandats'
-import { useRecommandationsListe } from '@/lib/data/recommandations'
+import { useContratsDuContact } from '@/lib/data/contrats'
+import { useMandatsDuContact } from '@/lib/data/mandats'
+import { useRecommandationsListeDuContact } from '@/lib/data/recommandations'
 import { useCanManageEnregistrement, useIsAdmin, useProfilsAdmin } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
 import { useGoBack } from '@/lib/useGoBack'
@@ -75,20 +72,19 @@ export default function ContactDetail() {
   // cote serveur sur l'identifiant, il ne charge pas la table entiere.
   const idsPourDocuments = useMemo(() => (id ? [id] : undefined), [id])
   const { data: documentsDuContact = [] } = useDocumentsParEntites(idsPourDocuments)
-  const { data: comptes } = useComptes()
-  /* PLUS DE LECTURE DES SITES ICI. L'onglet Rattachements listait les sites des comptes du
-     contact ; il liste maintenant les COMPTEURS dont il est responsable — le lien venait déjà de
-     là. Un `useSites()` de moins, c'est-à-dire 6 378 sites et 7 923 compteurs qui ne se chargent
-     plus à l'ouverture d'une fiche contact. */
-  const { data: compteurs } = useCompteurs()
-  /* LES DEUX LIENS QUE L'AUDIT DU 10/09/2026 A TROUVÉS SANS RÉCIPROQUE : 1 563 suivis de contrat
-     et 5 requêtes nomment leur contact, la fiche du contact n'en disait rien. */
-  const { data: suivis } = useSuivisContrats()
-  const { data: requetes } = useRequetes()
-  const { data: actions } = useActions()
-  const { data: contrats } = useContrats()
-  const { data: mandats } = useMandats()
-  const { data: recommandations } = useRecommandationsListe()
+  /* ══ CE CONTACT, PAS LA BASE — William, 07/10/2026 : « fluidité maximale » ══
+     La fiche lisait à son ouverture HUIT tables entières : tous les comptes, les 7 899 compteurs,
+     tous les suivis de contrat, toutes les requêtes, toutes les tâches, tous les contrats, tous les
+     mandats et toutes les recommandations de Kimatch, pour en garder ce qui touche ce contact.
+     Elle ne lit plus que son compte, ses tâches, et les contrats, mandats et recommandations qu'il
+     a signés ou qui relèvent de son compte (ou de ses sites, pour les contrats) — filtrés en base.
+     Compteurs, suivis et requêtes se lisent dans l'onglet Rattachements, à son ouverture. */
+  const { data: compte } = useCompte(contact?.compte_id ?? undefined)
+  const siteIdsListe = useMemo(() => (contact?.sites ?? []).map((s) => s.id), [contact])
+  const { data: actions } = useActionsDuContact(id)
+  const { data: contrats } = useContratsDuContact(id, siteIdsListe)
+  const { data: mandats } = useMandatsDuContact(id, contact?.compte_id)
+  const { data: recommandations } = useRecommandationsListeDuContact(id, contact?.compte_id)
   const { data: statutsMandatsRef } = useReferenceTable('statuts_mandats')
   const statutsMandats = statutsMandatsRef && statutsMandatsRef.length > 0 ? statutsMandatsRef : FALLBACK_STATUTS_MANDATS
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
@@ -96,7 +92,6 @@ export default function ContactDetail() {
   const { data: statutsVersionsRef } = useReferenceTable('statuts_versions_recommandation')
   const statutsVersions = statutsVersionsRef && statutsVersionsRef.length > 0 ? statutsVersionsRef : FALLBACK_STATUTS_VERSIONS
 
-  const compte = comptes?.find((c) => c.id === contact?.compte_id)
   const deleteContact = useDeleteContact()
   const goBack = useGoBack('/contacts')
 
@@ -498,10 +493,6 @@ export default function ContactDetail() {
           {tab === 'rattachements' && (
             <RattachementsContact
               contact={contact}
-              comptes={comptes ?? []}
-              compteurs={compteurs ?? []}
-              suivis={suivis ?? []}
-              requetes={requetes ?? []}
               peutModifier={canManage}
               onToast={showToast}
             />

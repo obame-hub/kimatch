@@ -27,11 +27,11 @@ import { FormField, Input } from '@/components/ui/form'
 import { EmailLink } from '@/components/ui/contact-link'
 import { HistoriqueDiscret } from '@/components/ui/historique-discret'
 import { useMandat, useMandatEnDirect, useMarkMandatEnvoye, useUpdateMandatPartiel, useDeleteMandat, type PatchMandat } from '@/lib/data/mandats'
-import { useContacts } from '@/lib/data/contacts'
+import { useContact, useContactsParCompte } from '@/lib/data/contacts'
 import { contactsDuCompte as contactsRattaches } from '@/lib/contactsDuCompte'
-import { useComptes } from '@/lib/data/comptes'
-import { useCompteurs } from '@/lib/data/compteurs'
-import { useDeleteDocument, useDocuments, useTeleverserDocuments } from '@/lib/data/documents'
+import { useCompte } from '@/lib/data/comptes'
+import { useCompteursParIds } from '@/lib/data/compteurs'
+import { useDeleteDocument, useDocumentsParEntites, useTeleverserDocuments } from '@/lib/data/documents'
 import { useReferenceTable, type ReferenceRow } from '@/lib/data/referenceTables'
 import { useCanManage } from '@/lib/data/roles'
 import { useSuppression } from '@/lib/useSuppression'
@@ -325,10 +325,20 @@ export default function MandatDetail() {
   useMandatEnDirect(id)
   const { data: statutsRef } = useReferenceTable('statuts_mandats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_MANDATS
-  const { data: contacts } = useContacts()
-  const { data: comptes } = useComptes()
-  const { data: compteurs } = useCompteurs()
-  const { data: documents } = useDocuments()
+  /* ══ LE MANDAT, PAS LA BASE — William, 07/10/2026 : « fluidité maximale » ══
+     La fiche lisait tous les contacts, tous les comptes, les 7 899 compteurs et tous les documents
+     de Kimatch. Elle ne lit plus que son compte, les contacts de ce compte, son signataire, ses
+     compteurs (caducs compris) et ses documents. La liste des comptes ne se charge qu'en cliquant
+     « Changer le compte ». */
+  const { data: contacts } = useContactsParCompte(mandat?.compte_id)
+  const { data: compte } = useCompte(mandat?.compte_id)
+  const { data: contactSignataireLu } = useContact(mandat?.contact_signataire_id ?? undefined)
+  const idsCompteurs = useMemo(
+    () => (mandat ? [...mandat.compteur_ids, ...mandat.compteur_ids_caducs] : undefined),
+    [mandat],
+  )
+  const { data: compteurs } = useCompteursParIds(idsCompteurs)
+  const { data: documents } = useDocumentsParEntites(mandat ? [mandat.id] : undefined)
   const [showEnvoyer, setShowEnvoyer] = useState(false)
   const [showValider, setShowValider] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -367,8 +377,7 @@ export default function MandatDetail() {
     setToast(msg)
     setTimeout(() => setToast(null), 2200)
   }
-  const compte = comptes?.find((c) => c.id === mandat?.compte_id)
-  const contactSignataire = contacts?.find((c) => c.id === mandat?.contact_signataire_id)
+  const contactSignataire = contactSignataireLu && contactSignataireLu.id === mandat?.contact_signataire_id ? contactSignataireLu : undefined
   const compteursDuMandat = useMemo(() => compteurs?.filter((c) => mandat?.compteur_ids.includes(c.id)) ?? [], [compteurs, mandat])
   /* LE PÉRIMÈTRE CADUQUE — les PDL que ce mandat couvrait avant qu'ils ne changent de société. Ils
      sont exclus de `compteur_ids` pour que rien ne les croie couverts, et listés à part pour que la
@@ -544,8 +553,7 @@ export default function MandatDetail() {
                   En dessous de 1 280 px la rangée se dédouble, puis s'empile. */}
               <div className="grid grid-cols-1 items-stretch gap-3.5 md:grid-cols-2 xl:grid-cols-4">
                 <CarteCompte
-                  compte={compte}
-                  comptes={comptes ?? []}
+                  compte={compte ?? undefined}
                   peutModifier={canManage}
                   onChangerCompte={(compte_id) => {
                     void majMandat({ compte_id }).then(() => showToast('✓ compte modifié'))

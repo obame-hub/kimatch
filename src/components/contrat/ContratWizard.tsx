@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { FormField, Input, Label } from '@/components/ui/form'
 import { ContactPicker } from '@/components/contact/ContactPicker'
-import { useComptes } from '@/lib/data/comptes'
-import { useContacts } from '@/lib/data/contacts'
-import { useCompteurs } from '@/lib/data/compteurs'
-import { useContrats, useCreateContrat } from '@/lib/data/contrats'
+import { useFournisseursConsultables } from '@/lib/data/comptes'
+import { useContact, useContactsParCompte } from '@/lib/data/contacts'
+import { useCompteursParIds } from '@/lib/data/compteurs'
+import { useContratsParCompte, useCreateContrat } from '@/lib/data/contrats'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { ZONE_ORDER_CONTRAT, ZONE_LABEL_CONTRAT, zoneDuFournisseur } from '@/lib/fournisseurZones'
@@ -54,10 +54,14 @@ export function ContratWizard({
   reco: Recommandation
   onCreated: (message: string) => void
 }) {
-  const { data: comptes } = useComptes()
-  const { data: contacts } = useContacts()
-  const { data: compteurs } = useCompteurs()
-  const { data: contratsExistants } = useContrats()
+  /* ══ LE DOSSIER, PAS LA BASE — William, 07/10/2026 : « fluidité maximale » ══
+     L'assistant lisait tous les comptes, tous les contacts, les 7 899 compteurs et tous les contrats
+     de Kimatch. Il ne lit plus que les fournisseurs, les contacts et les contrats du compte, et les
+     compteurs du périmètre. « Autre contact » charge la base lui-même, à la demande. */
+  const { data: comptes } = useFournisseursConsultables()
+  const { data: contacts } = useContactsParCompte(reco.compte_id ?? undefined)
+  const { data: compteurs } = useCompteursParIds(reco.compteur_ids ?? [])
+  const { data: contratsExistants } = useContratsParCompte(reco.compte_id ?? undefined)
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
   const statuts = statutsRef && statutsRef.length > 0 ? statutsRef : FALLBACK_STATUTS_CONTRATS
   const { data: energiesRef } = useReferenceTable('types_energies')
@@ -197,6 +201,9 @@ export function ContratWizard({
     return null
   }, [dateReception])
 
+  const { data: contactHorsCompte } = useContact(
+    contactId && !contactsDuCompte.some((c) => c.id === contactId) ? contactId : undefined,
+  )
   const dateFin = useMemo(() => {
     const d = new Date(dateDebut)
     const n = Number(dureeMois)
@@ -236,7 +243,7 @@ export function ContratWizard({
     if (!peutContinuer || pdls.length === 0) return
     const statutNouveau = trouverParCode(statuts, 'BROUILLON', 'NOUVEAU', 'ACTIF')
     const energie = energies.find((e) => (e.code ?? '').toLowerCase() === typeEnergie)
-    const contact = (contacts ?? []).find((c) => c.id === contactId)
+    const contact = contactsDuCompte.find((c) => c.id === contactId) ?? (contactHorsCompte?.id === contactId ? contactHorsCompte : undefined)
     const siteId = pdls[0].site_id
 
     const result = await createContrat.mutateAsync({
@@ -500,7 +507,6 @@ export function ContratWizard({
               value={contactId}
               onChange={(id) => setContactId(id)}
               accountContacts={contactsDuCompte}
-              allContacts={contacts ?? []}
               accountId={reco.compte_id}
               accountNom={reco.compte_nom}
             />

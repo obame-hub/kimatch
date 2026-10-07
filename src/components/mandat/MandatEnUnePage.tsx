@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, Loader2, Mail, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChoixParRecherche } from '@/components/ui/choix-recherche'
-import { useComptes } from '@/lib/data/comptes'
-import { useContacts } from '@/lib/data/contacts'
-import { useCompteurs } from '@/lib/data/compteurs'
+import { useCompte } from '@/lib/data/comptes'
+import { useContact, useContactsParCompte } from '@/lib/data/contacts'
+import { useCompteursParIds } from '@/lib/data/compteurs'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_COURTIERS_MANDAT } from '@/lib/referenceFallbacks'
 import { useEnvoiMandat } from '@/lib/data/envoiMandat'
@@ -57,20 +57,25 @@ export function MandatEnUnePage({ compteId, contactId, compteurIds, onCree }: {
   compteurIds: string[]
   onCree?: (mandatId: string) => void
 }) {
-  const { data: comptes } = useComptes()
-  const { data: contacts } = useContacts()
-  const { data: compteurs } = useCompteurs()
+  /* ══ CE MANDAT, PAS LA BASE — William, 07/10/2026 : « fluidité maximale » ══
+     La page lisait tous les comptes, tous les contacts et les 7 899 compteurs de Kimatch. Elle ne
+     lit plus que son compte, les contacts de ce compte et les compteurs du parcours. */
+  const { data: compte } = useCompte(compteId)
+  const { data: contacts } = useContactsParCompte(compteId)
+  const { data: compteurs } = useCompteursParIds(compteurIds)
   const { data: courtiersRef } = useReferenceTable('types_courtiers_mandat')
   const courtiers = courtiersRef && courtiersRef.length > 0 ? courtiersRef : FALLBACK_TYPES_COURTIERS_MANDAT
 
-  const compte = comptes?.find((c) => c.id === compteId)
   const [signataireId, setSignataireId] = useState(contactId ?? '')
   const [changerSignataire, setChangerSignataire] = useState(false)
   const [retenus, setRetenus] = useState<string[]>(compteurIds)
   const [dureeMois, setDureeMois] = useState<number>(DUREE_DEFAUT)
   const [avecEnergix, setAvecEnergix] = useState(true)
 
-  const signataire = contacts?.find((c) => c.id === signataireId) ?? null
+  const signataireDuCompte = contacts?.find((c) => c.id === signataireId)
+  // Un signataire hors du compte (choisi ailleurs dans le parcours) se lit seul.
+  const { data: signataireLu } = useContact(signataireId && contacts && !signataireDuCompte ? signataireId : undefined)
+  const signataire = signataireDuCompte ?? (signataireLu?.id === signataireId ? signataireLu : null)
   /* LA LISTE NE MONTRE QUE LES COMPTEURS DE CE PARCOURS. « Uniquement ces compteurs
      présélectionnés » : le patrimoine du compte peut en contenir cent, ils ne regardent pas ce
      mandat-ci. */

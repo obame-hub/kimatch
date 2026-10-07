@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useCreerUnContact } from '@/lib/creationContact'
 import { contactsPourLaFente } from '@/lib/contactRoles'
+import { useContact, useContacts } from '@/lib/data/contacts'
 import { cn } from '@/lib/utils'
 import type { Contact } from '@/types/domain'
 
@@ -49,8 +50,15 @@ export function ContactPicker({
    * restent proposés : ces rôles-là n'ont rien à voir avec le conseil syndical.
    */
   fente?: 'responsable' | 'conseilSyndical'
-  /** Tous les contacts du CRM -- alimente l'onglet « Autre contact ». */
-  allContacts: Contact[]
+  /**
+   * Tous les contacts du CRM -- alimente l'onglet « Autre contact ».
+   *
+   * FACULTATIF DEPUIS LE 07/10/2026 (William : « fluidité maximale »). Absent, le sélecteur lit
+   * lui-même les contacts de la base, et seulement quand on ouvre l'onglet « Autre contact » ; le
+   * contact déjà choisi hors du compte se lit seul. L'écran qui l'emploie n'a plus à charger tout
+   * le CRM pour un déroulant qui, neuf fois sur dix, propose les contacts du compte.
+   */
+  allContacts?: Contact[]
   loading?: boolean
   accountId?: string | null
   accountNom?: string
@@ -64,12 +72,16 @@ export function ContactPicker({
     () => (fente ? contactsPourLaFente(accountContactsBruts, fente, value) : accountContactsBruts),
     [accountContactsBruts, fente, value],
   )
-  const allContacts = useMemo(
-    () => (fente ? contactsPourLaFente(allContactsBruts, fente, value) : allContactsBruts),
-    [allContactsBruts, fente, value],
-  )
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<'linked' | 'global'>(noAccount ? 'global' : 'linked')
+  const aCharger = allContactsBruts === undefined
+  const { data: tousCharges } = useContacts(aCharger && open && tab === 'global')
+  const horsCompte = aCharger && !!value && !accountContactsBruts.some((c) => c.id === value)
+  const { data: contactHorsCompte } = useContact(horsCompte ? value : undefined)
+  const allContacts = useMemo(() => {
+    const bruts = allContactsBruts ?? (tousCharges ?? (contactHorsCompte ? [contactHorsCompte] : []))
+    return fente ? contactsPourLaFente(bruts, fente, value) : bruts
+  }, [allContactsBruts, tousCharges, contactHorsCompte, fente, value])
   const [linkedSearch, setLinkedSearch] = useState('')
   const [globalSearch, setGlobalSearch] = useState('')
   // Filet : un contact tout juste créé peut ne pas encore être revenu dans les listes du parent.

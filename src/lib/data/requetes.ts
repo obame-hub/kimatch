@@ -88,50 +88,58 @@ interface RawRequete {
 }
 
 export function useRequetes() {
+  return useQuery({ queryKey: ['requetes'], queryFn: () => lireRequetes() })
+}
+
+/** Les requêtes ouvertes au nom d'un contact — sa fiche lisait toutes les requêtes (07/10/2026). */
+export function useRequetesDuContact(contactId: string | undefined) {
   return useQuery({
-    queryKey: ['requetes'],
-    queryFn: async (): Promise<Requete[]> => {
-      try {
-        const lignes = await fetchAllRows<RawRequete>(
-          'requetes',
-          '*, statut:statuts_requetes(code, libelle), compte:comptes(nom), type_requete:types_requetes(code, libelle), site:sites(nom), compteur:compteurs(numero_point), contact:contacts(prenom, nom)',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (q: any) => q.order('date_creation', { ascending: false }),
-        )
-        const comptesVisibles = await fetchComptesVisibles()
-        // Une requête sans compte reste visible : une réclamation peut arriver avant qu'on sache
-        // à qui elle se rattache.
-        return filterVisibles(lignes, comptesVisibles, (r) => r.compte_id ?? '').map((r) => ({
-          id: r.id,
-          reference: r.reference,
-          categorie: r.categorie,
-          objet: r.objet,
-          description: r.description,
-          resolution: r.resolution,
-          compte_id: r.compte_id,
-          compte_nom: r.compte?.nom ?? '',
-          contact_id: r.contact_id,
-          site_id: r.site_id,
-          compteur_id: r.compteur_id,
-          contrat_id: r.contrat_id,
-          type_requete_id: r.type_requete_id ?? null,
-          type_requete_code: r.type_requete?.code ?? null,
-          type_requete_libelle: r.type_requete?.libelle ?? null,
-          site_nom: r.site?.nom ?? null,
-          compteur_numero: r.compteur?.numero_point ?? null,
-          contact_nom: [r.contact?.prenom, r.contact?.nom].filter(Boolean).join(' ') || null,
-          statut: r.statut?.code ?? 'NOUVELLE',
-          statut_libelle: r.statut?.libelle ?? 'Nouvelle',
-          date_echeance: r.date_echeance,
-          date_resolution: r.date_resolution,
-          proprietaire_id: r.proprietaire_id,
-          date_creation: r.date_creation,
-        }))
-      } catch (error) {
-        relancer('useRequetes', error)
-      }
-    },
+    queryKey: ['requetes', 'contact', contactId],
+    queryFn: () => lireRequetes(contactId),
+    enabled: !!contactId,
   })
+}
+
+async function lireRequetes(contactId?: string): Promise<Requete[]> {
+  try {
+    const lignes = await fetchAllRows<RawRequete>(
+      'requetes',
+      '*, statut:statuts_requetes(code, libelle), compte:comptes(nom), type_requete:types_requetes(code, libelle), site:sites(nom), compteur:compteurs(numero_point), contact:contacts(prenom, nom)',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q: any) => (contactId ? q.eq('contact_id', contactId) : q).order('date_creation', { ascending: false }),
+    )
+    const comptesVisibles = await fetchComptesVisibles()
+    // Une requête sans compte reste visible : une réclamation peut arriver avant qu'on sache
+    // à qui elle se rattache.
+    return filterVisibles(lignes, comptesVisibles, (r) => r.compte_id ?? '').map((r) => ({
+      id: r.id,
+      reference: r.reference,
+      categorie: r.categorie,
+      objet: r.objet,
+      description: r.description,
+      resolution: r.resolution,
+      compte_id: r.compte_id,
+      compte_nom: r.compte?.nom ?? '',
+      contact_id: r.contact_id,
+      site_id: r.site_id,
+      compteur_id: r.compteur_id,
+      contrat_id: r.contrat_id,
+      type_requete_id: r.type_requete_id ?? null,
+      type_requete_code: r.type_requete?.code ?? null,
+      type_requete_libelle: r.type_requete?.libelle ?? null,
+      site_nom: r.site?.nom ?? null,
+      compteur_numero: r.compteur?.numero_point ?? null,
+      contact_nom: [r.contact?.prenom, r.contact?.nom].filter(Boolean).join(' ') || null,
+      statut: r.statut?.code ?? 'NOUVELLE',
+      statut_libelle: r.statut?.libelle ?? 'Nouvelle',
+      date_echeance: r.date_echeance,
+      date_resolution: r.date_resolution,
+      proprietaire_id: r.proprietaire_id,
+      date_creation: r.date_creation,
+    }))
+  } catch (error) {
+    relancer('useRequetes', error)
+  }
 }
 
 export function useStatutsRequetes() {

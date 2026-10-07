@@ -31,16 +31,16 @@ import {
   type PatchOpportunite,
 } from '@/lib/data/opportunites'
 import { useSitesParCompte } from '@/lib/data/sites'
-import { useCompteurs } from '@/lib/data/compteurs'
+import { useCompteursParCompte, useCompteursParIds } from '@/lib/data/compteurs'
 import { useCanManage } from '@/lib/data/roles'
 import { DialogSuppression } from '@/components/ui/dialog-suppression'
 import { useSuppression } from '@/lib/useSuppression'
-import { useContacts } from '@/lib/data/contacts'
-import { useMandats } from '@/lib/data/mandats'
+import { useContact } from '@/lib/data/contacts'
+import { useMandatsParCompte } from '@/lib/data/mandats'
 import { useCreerUnMandat } from '@/lib/creationMandat'
 import { CreateRecommandationDialog } from '@/components/opportunite/CreationRecommandationWizard'
 import { DialogConversionOpportunite } from '@/components/opportunite/DialogConversionOpportunite'
-import { useRecommandationsListe } from '@/lib/data/recommandations'
+import { useRecommandationsListeParCompte } from '@/lib/data/recommandations'
 import { cn } from '@/lib/utils'
 import type { Opportunite } from '@/types/domain'
 import { useNoterConsultation } from '@/lib/data/consultationsRecentes'
@@ -84,10 +84,15 @@ export default function OpportuniteDetail() {
   const deleteOpportunite = useDeleteOpportunite()
   const suppression = useSuppression()
   const [confirmerSuppression, setConfirmerSuppression] = useState(false)
-  const { data: contacts } = useContacts()
-  const { data: compteurs } = useCompteurs()
-  const { data: mandats } = useMandats()
-  const { data: recommandations } = useRecommandationsListe()
+  /* ══ CE QUE LA FICHE MONTRE, ET RIEN DE PLUS — William, 07/10/2026 : « fluidité maximale » ══
+     La fiche lisait tous les contacts, tous les compteurs (7 899, huit relations chacun), tous les
+     mandats et toutes les recommandations de Kimatch. Elle ne lit plus que son contact, ses
+     compteurs, les mandats et les recommandations de son compte : les seuls que ses règles
+     regardent (`prerequisOpportunite` ne retient que les mandats actifs DU compte). */
+  const { data: contactOpportunite } = useContact(opportunite?.contact_id ?? undefined)
+  const { data: compteurs } = useCompteursParIds(opportunite?.compteur_ids)
+  const { data: mandats } = useMandatsParCompte(opportunite?.compte_id ?? undefined)
+  const { data: recommandations } = useRecommandationsListeParCompte(opportunite?.compte_id ?? undefined)
   const { data: sitesDuCompte } = useSitesParCompte(opportunite?.compte_id ?? undefined)
   const maj = useMajOpportunite()
   const majPerimetre = useMajPerimetreOpportunite()
@@ -220,7 +225,7 @@ export default function OpportuniteDetail() {
   }
 
   const origine = ORIGINES_OPPORTUNITE.find((o) => o.code === opportunite.origine)
-  const contact = (contacts ?? []).find((c) => c.id === opportunite.contact_id)
+  const contact = contactOpportunite && contactOpportunite.id === opportunite.contact_id ? contactOpportunite : undefined
 
   /* ══ LE MANDAT, LANCÉ DEPUIS L'OPPORTUNITÉ ══
      Le parcours de création d'un mandat (29/09/2026) reprend le contact de l'opportunité et les
@@ -1246,7 +1251,9 @@ function DialogAjoutPerimetre({ opportunite, onFermer, onAjoute }: {
   onAjoute: (message: string) => void
 }) {
   const { data: sites } = useSitesParCompte(opportunite.compte_id ?? undefined)
-  const { data: compteurs } = useCompteurs()
+  // Les compteurs du compte seulement, pas les 7 899 de la base (07/10/2026) ; le filtre sur ses
+  // sites reste en dessous.
+  const { data: compteurs } = useCompteursParCompte(opportunite.compte_id ?? undefined)
   const majPerimetre = useMajPerimetreOpportunite()
   const [erreur, setErreur] = useState<string | null>(null)
 

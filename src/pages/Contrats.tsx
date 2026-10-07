@@ -15,9 +15,9 @@ import { ChoixParRecherche } from '@/components/ui/choix-recherche'
 import type { Site } from '@/types/domain'
 import { useContrats, useCreateContrat } from '@/lib/data/contrats'
 import { useSites } from '@/lib/data/sites'
-import { useComptes } from '@/lib/data/comptes'
-import { useCompteurs } from '@/lib/data/compteurs'
-import { useContacts } from '@/lib/data/contacts'
+import { useFournisseursConsultables } from '@/lib/data/comptes'
+import { useCompteursParSites } from '@/lib/data/compteurs'
+import { useContactsParCompte } from '@/lib/data/contacts'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_STATUTS_CONTRATS, FALLBACK_TYPES_ENERGIES } from '@/lib/referenceFallbacks'
 import { statutVieContrat, LIBELLE_STATUT_VIE, type StatutVie } from '@/lib/statutVieContrat'
@@ -89,9 +89,6 @@ const CLAUSES: { key: 'clause_tacite_reconduction' | 'clause_renegociation_antic
 
 function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: sites } = useSites()
-  const { data: comptes } = useComptes()
-  const { data: compteurs } = useCompteurs()
-  const { data: contacts } = useContacts()
   const { data: energiesRef } = useReferenceTable('types_energies')
   const energies = energiesRef && energiesRef.length > 0 ? energiesRef : FALLBACK_TYPES_ENERGIES
   const { data: statutsRef } = useReferenceTable('statuts_contrats')
@@ -116,9 +113,16 @@ function CreateContratDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [clauses, setClauses] = useState<Record<string, boolean>>({})
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const fournisseurs = comptes?.filter((c) => c.type_compte === 'fournisseur') ?? []
-  const compteursDuSite = compteurs?.filter((c) => c.site_id === siteId) ?? []
+  /* ══ LE SITE CHOISI, PAS LA BASE — William, 07/10/2026 : « fluidité maximale » ══
+     Le formulaire lisait tous les comptes (pour en garder les fournisseurs), les 7 899 compteurs et
+     tous les contacts de Kimatch. Il ne lit plus que les fournisseurs, les compteurs du site choisi
+     et les contacts de son compte. Les sites restent : c'est dans eux qu'on cherche. */
+  const { data: fournisseursLus } = useFournisseursConsultables()
+  const fournisseurs = fournisseursLus ?? []
+  const { data: compteursLus } = useCompteursParSites(siteId ? [siteId] : undefined)
+  const compteursDuSite = compteursLus ?? []
   const compteDuSite = sites?.find((s) => s.id === siteId)?.compte_id
+  const { data: contacts } = useContactsParCompte(compteDuSite ?? undefined)
   // Tous les contacts du compte, rattachements indirects compris (William, 07/09/2026).
   const contactsDuSite = contactsRattaches(contacts, compteDuSite)
   const energieChoisie = energies.find((e) => e.id === typeEnergieId)

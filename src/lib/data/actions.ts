@@ -50,6 +50,7 @@ async function fetchActions(
   suiviContratId?: string,
   requeteId?: string,
   compteId?: string,
+  contactId?: string,
 ): Promise<ActionItem[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
@@ -65,6 +66,7 @@ async function fetchActions(
         if (suiviContratId) return q.eq('suivi_contrat_id', suiviContratId).order('date_prevue')
         if (requeteId) return q.eq('requete_id', requeteId).order('date_prevue')
         if (compteId) return q.eq('compte_id', compteId).order('date_prevue')
+        if (contactId) return q.eq('contact_id', contactId).order('date_prevue')
         return (siteIds ? q.in('site_id', siteIds) : q).order('date_prevue')
       },
     )
@@ -120,6 +122,15 @@ export function useAction(actionId: string | undefined) {
     enabled: !!actionId,
   })
 }
+/** Les tâches d'un contact — sa fiche lisait toutes les tâches de Kimatch pour les filtrer (07/10/2026). */
+export function useActionsDuContact(contactId: string | undefined) {
+  return useQuery({
+    queryKey: ['actions', 'contact', contactId],
+    queryFn: () => fetchActions(undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, contactId),
+    enabled: !!contactId,
+  })
+}
+
 export function useActions() {
   return useQuery({ queryKey: ['actions'], queryFn: () => fetchActions() })
 }

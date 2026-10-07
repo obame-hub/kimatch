@@ -425,7 +425,8 @@ export function PdlDraftRows({
   utilisationsRef?: ReferenceRow[]
   fournisseurs: Compte[]
   contacts: Contact[]
-  allContacts: Contact[]
+  /** Facultatif : absent, le sélecteur de contact charge la base lui-même, à la demande. */
+  allContacts?: Contact[]
   compteId: string
   compteNom: string
   existingCompteurs: Compteur[]

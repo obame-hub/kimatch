@@ -3,6 +3,7 @@ import { useOuvrirEmail } from '@/lib/voletEmail'
 import { Link } from 'react-router-dom'
 import type { Compte, Contact, Mandat } from '@/types/domain'
 import { useHomologationTradeo } from '@/lib/data/tradeo'
+import { useComptes } from '@/lib/data/comptes'
 import { PictoCompte, PictoContact, PictoEnveloppe, PictoLoupe, PictoMandat, PictoTelephone, PictoValidite } from './pictos'
 
 /**
@@ -159,16 +160,32 @@ function PanneauSelection<T extends { id: string }>({
   )
 }
 
+/**
+ * La liste où l'on choisit le nouveau compte. Montée seulement quand on clique « Changer le
+ * compte » : la fiche mandat ne lit plus tous les comptes de Kimatch pour un geste de correction
+ * rare (William, 07/10/2026 : « fluidité maximale »).
+ */
+function PanneauComptes({ onChoisir, onFermer }: { onChoisir: (c: Compte) => void; onFermer: () => void }) {
+  const { data: comptes } = useComptes()
+  return (
+    <PanneauSelection
+      placeholder="Rechercher un compte…"
+      elements={comptes ?? []}
+      libelle={(c) => c.nom}
+      onChoisir={onChoisir}
+      onFermer={onFermer}
+    />
+  )
+}
+
 export function CarteCompte({
   compte,
-  comptes,
   peutModifier,
   onChangerCompte,
   onCopie,
   nbPdlCouverts,
 }: {
   compte: Compte | undefined
-  comptes: Compte[]
   peutModifier: boolean
   onChangerCompte: (compteId: string) => void
   onCopie: (message: string) => void
@@ -208,10 +225,7 @@ export function CarteCompte({
               périmètre est à reprendre après le changement.
             </p>
           )}
-          <PanneauSelection
-            placeholder="Rechercher un compte…"
-            elements={comptes}
-            libelle={(c) => c.nom}
+          <PanneauComptes
             onChoisir={(c) => { onChangerCompte(c.id); setOuvert(false) }}
             onFermer={() => setOuvert(false)}
           />

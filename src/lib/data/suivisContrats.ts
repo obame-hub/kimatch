@@ -113,25 +113,33 @@ const COLONNES_LUES =
 
 /** Tous les suivis visibles, filtrés par le périmètre de comptes comme les autres listes. */
 export function useSuivisContrats() {
+  return useQuery({ queryKey: ['suivis-contrats'], queryFn: () => lireSuivis() })
+}
+
+/** Les suivis dont un contact est le contact principal — sa fiche lisait tous les suivis (07/10/2026). */
+export function useSuivisContratsDuContact(contactId: string | undefined) {
   return useQuery({
-    queryKey: ['suivis-contrats'],
-    queryFn: async (): Promise<SuiviContrat[]> => {
-      try {
-        const lignes = await fetchAllRows<SuiviContrat>(
-          'v_suivis_contrats_liste',
-          COLONNES_LUES,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (q: any) => q.eq('contrat_valide', true).order('etape_ordre').order('date_ouverture', { ascending: false }),
-        )
-        const comptesVisibles = await fetchComptesVisibles()
-        /* Un suivi sans compte reste visible : le contrat peut n'avoir été rattaché qu'à un site.
-           Mesuré le 31/08/2026 : 0 suivi sans compte, mais la règle protège le jour où il y en a. */
-        return filterVisibles(lignes, comptesVisibles, (s) => s.compte_id ?? '')
-      } catch (error) {
-        relancer('useSuivisContrats', error)
-      }
-    },
+    queryKey: ['suivis-contrats', 'contact', contactId],
+    queryFn: () => lireSuivis(contactId),
+    enabled: !!contactId,
   })
+}
+
+async function lireSuivis(contactId?: string): Promise<SuiviContrat[]> {
+  try {
+    const lignes = await fetchAllRows<SuiviContrat>(
+      'v_suivis_contrats_liste',
+      COLONNES_LUES,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q: any) => (contactId ? q.eq('contact_principal_id', contactId) : q).eq('contrat_valide', true).order('etape_ordre').order('date_ouverture', { ascending: false }),
+    )
+    const comptesVisibles = await fetchComptesVisibles()
+    /* Un suivi sans compte reste visible : le contrat peut n'avoir été rattaché qu'à un site.
+       Mesuré le 31/08/2026 : 0 suivi sans compte, mais la règle protège le jour où il y en a. */
+    return filterVisibles(lignes, comptesVisibles, (s) => s.compte_id ?? '')
+  } catch (error) {
+    relancer('useSuivisContrats', error)
+  }
 }
 
 /** Un suivi par son identifiant — pour la fiche, sans télécharger la liste entière. */

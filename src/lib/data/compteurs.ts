@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Compteur } from '@/types/domain'
 import { fetchComptesVisibles, fetchSitesVisiblesIds, filterVisibles } from '@/lib/data/visibility'
@@ -104,13 +104,21 @@ function classeMap(elec: RawCompteurElec, prefix: 'conso' | 'puissance', suffix:
  * @param compteId  Tous les compteurs d'un client, EN DIRECT — depuis la migration
  *                  20260909160000 qui a posé `compteurs.compte_id` en `not null`.
  */
-async function fetchCompteurs(siteIds?: string[], compteurId?: string, compteId?: string, ids?: string[]): Promise<Compteur[]> {
+async function fetchCompteurs(
+  siteIds?: string[],
+  compteurId?: string,
+  compteId?: string,
+  ids?: string[],
+  /** Un autre filtre serveur (la fiche contact : les compteurs dont il est responsable ou membre CS). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  filtre?: (q: any) => any,
+): Promise<Compteur[]> {
   try {
     if (siteIds && siteIds.length === 0) return []
     if (ids && ids.length === 0) return []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const restreindre = (q: any) =>
-      ids ? q.in('id', ids) : compteurId ? q.eq('id', compteurId) : compteId ? q.eq('compte_id', compteId) : siteIds ? q.in('site_id', siteIds) : q
+      ids ? q.in('id', ids) : filtre ? filtre(q) : compteurId ? q.eq('id', compteurId) : compteId ? q.eq('compte_id', compteId) : siteIds ? q.in('site_id', siteIds) : q
     const data = await fetchAllRows<RawCompteur>(
       'compteurs',
       // `*` plutôt qu'une liste de colonnes fixe : `date_echeance` vient d'être ajoutée par
@@ -519,6 +527,37 @@ export function useCompteursParCompte(compteId: string | undefined) {
     queryKey: ['compteurs', 'compte', compteId],
     queryFn: () => fetchCompteurs(undefined, undefined, compteId as string),
     enabled: !!compteId,
+  })
+}
+
+/**
+ * ══ LES COMPTEURS QUI PORTENT DÉJÀ CES NUMÉROS — 07/10/2026 ══
+ * Le contrôle de doublon de la création de compteur : il cherchait le PDL saisi parmi les 7 899
+ * compteurs lus à l'ouverture du formulaire. Il le cherche maintenant en base, numéro par numéro.
+ * Seuls les numéros qui ont la longueur d'un PDL ou d'un PCE partent, pour ne pas interroger la base
+ * à chaque chiffre tapé ; la réponse précédente reste affichée pendant la suivante.
+ */
+export function useCompteursParNumeros(numeros: string[]) {
+  const cle = [...new Set(numeros.map((n) => n.trim()).filter((n) => n.length >= 8))].sort()
+  return useQuery({
+    queryKey: ['compteurs', 'numeros', cle.join(',')],
+    queryFn: () => (cle.length === 0 ? Promise.resolve([] as Compteur[]) : fetchCompteurs(undefined, undefined, undefined, undefined, (q) => q.in('numero_point', cle))),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * ══ LES COMPTEURS D'UN CONTACT — 07/10/2026 ══
+ * Ceux dont il est responsable ou membre du conseil syndical : c'est tout ce que l'onglet
+ * Rattachements de sa fiche en montre. Il lisait pour cela les 7 899 compteurs de la base.
+ */
+export function useCompteursDuContact(contactId: string | undefined) {
+  return useQuery({
+    queryKey: ['compteurs', 'contact', contactId],
+    queryFn: () => fetchCompteurs(undefined, undefined, undefined, undefined, (q) => q.or(
+      `responsable_contact_id.eq.${contactId},contact_conseil_syndical_id.eq.${contactId}`,
+    )),
+    enabled: !!contactId,
   })
 }
 

@@ -13,10 +13,10 @@ import { FormField, Input, Select } from '@/components/ui/form'
 import { useCreateDocument } from '@/lib/data/documents'
 import { useSites } from '@/lib/data/sites'
 import { useComptes } from '@/lib/data/comptes'
-import { useMandats } from '@/lib/data/mandats'
+import { useMandatsListe } from '@/lib/data/mandats'
 import { useRecommandationsListe } from '@/lib/data/recommandations'
-import { useContrats } from '@/lib/data/contrats'
-import { useCompteurs } from '@/lib/data/compteurs'
+import { useContratsListe } from '@/lib/data/contrats'
+import { useCompteursListe } from '@/lib/data/compteurs'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { FALLBACK_TYPES_DOCUMENTS } from '@/lib/referenceFallbacks'
 import { entityRoute } from '@/lib/entityRoute'
@@ -34,13 +34,57 @@ const ENTITE_TYPE_OPTIONS = [
   { value: 'compteur', label: 'Compteur' },
 ]
 
+/* ══ LA FICHE À RATTACHER : UNE SEULE TABLE, CELLE DU TYPE CHOISI — William, 07/10/2026 ══
+   « Fluidité maximale ». Le formulaire lisait à son ouverture SIX tables entières — sites, comptes,
+   mandats, recommandations, contrats et les 7 899 compteurs avec huit relations chacun — pour un
+   seul déroulant. Chaque type a désormais son déroulant, monté quand on choisit le type : il ne lit
+   que sa table, en version légère (en-têtes des mandats, recommandations et contrats). Les
+   compteurs se cherchent en base, par PDL ou par lieu : 7 899 options ne se déroulent pas. */
+type OptionFiche = { id: string; label: string }
+
+function DeroulantFiche({ options, valeur, onChoisir }: { options: OptionFiche[] | undefined; valeur: string; onChoisir: (id: string) => void }) {
+  return (
+    <Select value={valeur} onChange={(e) => onChoisir(e.target.value)} required>
+      <option value="">{options ? 'Sélectionner…' : 'Chargement…'}</option>
+      {(options ?? []).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+    </Select>
+  )
+}
+
+type PropsFiche = { valeur: string; onChoisir: (id: string) => void }
+
+function FicheSite(p: PropsFiche) {
+  const { data } = useSites()
+  return <DeroulantFiche {...p} options={data?.map((s) => ({ id: s.id, label: s.nom }))} />
+}
+function FicheCompte(p: PropsFiche) {
+  const { data } = useComptes()
+  return <DeroulantFiche {...p} options={data?.map((c) => ({ id: c.id, label: c.nom }))} />
+}
+function FicheMandat(p: PropsFiche) {
+  const { data } = useMandatsListe()
+  return <DeroulantFiche {...p} options={data?.map((m) => ({ id: m.id, label: m.compte_nom }))} />
+}
+function FicheRecommandation(p: PropsFiche) {
+  const { data } = useRecommandationsListe()
+  return <DeroulantFiche {...p} options={data?.map((r) => ({ id: r.id, label: r.titre }))} />
+}
+function FicheContrat(p: PropsFiche) {
+  const { data } = useContratsListe()
+  return <DeroulantFiche {...p} options={data?.map((c) => ({ id: c.id, label: `${c.fournisseur_nom} — ${c.site_nom}` }))} />
+}
+function FicheCompteur(p: PropsFiche) {
+  const [recherche, setRecherche] = useState('')
+  const { data } = useCompteursListe({ recherche, filtre: 'tous', tri: 'numero_point', sens: 'asc', limite: 50 })
+  return (
+    <div className="space-y-2">
+      <Input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Chercher un PDL ou un lieu…" />
+      <DeroulantFiche {...p} options={data?.map((c) => ({ id: c.id, label: `${c.numero_pdl} — ${c.site_nom}` }))} />
+    </div>
+  )
+}
+
 function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { data: sites } = useSites()
-  const { data: comptes } = useComptes()
-  const { data: mandats } = useMandats()
-  const { data: recommandations } = useRecommandationsListe()
-  const { data: contrats } = useContrats()
-  const { data: compteurs } = useCompteurs()
   const { data: typesRef } = useReferenceTable('types_documents')
   const types = typesRef && typesRef.length > 0 ? typesRef : FALLBACK_TYPES_DOCUMENTS
   const createDocument = useCreateDocument()
@@ -51,15 +95,6 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
   const [entiteType, setEntiteType] = useState('')
   const [entiteId, setEntiteId] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
-
-  const entiteOptions =
-    entiteType === 'site' ? sites?.map((s) => ({ id: s.id, label: s.nom })) ?? [] :
-    entiteType === 'compte' ? comptes?.map((c) => ({ id: c.id, label: c.nom })) ?? [] :
-    entiteType === 'mandat' ? mandats?.map((m) => ({ id: m.id, label: m.compte_nom })) ?? [] :
-    entiteType === 'recommandation' ? recommandations?.map((r) => ({ id: r.id, label: r.titre })) ?? [] :
-    entiteType === 'contrat' ? contrats?.map((c) => ({ id: c.id, label: `${c.fournisseur_nom} — ${c.site_nom}` })) ?? [] :
-    entiteType === 'compteur' ? compteurs?.map((c) => ({ id: c.id, label: `${c.utilisation || c.numero_pdl} — ${c.site_nom}` })) ?? [] :
-    []
 
   function reset() {
     setNom('')
@@ -123,10 +158,12 @@ function CreateDocumentDialog({ open, onClose }: { open: boolean; onClose: () =>
         </FormField>
         {entiteType && (
           <FormField label="Fiche">
-            <Select value={entiteId} onChange={(e) => setEntiteId(e.target.value)} required>
-              <option value="">Sélectionner…</option>
-              {entiteOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </Select>
+            {entiteType === 'site' && <FicheSite valeur={entiteId} onChoisir={setEntiteId} />}
+            {entiteType === 'compte' && <FicheCompte valeur={entiteId} onChoisir={setEntiteId} />}
+            {entiteType === 'mandat' && <FicheMandat valeur={entiteId} onChoisir={setEntiteId} />}
+            {entiteType === 'recommandation' && <FicheRecommandation valeur={entiteId} onChoisir={setEntiteId} />}
+            {entiteType === 'contrat' && <FicheContrat valeur={entiteId} onChoisir={setEntiteId} />}
+            {entiteType === 'compteur' && <FicheCompteur valeur={entiteId} onChoisir={setEntiteId} />}
           </FormField>
         )}
         {feedback && <p className="text-xs text-km-muted">{feedback}</p>}

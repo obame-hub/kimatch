@@ -4,9 +4,9 @@ import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/form'
 import { Badge } from '@/components/ui/badge'
-import { useCompteurs } from '@/lib/data/compteurs'
-import { useMandats } from '@/lib/data/mandats'
-import { useContrats } from '@/lib/data/contrats'
+import { useCompteursParIds } from '@/lib/data/compteurs'
+import { useMandatsParCompte } from '@/lib/data/mandats'
+import { useContratsParCompte } from '@/lib/data/contrats'
 import { useCreateRecommandation } from '@/lib/data/recommandations'
 import { useReferenceTable } from '@/lib/data/referenceTables'
 import { useEcarterDuPerimetre } from '@/lib/data/opportunites'
@@ -111,9 +111,14 @@ export function DialogConversionOpportunite({
   onFermer: () => void
   onConverti: (nbRecommandations: number) => void
 }) {
-  const { data: tousCompteurs } = useCompteurs()
-  const { data: mandats } = useMandats()
-  const { data: contrats } = useContrats()
+  /* ══ LE PÉRIMÈTRE DE L'OPPORTUNITÉ, PAS LA BASE — William, 07/10/2026 : « fluidité maximale » ══
+     Ce dialogue reste monté sur la fiche, même fermé : il lisait à chaque ouverture de la fiche les
+     7 899 compteurs, tous les mandats et tous les contrats de Kimatch. Il ne lit plus que les
+     compteurs de l'opportunité et les mandats de son compte (déjà lus par la fiche, sous les mêmes
+     clés), et les contrats du compte seulement quand on l'ouvre. */
+  const { data: tousCompteurs } = useCompteursParIds(opportunite.compteur_ids)
+  const { data: mandats } = useMandatsParCompte(opportunite.compte_id ?? undefined)
+  const { data: contrats } = useContratsParCompte(ouvert ? opportunite.compte_id ?? undefined : undefined)
   const { data: etapesRef } = useReferenceTable('etapes_recommandation')
   const creerRecommandation = useCreateRecommandation()
   const ecarter = useEcarterDuPerimetre()
