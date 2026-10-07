@@ -277,6 +277,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     corps.fichiers = { ...((corps.fichiers as Record<string, unknown> | undefined) ?? {}), ACD: acd }
   }
 
+  /* LA FACTURE D'UN COMPTEUR GAZ (Michel, 07/10/2026) : « pour les demandes gaz, elle envoie par API
+     la facture » — Tradeo refuse automatiquement un compteur gaz sans facture. Même chemin que l'ACD :
+     l'identifiant du document, relu par le serveur avec le jeton de l'appelant. */
+  if (action === 'ajouter_fichier' && typeof corps.facture_document_id === 'string') {
+    const facture = await chargerDocument(utilisateur, corps.facture_document_id)
+    if (!facture) {
+      res.status(404).json({ ok: false, code: 'FACTURE_INTROUVABLE', message: 'La facture du compteur est introuvable ou illisible.' })
+      return
+    }
+    corps.fichiers = { ...((corps.fichiers as Record<string, unknown> | undefined) ?? {}), Facture: facture }
+  }
+
   let appel: { chemin: string; corps: CorpsTradeo }
   try {
     appel = construire(corps)

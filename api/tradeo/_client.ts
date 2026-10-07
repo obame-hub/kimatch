@@ -23,7 +23,10 @@
  * première reformulation ; le code HTTP, lui, est un contrat.
  */
 
-const URL_PAR_DEFAUT = 'https://pre-prod-api.tradeo-energie.fr/api'
+/* LA PRODUCTION PAR DÉFAUT (Michel et Naoëlle, 07/10/2026 : « le lien prod, pas préprod »). La
+   pré-production rendait des prix sans rapport avec ceux d'Energix ; elle se choisit désormais
+   explicitement par TRADEO_API_URL. */
+const URL_PAR_DEFAUT = 'https://prod-api.tradeo-energie.fr/api'
 /* Le calcul de budget interroge tous les fournisseurs de Tradeo : on lui laisse le temps, mais pas
    celui de Vercel. Au-delà, on préfère une erreur lisible à une fonction coupée. */
 const DELAI_MS = 50_000

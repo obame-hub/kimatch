@@ -73,7 +73,7 @@ export function EtapePrix({ siret, energie, onRetour, onFermer }: { siret: strin
           ))}
         </ul>
       )}
-      {offres && <p className="mt-2 text-km-label text-km-muted">Prix de l’environnement de test, en unités Tradeo (€/MWh). Ils incluent peut-être une marge de {MARGE_MINIMALE} : à confirmer avant de les enregistrer.</p>}
+      {offres && <p className="mt-2 text-km-label text-km-muted">Prix Tradeo, en unités Tradeo (€/MWh). Ils incluent peut-être une marge de {MARGE_MINIMALE} : à confirmer avant de les enregistrer.</p>}
       <PiedAssistant onRetour={onRetour}>
         {offres && <Button onClick={onFermer}>Terminer</Button>}
         <Button variant="primary" disabled={enCours} onClick={() => void chercher()}>

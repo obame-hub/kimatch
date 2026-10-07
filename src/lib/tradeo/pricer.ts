@@ -167,7 +167,37 @@ export async function chargerEtatTradeo(chiffrage: Chiffrage): Promise<EtatTrade
   const aEnvoyer = compteursAEnvoyer(dossier, couverts)
   if (aEnvoyer.length) manques.push(...manquesDemande(siret, responsablePourTradeo(dossier), aEnvoyer))
   if (aEnvoyer.length && !couverts.some((c) => c.etat === 'NON_ENVOYE' && c.mandat?.document_id)) manques.push('Le PDF du mandat Energix n’est pas rangé sur le mandat : Tradeo le demande en pièce jointe.')
+  for (const g of await facturesGazAEnvoyer(dossier, aEnvoyer)) {
+    if (!g.factureId) manques.push(`${g.numero} : aucune facture rangée sur ce compteur gaz — Tradeo refuse automatiquement un compteur gaz sans facture.`)
+  }
   return { etape: etapeTradeo(fournisseurs.length, couverts), fournisseurs, sansPrixAutomatiques: vide.sansPrixAutomatiques, siret, couverts, exclus, manques: [...new Set(manques)], demandeNumero }
+}
+
+/**
+ * LA DERNIÈRE FACTURE RANGÉE SUR CHAQUE COMPTEUR, par identifiant de compteur. Tradeo refuse
+ * automatiquement un compteur gaz sans facture (Michel, 07/10/2026) : elle part avec la demande.
+ */
+async function facturesDesCompteurs(compteurIds: string[]): Promise<Map<string, string>> {
+  const factures = new Map<string, string>()
+  if (compteurIds.length === 0) return factures
+  const { data, error } = await supabase
+    .from('documents')
+    .select('id, entite_id, type_document:types_documents!inner(code)')
+    .eq('entite_type', 'compteur')
+    .in('entite_id', compteurIds)
+    .eq('type_document.code', 'FACTURE')
+    .order('date_creation', { ascending: false })
+  if (error) throw new Error(error.message)
+  for (const d of (data ?? []) as { id: string; entite_id: string }[]) if (!factures.has(d.entite_id)) factures.set(d.entite_id, d.id)
+  return factures
+}
+
+/** Les compteurs gaz à envoyer, avec l'identifiant de leur facture (`null` : aucune n'est rangée). */
+async function facturesGazAEnvoyer(dossier: Awaited<ReturnType<typeof chargerDossierKimatch>>, aEnvoyer: CompteurTradeo[]) {
+  const gaz = new Set(aEnvoyer.filter((c) => c.type === 'GAZ').map((c) => c.num_compteur))
+  const compteurs = dossier.compteurs.filter((c) => gaz.has(sansEspace(c.numero_point)))
+  const factures = await facturesDesCompteurs(compteurs.map((c) => c.id))
+  return compteurs.map((c) => ({ numero: sansEspace(c.numero_point), factureId: factures.get(c.id) ?? null }))
 }
 
 function compteursAEnvoyer(dossier: Awaited<ReturnType<typeof chargerDossierKimatch>>, couverts: CompteurSuivi[]): CompteurTradeo[] {
@@ -192,6 +222,20 @@ export async function demanderHomologation(chiffrage: Chiffrage, etat: EtatTrade
     ...(acd?.document_id ? { acd_document_id: acd.document_id } : {}),
   })
   if (!r.ok) throw new Error(messageErreur(r) ?? 'Tradeo a refusé la demande.')
+
+  /* LES FACTURES GAZ, une par compteur, sur la demande qui vient de le recevoir — AVANT de prévenir
+     l'équipe Tradeo, pour qu'elle trouve un dossier complet. */
+  const gaz = (await facturesGazAEnvoyer(dossier, aEnvoyer)).filter((g) => g.factureId)
+  if (gaz.length) {
+    const demandes = etatsDepuisDemandes(await lireDemandes(etat.siret), etat.siret, gaz.map((g) => g.numero))
+    for (const g of gaz) {
+      const demandeId = demandes.get(g.numero)?.demandeId
+      if (!demandeId) throw new Error(`${g.numero} : la demande Tradeo est introuvable, la facture n’a pas pu être jointe.`)
+      const f = await appelerBanc('ajouter_fichier', { demande_id: demandeId, facture_document_id: g.factureId })
+      if (!f.ok) throw new Error(`${g.numero} : Tradeo a refusé la facture — ${messageErreur(f) ?? 'sans message'}.`)
+    }
+  }
+
   const prevenus = await relancerTradeo(etat.siret)
   const mandatsEnvoyes = etat.couverts.filter((c) => nums.has(c.numero) && c.mandat).map((c) => c.mandat!.mandat_id)
   await noterSurLesMandats(mandatsEnvoyes, 'DEMANDEE', prevenus.numero)
