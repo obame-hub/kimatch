@@ -666,9 +666,12 @@ export interface DecompteStatutCommercial {
 export function useDecompteClientsProspects(input: {
   proprietaireId: string | null
   typeCompte: string | null
+  /** Faux tant que le profil n'est pas connu pour « Mes comptes » — voir `useListeServeur`. */
+  enabled?: boolean
 }) {
   return useQuery({
     queryKey: ['comptes', 'decompte-client-prospect', input.proprietaireId, input.typeCompte],
+    enabled: input.enabled ?? true,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<DecompteStatutCommercial> => {
       const compter = async (estClient: boolean) => {

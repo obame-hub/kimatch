@@ -114,13 +114,14 @@ async function idsParLots(
   valeurs: string[],
 ): Promise<string[]> {
   const LOT = 150
-  const ids: string[] = []
-  for (let i = 0; i < valeurs.length; i += LOT) {
-    const lot = valeurs.slice(i, i + LOT)
-    const lignes = await fetchAllRows<Record<string, string>>(table, colonneLue, (q) => q.in(colonneFiltre, lot))
-    for (const ligne of lignes) ids.push(ligne[colonneLue])
-  }
-  return ids
+  const lots: string[][] = []
+  for (let i = 0; i < valeurs.length; i += LOT) lots.push(valeurs.slice(i, i + LOT))
+  /* LES LOTS PARTENT ENSEMBLE (07/10/2026) : ils ne dépendent pas l'un de l'autre. Lus l'un après
+     l'autre, les sites d'un commercial à 919 comptes coûtaient sept allers-retours en file. */
+  const resultats = await Promise.all(
+    lots.map((lot) => fetchAllRows<Record<string, string>>(table, colonneLue, (q) => q.in(colonneFiltre, lot))),
+  )
+  return resultats.flat().map((ligne) => ligne[colonneLue])
 }
 
 export function fetchComptesVisibles(): Promise<string[] | null> {

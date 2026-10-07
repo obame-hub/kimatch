@@ -166,6 +166,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
     vue: 'v_comptes_liste',
     colonnesRecherche: ['nom', 'segment', 'ville'],
     triParDefaut: 'nom',
+    enabled: perimetre !== 'moi' || sansProprietaire || !!monProfil,
     // Le filtre par type descend en base plutôt que de porter sur les lignes déjà chargées :
     // sans cela, filtrer « Fournisseur » n'aurait montré que ceux présents dans la tranche.
     filtres: {
@@ -188,6 +189,7 @@ export default function Comptes({ sansEntete }: { sansEntete?: boolean }) {
   const decompte = useDecompteClientsProspects({
     proprietaireId: filtreProprietaire,
     typeCompte: typeFilter || null,
+    enabled: perimetre !== 'moi' || sansProprietaire || !!monProfil,
   })
   const total = (decompte.data?.clients ?? 0) + (decompte.data?.prospects ?? 0)
   const vues: { cle: FiltreStatut; libelle: string; nombre: number | null }[] = [

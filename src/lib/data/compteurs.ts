@@ -327,10 +327,22 @@ export function useCompteursListe(options: {
    * doit porter sur les 7 916.
    */
   energie?: 'ELECTRICITE' | 'GAZ' | null
+  /**
+   * ══ « MES COMPTEURS » PAR LE PROPRIÉTAIRE DU COMPTE — 07/10/2026 ══
+   * Remplace `sites` pour la bascule « Mes compteurs » : la liste des sites du portefeuille
+   * partait dans l'adresse de la requête (1 274 identifiants pour un commercial à 919 comptes),
+   * après avoir été lue lot par lot. La vue porte `compte_proprietaire_id` ; même résultat, vérifié
+   * en base (0 compteur dont le site appartient à un autre compte que le sien).
+   */
+  proprietaireId?: string | null
+  /** Faux tant que ce qui décide du filtre (le profil, pour « Mes compteurs ») n'est pas connu. */
+  enabled?: boolean
 }) {
-  const { recherche, filtre, tri, sens, limite, sites, energie } = options
+  const { recherche, filtre, tri, sens, limite, sites, energie, proprietaireId } = options
   return useQuery({
-    queryKey: ['compteurs', 'liste', recherche, filtre, tri, sens, limite, sites ? sites.length : null, energie ?? null],
+    queryKey: ['compteurs', 'liste', recherche, filtre, tri, sens, limite, sites ? sites.length : null, energie ?? null, proprietaireId ?? null],
+    enabled: options.enabled ?? true,
+    placeholderData: keepPreviousData,
     queryFn: async (): Promise<LigneCompteur[]> => {
       const comptesVisibles = await fetchComptesVisibles()
       const sitesVisibles = await fetchSitesVisiblesIds(comptesVisibles)
@@ -364,6 +376,8 @@ export function useCompteursListe(options: {
         if (sites.length === 0) return []
         q = q.in('site_id', sites)
       }
+
+      if (proprietaireId) q = q.eq('compte_proprietaire_id', proprietaireId)
 
       if (energie) q = q.eq('type_energie_code', energie)
 
@@ -463,7 +477,28 @@ export function useCompteursListe(options: {
 export function useComptesEcheances() {
   return useQuery({
     queryKey: ['compteurs', 'comptes-echeances'],
+    staleTime: 60 * 1000,
     queryFn: async () => {
+      /* ══ LES SEPT NOMBRES EN UN PASSAGE — 07/10/2026 ══
+         Sept `count` séparés recalculaient chacun l'échéance de tous les compteurs. La fonction
+         `fn_decompte_echeances_compteurs` les rend d'un coup, avec les mêmes bornes de dates. Les
+         sept requêtes ci-dessous ne servent plus que de repli si la fonction manque. */
+      const { data: d, error: e } = await supabase.rpc('fn_decompte_echeances_compteurs', {
+        p_aujourdhui: jourIso(),
+        p_dans_six_mois: jourIso(6),
+      })
+      const ligne = (Array.isArray(d) ? d[0] : d) as Record<string, number> | null
+      if (!e && ligne) {
+        return {
+          tous: Number(ligne.tous),
+          absente: Number(ligne.absente),
+          depassee: Number(ligne.depassee),
+          six_mois: Number(ligne.six_mois),
+          prouvee: Number(ligne.prouvee) as number | null,
+          estimee: Number(ligne.estimee) as number | null,
+          contredit: Number(ligne.contredit) as number | null,
+        }
+      }
       const tete = () => supabase.from('v_compteurs_liste').select('id', { count: 'exact', head: true }).eq('actif', true)
       const [tous, absente, depassee, sixMois, prouvee, estimee, contredit] = await Promise.all([
         tete(),

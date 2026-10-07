@@ -97,6 +97,7 @@ export default function Mandats({ sansEntete }: { sansEntete?: boolean }) {
     colonnesRecherche: ['compte_nom', 'id_salesforce', 'reference'],
     triParDefaut: 'compte_nom',
     filtres: { proprietaire_id: filtreProprietaire, statut: statutFilter || null },
+    enabled: perimetre !== 'moi' || !!monProfil,
   })
 
   return (

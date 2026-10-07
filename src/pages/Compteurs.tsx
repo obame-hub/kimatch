@@ -39,7 +39,8 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { EntityLink } from '@/components/ui/entity-link'
 import { ListToolbar } from '@/components/ui/list-toolbar'
-import { usePerimetre, useMonPortefeuille, BasculePerimetre } from '@/lib/perimetre'
+import { usePerimetre, BasculePerimetre } from '@/lib/perimetre'
+import { useMonProfil } from '@/lib/data/roles'
 import { SortableTh } from '@/components/ui/sortable-th'
 import { PiedDeListe } from '@/components/ui/pied-de-liste'
 import { BadgeEcheance } from '@/components/compteur/BadgeEcheance'
@@ -115,10 +116,14 @@ export default function Compteurs({ sansEntete }: { sansEntete?: boolean }) {
   }, [recherche, filtre, tri, sens, energie])
 
   const { perimetre, setPerimetre, sansBascule } = usePerimetre('compteurs')
-  const { data: portefeuille } = useMonPortefeuille()
+  /* « Mes compteurs » = ceux des comptes dont je suis propriétaire, filtrés en base par
+     `compte_proprietaire_id` (07/10/2026) : plus de portefeuille de sites à lire d'abord. La liste
+     attend seulement le profil quand la bascule est sur « Mes compteurs ». */
+  const { data: monProfil } = useMonProfil()
   const liste = useCompteursListe({
     recherche, filtre, tri, sens, limite, energie,
-    sites: perimetre === 'moi' ? (portefeuille?.sites ?? []) : null,
+    proprietaireId: perimetre === 'moi' ? monProfil?.id ?? null : null,
+    enabled: perimetre !== 'moi' || !!monProfil,
   })
   const { data: nombres } = useComptesEcheances()
 

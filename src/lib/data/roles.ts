@@ -216,7 +216,11 @@ export function useMajTelephoneProfil() {
       const { error } = await supabase.from('profils').update({ telephone }).eq('id', profilId)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['profils-admin'] }) },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['profils-admin'] })
+      // Son propre téléphone : le profil gardé en mémoire (`useMonProfil`) se relit aussitôt.
+      void queryClient.invalidateQueries({ queryKey: ['mon-profil'] })
+    },
   })
 }
 
@@ -462,7 +466,9 @@ async function fetchMonProfil(): Promise<MonProfil | null> {
 }
 
 export function useMonProfil() {
-  return useQuery({ queryKey: ['mon-profil'], queryFn: fetchMonProfil })
+  // Gardé cinq minutes (07/10/2026) : chaque liste « les miens » attend le profil, qui était relu
+  // à chaque changement d'écran. Ses modifications l'invalident (`useUploadMaPhoto`…).
+  return useQuery({ queryKey: ['mon-profil'], queryFn: fetchMonProfil, staleTime: 5 * 60 * 1000 })
 }
 
 export function useUploadMaPhoto() {

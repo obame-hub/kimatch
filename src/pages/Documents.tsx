@@ -230,6 +230,7 @@ export default function Documents({ sansEntete }: { sansEntete?: boolean }) {
     colonnesRecherche: ['nom', 'objet_lie', 'auteur', 'type_document'],
     triParDefaut: 'date_creation',
     sensParDefaut: 'desc',
+    enabled: perimetre !== 'moi' || !!monProfil,
   })
 
   return (

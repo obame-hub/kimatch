@@ -42,6 +42,12 @@ export interface OptionsListeServeur {
    * Un filtre dit ce qu'il fait ; un tri qui ressemble à un filtre trompe.
    */
   filtresPositifs?: string[]
+  /**
+   * Faux tant que ce qui décide des filtres n'est pas connu — le profil, pour « les miens ».
+   * Sans lui (07/10/2026), la liste partait d'abord SANS filtre, lisait et comptait toute la vue,
+   * puis repartait filtrée une fois le profil arrivé : deux requêtes, la première la plus lourde.
+   */
+  enabled?: boolean
 }
 
 /**
@@ -82,6 +88,7 @@ export function useListeServeur<T>(options: OptionsListeServeur) {
 
   const resultat = useQuery({
     queryKey: ['liste-serveur', options.vue, recherche.trim(), tri, sens, limite, options.filtres, options.filtresPositifs],
+    enabled: options.enabled ?? true,
     queryFn: async () => {
       let req = supabase.from(options.vue).select('*', { count: 'exact' })
 
