@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { etapeTradeo, etatsDepuisDemandes, fournisseursTradeo, offreLueDepuisTradeo } from '@/lib/tradeo/pricer'
+import { etapeTradeo, etatsDepuisDemandes, fournisseursTradeo, laMoinsChereParLigne, offreLueDepuisTradeo } from '@/lib/tradeo/pricer'
 import { lireOffresTradeo, rapprocherFournisseur } from '@/lib/tradeo/prixUnitaires'
 import { lignesProposables, saisieDepuisLecture } from '@/lib/pricing/lectureOffre'
 import type { CommandeFournisseur, CompteurChiffrage } from '@/lib/data/chiffrage'
@@ -119,5 +119,27 @@ describe('les noms Tradeo retrouvent les fiches Kimatch (réponses du 05/10/2026
   it('sans confondre deux fournisseurs', () => {
     expect(rapprocherFournisseur('GEG', [{ nom: 'GEDIA' }])).toBeNull()
     expect(rapprocherFournisseur('Total', [{ nom: 'EKWATEUR' }])).toBeNull()
+  })
+})
+
+/* ── Réunion du 07/10/2026 : toujours l'offre la moins chère au budget TTC ───────────────────── */
+
+describe('deux offres pour la même ligne', () => {
+  // FONCIA BORDEAUX TALENCE, Ekwateur 36 mois, lu sur prod.energix-pro.fr le 07/10/2026.
+  const semaine = { offre: { budgetTtc: 20315.429 }, lue: { numero_point: '50084515146145', duree_mois: 36, type_prix: 'Fixe' as const }, nom: 'Fixe semaine' }
+  const journalier = { offre: { budgetTtc: 20588.566 }, lue: { numero_point: '50084515146145', duree_mois: 36, type_prix: 'Fixe' as const }, nom: 'Fixe journalier' }
+
+  it('garde la moins chère au budget TTC, quel que soit l’ordre de la réponse', () => {
+    expect(laMoinsChereParLigne([journalier, semaine]).map((c) => c.nom)).toEqual(['Fixe semaine'])
+    expect(laMoinsChereParLigne([semaine, journalier]).map((c) => c.nom)).toEqual(['Fixe semaine'])
+  })
+  it('ne départage pas deux durées, deux compteurs ou deux types de prix', () => {
+    const autreDuree = { ...journalier, lue: { ...journalier.lue, duree_mois: 24 } }
+    const indexe = { ...journalier, lue: { ...journalier.lue, type_prix: 'Indexé' as const } }
+    expect(laMoinsChereParLigne([semaine, autreDuree, indexe])).toHaveLength(3)
+  })
+  it('une offre sans budget TTC ne passe devant aucune autre', () => {
+    const sansBudget = { ...journalier, offre: { budgetTtc: null }, nom: 'sans budget' }
+    expect(laMoinsChereParLigne([sansBudget, journalier]).map((c) => c.nom)).toEqual(['Fixe journalier'])
   })
 })

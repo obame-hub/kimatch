@@ -309,6 +309,25 @@ export function offreLueDepuisTradeo(o: OffreTradeo, gaz: boolean, dureeMois: nu
   }
 }
 
+/**
+ * UNE SEULE OFFRE PAR LIGNE DU PRICER : LA MOINS CHÈRE AU BUDGET TTC — réunion du 07/10/2026
+ * (Naoëlle, Michel, William). Ekwateur rend deux offres pour le même compteur et la même durée,
+ * « Fixe semaine » (une grille tenue la semaine) et « Fixe journalier » ; GEG en rend parfois
+ * plusieurs aussi. Les deux visaient la même ligne, et celle qui gagnait dépendait de l'ordre de la
+ * réponse. « Toujours le moins cher, sur le budget total TTC, pas sur le budget énergie. » Une offre
+ * sans budget TTC ne passe devant aucune autre.
+ */
+export function laMoinsChereParLigne<T extends { offre: Pick<OffreTradeo, 'budgetTtc'>; lue: Pick<OffreLue, 'numero_point' | 'duree_mois' | 'type_prix'> }>(candidates: T[]): T[] {
+  const parLigne = new Map<string, T>()
+  for (const c of candidates) {
+    const cle = `${sansEspace(c.lue.numero_point)}|${c.lue.duree_mois}|${c.lue.type_prix}`
+    const tenante = parLigne.get(cle)
+    const prix = c.offre.budgetTtc ?? Number.POSITIVE_INFINITY
+    if (!tenante || prix < (tenante.offre.budgetTtc ?? Number.POSITIVE_INFINITY)) parLigne.set(cle, c)
+  }
+  return [...parLigne.values()]
+}
+
 export interface RecuperationTradeo {
   propositions: PropositionLue[]
   /** Ce qui n'a pas pu se récupérer, dit en clair : fournisseur absent, compteur refusé… */
@@ -388,6 +407,7 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
   const refuses = new Set<string>()
   for (const f of interroges) {
     const offres: OffreLue[] = []
+    const candidates: { offre: OffreTradeo; lue: OffreLue }[] = []
     let marge: number | null = null
     for (const duree of f.durees) {
       for (const o of parDuree.get(duree) ?? []) {
@@ -407,9 +427,12 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
         if (!lue) continue
         /* Le type commandé : un fournisseur commandé en fixe seul ne reçoit pas l'indexé. */
         if (f.types.length && !f.types.some((t) => /^index/i.test(t) === (lue.type_prix === 'Indexé'))) continue
-        offres.push(lue)
-        marge ??= prixSurLaDuree(o)?.marge ?? null
+        candidates.push({ offre: o, lue })
       }
+    }
+    for (const { offre, lue } of laMoinsChereParLigne(candidates)) {
+      offres.push(lue)
+      marge ??= prixSurLaDuree(offre)?.marge ?? null
     }
     if (offres.length === 0) { if (!refuses.has(f.id)) manques.push(`${f.nom} : Tradeo ne rend aucun prix sur ${f.durees.join(', ')} mois.`); continue }
     const energie = offres.some((o) => energieDe.get(sansEspace(o.numero_point)) === 'gaz') ? 'gaz' : 'electricite'
