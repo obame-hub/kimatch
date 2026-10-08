@@ -155,21 +155,11 @@ export async function chargerEtatTradeo(chiffrage: Chiffrage): Promise<EtatTrade
   if (manques.length === 0) {
     const etats = etatsDepuisDemandes(await lireDemandes(siret), siret, couverts.map((c) => c.numero))
     for (const c of couverts) Object.assign(c, etats.get(c.numero))
-    const ids = [...new Set(couverts.map((c) => c.mandat!.mandat_id))]
-    const { data: deja } = await supabase.from('mandats').select('id, tradeo_demande_numero').in('id', ids).not('tradeo_homologue_le', 'is', null)
-    const homologues = new Map(((deja ?? []) as { id: string; tradeo_demande_numero: number | null }[]).map((m) => [m.id, m.tradeo_demande_numero]))
-    /* UN MANDAT ENERGIX ACTIF VAUT HOMOLOGATION — Naoëlle, 07/10/2026 : « s'il y a un mandat Energix,
-       c'est homologué par Tradeo, il n'y a pas besoin de vérifier ; on peut demander les données
-       d'un PDL ». Les demandes Tradeo ne servent plus qu'à retrouver un numéro. Constat du jour sur
-       FONCIA BORDEAUX TALENCE : homologué le 06/10 par l'API de pré-production, l'API de production
-       répondait « jamais envoyé » et grisait la récupération des prix. */
-    for (const c of couverts) {
-      c.etat = 'ACCEPTE'
-      c.demandeId ??= homologues.get(c.mandat!.mandat_id) ?? null
-    }
     demandeNumero = Math.max(0, ...couverts.map((c) => c.demandeId ?? 0)) || null
     /* L'HOMOLOGATION LUE SE NOTE SUR LE MANDAT, la première fois qu'on la voit. */
-    const notes = new Set(homologues.keys())
+    const ids = [...new Set(couverts.map((c) => c.mandat!.mandat_id))]
+    const { data: deja } = await supabase.from('mandats').select('id').in('id', ids).not('tradeo_homologue_le', 'is', null)
+    const notes = new Set(((deja ?? []) as { id: string }[]).map((m) => m.id))
     const aNoter = couverts.filter((c) => c.etat === 'ACCEPTE' && !notes.has(c.mandat!.mandat_id)).map((c) => c.mandat!.mandat_id)
     if (aNoter.length) await noterSurLesMandats(aNoter, 'HOMOLOGUE', demandeNumero)
   }
