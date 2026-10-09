@@ -270,22 +270,29 @@ export function useTeleverserDocuments() {
         }
 
         const publique = `${url}/storage/v1/object/public/documents/${chemin}`
-        const { data, error } = await supabase
-          .from('documents')
-          .insert({
-            nom: fichier.name,
-            nom_fichier: nomSur,
-            url: publique,
-            mime_type: fichier.type || null,
-            taille_octets: fichier.size,
-            entite_type: input.entite_type,
-            entite_id: input.entite_id,
-            date_creation: new Date().toISOString(),
-            ...(typeId ? { type_document_id: typeId } : {}),
-          })
-          .select('id')
-          .single()
-        if (error) throw new Error(error.message)
+        /* ══ LA FICHE DU DOCUMENT SE RETENTE AUSSI — 09/10/2026 ══
+           Le fichier déposé n'est visible que par sa fiche (`documents`). Le 02/10, cinq factures de
+           Matthieu sont arrivées dans le stockage sans leur fiche : le fichier existait, le compteur
+           ne le montrait pas. Un échec passager de cette écriture se retente comme le dépôt. */
+        const ligne = {
+          nom: fichier.name,
+          nom_fichier: nomSur,
+          url: publique,
+          mime_type: fichier.type || null,
+          taille_octets: fichier.size,
+          entite_type: input.entite_type,
+          entite_id: input.entite_id,
+          date_creation: new Date().toISOString(),
+          ...(typeId ? { type_document_id: typeId } : {}),
+        }
+        let { data, error } = await supabase.from('documents').insert(ligne).select('id').single()
+        for (let essai = 2; error && RETRIABLE.test(error.message) && essai <= 3; essai += 1) {
+          await new Promise((r) => setTimeout(r, essai * 800))
+          const reprise = await supabase.from('documents').insert(ligne).select('id').single()
+          data = reprise.data
+          error = reprise.error
+        }
+        if (error) throw new Error(`« ${fichier.name} » est déposé mais n’a pas pu être rattaché : ${error.message}`)
 
         deposes.push({
           id: (data as { id: string }).id,

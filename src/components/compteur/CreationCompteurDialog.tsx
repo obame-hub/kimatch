@@ -432,6 +432,8 @@ export function CreationCompteurDialog({
     let echecs = 0
     let sitesCrees = 0
     const nouveaux: ChainedCompteur[] = []
+    /* Les factures partent pendant la boucle et s'attendent avant d'annoncer la suite — voir plus bas. */
+    const piecesJointes: Promise<string | null>[] = []
     const cacheSites = new Map<string, { id: string; nom: string }>()
     let dernierSiteNom = ''
     for (const d of drafts) {
@@ -493,19 +495,30 @@ export function CreationCompteurDialog({
             },
           }).catch(() => {})
         }
+        /* ══ LA FACTURE EST JOINTE AVANT QU'ON PASSE À LA SUITE — Matthieu, 09/10/2026 ══
+           « Je joins la facture mais elle ne se retrouve pas dans les fichiers du compteur. » Le
+           dépôt partait sans être attendu et son échec était tu (`.catch(() => {})`) : le 02/10, cinq
+           factures sont arrivées dans le stockage sans que leur fiche document soit créée, et
+           personne ne l'a su. Il part toujours sans bloquer la création du compteur suivant, mais il
+           est ATTENDU avant d'annoncer le résultat et de laisser le parcours enchaîner ; un échec se
+           dit dans le message de fin, avec le nom du fichier. */
         const facture = lue?.fichier
         if (facture) {
-          void televerser
-            .mutateAsync({
-              fichiers: [facture],
-              entite_type: 'compteur',
-              entite_id: result.compteur.id,
-              type_document_id: null,
-              type_document_libelle: 'Facture',
-              /* La facture lue pour l'extraction est jointe au compteur en « Facture » (02/10/2026). */
-              categorie: 'FACTURE',
-            })
-            .catch(() => {})
+          const numero = result.compteur.numero_pdl
+          piecesJointes.push(
+            televerser
+              .mutateAsync({
+                fichiers: [facture],
+                entite_type: 'compteur',
+                entite_id: result.compteur.id,
+                type_document_id: null,
+                type_document_libelle: 'Facture',
+                /* La facture lue pour l'extraction est jointe au compteur en « Facture » (02/10/2026). */
+                categorie: 'FACTURE',
+              })
+              .then(() => null)
+              .catch((e: Error) => `facture de ${numero} non jointe (${e.message})`),
+          )
         }
         onCompteurCree?.({ id: result.compteur.id, numero_pdl: result.compteur.numero_pdl, responsable_contact_id: result.compteur.responsable_contact_id ?? null })
         nouveaux.push({ id: result.compteur.id, numero_pdl: result.compteur.numero_pdl, responsable_contact_id: result.compteur.responsable_contact_id ?? null })
@@ -514,11 +527,12 @@ export function CreationCompteurDialog({
         patchDraft(d.key, { status: 'error', errorMessage: err instanceof Error ? err.message : 'Erreur inconnue' })
       }
     }
+    const piecesRatees = (await Promise.all(piecesJointes)).filter((x): x is string => x != null)
     setSubmitting(false)
     if (created > 0) {
       const quoi = created > 1 ? `${created} PDL créés` : 'PDL créé'
       const ou = sitesCrees > 0 ? `nouveau site « ${dernierSiteNom} »` : `site « ${dernierSiteNom} »`
-      onSaved(`✓ ${quoi} sur le ${ou}`)
+      onSaved(`✓ ${quoi} sur le ${ou}${piecesRatees.length > 0 ? ` — attention : ${piecesRatees.join(' ; ')}. Ajoutez-la depuis les fichiers du compteur.` : ''}`)
     }
     /* ══ « TOUT EST PASSÉ » SE COMPTE, IL NE SE RELIT PAS DANS L'ÉTAT ══
        C'était `setDrafts((prev) => ...)` qui décidait, en relisant les statuts — un effet de bord
