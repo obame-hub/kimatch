@@ -119,11 +119,39 @@ function lireOffre(numCompteur: string, o: Record<string, unknown>, dataCta?: Re
     })
   }
 
-  const prixMoyens = o.lesPrix && typeof o.lesPrix === 'object' ? lirePrix(o.lesPrix as Record<string, unknown>) : null
+  /* LA FORME RÉELLE DE LA PRODUCTION (mesurée le 10/10/2026, FONCIA BORDEAUX TALENCE, PDL
+     50084515146145) : `prix` porte les prix sur toute la durée — la moyenne des années, celle
+     qu'affiche Energix —, `prixParAnnee` une entrée par année, et `cee` et `aboMois` sont à la
+     racine (ou dans chaque année). Aucune des formes de la documentation v1.4 ; la cinquième
+     différence mesurée entre la documentation et la réponse réelle. */
+  const complements = (src: Record<string, unknown>) => {
+    const c: Record<string, number> = {}
+    const cee = nombre(src.cee), abo = nombre(src.aboMois ?? src.abo)
+    if (cee !== null) c.cee = cee
+    if (abo !== null) c.abo = abo
+    return c
+  }
+  const prixReel = o.prix && typeof o.prix === 'object' ? (o.prix as Record<string, unknown>) : null
+  if (prixReel && Array.isArray(o.prixParAnnee)) {
+    for (const a of o.prixParAnnee as Record<string, unknown>[]) {
+      if (!a || typeof a !== 'object' || !a.prix || typeof a.prix !== 'object') continue
+      periodes.push({
+        debut: texte(a.dateDebut),
+        fin: texte(a.dateFin),
+        prix: { ...lirePrix(a.prix as Record<string, unknown>), ...complements({ ...o, ...a }) },
+        margeAppliquee: nombre(a.margeAppliquer ?? o.marge),
+        preMarge: nombre(a.preMarge),
+      })
+    }
+  }
+
+  const prixMoyens = prixReel
+    ? { ...lirePrix(prixReel), ...complements(o) }
+    : o.lesPrix && typeof o.lesPrix === 'object' ? lirePrix(o.lesPrix as Record<string, unknown>) : null
 
   /* OFFRE SIMPLE : les prix sont à la racine. On ne les lit que s'il n'y a pas de périodes, sinon
      on mélangerait la moyenne (`prixMolucule` à la racine d'une offre annuelle) aux prix annuels. */
-  if (periodes.length === 0) {
+  if (periodes.length === 0 && !prixReel) {
     const prix = lirePrix(o)
     if (Object.keys(prix).length > 0) {
       periodes.push({

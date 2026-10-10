@@ -143,3 +143,64 @@ describe('deux offres pour la même ligne', () => {
     expect(laMoinsChereParLigne([sansBudget, journalier]).map((c) => c.nom)).toEqual(['Fixe journalier'])
   })
 })
+
+/* ── La forme réelle de la production, mesurée le 10/10/2026 ─────────────────────────────────── */
+
+describe('la réponse réelle de calculer-budget-energie (production, 10/10/2026)', () => {
+  // FONCIA BORDEAUX TALENCE, PDL 50084515146145, calcul demandé sur 36 mois avec une marge de 2.
+  const annee = (debut: string, fin: string, hph: number, hch: number, hpe: number, hce: number) => ({
+    cee: 11.1, aboMois: 5, dateDebut: debut, dateFin: fin,
+    prix: { prixHph: hph, prixHch: hch, prixHpe: hpe, prixHce: hce, prixCapaHph: 0, prixCapaHch: 0, prixCapaHpe: 0, prixCapaHce: 0 },
+  })
+  const reponse = {
+    '50084515146145': {
+      result: true,
+      resultatFinal: [
+        {
+          TVA: 3164.632, cee: 11.1, duree: 36, aboAns: 60, aboMois: 5, dateDebut: '2028-01-01', dateFin: '2030-12-31',
+          budgetHt: 17341.556, BudgetTTC: 20506.188, typeOffre: 'Fixe', fournisseur: 'Ekwateur',
+          prix: { prixHce: 51.137, prixHch: 86.26, prixHpe: 47.263, prixHph: 114.623, prixCapaHce: 0, prixCapaHch: 0, prixCapaHpe: 0, prixCapaHph: 0 },
+          prixParAnnee: [
+            annee('2028-01-01', '2028-12-31', 125.12, 90.97, 53.38, 53.03),
+            annee('2029-01-01', '2029-12-31', 107.6, 81.6, 45.92, 50.09),
+            annee('2030-01-01', '2030-12-31', 111.15, 86.21, 42.49, 50.29),
+          ],
+        },
+        {
+          TVA: 3227.64, cee: 10.84, duree: 36, aboAns: 60, aboMois: 5, dateDebut: '2028-01-01', dateFin: '2030-12-31',
+          budgetHt: 17656.596, BudgetTTC: 20884.237, typeOffre: 'Fixe Journalier', fournisseur: 'Ekwateur',
+          prix: { prixHce: 55.02, prixHch: 85.327, prixHpe: 49.72, prixHph: 120.757, prixCapaHce: 0, prixCapaHch: 0, prixCapaHpe: 0, prixCapaHph: 0 },
+          prixParAnnee: [],
+        },
+        {
+          TVA: 3308.826, cee: 10.92, duree: 24, aboAns: 0, aboMois: 0, dateDebut: '2028-01-01', dateFin: '2029-12-31',
+          budgetHt: 18019.026, BudgetTTC: 21327.852, typeOffre: 'Fixe', fournisseur: 'GEG',
+          prix: { prixHce: 54.09, prixHch: 63.9, prixHpe: 70.21, prixHph: 99.84, prixCapaHce: 0, prixCapaHch: 1.071, prixCapaHpe: 0, prixCapaHph: 16.654 },
+        },
+      ],
+    },
+  }
+  const { offres } = lireOffresTradeo(reponse)
+
+  it('lit les prix sur la durée, les CEE et l’abonnement, et une période par année', () => {
+    const fixe = offres[0]
+    expect(fixe.sansPrixUnitaire).toBe(false)
+    expect(fixe.prixMoyens).toMatchObject({ prixHph: 114.623, prixHch: 86.26, prixHpe: 47.263, prixHce: 51.137, cee: 11.1, abo: 5 })
+    expect(fixe.periodes.map((p) => p.prix.prixHph)).toEqual([125.12, 107.6, 111.15])
+    expect(fixe.budgetTtc).toBe(20506.188)
+    expect(fixe.dureeMois).toBe(36)
+  })
+  it('la moyenne de Tradeo est celle des années', () => {
+    expect((125.12 + 107.6 + 111.15) / 3).toBeCloseTo(114.623, 3)
+  })
+  it('devient une ligne du Pricer au prix marge incluse, abonnement à l’année', () => {
+    const lue = offreLueDepuisTradeo(offres[0], false, 36)!
+    expect(lue.prix_postes_mwh).toEqual({ HPH: 114.623, HCH: 86.26, HPE: 47.263, HCE: 51.137 })
+    expect(lue.abonnement_annuel).toBe(60)
+    expect(lue.cee_mwh).toBe(11.1)
+    expect(lue.type_prix).toBe('Fixe')
+  })
+  it('garde la durée propre de chaque fournisseur', () => {
+    expect(offres.map((o) => [o.fournisseur, o.dureeMois])).toEqual([['Ekwateur', 36], ['Ekwateur', 36], ['GEG', 24]])
+  })
+})

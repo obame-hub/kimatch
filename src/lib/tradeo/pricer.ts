@@ -412,6 +412,12 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
     for (const duree of f.durees) {
       for (const o of parDuree.get(duree) ?? []) {
         if (o.actuel || rapprocherFournisseur(o.fournisseur, [{ nom: f.nom }]) === null) continue
+        /* LA DURÉE DE L'OFFRE, PAS CELLE DU CALCUL. Le 10/10/2026, un calcul demandé sur 36 mois rendait
+           GEG sur 24, Mint Energie sur 48 et MET sur 33 : chaque fournisseur à sa propre limite.
+           L'offre ne va que sur une ligne commandée à sa durée réelle ; un même prix revenu par deux
+           calculs se départage plus bas (même ligne, même budget). */
+        const dureeOffre = o.dureeMois ?? duree
+        if (o.succes && !f.durees.includes(dureeOffre)) continue
         /* LE REFUS DU FOURNISSEUR, DANS SES MOTS. Le 05/10/2026 sur LA MARMOTTE GOURMANDE, Primeo et
            Total refusaient une fourniture au 01/01/2028 (« date de fin en dehors des limites », « la
            DDF maximum acceptée est 01/05/2027 ») ; l'écran disait seulement « aucun prix ». */
@@ -422,8 +428,8 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
           refuses.add(f.id)
           continue
         }
-        if (o.sansPrixUnitaire) { manques.push(`${f.nom} ${duree} mois (${o.numCompteur}) : Tradeo rend un budget sans prix unitaire.`); continue }
-        const lue = offreLueDepuisTradeo(o, energieDe.get(sansEspace(o.numCompteur)) === 'gaz', duree)
+        if (o.sansPrixUnitaire) { manques.push(`${f.nom} ${dureeOffre} mois (${o.numCompteur}) : Tradeo rend un budget sans prix unitaire.`); continue }
+        const lue = offreLueDepuisTradeo(o, energieDe.get(sansEspace(o.numCompteur)) === 'gaz', dureeOffre)
         if (!lue) continue
         /* Le type commandé : un fournisseur commandé en fixe seul ne reçoit pas l'indexé. */
         if (f.types.length && !f.types.some((t) => /^index/i.test(t) === (lue.type_prix === 'Indexé'))) continue
