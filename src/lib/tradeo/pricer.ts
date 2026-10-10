@@ -4,7 +4,7 @@ import type { Chiffrage, CommandeFournisseur } from '@/lib/data/chiffrage'
 import type { OffreLue, PropositionLue } from '@/lib/pricing/lectureOffre'
 import { MARGE_APPEL_TRADEO, prixSurLaDuree } from '@/lib/parcoursPrix/sourceTradeo'
 import { compteursPourTradeo, dateDebutProposee, dateFinPour, manquesDemande, responsablePourTradeo, type CompteurTradeo } from '@/lib/tradeo/dossier'
-import { lireOffresTradeo, rapprocherFournisseur, type OffreTradeo } from '@/lib/tradeo/prixUnitaires'
+import { compacterNom, lireOffresTradeo, rapprocherFournisseur, type OffreTradeo } from '@/lib/tradeo/prixUnitaires'
 
 /**
  * ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -454,5 +454,30 @@ export async function recupererPropositionsTradeo(chiffrage: Chiffrage, etat: Et
       source: 'TRADEO',
     })
   }
+  manques.push(...offresHorsCommande([...parDuree.values()].flat(), etat.fournisseurs))
   return { propositions, manques }
+}
+
+/**
+ * LES FOURNISSEURS QUE TRADEO COTE MAIS QUE LA VERSION N'A PAS COMMANDÉS — Naoëlle, 10/10/2026 :
+ * sur FONCIA BORDEAUX TALENCE, Total (« Horizon », 36 mois) et MET étaient cotés par Tradeo et
+ * visibles sur Energix, mais absents du volet : la commande ne les comptait pas, et personne ne
+ * pouvait le deviner. On ne les propose pas (rien ne s'écrit sur une ligne qui n'existe pas) : on
+ * dit qu'ils existent, à combien, et comment les faire apparaître. Une ligne par fournisseur, la
+ * moins chère de ses offres au budget TTC.
+ */
+export function offresHorsCommande(offres: OffreTradeo[], commandes: Pick<CommandeFournisseur, 'nom'>[]): string[] {
+  const meilleures = new Map<string, OffreTradeo>()
+  for (const o of offres) {
+    if (o.actuel || !o.succes || o.sansPrixUnitaire) continue
+    if (commandes.some((f) => rapprocherFournisseur(o.fournisseur, [f]) !== null)) continue
+    const cle = compacterNom(o.fournisseur)
+    const tenante = meilleures.get(cle)
+    if (!tenante || (o.budgetTtc ?? Infinity) < (tenante.budgetTtc ?? Infinity)) meilleures.set(cle, o)
+  }
+  return [...meilleures.values()].map((o) => {
+    const detail = [o.typeOffre, o.dureeMois ? `${o.dureeMois} mois` : null].filter(Boolean).join(', ')
+    const budget = o.budgetTtc != null ? ` à ${Math.round(o.budgetTtc).toLocaleString('fr-FR')} € TTC/an` : ''
+    return `${o.fournisseur} (${detail})${budget} : coté par Tradeo, mais pas commandé dans cette version — ajoutez-le avec « + Consulter un fournisseur », puis récupérez de nouveau les prix Tradeo pour le voir ici.`
+  })
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { etapeTradeo, etatsDepuisDemandes, fournisseursTradeo, laMoinsChereParLigne, offreLueDepuisTradeo } from '@/lib/tradeo/pricer'
+import { etapeTradeo, etatsDepuisDemandes, fournisseursTradeo, laMoinsChereParLigne, offreLueDepuisTradeo, offresHorsCommande } from '@/lib/tradeo/pricer'
 import { lireOffresTradeo, rapprocherFournisseur } from '@/lib/tradeo/prixUnitaires'
 import { lignesProposables, saisieDepuisLecture } from '@/lib/pricing/lectureOffre'
 import type { CommandeFournisseur, CompteurChiffrage } from '@/lib/data/chiffrage'
@@ -199,6 +199,16 @@ describe('la réponse réelle de calculer-budget-energie (production, 10/10/2026
     expect(lue.abonnement_annuel).toBe(60)
     expect(lue.cee_mwh).toBe(11.1)
     expect(lue.type_prix).toBe('Fixe')
+  })
+  it('signale un fournisseur coté mais non commandé, une fois, au meilleur budget', () => {
+    const total = { ...reponse['50084515146145'].resultatFinal[2], fournisseur: 'Total', typeOffre: 'Horizon', duree: 36, BudgetTTC: 21370.429 }
+    const avecTotal = lireOffresTradeo({ '50084515146145': { result: true, resultatFinal: [...reponse['50084515146145'].resultatFinal, total, { ...total, BudgetTTC: 22000 }] } }).offres
+    const notes = offresHorsCommande(avecTotal, [{ nom: 'EKWATEUR' }, { nom: 'GEG' }])
+    expect(notes).toHaveLength(1)
+    expect(notes[0]).toMatch(/^Total \(Horizon, 36 mois\) à 21\s370 € TTC\/an : coté par Tradeo, mais pas commandé dans cette version — ajoutez-le avec « \+ Consulter un fournisseur »/)
+  })
+  it('ne signale rien quand tout ce que Tradeo cote est commandé', () => {
+    expect(offresHorsCommande(offres, [{ nom: 'EKWATEUR' }, { nom: 'GEG' }])).toEqual([])
   })
   it('garde la durée propre de chaque fournisseur', () => {
     expect(offres.map((o) => [o.fournisseur, o.dureeMois])).toEqual([['Ekwateur', 36], ['Ekwateur', 36], ['GEG', 24]])
